@@ -32,7 +32,7 @@ L'opérateur de l'ordinateur en jeu fournit une liste d'exigences (navigateur Fi
 
 | Exigence | Socle (rien à faire) | Site |
 |---|---|---|
-| Aucune boîte native (`alert`, `confirm`, `prompt`, `print`, `beforeunload`) : elles gèlent tout le jeu | `gestion.confirmer`, `gestion.notifier`, `gestion.fenetre` (gestion.js) | n'en écrire aucune ; erreurs dans la page |
+| Aucune boîte native (`alert`, `confirm`, `prompt`, `print`, `beforeunload`) : elles gèlent tout le jeu | `gestion.confirmer`, `gestion.notifier`, fenêtres `.modale-fond` (gestion.js) | n'en écrire aucune ; erreurs dans la page |
 | Cadrage : `frame-ancestors` avec toute la chaîne (`nui://game`, `https://cfx-nui-external-iframe`, l'hôte, les autres pages de l'opérateur), en en-tête HTTP, sans `X-Frame-Options`, en HTTPS | `security.ts` avec `FOLKOS_HOTE` et `FOLKOS_CADRES` (ex. `https://*.fbfa.fr https://fbfa.fr`) ; un relais servi à part (`entreprise.hotes`) pose le sien (voir la WebMap d'un site) | régler les deux variables ; page blanche : console F8, message « ancestor violates frame-ancestors » |
 | Cookie de session `SameSite=None; Secure` | automatique avec `FOLKOS_HOTE` en HTTPS | — (pas de repli par jeton : un jeton lisible par les scripts de la page serait exposé à toute faille d'affichage ; le cookie suffit en HTTPS) |
 | SDK clavier `fbfa-game.js` (`typing: field`, `escape: false` : le site est une page du navigateur) et suivi d'adresse `fbfa-bridge.js` | chargés par `socle/folkos.js`, injecté dans chaque page | une page entièrement au clavier demande `typing: 'always'` à l'opérateur |
