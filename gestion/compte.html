@@ -4,52 +4,64 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="application-name" content="{{nom}}">
-  <meta name="robots" content="noindex">
-  <title>Mon compte — {{nom}}</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
+  <title>Mon compte — {{nom}}</title>
 </head>
-<body>
-  <main class="contenu">
-    <p class="surtitre">Espace employés</p>
-    <h1 class="page-titre">Mon compte</h1>
-    <section class="carte">
-      <div class="ligne"><img class="avatar" id="avatar" alt="" hidden><div><strong id="pseudo"></strong><br><span class="muet" id="grade"></span></div></div>
-    </section>
-    <section class="carte">
-      <h2>Nom RP</h2>
-      <p class="message" id="msgNom" hidden></p>
-      <form id="formNom" class="ligne">
-        <input type="text" id="nom" maxlength="64" required style="flex:1;min-width:200px">
-        <button class="btn btn--accent">Enregistrer</button>
+<body class="page-agents">
+  <!-- GESTION — le compte connecté : nom RP (API du socle : PATCH /api/moi) et suppression de son compte. -->
+  <main class="admin-contenu admin-contenu--sans-reserve">
+    <div class="entete-admin">
+      <div>
+        <h1 style="margin-bottom:2px;">Mon compte</h1>
+        <p style="margin:0;font-size:0.88rem;">Le nom affiché dans l’espace de gestion, et votre compte sur le site.</p>
+      </div>
+    </div>
+    <div id="zone-message" role="status"></div>
+    <section class="accueil-panneau compte-panneau" aria-labelledby="titre-identite">
+      <div class="comptes-identite"><span id="avatar"></span><div><div class="comptes-nom"><strong id="nom-affiche"></strong></div><span class="comptes-pseudo" id="pseudo"></span></div></div>
+      <p class="champ-aide" id="grade"></p>
+      <form id="form-nom" novalidate>
+        <h2 class="compta-titre" id="titre-identite">Nom RP</h2>
+        <div class="champ"><label for="nom">Prénom et nom en jeu</label><input type="text" id="nom" maxlength="64" required autocomplete="off"></div>
+        <button type="submit" class="btn btn-or">Enregistrer le nom</button>
       </form>
     </section>
-    <section class="carte">
-      <h2>Supprimer mon compte</h2>
-      <p class="muet">Ton compte est effacé du site. Tu pourras te reconnecter plus tard, mais il faudra une nouvelle validation.</p>
-      <button class="btn btn--danger" type="button" id="supprimer">Supprimer mon compte</button>
+    <section class="compte-supprimer" aria-labelledby="titre-supprimer">
+      <h2 class="compta-titre" id="titre-supprimer">Supprimer mon compte</h2>
+      <p class="champ-aide">Votre compte est effacé du site. Vous pourrez vous reconnecter plus tard, mais il faudra une nouvelle validation.</p>
+      <button type="button" class="btn btn-danger" id="supprimer">Supprimer mon compte</button>
     </section>
   </main>
   <script>
-    gestion.coque().then(moi => {
-      const avatar = document.getElementById('avatar');
-      if (moi.avatar) { avatar.src = moi.avatar; avatar.hidden = false; }
-      document.getElementById('pseudo').textContent = `@${moi.pseudo}`;
-      document.getElementById('grade').textContent = moi.grade?.libelle || (moi.proprietaire ? 'Propriétaire' : 'Sans grade');
-      document.getElementById('nom').value = moi.nom || '';
-    });
-    document.getElementById('formNom').addEventListener('submit', async e => {
+    const $ = id => document.getElementById(id);
+    function afficher(moi) {
+      const nom = moi.nom || moi.pseudo;
+      $('avatar').outerHTML = moi.avatar ? `<img class="admin-avatar" id="avatar" src="${echapper(moi.avatar)}" alt="">` : `<span class="admin-avatar" id="avatar" aria-hidden="true">${echapper(initiales(nom))}</span>`;
+      $('nom-affiche').textContent = nom;
+      $('pseudo').textContent = `@${moi.pseudo}`;
+      $('grade').textContent = `Grade : ${moi.grade?.libelle || (moi.proprietaire ? 'Propriétaire' : 'Sans grade')}`;
+      $('nom').value = moi.nom || '';
+    }
+    gestion.coque('compte').then(afficher).catch(e => gestion.message('zone-message', e.message));
+    $('form-nom').addEventListener('submit', async e => {
       e.preventDefault();
-      const msg = document.getElementById('msgNom');
-      try { await socle.api('/api/moi', { method: 'PATCH', body: { nom: document.getElementById('nom').value } }); gestion.message(msg, 'Nom enregistré.', true); }
-      catch (err) { gestion.message(msg, err.message); }
+      try {
+        await socle.api('/api/moi', { method: 'PATCH', body: { nom: $('nom').value } });
+        gestion.message('zone-message', '');
+        gestion.notifier('Nom enregistré.');
+        afficher(await socle.moi());
+      } catch (err) { gestion.message('zone-message', err.message); }
     });
-    document.getElementById('supprimer').addEventListener('click', async () => {
-      if (!await gestion.confirmer('Ton compte est effacé du site. Tu pourras refaire une demande en te reconnectant.', { titre: 'Supprimer ton compte ?', libelle: 'Supprimer mon compte' })) return;
-      try { await socle.api('/api/moi', { method: 'DELETE' }); location.href = '/'; } catch (e) { gestion.message(document.getElementById('msgNom'), e.message); }
+    $('supprimer').addEventListener('click', async () => {
+      if (!await gestion.confirmer('Votre compte est effacé du site. Vous pourrez refaire une demande en vous reconnectant.', 'Supprimer votre compte ?', 'Supprimer mon compte')) return;
+      try { await socle.api('/api/moi', { method: 'DELETE' }); location.href = '/'; } catch (e) { gestion.message('zone-message', e.message); }
     });
   </script>
 </body>

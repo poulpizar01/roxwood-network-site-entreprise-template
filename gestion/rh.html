@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Ressources humaines — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — ressources humaines (permission rh-voir ; chaque action a sa permission rh-*). Serveur :
+       entreprise/routes/rh.ts et entreprise/rh.ts. -->
+  <main class="admin-contenu">
+    <section id="panneau-rh">
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Ressources humaines</h1>
+          <p style="margin:0;font-size:0.88rem;">La fiche de chaque employé : identité, grade, statut. Les ventes et la DOT s’y rattachent.</p>
+        </div>
+        <button type="button" class="btn btn-or cache" id="bouton-nouvel-employe">+ Ajouter un membre</button>
+      </div>
+      <div id="zone-message-rh" role="status"></div>
+
+      <!-- en tête : l'effectif, et ce qui demande une action (masqué quand il n'y a rien à faire) -->
+      <div class="rh-synthese">
+        <div class="rh-effectif">
+          <p class="rh-effectif-chiffre"><span id="rh-nb-actifs">—</span> <span>employés actifs</span></p>
+          <p class="rh-effectif-detail"><span id="rh-repartition"></span><span class="rh-anciens" id="rh-nb-inactifs-texte"></span></p>
+        </div>
+        <div class="rh-a-faire cache" id="rh-a-faire" aria-labelledby="titre-a-faire">
+          <h2 id="titre-a-faire">À traiter</h2>
+          <div class="rh-a-faire-liste" id="rh-a-faire-liste"></div>
+        </div>
+      </div>
+
+      <section class="rh-section" aria-labelledby="titre-employes">
+        <h2 id="titre-employes" class="rh-titre">Employés</h2>
+        <div class="comptes-outils">
+          <div class="comptes-filtres" role="group" aria-label="Afficher">
+            <button type="button" class="comptes-filtre actif" data-statut="actif" aria-pressed="true">Actifs <span data-nb-statut="actif"></span></button>
+            <button type="button" class="comptes-filtre" data-statut="inactif" aria-pressed="false">Anciens <span data-nb-statut="inactif"></span></button>
+            <button type="button" class="comptes-filtre" data-statut="" aria-pressed="false">Tous <span data-nb-statut=""></span></button>
+            <button type="button" class="comptes-filtre cache" data-statut="a-completer" aria-pressed="false">À compléter <span data-nb-statut="a-completer"></span></button>
+          </div>
+          <div class="rh-outils-droite">
+            <select id="filtre-rh-grade" aria-label="Filtrer par grade"><option value="">Tous les grades</option></select>
+            <div class="comptes-recherche">
+              <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+              <input type="search" id="recherche-employes" aria-label="Rechercher un employé" placeholder="Nom, ID, pseudo Discord">
+            </div>
+          </div>
+        </div>
+        <div class="comptes-liste rh-liste" id="rh-liste"></div>
+      </section>
+
+      <!-- Données des autres modules sans fiche RH : vendeurs inconnus des ventes du bot, lignes du tableur sans employé. -->
+      <section class="rh-section cache" id="rh-a-rattacher" aria-labelledby="titre-rattacher">
+        <h2 id="titre-rattacher" class="rh-titre">À rattacher</h2>
+        <p class="comptes-aide">Des ventes ou des lignes du tableur ne correspondent à aucune fiche. Créez la fiche, ou corrigez le pseudo Discord (ventes) ou le prénom et le nom (tableur) d’une fiche existante : elles s’y rattachent d’elles-mêmes.</p>
+        <div id="rh-a-rattacher-contenu"></div>
+      </section>
+
+      <!-- Candidatures acceptées reçues du bot Discord « Roxwood Network Entreprise » (webhook recruitment.updated, reçu par
+           le socle sur /webhooks/bot), et leurs réglages. -->
+      <section class="rh-section cache" id="rh-bot" aria-labelledby="titre-recrutement">
+        <h2 id="titre-recrutement" class="rh-titre">Recrutement</h2>
+        <p class="comptes-aide">Une candidature acceptée dans Discord crée sa fiche ici, à partir des réponses du formulaire. Celles qui n’ont pas pu être lues attendent ci-dessous.</p>
+        <div id="zone-message-rh-bot" role="status"></div>
+        <div id="rh-bot-contenu"></div>
+
+        <details class="rh-reglages cache" id="rh-bot-details">
+          <summary>Comment la fiche est remplie</summary>
+          <!-- Une candidature acceptée crée une fiche (serveur : entreprise/rh.ts, creerDepuisCandidature). Chaque ligne dit
+               d'où vient une information de la fiche : automatique, le grade réglé ici, ou la réponse à une question du
+               formulaire de candidature du bot. Les questions proposées sont celles reçues avec les candidatures. -->
+          <form id="rh-bot-reglages">
+            <p class="comptes-aide rh-reglages-intro">Quand une candidature est acceptée sur Discord, le site crée la fiche de la personne. Voici d’où vient chaque information. Le prénom et le nom sont obligatoires : sans eux, la candidature attend dans « À traiter ». Les questions proposées sont celles de votre formulaire de candidature (panneau « Recrutement » du bot), reçues avec les candidatures précédentes. Ce que le formulaire ne demande pas reste vide : vous le complétez ensuite dans la fiche.</p>
+            <div class="rh-correspondances" role="table" aria-label="D’où vient chaque information de la fiche">
+              <div class="rh-correspondance rh-correspondance-entete" role="row"><span role="columnheader">Sur la fiche</span><span role="columnheader">Rempli avec</span></div>
+
+              <div class="rh-correspondance" role="row">
+                <div class="rh-correspondance-texte" role="cell"><strong>Compte Discord</strong></div>
+                <div class="rh-correspondance-choix" role="cell"><span class="rh-automatique">Automatique : le candidat qui a ouvert le ticket</span></div>
+              </div>
+              <div class="rh-correspondance" role="row">
+                <div class="rh-correspondance-texte" role="cell"><strong>Date d’arrivée</strong></div>
+                <div class="rh-correspondance-choix" role="cell"><span class="rh-automatique">Automatique : le jour où la candidature est acceptée</span></div>
+              </div>
+              <div class="rh-correspondance" role="row">
+                <div class="rh-correspondance-texte" role="cell"><label for="rh-bot-grade">Grade</label><small>Le même pour toutes les arrivées.</small></div>
+                <div class="rh-correspondance-choix" role="cell"><select id="rh-bot-grade"></select></div>
+              </div>
+
+              <!-- prénom et nom : une question chacun ; la même pour les deux, le site coupe la réponse (rh.js, enregistrement) -->
+              <input type="text" id="rh-bot-q-identite" class="cache" tabindex="-1" aria-hidden="true">
+              <div class="rh-correspondance" role="row">
+                <div class="rh-correspondance-texte" role="cell"><label for="rh-bot-q-prenom-choix">Prénom <span class="rh-obligatoire">Obligatoire</span></label></div>
+                <div class="rh-correspondance-choix" role="cell"><input type="text" id="rh-bot-q-prenom" maxlength="200" class="cache" data-vide="Choisir la question…" aria-label="Libellé exact de la question : Prénom"></div>
+              </div>
+              <div class="rh-correspondance" role="row">
+                <div class="rh-correspondance-texte" role="cell"><label for="rh-bot-q-nom-choix">Nom <span class="rh-obligatoire">Obligatoire</span></label></div>
+                <div class="rh-correspondance-choix" role="cell"><input type="text" id="rh-bot-q-nom" maxlength="200" class="cache" data-vide="Choisir la question…" aria-label="Libellé exact de la question : Nom"><small class="rh-precision cache" id="rh-nom-meme-question">Même question que le prénom : le premier mot devient le prénom, le reste le nom.</small></div>
+              </div>
+
+              <div class="rh-correspondance" role="row">
+                <div class="rh-correspondance-texte" role="cell"><label for="rh-bot-q-id-employe-choix">ID employé</label></div>
+                <div class="rh-correspondance-choix" role="cell"><input type="text" id="rh-bot-q-id-employe" maxlength="200" class="cache" data-vide="Aucune question : ID provisoire à remplacer" aria-label="Libellé exact de la question de l’ID employé"></div>
+              </div>
+              <div class="rh-correspondance" role="row">
+                <div class="rh-correspondance-texte" role="cell"><label for="rh-bot-q-telephone-choix">Téléphone</label></div>
+                <div class="rh-correspondance-choix" role="cell"><input type="text" id="rh-bot-q-telephone" maxlength="200" class="cache" data-vide="Aucune question : à compléter dans la fiche" aria-label="Libellé exact de la question du téléphone"></div>
+              </div>
+              <div class="rh-correspondance" role="row">
+                <div class="rh-correspondance-texte" role="cell"><label for="rh-bot-q-rib-choix">RIB</label></div>
+                <div class="rh-correspondance-choix" role="cell"><input type="text" id="rh-bot-q-rib" maxlength="200" class="cache" data-vide="Aucune question : à compléter dans la fiche" aria-label="Libellé exact de la question du RIB"></div>
+              </div>
+            </div>
+            <div class="rh-reglages-pied">
+              <p class="comptes-aide" id="rh-bot-etat"></p>
+              <button type="submit" class="btn btn-or">Enregistrer</button>
+            </div>
+          </form>
+        </details>
+      </section>
+    </section>
+  </main>
+
+<div class="modale-fond cache" id="modale-employe">
+  <div class="modale modale-fiche-rh" style="max-width:640px;" role="dialog" aria-modal="true" aria-labelledby="modale-employe-titre">
+    <div class="modale-entete">
+      <h2 id="modale-employe-titre" class="modale-titre">Fiche employé</h2>
+      <button type="button" id="fermer-modale-employe" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-employe"></div>
+    <form id="formulaire-employe" autocomplete="off">
+      <div class="fiche-rh-corps">
+        <div class="champ-deux">
+          <div class="champ"><label for="employe-prenom">Prénom</label><input type="text" id="employe-prenom" required maxlength="60"></div>
+          <div class="champ"><label for="employe-nom">Nom</label><input type="text" id="employe-nom" required maxlength="60"></div>
+        </div>
+        <div class="champ-deux">
+          <div class="champ"><label for="employe-id">ID employé</label><input type="text" id="employe-id" required maxlength="12" inputmode="numeric" placeholder="Ex. 42" aria-describedby="aide-employe-id"><p class="champ-aide" id="aide-employe-id">Chiffres uniquement.</p><p class="champ-erreur cache" id="erreur-employe-id">L’ID employé ne contient que des chiffres, par exemple 42.</p></div>
+          <div class="champ"><label for="employe-grade">Grade</label><select id="employe-grade"></select></div>
+        </div>
+        <div class="champ-deux">
+          <div class="champ"><label for="employe-discord-id">ID Discord</label><input type="text" id="employe-discord-id" inputmode="numeric" maxlength="22" placeholder="18 chiffres environ" aria-describedby="aide-discord-id"><p class="champ-aide" id="aide-discord-id">Clic droit sur le membre dans Discord, « Copier l’identifiant ».</p></div>
+          <div class="champ"><label for="employe-discord-pseudo">Pseudo Discord</label><input type="text" id="employe-discord-pseudo" maxlength="100" placeholder="Ex. lucas_p" aria-describedby="aide-discord-pseudo"><p class="champ-aide" id="aide-discord-pseudo">Celui que le bot envoie avec les ventes.</p></div>
+        </div>
+        <div class="champ-deux" id="employe-bloc-sensible">
+          <div class="champ"><label for="employe-telephone">Téléphone</label><input type="text" id="employe-telephone" maxlength="30"></div>
+          <div class="champ"><label for="employe-rib">RIB</label><input type="text" id="employe-rib" maxlength="60"></div>
+        </div>
+        <div class="champ-deux">
+          <div class="champ"><label for="employe-arrivee">Date d'arrivée</label><input type="date" id="employe-arrivee"></div>
+          <div class="champ"><label for="employe-depart">Date de départ</label><input type="date" id="employe-depart"></div>
+        </div>
+        <p class="champ-aide" id="employe-statut" style="margin:6px 0 0;"></p>
+        <div class="champ-aide" id="employe-historique" style="margin-top:10px;"></div>
+      </div>
+      <div class="fiche-rh-pied" id="fiche-rh-pied">
+        <button type="submit" class="btn btn-or" id="employe-enregistrer">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <script src="/gestion/rh.js"></script>
+</body>
+</html>

@@ -4,135 +4,154 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="application-name" content="{{nom}}">
-  <meta name="robots" content="noindex">
-  <title>Agenda — {{nom}}</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/gestion/gestion.css">
   <link rel="stylesheet" href="/gestion/agenda.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
+  <title>Mon agenda — {{nom}}</title>
 </head>
-<body>
-  <main class="contenu agenda">
-    <header class="agenda-entete">
-      <div>
-        <h1>Agenda</h1>
-        <p id="agenda-periode" class="muet" aria-live="polite"></p>
-      </div>
-      <div class="agenda-commandes">
-        <button class="btn" type="button" id="agenda-precedent" aria-label="Période précédente">Précédent</button>
-        <button class="btn" type="button" id="agenda-aujourdhui">Aujourd’hui</button>
-        <button class="btn" type="button" id="agenda-suivant" aria-label="Période suivante">Suivant</button>
-        <div class="agenda-vues" role="group" aria-label="Affichage de l’agenda">
-          <button class="btn" type="button" data-vue="jour" aria-pressed="false">Jour</button>
-          <button class="btn" type="button" data-vue="semaine" aria-pressed="false">Semaine</button>
-          <button class="btn" type="button" data-vue="mois" aria-pressed="true">Mois</button>
+<body class="page-agents">
+  <!-- GESTION — agenda : événements personnels, partagés avec l’équipe ou adressés à un grade, classés par types
+       (serveur : entreprise/routes/agenda.ts et entreprise/agenda-regles.ts ; droits par grade : page Grades). -->
+  <main class="admin-contenu admin-contenu--pleine">
+    <section id="panneau-agenda" class="panneau-agenda">
+      <header class="agenda-entete">
+        <div class="agenda-titre">
+          <h1>Agenda</h1>
+          <p class="agenda-periode" id="agenda-plage-dates" aria-live="polite"></p>
         </div>
-        <button class="btn btn--accent" type="button" id="agenda-ajouter">Nouvel événement</button>
-        <button class="btn" type="button" id="agenda-types" hidden>Types d’événements</button>
+        <div class="agenda-commandes">
+          <!-- masqué sur téléphone : la vue liste (bandeau de la semaine + rendez-vous du jour) s’impose (agenda.js) -->
+          <div class="agenda-vues" role="group" aria-label="Affichage">
+            <button type="button" class="agenda-vue-bouton" data-vue="jour" aria-pressed="false">Jour</button>
+            <button type="button" class="agenda-vue-bouton actif" data-vue="semaine" aria-pressed="true">Semaine</button>
+            <button type="button" class="agenda-vue-bouton" data-vue="mois" aria-pressed="false">Mois</button>
+          </div>
+          <div class="agenda-navigation">
+            <button type="button" class="agenda-fleche agenda-fleche--avant" id="agenda-semaine-precedente" aria-label="Période précédente"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+            <button type="button" class="agenda-aujourdhui-bouton" id="agenda-aujourdhui" aria-keyshortcuts="T">Aujourd’hui</button>
+            <!-- touche du raccourci, montrée au survol ou au focus du bouton (hors du bouton : son texte est réécrit à chaque période) -->
+            <span class="agenda-touche" aria-hidden="true"><kbd>T</kbd> aujourd’hui</span>
+            <button type="button" class="agenda-fleche agenda-fleche--apres" id="agenda-semaine-suivante" aria-label="Période suivante"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+          </div>
+          <button type="button" class="btn btn-or agenda-ajouter" id="agenda-nouvel-evenement" aria-label="Nouvel événement"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg><span>Nouvel événement</span></button>
+        </div>
+      </header>
+      <!-- la couleur d’un événement dit son type (types de la Direction, agenda.js) -->
+      <div class="agenda-legende cache" id="agenda-legende"></div>
+      <div id="zone-message-agenda"></div>
+      <div class="agenda-grille-conteneur" id="agenda-grille-conteneur">
+        <div class="agenda-grille" id="agenda-grille"></div>
       </div>
-    </header>
-    <p class="message" id="agenda-message" hidden></p>
-    <div class="agenda-jours" aria-hidden="true">
-      <span>Lun.</span><span>Mar.</span><span>Mer.</span><span>Jeu.</span><span>Ven.</span><span>Sam.</span><span>Dim.</span>
-    </div>
-    <section id="agenda-grille" class="agenda-grille" aria-label="Événements de la période"></section>
+    </section>
   </main>
 
-  <div class="modale-fond" id="agenda-fenetre" hidden>
-    <section class="modale agenda-fenetre" role="dialog" aria-modal="true" aria-labelledby="agenda-titre-fenetre">
-      <header class="agenda-fenetre-entete">
-        <h2 id="agenda-titre-fenetre">Nouvel événement</h2>
-        <button type="button" id="agenda-fermer" aria-label="Fermer"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"></path></svg></button>
-      </header>
-      <form id="agenda-form" novalidate>
-        <div class="agenda-fenetre-corps">
+<div class="modale-fond cache" id="modale-evenement">
+  <div class="modale modale-evenement" role="dialog" aria-modal="true" aria-labelledby="titre-modale-evenement">
+    <div class="modale-entete">
+      <h2 id="titre-modale-evenement">Nouvel événement</h2>
+      <button id="fermer-modale-evenement" type="button" aria-label="Fermer">✕</button>
+    </div>
+    <form id="formulaire-evenement" novalidate>
+      <input type="hidden" id="evenement-id">
+      <div class="evenement-corps">
+        <div class="champ cache" id="champ-evenement-type">
+          <label for="evenement-type">Type</label>
+          <select id="evenement-type"></select>
+        </div>
+        <div class="champ">
+          <label for="evenement-titre">Titre</label>
+          <input type="text" id="evenement-titre" maxlength="80" placeholder="Ex. Réunion d’équipe">
+          <p class="champ-erreur cache" id="erreur-evenement-titre">Donnez un titre à l’événement.</p>
+        </div>
+        <div class="evenement-quand">
           <div class="champ">
-            <label for="agenda-titre">Titre</label>
-            <input id="agenda-titre" type="text" maxlength="80" required>
-          </div>
-          <div class="agenda-date-heures">
-            <div class="champ">
-              <label for="agenda-date">Date</label>
-              <input id="agenda-date" type="text" inputmode="numeric" placeholder="jj/mm/aaaa" maxlength="10" required>
-            </div>
-            <div class="champ">
-              <label for="agenda-debut">Début</label>
-              <input id="agenda-debut" type="text" inputmode="numeric" placeholder="hh:mm" maxlength="5" required>
-            </div>
-            <div class="champ">
-              <label for="agenda-fin">Fin</label>
-              <input id="agenda-fin" type="text" inputmode="numeric" placeholder="hh:mm" maxlength="5" required>
-            </div>
+            <label for="evenement-jour">Date</label>
+            <input type="date" id="evenement-jour">
+            <p class="champ-erreur cache" id="erreur-evenement-jour">Date au format jj/mm/aaaa.</p>
           </div>
           <div class="champ">
-            <label for="agenda-destination">Partager avec</label>
-            <select id="agenda-destination"></select>
-            <small>« Personnel » le réserve à vous et aux personnes invitées ; les autres choix dépendent des droits définis dans Grades.</small>
-          </div>
-          <fieldset class="champ agenda-invitations" id="agenda-invitations" hidden>
-            <legend>Inviter des personnes <small>facultatif</small></legend>
-            <p class="muet" id="agenda-invitations-aide">Les personnes invitées verront l’événement dans leur agenda et seront prévenues sur Discord. Si vous les retirez, une annulation leur est envoyée si le bot est disponible.</p>
-            <label for="agenda-invitations-recherche">Rechercher une personne</label>
-            <input id="agenda-invitations-recherche" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="agenda-invitations-suggestions" aria-describedby="agenda-invitations-aide" autocomplete="off" placeholder="Nom d’une personne">
-            <ul id="agenda-invitations-suggestions" class="agenda-invites-suggestions" role="listbox" aria-label="Suggestions de personnes" hidden></ul>
-            <ul id="agenda-invitations-selection" class="agenda-invites-selection" aria-label="Personnes invitées"></ul>
-            <p id="agenda-invitations-etat" class="muet" role="status" aria-live="polite"></p>
-          </fieldset>
-          <div class="champ">
-            <label for="agenda-type">Type <small>facultatif</small></label>
-            <select id="agenda-type"></select>
+            <label for="evenement-heure-debut">Début</label>
+            <input type="time" id="evenement-heure-debut" step="300">
           </div>
           <div class="champ">
-            <label for="agenda-notes">Notes <small>facultatif</small></label>
-            <textarea id="agenda-notes" rows="3" maxlength="500"></textarea>
+            <label for="evenement-heure-fin">Fin</label>
+            <input type="time" id="evenement-heure-fin" step="300">
           </div>
         </div>
-        <div class="agenda-fenetre-pied">
-          <p class="message" id="agenda-erreur" hidden></p>
-          <div class="ligne agenda-pied">
-            <button class="btn btn--danger" type="button" id="agenda-supprimer" hidden>Supprimer</button>
-            <button class="btn" type="button" id="agenda-annuler">Annuler</button>
-            <button class="btn btn--accent" type="submit" id="agenda-enregistrer">Enregistrer</button>
+        <p class="champ-erreur cache evenement-erreur-heures" id="erreur-evenement-heures">Heures au format 24 h (14:30) ; la fin doit être après le début.</p>
+        <div class="evenement-classement">
+          <div class="champ">
+            <label for="evenement-destination">Partager avec</label>
+            <select id="evenement-destination"></select>
+            <p class="champ-aide">« Personnel » le réserve à vous et aux personnes invitées ; les autres choix dépendent des droits définis dans Grades.</p>
           </div>
         </div>
-      </form>
-    </section>
+        <fieldset class="champ agenda-invitations cache" id="champ-evenement-invites">
+          <legend>Inviter des personnes <small>facultatif</small></legend>
+          <p class="champ-aide" id="aide-evenement-invites">Les personnes invitées verront l’événement dans leur agenda et seront prévenues sur Discord. Si vous les retirez, l’événement disparaît de leur agenda et une annulation leur est envoyée si le bot est disponible. Elles ne peuvent pas répondre depuis le site.</p>
+          <label for="recherche-evenement-invites">Rechercher une personne</label>
+          <input type="search" id="recherche-evenement-invites" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions-evenement-invites" aria-describedby="aide-evenement-invites" autocomplete="off" placeholder="Nom d’un employé">
+          <ul class="agenda-invites-suggestions cache" id="suggestions-evenement-invites" role="listbox" aria-label="Suggestions de personnes"></ul>
+          <ul class="agenda-invites-selection" id="liste-evenement-invites" aria-label="Personnes invitées"></ul>
+          <p class="champ-aide agenda-invites-etat" id="etat-evenement-invites" role="status" aria-live="polite"></p>
+        </fieldset>
+        <div class="champ">
+          <label for="evenement-notes">Notes <small>facultatif</small></label>
+          <textarea id="evenement-notes" maxlength="500" rows="3" placeholder="Lieu de rendez-vous, contact, détails…"></textarea>
+        </div>
+        <p class="champ-aide cache" id="evenement-origine"></p>
+      </div>
+      <div id="zone-message-modale-evenement" role="status"></div>
+      <div class="evenement-pied">
+        <button type="button" class="btn btn-fantome evenement-supprimer cache" id="bouton-supprimer-evenement">Supprimer</button>
+        <button type="button" class="btn btn-fantome" id="bouton-annuler-evenement">Annuler</button>
+        <button type="submit" class="btn btn-or" id="bouton-enregistrer-evenement">Enregistrer</button>
+      </div>
+    </form>
   </div>
+</div>
 
-  <div class="modale-fond" id="agenda-types-fenetre" hidden>
-    <section class="modale agenda-fenetre agenda-types-fenetre" role="dialog" aria-modal="true" aria-labelledby="agenda-titre-types">
-      <header class="agenda-fenetre-entete">
-        <h2 id="agenda-titre-types">Types d’événements</h2>
-        <button type="button" id="agenda-types-fermer" aria-label="Fermer"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 10M15 5 5 15"></path></svg></button>
-      </header>
-      <form id="agenda-type-form" class="agenda-types-form">
-        <div class="agenda-fenetre-corps agenda-types-corps">
-          <p class="muet">Les types classent les événements par couleur ; ils ne changent pas qui peut les consulter.</p>
-          <ul id="agenda-types-liste" class="agenda-types-liste"></ul>
-          <h3>Créer un type</h3>
-          <div class="agenda-type-champs">
-            <div class="champ">
-              <label for="agenda-type-nom">Nom</label>
-              <input id="agenda-type-nom" type="text" maxlength="40" required>
-            </div>
-            <div class="champ">
-              <label for="agenda-type-couleur">Couleur</label>
-              <input id="agenda-type-couleur" type="color" value="#5077a8">
-            </div>
+<!-- Types d'événements : classement visuel, permission « agenda-types ». -->
+<div class="modale-fond cache" id="modale-types">
+  <div class="modale modale-types" role="dialog" aria-modal="true" aria-labelledby="titre-modale-types">
+    <div class="modale-entete">
+      <h2 id="titre-modale-types">Types d’événements</h2>
+      <button id="fermer-modale-types" type="button" aria-label="Fermer">✕</button>
+    </div>
+    <div class="types-corps">
+      <p class="champ-aide types-intro">Les types servent à repérer les événements par couleur. Ils ne changent pas qui peut les voir.</p>
+      <div class="types-section-entete">
+        <h3 class="types-sous-titre">Types existants</h3>
+        <span class="types-compte" id="types-compte"></span>
+      </div>
+      <ul class="types-liste" id="types-liste"></ul>
+    </div>
+    <div class="types-pied">
+      <form class="types-ajout" id="form-type" novalidate>
+        <h3 class="types-sous-titre">Créer un type</h3>
+        <div class="types-ajout-champs">
+          <div class="champ">
+            <label for="type-nom">Nom</label>
+            <input type="text" id="type-nom" maxlength="40" placeholder="Ex. Visite, Réunion">
+          </div>
+          <div class="champ types-couleur">
+            <label for="type-couleur">Couleur</label>
+            <input type="color" id="type-couleur" aria-label="Couleur du nouveau type">
           </div>
         </div>
-        <div class="agenda-fenetre-pied">
-          <p class="message" id="agenda-types-erreur" hidden></p>
-          <div class="ligne agenda-pied">
-            <button class="btn" type="button" id="agenda-types-annuler">Annuler</button>
-            <button class="btn btn--accent" type="submit">Ajouter le type</button>
-          </div>
-        </div>
+        <button type="submit" class="btn btn-or">Ajouter le type</button>
       </form>
-    </section>
+      <div id="zone-message-types" role="status"></div>
+    </div>
   </div>
+</div>
+
   <script src="/gestion/agenda.js"></script>
 </body>
 </html>

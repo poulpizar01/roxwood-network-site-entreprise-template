@@ -4,96 +4,218 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="application-name" content="{{nom}}">
-  <meta name="robots" content="noindex">
-  <title>Comptes — {{nom}}</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
+  <title>Comptes & accès — {{nom}}</title>
 </head>
-<body>
-  <!-- Gestion des comptes (API du socle : /api/comptes, docs/api.md). Apparence libre. Le serveur applique les règles
-       (on ne gère que les comptes sous son propre grade) : cette page ne fait que proposer ce qui sera accepté. -->
-  <main class="contenu">
-    <p class="surtitre">Gestion</p>
-    <h1 class="page-titre">Comptes</h1>
-    <p class="intro">Les demandes d'accès arrivent ici. Un compte qui porte un rôle Discord lié à un grade est validé d'office à sa connexion.</p>
-    <p class="message" id="msg" hidden></p>
-    <div class="ligne" style="margin-bottom:16px" id="filtres">
-      <button class="btn btn--accent" data-statut="attente">En attente</button>
-      <button class="btn" data-statut="valide">Validés</button>
-      <button class="btn" data-statut="refuse">Refusés</button>
+<body class="page-agents">
+  <!-- GESTION — comptes et accès (permission « comptes », serveur : socle/routes/comptes.ts). Deux temps : les demandes
+       à valider (en tête, seulement s'il y en a), puis les membres ; les actions rares sont dans le menu « ⋯ » de
+       chaque ligne, avec des libellés explicites. -->
+  <main class="admin-contenu">
+    <div class="entete-admin">
+      <div>
+        <h1 style="margin-bottom:2px;">Comptes &amp; accès</h1>
+        <p style="margin:0;font-size:0.88rem;">Qui accède à l’espace de gestion, et avec quel grade.</p>
+      </div>
     </div>
-    <section class="carte table-defile">
-      <table>
-        <thead><tr><th>Compte</th><th>Grade</th><th>Demande</th><th></th></tr></thead>
-        <tbody id="lignes"><tr><td colspan="4" class="vide">Chargement…</td></tr></tbody>
-      </table>
+    <div id="zone-message" role="status"></div>
+
+    <section class="comptes-section cache" id="bloc-attente" aria-labelledby="titre-attente">
+      <div class="comptes-section-titre">
+        <h2 id="titre-attente">À valider</h2>
+        <span class="comptes-badge" id="compteur-attente"></span>
+      </div>
+      <p class="comptes-aide">Connectés avec Discord sans rôle lié à un grade. Choisissez un grade, puis validez.</p>
+      <div class="comptes-demandes" id="liste-attente"></div>
+    </section>
+
+    <section class="comptes-section" aria-labelledby="titre-membres">
+      <div class="comptes-section-titre">
+        <h2 id="titre-membres">Membres</h2>
+      </div>
+      <div class="comptes-outils">
+        <div class="comptes-filtres" role="group" aria-label="Afficher">
+          <button type="button" class="comptes-filtre actif" data-filtre="tous" aria-pressed="true">Tous <span data-nb="tous"></span></button>
+          <button type="button" class="comptes-filtre" data-filtre="valide" aria-pressed="false">Validés <span data-nb="valide"></span></button>
+          <button type="button" class="comptes-filtre" data-filtre="refuse" aria-pressed="false">Refusés <span data-nb="refuse"></span></button>
+        </div>
+        <div class="comptes-recherche">
+          <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+          <input type="search" id="recherche-comptes" placeholder="Nom ou pseudo Discord" aria-label="Rechercher un membre">
+        </div>
+      </div>
+      <div class="comptes-liste" id="liste-membres" aria-live="polite"></div>
+      <p class="comptes-aide comptes-note">Un employé dont le rôle Discord est lié à un grade est validé d’office à sa connexion. <a href="grades.html">Lier les grades aux rôles</a></p>
     </section>
   </main>
   <script>
-    let moi, comptes = [], grades = [], filtre = 'attente';
-    const msg = document.getElementById('msg'), lignes = document.getElementById('lignes');
-    // rang d'un grade (0 = sommet), sans grade = tout en bas ; même règle que le serveur (droits.ts)
+    let moi, comptes = [], grades = [], filtre = 'tous', recherche = '';
+    // rang d'un grade (0 = sommet), sans grade = tout en bas ; même règle que le serveur (socle/droits.ts)
     const rang = cle => { const i = grades.findIndex(g => g.cle === cle); return i < 0 ? grades.length : i; };
     const gerable = c => moi.proprietaire || (!!moi.grade && rang(c.grade?.cle) > rang(moi.grade.cle) && c.id !== moi.id && !c.proprietaire);
     const gradesPossibles = () => grades.filter(g => moi.proprietaire || (moi.grade && rang(g.cle) > rang(moi.grade.cle)));
+    const PARIS = { timeZone: 'Europe/Paris' };
+    const dateHeure = d => new Date(d).toLocaleString('fr-FR', { ...PARIS, dateStyle: 'short', timeStyle: 'short' });
+    // dernière activité : « il y a 5 min » dans l'heure, « aujourd'hui à 14:30 », sinon la date (jamais « hier »
+    // ni « il y a 3 jours », à recalculer de tête : docs/design.md, Dates)
+    function ilYA(d) {
+      if (!d) return 'Jamais';
+      const quand = new Date(d), min = Math.round((Date.now() - quand) / 60000);
+      if (min < 2) return 'À l’instant';
+      if (min < 60) return `Il y a ${min} min`;
+      const jour = x => x.toLocaleDateString('fr-FR', PARIS);
+      const heure = quand.toLocaleTimeString('fr-FR', { ...PARIS, hour: '2-digit', minute: '2-digit' });
+      return jour(quand) === jour(new Date()) ? `Aujourd’hui à ${heure}` : `Le ${jour(quand)}`;
+    }
+
+    function identite(c) {
+      const nom = c.nom || c.pseudo;
+      const avatar = c.avatar ? `<img class="admin-avatar" src="${echapper(c.avatar)}" alt="">` : `<span class="admin-avatar" aria-hidden="true">${echapper(initiales(nom))}</span>`;
+      const etiquettes = [
+        c.proprietaire ? '<span class="puce puce-or">Propriétaire</span>' : '',
+        c.id === moi.id ? '<span class="puce puce-masquee">Vous</span>' : '',
+        c.statut === 'refuse' ? '<span class="puce puce-off">Refusé</span>' : '',
+      ].join('');
+      const quitte = c.quitteLe ? `<span class="comptes-alerte">A quitté le serveur Discord le ${new Date(c.quitteLe).toLocaleDateString('fr-FR', PARIS)}</span>` : '';
+      return `<div class="comptes-identite">${avatar}<div><div class="comptes-nom"><strong>${echapper(nom)}</strong>${etiquettes}</div>
+        <span class="comptes-pseudo">@${echapper(c.pseudo)}</span>${quitte}</div></div>`;
+    }
+    function choixGrade(c, enregistrerAuChangement) {
+      if (!gerable(c)) return c.grade ? `<span class="comptes-grade-fixe"><span class="pastille-grade" style="background:${echapper(c.grade.couleur || '#8a93b8')}"></span>${echapper(c.grade.libelle)}</span>` : '<span class="comptes-grade-fixe comptes-discret">Sans grade</span>';
+      return `<select ${enregistrerAuChangement ? 'data-grade' : 'data-grade-demande'} aria-label="Grade de ${echapper(c.nom || c.pseudo)}"><option value="">Sans grade</option>${gradesPossibles().map(g => `<option value="${echapper(g.cle)}"${g.cle === c.grade?.cle ? ' selected' : ''}>${echapper(g.libelle)}</option>`).join('')}</select>`;
+    }
+    // actions rares, rangées dans un menu aux libellés explicites
+    function menu(c) {
+      if (!gerable(c)) return '<span class="comptes-menu-vide"></span>';
+      const items = [
+        c.statut === 'valide' && c.id !== moi.id ? `<button type="button" role="menuitem" data-action="refuse">${gestion.ico('lock')} Suspendre l’accès</button>` : '',
+        c.statut === 'refuse' ? `<button type="button" role="menuitem" data-action="valide">${gestion.ico('lock')} Rétablir l’accès</button>` : '',
+        c.id !== moi.id ? `<button type="button" role="menuitem" class="danger" data-action="supprimer">${gestion.ico('trash')} Supprimer le compte</button>` : '',
+      ].filter(Boolean).join('');
+      if (!items) return '<span class="comptes-menu-vide"></span>';
+      return `<div class="comptes-menu">
+        <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(c.nom || c.pseudo)}">⋯</button>
+        <div class="comptes-menu-liste cache" role="menu">${items}</div>
+      </div>`;
+    }
 
     function afficher() {
-      const liste = comptes.filter(c => c.statut === filtre);
-      lignes.innerHTML = liste.length ? liste.map(c => {
-        const actions = !gerable(c) ? '<span class="muet">—</span>' : `
-          ${c.statut !== 'valide' ? '<button class="btn btn--petit btn--accent" data-action="valide">Valider</button>' : ''}
-          ${c.statut === 'attente' ? '<button class="btn btn--petit" data-action="refuse">Refuser</button>' : ''}
-          ${c.id !== moi.id ? '<button class="btn btn--petit btn--danger" data-action="supprimer">Supprimer</button>' : ''}`;
-        const grade = gerable(c)
-          ? `<select data-grade><option value="">Sans grade</option>${gradesPossibles().map(g => `<option value="${socle.esc(g.cle)}"${g.cle === c.grade?.cle ? ' selected' : ''}>${socle.esc(g.libelle)}</option>`).join('')}</select>`
-          : socle.esc(c.grade?.libelle || (c.proprietaire ? 'Propriétaire' : 'Sans grade'));
-        return `<tr data-id="${c.id}">
-          <td><div class="ligne">${c.avatar ? `<img class="avatar" src="${socle.esc(c.avatar)}" alt="">` : '<span class="avatar"></span>'}
-            <div><strong>${socle.esc(c.nom || c.pseudo)}</strong><br><span class="muet">@${socle.esc(c.pseudo)}${c.quitteLe ? ` · a quitté le serveur Discord le ${socle.date(c.quitteLe)}` : ''}</span></div></div></td>
-          <td>${grade}</td>
-          <td class="muet">${socle.date(c.creeLe)}</td>
-          <td><div class="ligne">${actions}</div></td>
-        </tr>`;
-      }).join('') : '<tr><td colspan="4" class="vide">Aucun compte ici.</td></tr>';
+      const attente = comptes.filter(c => c.statut === 'attente');
+      document.getElementById('bloc-attente').classList.toggle('cache', !attente.length);
+      document.getElementById('compteur-attente').textContent = attente.length ? `${attente.length} demande${attente.length > 1 ? 's' : ''}` : '';
+      document.getElementById('liste-attente').innerHTML = attente.map(c => `
+        <article class="comptes-demande" data-id="${c.id}">
+          ${identite(c)}
+          <p class="comptes-discret">Demande du ${dateHeure(c.creeLe)}</p>
+          ${gerable(c) ? `<div class="comptes-demande-actions">
+            <label class="comptes-demande-grade"><span>Grade</span>${choixGrade(c, false)}</label>
+            <div class="comptes-demande-boutons">
+              <button type="button" class="btn btn-fantome" data-action="refuse">Refuser</button>
+              <button type="button" class="btn btn-or" data-action="valide">Valider</button>
+            </div>
+          </div>` : '<p class="comptes-discret">Son grade dépasse le vôtre : un responsable plus haut gradé doit valider.</p>'}
+        </article>`).join('');
+
+      const membres = comptes.filter(c => c.statut !== 'attente');
+      for (const f of ['tous', 'valide', 'refuse']) document.querySelector(`[data-nb="${f}"]`).textContent = membres.filter(c => f === 'tous' || c.statut === f).length;
+      const r = recherche.toLowerCase();
+      const visibles = membres.filter(c => (filtre === 'tous' || c.statut === filtre) && (!r || `${c.nom || ''} ${c.pseudo}`.toLowerCase().includes(r)));
+      document.getElementById('liste-membres').innerHTML = visibles.length
+        ? `<div class="comptes-entete" aria-hidden="true"><span>Membre</span><span>Grade</span><span>Dernière connexion</span><span></span></div>` + visibles.map(c => `
+          <div class="comptes-ligne${c.statut === 'refuse' ? ' refuse' : ''}" data-id="${c.id}">
+            ${identite(c)}
+            <div class="comptes-grade">${choixGrade(c, true)}</div>
+            <span class="comptes-connexion" title="${c.connecteLe ? dateHeure(c.connecteLe) : ''}"><span class="comptes-etiquette-ecran">${ilYA(c.connecteLe)}</span><span class="comptes-etiquette-mobile">Dernière connexion : ${ilYA(c.connecteLe).replace(/^./, l => l.toLowerCase())}</span></span>
+            ${menu(c)}
+          </div>`).join('')
+        : `<p class="comptes-vide">${membres.length ? 'Aucun membre ne correspond.' : 'Aucun membre pour le moment.'}</p>`;
+      document.querySelectorAll('select[data-grade], select[data-grade-demande]').forEach(s => ameliorerSelect(s, cle => grades.find(g => g.cle === cle)?.couleur || '#8a93b8', 'comptes'));
     }
 
     async function charger() {
       [comptes, grades] = await Promise.all([socle.api('/api/comptes'), socle.api('/api/grades')]);
+      nettoyerSelectsPortee?.('comptes');
       afficher();
     }
 
-    document.getElementById('filtres').addEventListener('click', e => {
-      const b = e.target.closest('[data-statut]');
-      if (!b) return;
-      filtre = b.dataset.statut;
-      document.querySelectorAll('#filtres .btn').forEach(x => x.classList.toggle('btn--accent', x === b));
-      afficher();
+    // menus « ⋯ » : un seul ouvert, fermé par Échap ou un clic ailleurs ; s'ouvre vers le haut près du bas de l'écran
+    let menuOuvert = null;
+    function fermerMenu(rendreFocus) {
+      if (!menuOuvert) return;
+      menuOuvert.querySelector('.comptes-menu-liste').classList.add('cache');
+      const bouton = menuOuvert.querySelector('.comptes-menu-bouton');
+      bouton.setAttribute('aria-expanded', 'false');
+      if (rendreFocus) bouton.focus();
+      menuOuvert = null;
+    }
+    function ouvrirMenu(conteneur) {
+      fermerMenu(false);
+      const liste = conteneur.querySelector('.comptes-menu-liste'), bouton = conteneur.querySelector('.comptes-menu-bouton');
+      liste.classList.remove('cache');
+      liste.classList.toggle('vers-le-haut', bouton.getBoundingClientRect().bottom + liste.offsetHeight + 16 > innerHeight);
+      bouton.setAttribute('aria-expanded', 'true');
+      liste.querySelector('[role=menuitem]').focus();
+      menuOuvert = conteneur;
+    }
+    document.addEventListener('click', e => { if (menuOuvert && !menuOuvert.contains(e.target)) fermerMenu(false); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && menuOuvert) { e.preventDefault(); fermerMenu(true); }
+      if (menuOuvert && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        const items = [...menuOuvert.querySelectorAll('[role=menuitem]')], i = items.indexOf(document.activeElement);
+        items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+      }
     });
 
-    lignes.addEventListener('click', async e => {
-      const b = e.target.closest('[data-action]'), id = e.target.closest('tr')?.dataset.id;
+    document.querySelector('main').addEventListener('click', async e => {
+      const ouvreur = e.target.closest('.comptes-menu-bouton');
+      if (ouvreur) { const m = ouvreur.closest('.comptes-menu'); return menuOuvert === m ? fermerMenu(true) : ouvrirMenu(m); }
+      const b = e.target.closest('[data-action]'), id = e.target.closest('[data-id]')?.dataset.id;
       if (!b || !id) return;
+      fermerMenu(false);
+      const c = comptes.find(x => String(x.id) === id), nom = c.nom || c.pseudo;
       try {
         if (b.dataset.action === 'supprimer') {
-          if (!await gestion.confirmer('Il pourra refaire une demande en se reconnectant.', { titre: 'Supprimer ce compte ?', libelle: 'Supprimer le compte' })) return;
+          if (!await gestion.confirmer(`Le compte de ${nom} sera supprimé du site. Il pourra refaire une demande en se reconnectant.`, 'Supprimer ce compte ?', 'Supprimer le compte')) return;
           await socle.api(`/api/comptes/${id}`, { method: 'DELETE' });
-        } else await socle.api(`/api/comptes/${id}`, { method: 'PATCH', body: { statut: b.dataset.action } });
-        gestion.message(msg, '');
+          gestion.message('zone-message', ''), gestion.notifier(`Compte de ${nom} supprimé.`);
+        } else if (b.dataset.action === 'refuse' && c.statut === 'valide') {
+          if (!await gestion.confirmer(`${nom} n’aura plus accès à l’espace de gestion. Son compte est conservé : vous pourrez rétablir l’accès.`, 'Suspendre l’accès ?', 'Suspendre l’accès', { danger: false })) return;
+          await socle.api(`/api/comptes/${id}`, { method: 'PATCH', body: { statut: 'refuse' } });
+          gestion.message('zone-message', ''), gestion.notifier(`Accès de ${nom} suspendu.`);
+        } else {
+          // une demande se valide avec le grade choisi sur sa carte, en un seul envoi
+          const corps = { statut: b.dataset.action };
+          const grade = e.target.closest('.comptes-demande')?.querySelector('[data-grade-demande]');
+          if (grade && b.dataset.action === 'valide') corps.grade = grade.value || null;
+          await socle.api(`/api/comptes/${id}`, { method: 'PATCH', body: corps });
+          gestion.message('zone-message', ''), gestion.notifier(b.dataset.action === 'valide' ? `${nom} a désormais accès à l’espace de gestion.` : `Demande de ${nom} refusée.`);
+        }
         await charger();
-      } catch (err) { gestion.message(msg, err.message); }
+      } catch (err) { gestion.message('zone-message', err.message); }
     });
-
-    lignes.addEventListener('change', async e => {
-      const id = e.target.closest('tr')?.dataset.id;
+    document.querySelector('main').addEventListener('change', async e => {
+      const id = e.target.closest('[data-id]')?.dataset.id;
       if (!e.target.matches('[data-grade]') || !id) return;
-      try { await socle.api(`/api/comptes/${id}`, { method: 'PATCH', body: { grade: e.target.value || null } }); gestion.message(msg, 'Grade enregistré.', true); await charger(); }
-      catch (err) { gestion.message(msg, err.message); await charger(); }
+      try { await socle.api(`/api/comptes/${id}`, { method: 'PATCH', body: { grade: e.target.value || null } }); gestion.message('zone-message', ''), gestion.notifier('Grade enregistré.'); }
+      catch (err) { gestion.message('zone-message', err.message); }
+      await charger();
     });
+    document.querySelectorAll('.comptes-filtre').forEach(b => b.addEventListener('click', () => {
+      filtre = b.dataset.filtre;
+      document.querySelectorAll('.comptes-filtre').forEach(x => { x.classList.toggle('actif', x === b); x.setAttribute('aria-pressed', String(x === b)); });
+      afficher();
+    }));
+    document.getElementById('recherche-comptes').addEventListener('input', e => { recherche = e.target.value.trim(); afficher(); });
 
-    gestion.coque().then(m => { moi = m; return charger(); }).catch(e => gestion.message(msg, e.message));
+    gestion.coque('comptes').then(m => { moi = m; return charger(); }).catch(e => gestion.message('zone-message', e.message));
   </script>
 </body>
 </html>

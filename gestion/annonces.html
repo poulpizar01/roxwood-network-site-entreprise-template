@@ -4,29 +4,38 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="application-name" content="{{nom}}">
-  <meta name="robots" content="noindex">
-  <title>Annonces — {{nom}}</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
+  <title>Annonces — {{nom}}</title>
 </head>
-<body>
+<body class="page-agents">
   <!-- EXEMPLE de page métier (routes : server/src/entreprise/routes/annonces.ts). À garder, transformer ou supprimer. -->
-  <main class="contenu">
-    <p class="surtitre">Espace employés</p>
-    <h1 class="page-titre">Annonces</h1>
-    <section class="carte" id="publier" hidden>
-      <h2>Publier une annonce</h2>
-      <p class="message" id="msg" hidden></p>
+  <main class="admin-contenu">
+    <div class="entete-admin">
+      <div>
+        <h1 style="margin-bottom:2px;">Annonces</h1>
+        <p style="margin:0;font-size:0.88rem;">Les nouvelles de l’équipe. Les annonces épinglées restent en tête.</p>
+      </div>
+    </div>
+    <div id="zone-message" role="status"></div>
+    <section class="accueil-panneau annonces-publier cache" id="publier" aria-labelledby="titre-publier">
+      <h2 class="compta-titre" id="titre-publier">Publier une annonce</h2>
       <form id="form">
         <div class="champ"><label for="titre">Titre</label><input type="text" id="titre" maxlength="120" required></div>
         <div class="champ"><label for="texte">Texte</label><textarea id="texte" maxlength="4000" required></textarea></div>
-        <div class="ligne"><label class="case"><input type="checkbox" id="epingle"> Épingler en haut</label><button class="btn btn--accent">Publier</button></div>
+        <div class="annonces-publier-pied">
+          <label class="champ-checkbox" for="epingle"><input type="checkbox" id="epingle"> Épingler en tête</label>
+          <button type="submit" class="btn btn-or">Publier l’annonce</button>
+        </div>
       </form>
     </section>
-    <div id="liste"><p class="vide">Chargement…</p></div>
+    <div class="annonces-liste" id="liste"><p class="etat-vide">Chargement…</p></div>
   </main>
   <script>
     let peutPublier = false;
@@ -36,13 +45,13 @@
       try {
         const annonces = await socle.api('/api/annonces');
         liste.innerHTML = annonces.length ? annonces.map(a => `
-          <article class="carte" data-id="${a.id}">
-            <div class="ligne"><h2 style="margin:0;flex:1">${socle.esc(a.titre)}</h2>${a.epingle ? '<span class="badge badge--alerte">Épinglée</span>' : ''}</div>
-            <p class="muet">${socle.date(a.creeLe, true)}${a.auteur ? ` · ${socle.esc(a.auteur)}` : ''}</p>
-            <p style="white-space:pre-line;overflow-wrap:anywhere">${socle.esc(a.texte)}</p>
-            ${peutPublier ? `<div class="ligne"><button class="btn btn--petit" data-epingle="${a.epingle ? '' : '1'}">${a.epingle ? 'Désépingler' : 'Épingler'}</button><button class="btn btn--petit btn--danger" data-retirer>Retirer</button></div>` : ''}
-          </article>`).join('') : '<p class="vide">Aucune annonce pour le moment.</p>';
-      } catch (e) { liste.innerHTML = `<p class="message">${socle.esc(e.message)}</p>`; }
+          <article class="accueil-panneau annonce" data-id="${a.id}">
+            <div class="accueil-panneau-entete"><h2>${socle.esc(a.titre)}</h2>${a.epingle ? '<span class="puce puce-or">Épinglée</span>' : ''}</div>
+            <p class="champ-aide">${socle.esc(socle.date(a.creeLe, true))}${a.auteur ? ` · ${socle.esc(a.auteur)}` : ''}</p>
+            <p class="annonce-texte">${socle.esc(a.texte)}</p>
+            ${peutPublier ? `<div class="actions-ligne"><button type="button" class="btn btn-fantome btn-petit" data-epingle="${a.epingle ? '' : '1'}">${a.epingle ? 'Désépingler' : 'Épingler'}</button><button type="button" class="btn btn-danger btn-petit" data-retirer>Retirer l’annonce</button></div>` : ''}
+          </article>`).join('') : `<p class="etat-vide">Aucune annonce pour le moment.${peutPublier ? ' Publiez la première ci-dessus.' : ''}</p>`;
+      } catch (e) { liste.textContent = ''; gestion.message('zone-message', e.message); }
     }
 
     // actions sur une annonce : écouteur unique (la politique de sécurité interdit les onclick=…)
@@ -51,27 +60,35 @@
       if (!carte || !bouton) return;
       try {
         if (bouton.hasAttribute('data-retirer')) {
-          if (!await gestion.confirmer('L’annonce disparaît de la page d’accueil des employés.', { titre: 'Retirer cette annonce ?', libelle: 'Retirer l’annonce' })) return;
+          if (!await gestion.confirmer('L’annonce disparaît pour toute l’équipe.', 'Retirer cette annonce ?', 'Retirer l’annonce')) return;
           await socle.api(`/api/annonces/${carte.dataset.id}`, { method: 'DELETE' });
-        } else await socle.api(`/api/annonces/${carte.dataset.id}`, { method: 'PATCH', body: { epingle: bouton.dataset.epingle === '1' } });
+          gestion.notifier('Annonce retirée.');
+        } else {
+          await socle.api(`/api/annonces/${carte.dataset.id}`, { method: 'PATCH', body: { epingle: bouton.dataset.epingle === '1' } });
+          gestion.notifier(bouton.dataset.epingle === '1' ? 'Annonce épinglée.' : 'Annonce désépinglée.');
+        }
+        gestion.message('zone-message', '');
         afficher();
-      } catch (err) { gestion.message(document.getElementById('msg'), err.message); }
+      } catch (err) { gestion.message('zone-message', err.message); }
     });
 
     document.getElementById('form').addEventListener('submit', async e => {
       e.preventDefault();
-      const msg = document.getElementById('msg'), champ = id => document.getElementById(id);
+      const champ = id => document.getElementById(id);
       try {
         await socle.api('/api/annonces', { method: 'POST', body: { titre: champ('titre').value, texte: champ('texte').value, epingle: champ('epingle').checked } });
-        e.target.reset(); gestion.message(msg, ''); afficher();
-      } catch (err) { gestion.message(msg, err.message); }
+        e.target.reset();
+        gestion.message('zone-message', '');
+        gestion.notifier('Annonce publiée.');
+        afficher();
+      } catch (err) { gestion.message('zone-message', err.message); }
     });
 
-    gestion.coque().then(moi => {
+    gestion.coque('annonces').then(moi => {
       peutPublier = socle.peut(moi, 'annonces');
-      document.getElementById('publier').hidden = !peutPublier;
+      document.getElementById('publier').classList.toggle('cache', !peutPublier);
       afficher();
-    });
+    }).catch(e => gestion.message('zone-message', e.message));
   </script>
 </body>
 </html>

@@ -4,265 +4,280 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="application-name" content="{{nom}}">
-  <meta name="robots" content="noindex">
-  <title>Comptabilité — {{nom}}</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
+  <title>Comptabilité — {{nom}}</title>
 </head>
-<body>
-  <!-- GESTION (exemple commun) — comptabilité, permission « compta » (routes : server/src/entreprise/routes/compta.ts).
-       Trois onglets : relevé Tablettes collé, rémunération par grade, déclaration DOT de la semaine. La part variable
-       de la rémunération (primes…) est propre à chaque entreprise : server/src/entreprise/compta/remuneration.ts.
-       Apparence libre. -->
-  <main class="contenu">
-    <h1 class="page-titre">Comptabilité</h1>
-    <p class="intro">Le relevé de la semaine, ce que chaque grade touche, et la déclaration DOT prête à recopier.</p>
-    <div class="onglets" role="tablist">
-      <button type="button" class="onglet actif" role="tab" aria-selected="true" data-onglet="releve">Relevé Tablettes</button>
-      <button type="button" class="onglet" role="tab" aria-selected="false" data-onglet="remuneration">Rémunération</button>
-      <button type="button" class="onglet" role="tab" aria-selected="false" data-onglet="dot">Déclaration DOT</button>
-    </div>
-    <p class="message" id="msg" hidden></p>
+<body class="page-agents">
+  <!-- GESTION — comptabilité (permission « compta ») : relevé Tablettes, déclaration DOT, rémunération. Serveur :
+       entreprise/routes/compta.ts et routes/stats.ts. -->
+  <main class="admin-contenu">
+    <section id="panneau-comptabilite">
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Comptabilité</h1>
+          <p style="margin:0;font-size:0.88rem;">Suivi des chiffres de l'entreprise.</p>
+        </div>
+      </div>
 
-    <!-- relevé -->
-    <section data-panneau="releve">
-      <div class="carte">
-        <div class="ligne compta-entete">
-          <div><h2>Relevé de la semaine</h2><p class="muet" id="releve-etat">Chargement…</p></div>
-          <div class="ligne">
-            <button type="button" class="btn btn--danger" id="reinitialiser" hidden>Vider le relevé</button>
-            <button type="button" class="btn btn--accent" id="importer">Coller un relevé</button>
+      <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques de la comptabilité">
+        <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="compta-panneau-tablettes" data-compta-onglet="tablettes"><svg class="ico" aria-hidden="true"><use href="#ico-sheet"></use></svg> Tablettes</button>
+        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="compta-panneau-dot" data-compta-onglet="dot"><svg class="ico" aria-hidden="true"><use href="#ico-receipt"></use></svg> Déclaration DOT</button>
+        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="compta-panneau-parametres" data-compta-onglet="parametres"><svg class="ico" aria-hidden="true"><use href="#ico-coins"></use></svg> Rémunération</button>
+      </div>
+
+      <!-- Sous-onglet : Tablettes -->
+      <div id="compta-panneau-tablettes">
+        <div class="entete-admin" style="margin-top:20px;">
+          <div>
+            <h2 class="compta-titre">Relevé Tablettes</h2>
+            <p class="compta-aide">Le relevé de la semaine (runs, factures, ventes, heures), collé depuis un outil externe. Son total donne le CA brut de la déclaration DOT.</p>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-or" id="bouton-importer-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-upload"></use></svg> Importer</button>
+            <button type="button" class="btn btn-fantome cache" id="bouton-copier-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
+            <!-- action d’effacement : après l’action principale, en bouton discret -->
+            <button type="button" class="btn btn-fantome cache" id="bouton-reinitialiser-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Réinitialiser</button>
           </div>
         </div>
-        <div id="releve"></div>
-      </div>
-    </section>
-
-    <!-- rémunération -->
-    <section data-panneau="remuneration" hidden>
-      <div class="carte">
-        <h2>Par grade</h2>
-        <p class="muet">Un salaire coupé n’est pas versé. Le taux horaire paie les heures de service du relevé (0 : pas de paie à l’heure). Les primes propres à l’entreprise s’ajoutent selon ses propres règles.</p>
-        <table>
-          <thead><tr><th data-titre>Grade</th><th>Salaire de la semaine</th><th>Versé</th><th>Taux horaire</th></tr></thead>
-          <tbody id="remuneration"><tr><td colspan="4" class="vide">Chargement…</td></tr></tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- DOT -->
-    <section data-panneau="dot" hidden>
-      <div class="carte">
-        <h2>Déclaration</h2>
-        <p class="muet" id="dot-source"></p>
-        <dl class="compta-resume" id="dot-resume"></dl>
-      </div>
-      <div class="grille">
-        <div class="carte" data-ecritures="depense"></div>
-        <div class="carte" data-ecritures="retrait"></div>
-      </div>
-      <div class="carte">
-        <div class="ligne compta-entete">
-          <div><h2>Salariés</h2><p class="muet">D’après le dernier relevé et la rémunération de chaque grade.</p></div>
-          <button type="button" class="btn" id="copier">Copier le tableau</button>
+        <div id="zone-message-tablette"></div>
+        <div id="compta-tablette-vide" class="etat-vide">
+          <p>Aucune donnée importée pour le moment. Cliquez sur « Importer » pour coller votre premier relevé.</p>
         </div>
-        <table>
-          <thead><tr><th data-titre>Nom</th><th>Rang</th><th>Salaire fixe</th><th>Paie à l’heure</th><th>Part variable</th><th>Total</th></tr></thead>
-          <tbody id="salaries"></tbody>
-        </table>
+        <div id="compta-tablette-resultat" class="cache">
+          <!-- les chiffres qui comptent pour la suite (CA brut de la DOT, paie à l'heure), avant le détail -->
+          <div class="compta-chiffres" id="compta-tablette-synthese"></div>
+          <p class="compta-aide" id="compta-tablette-info" style="margin:0 0 10px;"></p>
+          <div style="overflow-x:auto;">
+            <table class="table-admin" id="table-tablette"></table>
+          </div>
+          <!-- Paie à l'heure (stagiaires) : heures de service du relevé × taux horaire du grade (Rémunération), avec le
+               détail du calcul. Rempli à partir de GET /api/compta/tablettes (paie_horaire). -->
+          <div id="compta-paie-horaire" class="cache">
+            <h3 class="compta-sous-titre">Paie à l’heure</h3>
+            <p class="champ-aide" id="compta-paie-horaire-aide" style="margin:0 0 10px;"></p>
+            <div style="overflow-x:auto;">
+              <table class="table-admin">
+                <thead><tr><th>Nom</th><th>Grade</th><th style="text-align:right;">Heures de service</th><th style="text-align:right;">Taux horaire</th><th>Détail</th><th style="text-align:right;">Montant</th></tr></thead>
+                <tbody id="corps-table-paie-horaire"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sous-onglet : Rémunération (salaire fixe, primes par palier, taux horaire, par grade), enregistrée dans
+           remunerations_grades et baremes_primes (routes/stats.ts) : les tables que lisent la DOT et les primes partout.
+           Salaire de la semaine = fixe (si activé) + palier ventes (si activé) + palier locations (si activé)
+           + heures × taux horaire. Chaque modification s'enregistre aussitôt. -->
+      <div id="compta-panneau-parametres" class="cache">
+        <div class="entete-admin" style="margin-top:24px;">
+          <div>
+            <h2 class="compta-titre">Rémunération</h2>
+            <p class="compta-aide">Ce que touche chaque grade par semaine. Repris dans la déclaration DOT. Chaque modification s’enregistre aussitôt.</p>
+          </div>
+        </div>
+        <div id="zone-message-parametres" role="status"></div>
+
+        <div class="remu-formule" aria-label="Calcul du salaire de la semaine">
+          <span class="remu-formule-titre">Salaire de la semaine</span>
+          <span class="remu-terme">Salaire fixe</span><span class="remu-op" aria-hidden="true">+</span>
+          <span class="remu-terme">Prime ventes</span><span class="remu-op" aria-hidden="true">+</span>
+          <span class="remu-terme">Prime locations</span><span class="remu-op" aria-hidden="true">+</span>
+          <span class="remu-terme">Heures × taux horaire</span>
+        </div>
+
+        <section class="remu-section" aria-labelledby="titre-remu-grades">
+          <h3 class="compta-sous-titre" id="titre-remu-grades">Par grade</h3>
+          <p class="compta-aide">Activez ce que touche chaque grade. Les primes suivent les barèmes plus bas, les mêmes pour tous les grades.</p>
+          <div class="remu-grades" id="remu-grades"><p class="compta-aide">Chargement…</p></div>
+        </section>
+
+        <section class="remu-section" aria-labelledby="titre-remu-baremes">
+          <h3 class="compta-sous-titre" id="titre-remu-baremes">Barèmes des primes</h3>
+          <p class="compta-aide">La prime est celle du plus haut palier atteint dans la semaine ; sous le premier palier, pas de prime.</p>
+          <div class="remu-baremes">
+            <div class="remu-bareme" data-type="vente"></div>
+            <div class="remu-bareme" data-type="location"></div>
+          </div>
+        </section>
+
+        <section class="remu-section remu-simulateur" aria-labelledby="titre-remu-simu">
+          <h3 class="compta-sous-titre" id="titre-remu-simu" style="margin-top:0;">Simuler un salaire</h3>
+          <p class="compta-aide">Choisissez un grade et des chiffres de semaine pour voir ce qu’il toucherait avec les réglages ci-dessus. Rien n’est enregistré.</p>
+          <div class="remu-simu-champs">
+            <div class="champ"><label for="simu-grade">Grade</label><select id="simu-grade"></select></div>
+            <div class="champ"><label for="simu-ventes">Ventes</label><input type="number" id="simu-ventes" min="0" step="1" value="25" inputmode="numeric"></div>
+            <div class="champ"><label for="simu-locations">Locations</label><input type="number" id="simu-locations" min="0" step="1" value="5" inputmode="numeric"></div>
+            <div class="champ"><label for="simu-heures">Heures de service</label><input type="number" id="simu-heures" min="0" step="0.5" value="10" inputmode="decimal"></div>
+          </div>
+          <div class="remu-simu-resultat" id="simu-resultat" aria-live="polite"></div>
+        </section>
+      </div>
+
+      <!-- Sous-onglet : DOT — la déclaration hebdomadaire versée à la DOT (organisme fiscal du serveur RP), calculée à
+           partir du CA Brut (colonne « Total entreprise » du relevé Tablettes), des dépenses et retraits saisis
+           ci-dessous, et des primes : les mêmes montants que « Mon profil » (tableur de la Direction + barèmes du
+           site, recapAvecPrimesTableur dans stats/recap.ts). -->
+      <div id="compta-panneau-dot" class="cache">
+        <div class="entete-admin" style="margin-top:20px;">
+          <div>
+            <h2 class="compta-titre">Déclaration DOT</h2>
+            <p class="compta-aide">À partir du relevé Tablettes et des dépenses et retraits ci-dessous. Les salaires suivent les réglages de l’onglet Rémunération.</p>
+          </div>
+          <div class="dot-semaine"><label for="select-semaine-dot">Semaine</label><select id="select-semaine-dot"></select></div>
+        </div>
+        <div id="zone-message-dot"></div>
+
+        <div id="dot-resume-vide" class="etat-vide cache">
+          <p>Aucune vente/location enregistrée pour cette semaine — le total des salaires ne peut pas être calculé (le reste s'affiche quand même ci-dessous).</p>
+        </div>
+        <!-- les trois chiffres à déclarer ou à verser, puis le calcul ligne à ligne (même formule que le serveur :
+             routes/compta.ts, /api/compta/dot/resume) -->
+        <!-- place réservée (squelettes) : les chiffres arrivent sans pousser le détail du calcul -->
+        <div class="compta-chiffres" id="dot-chiffres"><div class="compta-chiffre squelette" aria-hidden="true"><span class="compta-chiffre-libelle">&nbsp;</span><strong>&nbsp;</strong><small>&nbsp;</small></div><div class="compta-chiffre squelette" aria-hidden="true"><span class="compta-chiffre-libelle">&nbsp;</span><strong>&nbsp;</strong><small>&nbsp;</small></div><div class="compta-chiffre squelette" aria-hidden="true"><span class="compta-chiffre-libelle">&nbsp;</span><strong>&nbsp;</strong><small>&nbsp;</small></div></div>
+        <div class="dot-calcul-bloc">
+          <h3 class="compta-sous-titre" style="margin-top:0;">Détail du calcul</h3>
+          <ol class="dot-calcul" id="dot-calcul"></ol>
+          <p class="compta-aide" id="dot-plafonds" style="margin:10px 0 0;"></p>
+        </div>
+
+        <div class="entete-admin" style="margin-top:32px;">
+          <div>
+            <h2 class="compta-titre">Dépenses déductibles et retraits</h2>
+            <p class="compta-aide">À ajouter au fil de l’eau : ils entrent aussitôt dans le calcul ci-dessus.</p>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-fantome" id="bouton-nouvelle-depense">+ Dépense déductible</button>
+            <button type="button" class="btn btn-fantome" id="bouton-nouveau-retrait">+ Retrait</button>
+          </div>
+        </div>
+        <div class="dot-ecritures">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+              <h3 class="compta-sous-titre" style="margin:0;">Dépenses déductibles <span class="compta-total-mini" id="dot-total-depenses"></span></h3>
+              <div style="display:flex;gap:8px;">
+                <button type="button" class="btn btn-fantome btn-petit" id="bouton-copier-depenses"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier</button>
+                <button type="button" class="actions-icone actions-icone--danger" id="bouton-reinitialiser-depenses" title="Tout effacer" aria-label="Effacer toutes les dépenses"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg></button>
+              </div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="table-admin">
+                <thead><tr><th>Date</th><th>Justificatif</th><th>Montant</th><th></th></tr></thead>
+                <tbody id="corps-table-dot-depenses"></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+              <h3 class="compta-sous-titre" style="margin:0;">Retraits <span class="compta-total-mini" id="dot-total-retraits"></span></h3>
+              <div style="display:flex;gap:8px;">
+                <button type="button" class="btn btn-fantome btn-petit" id="bouton-copier-retraits"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier</button>
+                <button type="button" class="actions-icone actions-icone--danger" id="bouton-reinitialiser-retraits" title="Tout effacer" aria-label="Effacer tous les retraits"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg></button>
+              </div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="table-admin">
+                <thead><tr><th>Date</th><th>Justificatif</th><th>Montant</th><th></th></tr></thead>
+                <tbody id="corps-table-dot-retraits"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="entete-admin" style="margin-top:36px;">
+          <div>
+            <h2 class="compta-titre">Tableau des salariés</h2>
+            <p class="compta-aide">À coller dans le document de la DOT. Run, facture et vente viennent du relevé (0 si la personne n’y figure pas) ; le salaire est le fixe du grade plus son palier ; la prime se saisit à la main dans le document.</p>
+            <ol class="dot-etapes">
+              <li>Dans le document de la DOT, repérez la ligne de la première personne et indiquez son numéro dans « N° de ligne du premier salarié ».</li>
+              <li>Cliquez sur « Copier le tableau ».</li>
+              <li>Dans le document, cliquez sur la case de la colonne A de cette ligne, puis collez (Ctrl+V).</li>
+            </ol>
+            <p class="compta-aide" style="margin-top:6px;">Les titres des colonnes ne sont pas copiés. Le CA total réalisé se calcule tout seul dans le document.</p>
+          </div>
+          <div class="dot-copie-outils">
+            <label for="dot-copie-premiere-ligne" class="dot-copie-libelle">N° de ligne du premier salarié</label>
+            <input type="number" id="dot-copie-premiere-ligne" class="table-input dot-copie-ligne" min="1" step="1" value="2" title="Numéro de la ligne du document DOT où sera collée la première personne (pour que la formule CA TOTAL vise les bonnes cases)">
+            <button type="button" class="btn btn-or" id="bouton-copier-salaries"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
+          </div>
+        </div>
+        <div id="dot-primes-avertissement"></div>
+        <div style="overflow-x:auto;">
+          <table class="table-admin">
+            <thead>
+              <tr><th>Nom du salarié</th><th>Grade</th><th>RUN</th><th>FACTURE</th><th>VENTE</th><th>CA TOTAL REALISE</th><th>Salaire</th><th>Prime</th></tr>
+            </thead>
+            <tbody id="corps-table-dot-salaries"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
 
-  <!-- coller un relevé -->
-  <div class="modale-fond" id="fenetre-import" hidden>
-    <div class="modale compta-fenetre" role="dialog" aria-modal="true" aria-labelledby="titre-import">
-      <h2 id="titre-import">Coller un relevé</h2>
-      <p>Dans la tablette, sélectionnez le tableau entier (titres compris), copiez-le, puis collez-le ici.</p>
-      <label for="texte-import">Relevé</label>
-      <textarea id="texte-import" rows="7" spellcheck="false"></textarea>
-      <p class="muet" id="apercu-import"></p>
-      <p class="message" id="msg-import" hidden></p>
-      <div class="ligne compta-pied">
-        <button type="button" class="btn" data-fermer>Annuler</button>
-        <button type="button" class="btn btn--accent" id="valider-import" disabled>Importer</button>
+<div class="modale-fond cache" id="modale-import-tablette" data-echap>
+  <div class="modale modale-import-tablette" style="max-width:1100px;" role="dialog" aria-modal="true" aria-labelledby="titre-modale-import-tablette">
+    <div class="modale-entete">
+      <h3 id="titre-modale-import-tablette">Importer un relevé — Tablettes</h3>
+      <button type="button" id="fermer-modale-import-tablette" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-import"></div>
+    <div class="import-tablette-corps">
+      <div class="champ">
+        <label for="import-tablette-texte">Collez vos données ici</label>
+        <p class="champ-aide" style="margin-top:-4px;">
+          Le plus fiable : copiez les cellules directement depuis Excel, Google Sheets ou un tableau similaire, puis collez-les ici (Ctrl+V) — la première ligne doit contenir les titres des colonnes.
+          Si vous tapez ou collez un texte à espaces (par exemple depuis Discord) et qu'une ligne comme « TOTAL » n'a pas de valeur pour une colonne, mettez un tiret « - » à cet endroit avant de coller, sinon les colonnes suivantes risquent de se décaler — vérifiez toujours l'aperçu ci-dessous avant d'enregistrer.
+        </p>
+        <textarea id="import-tablette-texte" rows="18" wrap="off" style="font-family:monospace;font-size:0.82rem;white-space:pre;overflow-x:auto;" placeholder="Nom    Rang    Factures    Runs    Ventes    Total entreprise    Part employé    Heures de service
+Javier Silva    Co-patron    0    0    0    0    0    0h52min
+TOTAL    -    0    0    0    0    0    -"></textarea>
+      </div>
+      <div id="apercu-import-tablette" class="cache">
+        <p class="champ-aide" style="margin:14px 0 8px;">Aperçu — vérifiez que chaque valeur est dans la bonne colonne avant d'enregistrer :</p>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-sm);">
+          <table class="table-admin" id="table-apercu-import"></table>
+        </div>
       </div>
     </div>
-  </div>
-
-  <!-- dépense ou retrait -->
-  <div class="modale-fond" id="fenetre-ecriture" hidden>
-    <div class="modale" role="dialog" aria-modal="true" aria-labelledby="titre-ecriture">
-      <h2 id="titre-ecriture">Nouvelle dépense</h2>
-      <form id="form-ecriture" novalidate>
-        <div class="champ"><label for="ecriture-justificatif">Justificatif</label><input type="text" id="ecriture-justificatif" maxlength="200"></div>
-        <div class="grille compta-deux">
-          <div class="champ"><label for="ecriture-montant">Montant ($)</label><input type="number" id="ecriture-montant" step="1"></div>
-          <div class="champ"><label for="ecriture-date">Date <small>facultatif</small></label><input type="date" id="ecriture-date"></div>
-        </div>
-        <p class="message" id="msg-ecriture" hidden></p>
-        <div class="ligne compta-pied">
-          <button type="button" class="btn" data-fermer>Annuler</button>
-          <button type="submit" class="btn btn--accent">Ajouter</button>
-        </div>
-      </form>
+    <div class="import-tablette-pied">
+      <button type="button" class="btn btn-or" id="bouton-enregistrer-import-tablette" disabled>Enregistrer ce tableau</button>
+      <button type="button" class="btn btn-fantome" id="bouton-annuler-import-tablette">Annuler</button>
     </div>
   </div>
+</div>
+<div class="modale-fond cache" id="modale-ecriture-dot" data-echap>
+  <div class="modale" style="max-width:420px;">
+    <div class="modale-entete">
+      <h3 id="titre-modale-ecriture-dot">Nouvelle dépense déductible</h3>
+      <button type="button" id="fermer-modale-ecriture-dot" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-ecriture-dot"></div>
+    <form id="formulaire-ecriture-dot">
+      <input type="hidden" id="ecriture-dot-type">
+      <div class="champ">
+        <label for="ecriture-dot-date">Date</label>
+        <input type="text" id="ecriture-dot-date" placeholder="JJ/MM/AAAA" maxlength="10" autocomplete="off">
+      </div>
+      <div class="champ">
+        <label for="ecriture-dot-justificatif">Justificatif</label>
+        <input type="text" id="ecriture-dot-justificatif" required maxlength="200" placeholder="ex : Essence" autocomplete="off">
+      </div>
+      <div class="champ">
+        <label for="ecriture-dot-montant">Montant ($)</label>
+        <input type="number" id="ecriture-dot-montant" required min="0" step="1" autocomplete="off">
+      </div>
+      <button type="submit" class="btn btn-or" style="width:100%;margin-top:18px;">Ajouter</button>
+    </form>
+  </div>
+</div>
 
-  <script>
-    const $ = id => document.getElementById(id), esc = socle.esc;
-    const argent = v => `${Math.round(Number(v) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} $`;
-    const ECRITURES = { depense: { titre: 'Dépenses déductibles', un: 'dépense' }, retrait: { titre: 'Retraits', un: 'retrait' } };
-    let releveLu = null, salaries = [], fermer = null, typeEcriture = 'depense';
-
-    // ---- onglets ----
-    document.querySelector('.onglets').addEventListener('click', e => {
-      const b = e.target.closest('[data-onglet]');
-      if (!b) return;
-      document.querySelectorAll('[data-onglet]').forEach(x => { x.classList.toggle('actif', x === b); x.setAttribute('aria-selected', String(x === b)); });
-      document.querySelectorAll('[data-panneau]').forEach(p => { p.hidden = p.dataset.panneau !== b.dataset.onglet; });
-      ({ releve: chargerReleve, remuneration: chargerRemuneration, dot: chargerDot })[b.dataset.onglet]();
-    });
-
-    // ---- relevé ----
-    async function chargerReleve() {
-      const r = await socle.api('/api/compta/releve');
-      releveLu = r.releve;
-      $('reinitialiser').hidden = !releveLu;
-      if (!releveLu) {
-        $('releve-etat').textContent = 'Aucun relevé pour le moment : collez celui de la semaine avec « Coller un relevé ».';
-        $('releve').innerHTML = '';
-        return;
-      }
-      $('releve-etat').textContent = `Importé le ${socle.date(releveLu.importeLe, true)}${releveLu.importePar ? ` par ${releveLu.importePar}` : ''}.`;
-      $('releve').innerHTML = `<table><thead><tr>${releveLu.colonnes.map((c, i) => `<th${i === 0 ? ' data-titre' : ''}>${esc(c)}</th>`).join('')}<th>Actions</th></tr></thead>
-        <tbody>${releveLu.lignes.map((l, i) => `<tr>${l.map(c => `<td>${esc(c)}</td>`).join('')}
-          <td>${['total', 'totaux'].includes(String(l[0]).trim().toLowerCase()) ? '' : `<button type="button" class="btn btn--petit btn--danger" data-retirer="${i}">Retirer</button>`}</td></tr>`).join('')}</tbody></table>`;
-    }
-    $('releve').addEventListener('click', async e => {
-      const b = e.target.closest('[data-retirer]');
-      if (!b) return;
-      const nom = releveLu.lignes[b.dataset.retirer][0];
-      if (!await gestion.confirmer(`${nom} sort du relevé de la semaine (l’import précédent reste en base).`, { titre: `Retirer ${nom} ?`, libelle: 'Retirer du relevé' })) return;
-      try { await socle.api(`/api/compta/releve/lignes/${b.dataset.retirer}`, { method: 'DELETE', body: { nom } }); gestion.notifier(`${nom} retiré du relevé`); chargerReleve(); }
-      catch (err) { gestion.message($('msg'), err.message); }
-    });
-    $('reinitialiser').addEventListener('click', async () => {
-      if (!await gestion.confirmer('Le relevé affiché est vidé ; les imports précédents restent en base.', { titre: 'Vider le relevé ?', libelle: 'Vider le relevé' })) return;
-      try { await socle.api('/api/compta/releve', { method: 'DELETE' }); gestion.notifier('Relevé vidé'); chargerReleve(); }
-      catch (err) { gestion.message($('msg'), err.message); }
-    });
-
-    // Tableau collé : tabulations (copie de cellules), sinon blocs d'au moins deux espaces. La ligne TOTAL de la tablette
-    // n'a pas de case « Rang » : le serveur la recale.
-    function decouper(texte) {
-      const lignes = String(texte).replace(/\r\n?/g, '\n').split('\n').filter(l => l.trim());
-      if (lignes.length < 2) return null;
-      const cellules = l => (l.includes('\t') ? l.split('\t') : l.trim().split(/ {2,}/)).map(c => c.trim());
-      const colonnes = cellules(lignes[0]).filter(Boolean);
-      return colonnes.length ? { colonnes, lignes: lignes.slice(1).map(cellules) } : null;
-    }
-    let colle = null;
-    $('importer').addEventListener('click', () => {
-      $('texte-import').value = ''; $('apercu-import').textContent = ''; $('valider-import').disabled = true; gestion.message($('msg-import'), '');
-      fermer = gestion.fenetre($('fenetre-import'), { focus: $('texte-import') });
-    });
-    $('texte-import').addEventListener('input', () => {
-      colle = decouper($('texte-import').value);
-      $('valider-import').disabled = !colle;
-      $('apercu-import').textContent = colle ? `${colle.colonnes.length} colonnes (${colle.colonnes.join(', ')}), ${colle.lignes.length} lignes.` : 'Collez le tableau avec sa ligne de titres et au moins une ligne.';
-    });
-    $('valider-import').addEventListener('click', async () => {
-      try { await socle.api('/api/compta/releve', { method: 'POST', body: colle }); fermer(); gestion.notifier('Relevé importé'); chargerReleve(); }
-      catch (err) { gestion.message($('msg-import'), err.message); }
-    });
-
-    // ---- rémunération (enregistrée champ par champ) ----
-    async function chargerRemuneration() {
-      const grades = await socle.api('/api/compta/remuneration');
-      $('remuneration').innerHTML = grades.length ? grades.map(g => `<tr data-grade="${esc(g.grade)}">
-        <td><span class="compta-grade"><span class="grades-pastille" style="background:${esc(g.couleur || '#888888')}"></span>${esc(g.libelle)}</span></td>
-        <td><input type="number" min="0" step="1" value="${g.salaireFixe}" data-champ="salaireFixe" aria-label="Salaire de la semaine, ${esc(g.libelle)}"></td>
-        <td><label class="compta-case"><input type="checkbox" data-champ="salaireActif" ${g.salaireActif ? 'checked' : ''}> ${g.salaireActif ? 'Versé' : 'Coupé'}</label></td>
-        <td><input type="number" min="0" step="1" value="${g.tauxHoraire}" data-champ="tauxHoraire" aria-label="Taux horaire, ${esc(g.libelle)}"></td>
-      </tr>`).join('') : '<tr><td colspan="4" class="vide">Aucun grade : créez-les d’abord dans Grades.</td></tr>';
-    }
-    $('remuneration').addEventListener('change', async e => {
-      const champ = e.target.dataset.champ, tr = e.target.closest('[data-grade]');
-      if (!champ || !tr) return;
-      const valeur = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-      if (e.target.type === 'checkbox') e.target.parentElement.lastChild.textContent = valeur ? ' Versé' : ' Coupé';
-      try { await socle.api(`/api/compta/remuneration/${encodeURIComponent(tr.dataset.grade)}`, { method: 'PATCH', body: { [champ]: valeur } }); gestion.notifier('Rémunération enregistrée'); }
-      catch (err) { gestion.notifier(err.message, 'erreur'); chargerRemuneration(); }
-    });
-
-    // ---- DOT ----
-    async function chargerDot() {
-      const d = await socle.api('/api/compta/dot'), r = d.resume;
-      $('dot-source').textContent = d.releve
-        ? `Relevé du ${socle.date(d.releve.importeLe, true)}${d.releve.importePar ? `, importé par ${d.releve.importePar}` : ''} : ${d.releve.personnes} personne${d.releve.personnes > 1 ? 's' : ''}. Vérifiez-le avant de recopier la déclaration.`
-        : 'Aucun relevé avec une colonne « Total entreprise » : importez celui de la semaine dans l’onglet Relevé Tablettes.';
-      const ligne = (t, v, fort) => `<div${fort ? ' class="fort"' : ''}><dt>${t}</dt><dd>${v === null ? '—' : argent(v)}</dd></div>`;
-      $('dot-resume').innerHTML = [
-        ligne('Chiffre d’affaires brut', r.caBrut), ligne('Dépenses déductibles', r.depenses), ligne('Bénéfice imposable', r.beneficeImposable, true),
-        `<div><dt>Taux d’imposition</dt><dd>${r.taux === null ? '—' : `${Math.round(r.taux * 100)} %`}</dd></div>`,
-        ligne('Impôts', r.impots), ligne('Bénéfice après impôts', r.apresImpots, true), ligne('Salaires', r.salaires),
-        ligne('Retraits', r.retraits), ligne('Bénéfice net (après impôts et retraits)', r.net, true),
-      ].join('');
-      for (const [type, t] of Object.entries(ECRITURES)) {
-        const liste = d.ecritures.filter(e => e.type === type), total = liste.reduce((s, e) => s + e.montant, 0);
-        document.querySelector(`[data-ecritures="${type}"]`).innerHTML = `<div class="ligne compta-entete"><h2>${t.titre}</h2><span class="badge">${argent(total)}</span></div>
-          ${liste.length ? `<ul class="compta-ecritures">${liste.map(e => `<li><span>${esc(e.justificatif)}${e.date ? ` <small class="muet">${esc(e.date)}</small>` : ''}</span>
-            <strong>${argent(e.montant)}</strong><button type="button" class="btn btn--petit btn--danger" data-supprimer-ecriture="${e.id}" aria-label="Supprimer ${esc(e.justificatif)}">Supprimer</button></li>`).join('')}</ul>`
-            : `<p class="vide">Aucun${type === 'depense' ? 'e dépense' : ' retrait'} cette semaine.</p>`}
-          <div class="ligne"><button type="button" class="btn" data-ajouter="${type}">Ajouter un${type === 'depense' ? 'e dépense' : ' retrait'}</button>
-          ${liste.length ? `<button type="button" class="btn btn--danger" data-vider="${type}">Tout effacer</button>` : ''}</div>`;
-      }
-      salaries = d.salaries;
-      $('salaries').innerHTML = salaries.length ? salaries.map(s => `<tr>
-        <td>${esc(s.nom)}</td><td>${s.grade ? esc(s.rang) : `${esc(s.rang || '—')} <span class="badge badge--alerte">Grade inconnu</span>`}</td>
-        <td>${argent(s.salaireFixe)}</td><td>${s.heures && s.minutes === null ? `<span class="badge badge--alerte">Durée illisible : ${esc(s.heures)}</span>` : argent(s.paieHoraire)}</td>
-        <td>${argent(s.partVariable)}</td><td><strong>${argent(s.total)}</strong></td></tr>`).join('')
-        : '<tr><td colspan="6" class="vide">Aucun salarié : importez le relevé de la semaine dans l’onglet Relevé Tablettes.</td></tr>';
-    }
-    document.querySelector('[data-panneau="dot"]').addEventListener('click', async e => {
-      const ajouter = e.target.closest('[data-ajouter]'), sup = e.target.closest('[data-supprimer-ecriture]'), vider = e.target.closest('[data-vider]');
-      if (ajouter) {
-        typeEcriture = ajouter.dataset.ajouter;
-        $('titre-ecriture').textContent = `Nouve${typeEcriture === 'depense' ? 'lle dépense' : 'au retrait'}`;
-        $('form-ecriture').reset(); gestion.message($('msg-ecriture'), '');
-        fermer = gestion.fenetre($('fenetre-ecriture'), { focus: $('ecriture-justificatif') });
-      } else if (sup) {
-        try { await socle.api(`/api/compta/dot/ecritures/${sup.dataset.supprimerEcriture}`, { method: 'DELETE' }); gestion.notifier('Écriture supprimée'); chargerDot(); }
-        catch (err) { gestion.notifier(err.message, 'erreur'); }
-      } else if (vider) {
-        const t = ECRITURES[vider.dataset.vider];
-        if (!await gestion.confirmer(`Toutes les écritures « ${t.titre} » sont effacées, pour commencer une nouvelle semaine. Les autres restent.`, { titre: `Effacer : ${t.titre} ?`, libelle: 'Tout effacer' })) return;
-        try { await socle.api(`/api/compta/dot/ecritures?type=${vider.dataset.vider}`, { method: 'DELETE' }); gestion.notifier(`${t.titre} effacés`); chargerDot(); }
-        catch (err) { gestion.notifier(err.message, 'erreur'); }
-      }
-    });
-    $('form-ecriture').addEventListener('submit', async e => {
-      e.preventDefault();
-      const iso = $('ecriture-date').value, date = iso ? iso.split('-').reverse().join('/') : '';
-      try {
-        await socle.api('/api/compta/dot/ecritures', { method: 'POST', body: { type: typeEcriture, justificatif: $('ecriture-justificatif').value, montant: $('ecriture-montant').value, date } });
-        fermer(); gestion.notifier(`${ECRITURES[typeEcriture].un.charAt(0).toUpperCase() + ECRITURES[typeEcriture].un.slice(1)} ajouté${typeEcriture === 'depense' ? 'e' : ''}`); chargerDot();
-      } catch (err) { gestion.message($('msg-ecriture'), err.message); }
-    });
-    document.querySelectorAll('[data-fermer]').forEach(b => b.addEventListener('click', () => fermer?.()));
-    // copie pour la déclaration : nom, rang, total, une personne par ligne (colle en cellules dans un tableur)
-    $('copier').addEventListener('click', async () => {
-      if (!salaries.length) { gestion.notifier('Rien à copier : importez d’abord le relevé de la semaine.', 'erreur'); return; }
-      try { await navigator.clipboard.writeText(salaries.map(s => [s.nom, s.rang, Math.round(s.total)].join('\t')).join('\n')); gestion.notifier(`${salaries.length} salarié${salaries.length > 1 ? 's' : ''} copié${salaries.length > 1 ? 's' : ''}`); }
-      catch { gestion.notifier('La copie a été refusée par le navigateur : sélectionnez le tableau à la main.', 'erreur'); }
-    });
-
-    champDateFr($('ecriture-date'));
-    gestion.coque().then(chargerReleve).catch(e => gestion.message($('msg'), e.message));
-  </script>
+  <script src="/gestion/comptabilite.js"></script>
 </body>
 </html>

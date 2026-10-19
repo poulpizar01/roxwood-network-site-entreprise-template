@@ -4,47 +4,166 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="application-name" content="{{nom}}">
-  <meta name="robots" content="noindex">
-  <title>Accueil — {{nom}}</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
+  <title>Accueil — {{nom}}</title>
 </head>
-<body>
-  <!-- Accueil après connexion (nom imposé par le socle : gestion/accueil.html). Contenu libre : tableau de bord de
-       l'entreprise (chiffres du jour, stocks, rendez-vous…). -->
-  <main class="contenu">
-    <p class="surtitre">Espace employés</p>
-    <h1 class="page-titre" id="bonjour">Bonjour</h1>
-    <p class="intro">Point de départ du tableau de bord : à remplacer par ce dont l'entreprise a besoin au quotidien.</p>
-    <div class="grille">
-      <section class="carte">
-        <h2>Dernières annonces</h2>
-        <div id="annonces"><p class="vide">Chargement…</p></div>
-        <a href="annonces.html">Toutes les annonces <svg class="fleche" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+<body class="page-agents">
+  <!-- GESTION — accueil après connexion (nom imposé par le socle : gestion/accueil.html). Dans l'ordre : ce qui attend une
+       action (selon les droits, /api/accueil/a-traiter), la prime de la semaine, la journée, qui est en service et les
+       dernières annonces. Rien n'y répète le menu. À adapter à ce dont l'entreprise a besoin au quotidien. -->
+  <main class="admin-contenu">
+    <div class="entete-admin">
+      <div>
+        <h1 style="margin-bottom:2px;" id="bonjour">Bonjour</h1>
+        <p style="margin:0;font-size:0.88rem;" id="date-du-jour">Bienvenue dans l’espace de gestion de {{nom}}.</p>
+      </div>
+    </div>
+    <div id="zone-message"></div>
+    <!-- en attendant les données : une silhouette de la page, puis tout s'affiche d'un coup (les blocs ne se poussent
+         plus les uns les autres en arrivant) -->
+    <div class="accueil-attente" id="accueil-attente" aria-hidden="true">
+      <div class="accueil-indicateurs"><div class="stat-carte squelette"></div></div>
+      <div class="accueil-panneaux"><div class="accueil-panneau squelette"></div><div class="accueil-panneau squelette"></div></div>
+    </div>
+    <div class="accueil-corps" id="accueil-corps" aria-busy="true">
+    <section class="accueil-a-traiter cache" id="a-traiter" aria-labelledby="titre-a-traiter">
+      <h2 id="titre-a-traiter">À traiter</h2>
+      <ul id="a-traiter-liste"></ul>
+    </section>
+    <div class="accueil-indicateurs" id="indicateurs"></div>
+    <div class="accueil-panneaux">
+      <section class="accueil-panneau" aria-labelledby="titre-aujourdhui">
+        <div class="accueil-panneau-entete">
+          <h2 id="titre-aujourdhui">Aujourd’hui</h2>
+          <a href="agenda.html">Ouvrir l’agenda</a>
+        </div>
+        <ul class="accueil-liste" id="aujourdhui"><li class="accueil-vide">Chargement…</li></ul>
+        <div class="cache" id="a-venir-bloc">
+          <h3 class="accueil-sous-titre">Les 7 prochains jours</h3>
+          <ul class="accueil-liste" id="a-venir"></ul>
+        </div>
       </section>
-      <section class="carte" id="aFaire" hidden>
-        <h2>À traiter</h2>
-        <p id="attente" class="muet"></p>
-        <a href="comptes.html">Gérer les comptes <svg class="fleche" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <section class="accueil-panneau cache" aria-labelledby="titre-service" id="panneau-service">
+        <div class="accueil-panneau-entete">
+          <h2 id="titre-service">En service</h2>
+          <span class="admin-en-service-nombre" id="nombre-service"></span>
+        </div>
+        <ul class="accueil-liste admin-service-liste" id="en-service"></ul>
+        <button type="button" class="btn btn-fantome btn-petit cache" id="service-tout" aria-controls="en-service" aria-expanded="false"></button>
       </section>
+      <section class="accueil-panneau" aria-labelledby="titre-annonces">
+        <div class="accueil-panneau-entete">
+          <h2 id="titre-annonces">Dernières annonces</h2>
+          <a href="annonces.html">Toutes les annonces</a>
+        </div>
+        <ul class="accueil-liste" id="annonces"></ul>
+      </section>
+    </div>
     </div>
   </main>
   <script>
-    gestion.coque().then(async moi => {
+    const PARIS = { timeZone: 'Europe/Paris' };
+    const argent = v => `${Math.round(Number(v) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} $`;
+    const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+    // jours à Paris (AAAA-MM-JJ), comme ceux de l'agenda
+    const jourParis = d => new Intl.DateTimeFormat('en-CA', { ...PARIS, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+    const aujourdhui = jourParis(new Date());
+    const dansUneSemaine = jourParis(new Date(Date.now() + 7 * 86400e3));
+    const jourLisible = j => new Date(`${j}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
+    const ligneVide = texte => `<li class="accueil-vide">${texte}</li>`;
+    const SERVICE_VISIBLES = 8;
+
+    // prime de la semaine : montant, puis ce qui manque pour le palier suivant (ventes, locations)
+    function cartePrime(p) {
+      if (!p.synchronise) return `<div class="stat-carte accueil-prime">
+          <span class="stat-icone stat-icone--or">${gestion.ico('chart')}</span>
+          <div><div class="stat-libelle">Ma prime de la semaine</div>
+          <div class="stat-sous-libelle">${p.configure
+            ? 'Pas encore calculée : votre nom n’a pas été trouvé dans le Google Sheets de la direction. Demandez-lui de vérifier votre ligne.'
+            : 'Pas encore calculée : le Google Sheets de la direction n’est pas encore relié au site.'}</div></div></div>`;
+      const progression = (info, mot) => {
+        if (!info) return '';
+        if (info.suivant === null) return `<li><span>${mot.charAt(0).toUpperCase() + mot.slice(1)}s : palier le plus haut atteint</span></li>`;
+        const fait = Math.max(0, info.suivant - info.restant), pct = Math.min(100, Math.round(fait / info.suivant * 100));
+        return `<li><span>Plus que <strong>${pluriel(info.restant, mot)}</strong> pour ${argent(info.montantSuivant)}</span>
+          <span class="accueil-barre" role="progressbar" aria-label="${mot}s vers le palier suivant" aria-valuemin="0" aria-valuemax="${info.suivant}" aria-valuenow="${fait}"><span style="width:${pct}%"></span></span></li>`;
+      };
+      const lignes = progression(p.paliers?.ventes, 'vente') + progression(p.paliers?.locations, 'location');
+      return `<div class="stat-carte accueil-prime">
+          <span class="stat-icone stat-icone--vert">${gestion.ico('chart')}</span>
+          <div><div class="stat-valeur">${argent(p.primeTotale)}</div><div class="stat-libelle">Ma prime de la semaine</div>
+          <div class="stat-sous-libelle">${pluriel(p.ventes, 'vente')} · ${pluriel(p.locations, 'location')}</div>
+          ${lignes ? `<ul class="accueil-paliers">${lignes}</ul>` : ''}</div></div>`;
+    }
+
+    gestion.coque('accueil').then(async moi => {
       document.getElementById('bonjour').textContent = `Bonjour, ${moi.nom || moi.pseudo}`;
-      const zone = document.getElementById('annonces');
-      try {
-        const liste = (await socle.api('/api/annonces')).slice(0, 3);
-        zone.innerHTML = liste.length ? liste.map(a => `<p><strong>${socle.esc(a.titre)}</strong><br><span class="muet">${socle.date(a.creeLe)}</span></p>`).join('') : '<p class="vide">Aucune annonce pour le moment.</p>';
-      } catch (e) { zone.innerHTML = `<p class="message">${socle.esc(e.message)}</p>`; }
-      if (socle.peut(moi, 'comptes')) {
-        const n = (await socle.api('/api/comptes')).filter(c => c.statut === 'attente').length;
-        document.getElementById('aFaire').hidden = false;
-        document.getElementById('attente').textContent = n ? `${n} demande(s) d’accès en attente.` : 'Aucune demande d’accès en attente.';
+      const jour = new Date().toLocaleDateString('fr-FR', { ...PARIS, weekday: 'long', day: 'numeric', month: 'long' });
+      document.getElementById('date-du-jour').textContent = jour.charAt(0).toUpperCase() + jour.slice(1);
+
+      // chaque bloc se charge seul : une erreur dans l'un n'empêche pas d'afficher les autres
+      const [taches, primes, agenda, annonces, service] = await Promise.allSettled([
+        socle.api('/api/accueil/a-traiter'),
+        socle.api('/api/profil/primes'),
+        socle.api(`/api/agenda?debut=${aujourdhui}&fin=${dansUneSemaine}`),
+        socle.api('/api/annonces'),
+        socle.api('/api/services/en-cours'),
+      ]);
+
+      // à traiter : une ligne par action, vers la page qui la traite ; bloc masqué s'il n'y a rien
+      const liste = taches.value?.taches || [];
+      document.getElementById('a-traiter').classList.toggle('cache', !liste.length);
+      document.getElementById('a-traiter-liste').innerHTML = liste.map(t => `<li><a class="accueil-tache${t.alerte ? ' accueil-tache--alerte' : ''}" href="${socle.esc(t.lien)}">
+          <span class="accueil-tache-nombre" aria-hidden="true">${t.alerte ? '!' : Number(t.nombre)}</span><span>${socle.esc(t.texte)}</span>${gestion.ico('chevron')}</a></li>`).join('');
+
+      document.getElementById('indicateurs').innerHTML = primes.value ? cartePrime(primes.value) : '';
+
+      // journée : les rendez-vous du jour ; s'il n'y en a pas, les prochains de la semaine
+      const ul = document.getElementById('aujourdhui');
+      if (agenda.status === 'rejected') ul.innerHTML = ligneVide('L’agenda n’a pas pu être chargé. Rechargez la page dans un instant.');
+      else {
+        const evts = (agenda.value.evenements || []).sort((a, b) => (a.jour + a.heure_debut).localeCompare(b.jour + b.heure_debut));
+        const ligne = (e, avecJour) => `<li><span class="accueil-heure">${avecJour ? `${socle.esc(jourLisible(e.jour))}, ` : ''}${socle.esc(e.heure_debut)}–${socle.esc(e.heure_fin)}</span><span class="accueil-texte">${socle.esc(e.titre)}</span></li>`;
+        const duJour = evts.filter(e => e.jour === aujourdhui), aVenir = evts.filter(e => e.jour > aujourdhui).slice(0, 5);
+        ul.innerHTML = duJour.length ? duJour.map(e => ligne(e, false)).join('')
+          : ligneVide(`Rien de prévu aujourd’hui. <a href="agenda.html?nouveau=1">Ajouter un rendez‑vous</a>`);
+        document.getElementById('a-venir-bloc').classList.toggle('cache', duJour.length > 0 || !aVenir.length);
+        document.getElementById('a-venir').innerHTML = aVenir.map(e => ligne(e, true)).join('');
       }
+
+      // annonces : les trois plus récentes (épinglées d'abord, comme la page Annonces)
+      document.getElementById('annonces').innerHTML = annonces.status === 'rejected'
+        ? ligneVide('Les annonces n’ont pas pu être chargées. Rechargez la page dans un instant.')
+        : annonces.value.length ? annonces.value.slice(0, 3).map(a => `<li><span class="accueil-heure">${socle.esc(socle.date(a.creeLe))}</span><span class="accueil-texte">${socle.esc(a.titre)}</span></li>`).join('')
+        : ligneVide('Aucune annonce pour le moment.');
+
+      // en service : seulement après réception d'un événement du bot ; les 8 premiers, puis « Voir les N autres »
+      if (service.value?.regle) {
+        const s = gestion.ordreEnService(service.value.enService);
+        const listeService = document.getElementById('en-service'), tout = document.getElementById('service-tout');
+        document.getElementById('panneau-service').classList.remove('cache');
+        document.getElementById('nombre-service').textContent = s.length;
+        const dessiner = deplie => {
+          const visibles = deplie ? s : s.slice(0, SERVICE_VISIBLES);
+          listeService.innerHTML = s.length ? visibles.map(gestion.ligneEnService).join('') : ligneVide('Personne n’est en service pour le moment.');
+          tout.classList.toggle('cache', s.length <= SERVICE_VISIBLES);
+          tout.setAttribute('aria-expanded', String(deplie));
+          tout.textContent = deplie ? 'Réduire la liste' : `Voir les ${s.length - SERVICE_VISIBLES} autres`;
+        };
+        tout.addEventListener('click', () => dessiner(tout.getAttribute('aria-expanded') !== 'true'));
+        dessiner(false);
+      }
+      document.getElementById('accueil-attente').remove();
+      document.getElementById('accueil-corps').removeAttribute('aria-busy');
+      const erreur = [taches, primes].find(r => r.status === 'rejected');
+      if (erreur) gestion.message('zone-message', `Une partie de l’accueil n’a pas pu se charger (${erreur.reason.message}). Rechargez la page dans un instant.`);
     });
   </script>
 </body>

@@ -4,45 +4,46 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="application-name" content="{{nom}}">
-  <meta name="robots" content="noindex">
-  <title>Connexion — {{nom}}</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Espace de gestion — {{nom}}</title>
 </head>
-<body>
-  <!-- Page de connexion (nom imposé par le socle : gestion/index.html). Contenu et apparence libres ; le bouton mène à
-       /auth/discord. Déjà connecté : le serveur redirige vers l'accueil sans afficher cette page. -->
-  <main class="seul">
-    <div class="carte">
-      <img src="/assets/logo.png" alt="" width="72" height="72">
-      <p class="surtitre">Espace employés</p>
-      <h1>{{nom}}</h1>
-      <p class="muet">Connecte-toi avec ton compte Discord. Il doit faire partie du serveur Discord de l'entreprise.</p>
-      <p class="message" id="erreur" hidden></p>
-      <a class="btn btn--accent" href="/auth/discord">Se connecter avec Discord</a>
-      <p><a href="/"><svg class="fleche" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg> Retour au site</a></p>
+<body class="page-agents">
+  <!-- GESTION — connexion (nom imposé par le socle : gestion/index.html). Déjà connecté : le serveur redirige vers
+       l'accueil sans afficher cette page. -->
+  <div class="ecran-connexion">
+    <div class="carte-connexion">
+      <div class="logo-connexion"><img src="/assets/logo.png" alt="" width="64" height="64"><span>{{nom}}</span></div>
+      <h1 class="connexion-titre">Espace de gestion</h1>
+      <div id="zone-message"></div>
+      <p style="text-align:center;font-size:0.88rem;margin-bottom:20px;">Réservé à l’équipe. Connectez-vous avec votre compte Discord : il doit faire partie du serveur Discord de l’entreprise.</p>
+      <a class="btn btn-or bouton-discord" style="width:100%;" href="/auth/discord"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M20.3 5.3A16.6 16.6 0 0 0 16 4c-.2.4-.4.8-.5 1.2a15 15 0 0 0-6.9 0A9 9 0 0 0 8 4a16.6 16.6 0 0 0-4.3 1.3C1.4 9 .8 12.6 1 16.2A16.7 16.7 0 0 0 6 18.8c.4-.5.8-1.1 1.1-1.7a10.6 10.6 0 0 1-1.7-.8l.4-.3a12 12 0 0 0 10.4 0l.4.3c-.5.3-1.1.6-1.7.8.3.6.7 1.2 1.1 1.7a16.6 16.6 0 0 0 5-2.6c.3-4.2-.7-7.7-2.7-11zM9 14.1c-.9 0-1.7-.9-1.7-1.9 0-1.1.7-2 1.7-2s1.7.9 1.7 2c0 1-.8 1.9-1.7 1.9zm6 0c-.9 0-1.7-.9-1.7-1.9 0-1.1.7-2 1.7-2s1.7.9 1.7 2c0 1-.7 1.9-1.7 1.9z"/></svg> Se connecter avec Discord</a>
+      <p style="text-align:center;margin-top:18px;"><a href="/" style="font-size:0.85rem;color:var(--text-faint);"><svg class="fleche" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"/></svg> Retour au site</a></p>
     </div>
-  </main>
+  </div>
   <script>
-    // ?erreur=… posé par le serveur au retour de Discord (routes/auth.ts)
+    // ?erreur=… posé par le serveur au retour de Discord ou de la connexion en jeu (socle/routes/auth.ts)
     const ERREURS = {
-      'pas-membre': 'Ce compte Discord ne fait pas partie du serveur de l’entreprise.',
-      oauth: 'La connexion a été interrompue. Réessaie.',
-      jeton: 'Discord a refusé la connexion. Réessaie.',
-      discord: 'Discord ne répond pas pour le moment. Réessaie dans un instant.',
-      serveur: 'Erreur du site pendant la connexion. Réessaie.',
-      // connexion depuis l'ordinateur en jeu (FolkOS)
+      'pas-membre': 'Ce compte Discord ne fait pas partie du serveur Discord de l’entreprise.',
+      oauth: 'La connexion a été interrompue. Réessayez.',
+      jeton: 'Discord a refusé la connexion. Réessayez.',
+      discord: 'Discord ne répond pas pour le moment. Réessayez dans un instant.',
+      serveur: 'Erreur du site pendant la connexion. Réessayez.',
       'folkos-config': 'La connexion en jeu n’est pas activée sur ce site.',
-      'folkos-ticket': 'La connexion en jeu a expiré ou a été refusée. Relance-la depuis l’ordinateur.',
-      'folkos-reseau': 'Le service de connexion en jeu ne répond pas. Réessaie dans un instant.',
-      'folkos-inconnu': 'Aucun compte lié à ce joueur : connecte-toi d’abord une fois avec Discord, depuis un navigateur.',
-      'folkos-discord': 'Ta dernière connexion Discord date de plus de 30 jours : reconnecte-toi avec Discord depuis un navigateur, puis réessaie en jeu.',
-      'folkos-serveur': 'Erreur du site pendant la connexion. Réessaie.',
+      'folkos-ticket': 'La connexion en jeu a expiré ou a été refusée. Relancez-la depuis l’ordinateur.',
+      'folkos-reseau': 'Le service de connexion en jeu ne répond pas. Réessayez dans un instant.',
+      'folkos-inconnu': 'Aucun compte lié à ce joueur : connectez-vous d’abord une fois avec Discord, depuis un navigateur.',
+      'folkos-discord': 'Votre dernière connexion Discord date de plus de 30 jours : reconnectez-vous avec Discord depuis un navigateur, puis réessayez en jeu.',
+      'folkos-serveur': 'Erreur du site pendant la connexion. Réessayez.',
     };
     const code = new URLSearchParams(location.search).get('erreur');
-    if (code) { const el = document.getElementById('erreur'); el.hidden = false; el.textContent = ERREURS[code] || ERREURS.serveur; }
+    if (code) gestion.message('zone-message', (Object.prototype.hasOwnProperty.call(ERREURS, code) ? ERREURS[code] : ERREURS.serveur));
   </script>
 </body>
 </html>

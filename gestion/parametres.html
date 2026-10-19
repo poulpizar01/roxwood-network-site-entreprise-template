@@ -4,89 +4,136 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="application-name" content="{{nom}}">
-  <meta name="robots" content="noindex">
-  <title>Paramètres — {{nom}}</title>
+  <meta name="robots" content="noindex, nofollow">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
+  <title>Paramètres — {{nom}}</title>
 </head>
-<body>
-  <!-- Paramètres du site (API du socle : /api/parametres, docs/api.md ; permission « parametres »). Les champs sont
-       construits d'après les réglages déclarés dans entreprise.parametres : rien à écrire ici pour en ajouter un.
-       Un onglet par « onglet » déclaré, enregistré à part ; un réglage Discord (rôle, salon, catégorie) se choisit par
-       son nom quand le bot est relié au site (/api/parametres/discord), sinon par son identifiant. Apparence libre. -->
-  <main class="contenu">
-    <p class="surtitre">Gestion</p>
-    <h1 class="page-titre">Paramètres</h1>
-    <p class="intro">Liens et réglages du site. Chacun s'applique dès l'enregistrement, sans redémarrer le site.</p>
-    <div class="onglets" role="tablist" id="onglets"></div>
-    <p class="message" id="msg" hidden></p>
+<body class="page-agents">
+  <!-- GESTION — paramètres du site (permission « parametres », serveur : entreprise/parametres.ts, socle/parametres.ts).
+       Un onglet par « onglet » déclaré côté serveur, plus Apparence ; chaque onglet s'enregistre à part et montre en tête
+       l'état de ce qui en dépend. Un réglage Discord (rôle, salon, catégorie) se choisit par son nom quand le bot est
+       relié au site (/api/parametres/discord), sinon par son identifiant. -->
+  <main class="admin-contenu">
+    <div class="entete-admin">
+      <div>
+        <h1 style="margin-bottom:2px;">Paramètres</h1>
+        <p style="margin:0;font-size:0.88rem;">Les liens et réglages du site. Chacun s’applique dès l’enregistrement.</p>
+      </div>
+    </div>
+    <div class="compta-sous-onglets" role="tablist" id="onglets"></div>
+    <div id="zone-message" role="status"></div>
+    <div class="param-etats" id="etats" aria-live="polite"></div>
     <form id="form" novalidate>
       <div id="panneaux"></div>
-      <div class="ligne param-pied">
-        <span class="muet param-modifie" id="modifie" hidden><span class="param-modifie-long">Modifications non enregistrées</span><span class="param-modifie-court">Non enregistré</span></span>
-        <button class="btn btn--accent" id="enregistrer">Enregistrer</button>
+      <div class="param-pied" id="pied">
+        <span class="param-modifie" id="modifie" hidden><span class="param-modifie-long">Modifications non enregistrées</span><span class="param-modifie-court">Non enregistré</span></span>
+        <button type="submit" class="btn btn-or" id="enregistrer">Enregistrer</button>
       </div>
     </form>
+
+    <!-- Apparence : images de la marque (serveur : entreprise/routes/apparence.ts) ; s'enregistrent aussitôt -->
+    <section id="panneau-apparence" class="cache" aria-labelledby="titre-apparence">
+      <h2 class="compta-titre" id="titre-apparence">Images de la marque</h2>
+      <p class="compta-aide" style="margin-bottom:16px;">Sur les pages publiques comme dans l’espace de gestion. Une image remplacée s’affiche partout aussitôt (quelques minutes pour les visiteurs déjà venus). Gardez les proportions de l’image d’origine pour qu’elle ne soit pas déformée.</p>
+      <p class="compta-aide seulement-en-jeu" style="margin-bottom:16px;">En jeu, l’ordinateur ne permet pas toujours de choisir un fichier : si rien ne s’ouvre, ajoutez l’image depuis un navigateur, avec le même compte.</p>
+      <div class="apparence-grille" id="apparence"></div>
+      <input type="file" id="apparence-fichier" accept="image/png,image/jpeg,image/webp" class="cache">
+    </section>
   </main>
+
   <script>
-    const $ = id => document.getElementById(id), msg = $('msg');
-    const esc = socle.esc;
-    const ATTRIBUTS = {
-      lien: 'type="url" placeholder="https://…"', origine: 'type="url" placeholder="https://…"', texte: 'type="text"',
-      'id-discord': 'type="text" inputmode="numeric"', 'ids-discord': 'type="text"',
-    };
-    let groupes = [], discord = { configure: false, roles: [], salons: [], categories: [] }, ongletCourant = null, modifie = false;
+    const $ = id => document.getElementById(id);
+    const ATTRIBUTS = { lien: 'type="url" placeholder="https://…"', origine: 'type="url" placeholder="https://…"', 'id-discord': 'type="text" inputmode="numeric"', 'ids-discord': 'type="text"' };
+    const APPARENCE = 'Apparence';
+    let groupes = [], discord = { configure: false, roles: [], salons: [], categories: [] }, modifie = false;
+    // onglet demandé par l'adresse (?onglet=Discord, depuis l'Accueil), sinon le premier
+    let onglet = new URLSearchParams(location.search).get('onglet');
     const LISTES = { role: () => discord.roles, salon: () => discord.salons, categorie: () => discord.categories };
     const PREFIXE = { role: '@', salon: '#', categorie: '' };
     const nomDe = (sorte, id) => LISTES[sorte]?.().find(x => x.id === id)?.nom;
+    const reglage = cle => groupes.flatMap(g => g.reglages).find(r => r.cle === cle);
+    const quand = d => new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' });
 
-    // Réglage Discord choisi par son nom : étiquettes (avec ×) + menu « Ajouter… » ; la valeur reste dans un champ
-    // caché data-cle (identifiants séparés par des espaces), lue telle quelle à l'enregistrement.
-    function choixDiscord(r) {
+    // ---- un réglage Discord choisi par son nom : étiquettes (×) + menu « Ajouter… » ; valeur dans un champ caché ----
+    function choixDiscord(r, etiquette) {
       const ids = String(r.valeur || '').split(/\s+/).filter(Boolean), plusieurs = r.type === 'ids-discord';
       const options = LISTES[r.discord]().filter(x => !ids.includes(x.id));
-      return `<div class="choix-discord" data-choix="${esc(r.cle)}" data-plusieurs="${plusieurs ? 1 : 0}" data-sorte="${esc(r.discord)}">
-        <input type="hidden" data-cle="${esc(r.cle)}" value="${esc(ids.join(' '))}">
-        <span class="choix-etiquettes">${ids.map(id => `<span class="badge">${esc(PREFIXE[r.discord] + (nomDe(r.discord, id) || `introuvable (${id})`))}
-          <button type="button" class="choix-retirer" data-retirer="${esc(id)}" aria-label="Retirer ${esc(nomDe(r.discord, id) || id)}">×</button></span>`).join('')}</span>
-        ${plusieurs || !ids.length ? `<select id="p-${esc(r.cle)}" aria-label="${esc(r.libelle)}"><option value="">${ids.length ? 'Ajouter…' : 'Choisir…'}</option>
-          ${options.map(x => `<option value="${esc(x.id)}">${esc(PREFIXE[r.discord] + x.nom)}${x.categorie ? ` (${esc(x.categorie)})` : ''}</option>`).join('')}</select>` : ''}
+      return `<div class="choix-discord" data-choix="${echapper(r.cle)}">
+        <input type="hidden" data-cle="${echapper(r.cle)}" value="${echapper(ids.join(' '))}">
+        ${ids.map(id => `<span class="choix-etiquette">${echapper(PREFIXE[r.discord] + (nomDe(r.discord, id) || `introuvable (${id})`))}<button type="button" data-retirer="${echapper(id)}" aria-label="Retirer ${echapper(nomDe(r.discord, id) || id)}">×</button></span>`).join('')}
+        ${plusieurs || !ids.length ? `<select id="r-${echapper(r.cle)}" aria-label="${echapper(etiquette || r.libelle)}"><option value="">${ids.length ? 'Ajouter…' : 'Choisir…'}</option>
+          ${options.map(x => `<option value="${echapper(x.id)}">${echapper(PREFIXE[r.discord] + x.nom)}${x.categorie ? ` · ${echapper(x.categorie)}` : ''}</option>`).join('')}</select>` : ''}
       </div>`;
     }
+    const avecListe = r => r.discord && discord.configure && LISTES[r.discord]().length > 0;
+    function saisie(r, etiquette) {
+      if (avecListe(r)) return choixDiscord(r, etiquette);
+      const attributs = r.type === 'entier' ? `type="number" min="${Number(r.min)}" max="${Number(r.max)}" placeholder="${Number(r.defaut)}"`
+        : r.cle === 'sheet' ? 'type="url" placeholder="https://docs.google.com/spreadsheets/d/…"' : ATTRIBUTS[r.type] || 'type="text"';
+      return `<input id="r-${echapper(r.cle)}" data-cle="${echapper(r.cle)}" value="${echapper(r.valeur)}" autocomplete="off" ${attributs}${etiquette ? ` aria-label="${echapper(etiquette)}"` : ''}${r.discord ? ' placeholder="Identifiant Discord"' : ''}>`;
+    }
+    const champ = r => `<div class="champ">
+        <label for="r-${echapper(r.cle)}">${echapper(r.libelle)}</label>
+        ${saisie(r)}
+        ${r.aide ? `<p class="champ-aide">${echapper(r.aide)}</p>` : ''}
+      </div>`;
 
-    function champ(r) {
-      const avecListe = r.discord && discord.configure && LISTES[r.discord]().length;
-      return `<div class="champ">
-        <label for="p-${esc(r.cle)}">${esc(r.libelle)}${r.public ? ' <span style="font-weight:400;color:var(--ink2)">· affiché sur le site public</span>' : ''}</label>
-        ${avecListe ? choixDiscord(r) : `<input id="p-${esc(r.cle)}" data-cle="${esc(r.cle)}" value="${esc(r.valeur)}" autocomplete="off"
-          ${r.type === 'entier' ? `type="number" step="1" min="${Number(r.min)}" max="${Number(r.max)}" placeholder="${Number(r.defaut)}"` : ATTRIBUTS[r.type] || 'type="text"'}>`}
-        <small>${esc(r.aide)}${r.discord && !avecListe ? ` ${esc(aideIdentifiant())}` : ''}</small>
-      </div>`;
+    // ---- états en tête d'onglet ----
+    const etat = (classe, texte) => `<p class="param-etat ${classe}">${texte}</p>`;
+    async function afficherEtats() {
+      const zone = $('etats'), lignes = [];
+      if (onglet === 'Discord') {
+        lignes.push(!discord.configure ? etat('alerte', 'Bot Discord non relié au site : les rôles et salons se saisissent par leur identifiant, les rôles Discord ne sont relus qu’à la connexion de chacun, et les invitations de l’agenda ne sont pas envoyées sur Discord. Demandez-le à la personne qui s’occupe du site. En attendant : dans Discord, activez le mode développeur (Paramètres → Avancés), puis clic droit sur le rôle, le salon ou la catégorie → «&nbsp;Copier&nbsp;l’identifiant&nbsp;».')
+          : discord.erreur ? etat('erreur', `Bot Discord : ${echapper(discord.erreur)}`)
+          : discord.simulation ? etat('neutre', 'Bot Discord simulé (développement) : rôles, salons et catégories sont fictifs, des prises de service sont inventées toutes les quelques minutes, et rien n’est envoyé à Discord.')
+          : etat('ok', 'Bot Discord relié : rôles et salons proposés par leur nom.'));
+        try {
+          const s = await socle.api('/api/services/etat');
+          // prises et fins de service : envoyées par le bot (événement monitoring.duty) ; le site ne lit aucun salon
+          lignes.push(s.dernierRecu
+            ? etat('ok', `Prises et fins de service reçues du bot : la dernière le ${echapper(quand(s.dernierRecu))}. ${s.enService} personne${s.enService > 1 ? 's' : ''} en service.`)
+            : etat('neutre', 'Aucune prise de service reçue du bot pour le moment. Pour la recevoir, la personne qui s’occupe du site abonne le site à l’événement «&nbsp;Prise de service&nbsp;» (monitoring.duty) dans le panneau Monitoring du bot Discord de l’entreprise.'));
+        } catch {}
+      }
+      if (onglet === 'Google Sheets') {
+        try {
+          const t = await socle.api('/api/tableur/etat-lecture'), e = t.etat;
+          lignes.push(!t.configure ? etat('alerte', 'Google Sheets non réglé : les primes restent à zéro.')
+            : !e || e.statut === 'desactive' ? etat('neutre', 'Google Sheets : première lecture dans moins d’une minute.')
+            : e.statut === 'erreur' ? etat('erreur', `Google Sheets : la dernière lecture a échoué (${echapper(quand(e.derniereSync))}) : ${echapper(e.erreur)}`)
+            // lignes écartées (grade inconnu du site) : dit lesquelles, plutôt que « mauvais onglet »
+            : e.avertissement ? etat('alerte', `Google Sheets lu le ${echapper(quand(e.derniereSync))} : ${e.nbLignes} employé${e.nbLignes > 1 ? 's' : ''}. ${echapper(e.avertissement)}`)
+            : !e.nbLignes ? etat('alerte', `Google Sheets lu le ${echapper(quand(e.derniereSync))}, mais aucun employé trouvé : le lien vise sans doute le mauvais onglet.`)
+            : etat('ok', `Google Sheets lu le ${echapper(quand(e.derniereSync))} : ${e.nbLignes} employé${e.nbLignes > 1 ? 's' : ''}.`));
+        } catch {}
+      }
+      zone.innerHTML = lignes.join('');
     }
-    const aideIdentifiant = () => discord.configure
-      ? (discord.erreur ? `Liste Discord indisponible (${discord.erreur}) : collez l’identifiant.` : 'Collez l’identifiant.')
-      : 'Pour choisir dans une liste, le bot Discord doit être relié au site (demandez-le à qui s’occupe du site) ; en attendant, collez l’identifiant (Discord, mode développeur : clic droit → « Copier l’identifiant »).';
 
     function afficher() {
-      const onglets = [...new Set(groupes.map(g => g.onglet))];
-      if (!onglets.includes(ongletCourant)) ongletCourant = onglets[0] ?? null;
-      $('onglets').hidden = onglets.length < 2;
-      $('onglets').innerHTML = onglets.map(o => `<button type="button" role="tab" class="onglet${o === ongletCourant ? ' actif' : ''}" aria-selected="${o === ongletCourant}" data-onglet="${esc(o)}">${esc(o)}</button>`).join('');
-      $('panneaux').innerHTML = groupes.length ? groupes.filter(g => g.onglet === ongletCourant).map(g => `
-        <section class="carte">
-          <h2>${esc(g.titre)}</h2>
-          ${g.intro ? `<p class="intro">${esc(g.intro)}</p>` : ''}
+      const onglets = [...new Set(groupes.map(g => g.onglet)), APPARENCE];
+      if (!onglets.includes(onglet)) onglet = onglets[0];
+      $('onglets').innerHTML = onglets.map(o => `<button type="button" role="tab" class="compta-sous-onglet${o === onglet ? ' actif' : ''}" aria-selected="${o === onglet}" data-onglet="${echapper(o)}">${echapper(o)}</button>`).join('');
+      nettoyerSelectsPortee('parametres');   // listes flottantes de l’affichage précédent
+      const apparence = onglet === APPARENCE;
+      $('form').classList.toggle('cache', apparence);
+      $('panneau-apparence').classList.toggle('cache', !apparence);
+      $('panneaux').innerHTML = groupes.filter(g => g.onglet === onglet).map(g => `
+        <section class="param-groupe">
+          <h2 class="compta-titre">${echapper(g.titre)}</h2>
+          ${g.intro ? `<p class="compta-aide" style="margin-bottom:14px;">${echapper(g.intro)}</p>` : ''}
           ${g.reglages.map(champ).join('')}
-        </section>`).join('')
-        : '<p class="intro">Aucun réglage déclaré pour ce site (entreprise.parametres).</p>';
-      $('enregistrer').hidden = !groupes.length;
-      // faux bot du développement : les listes sont fictives, à ne pas confondre avec le vrai serveur
-      if (discord.simulation && groupes.some(g => g.onglet === ongletCourant && g.reglages.some(r => r.discord)))
-        $('panneaux').insertAdjacentHTML('afterbegin', '<p class="intro"><strong>Bot Discord simulé (développement)</strong> : rôles, salons et catégories sont fictifs, rien n’est envoyé à Discord.</p>');
+        </section>`).join('');
+      $('panneaux').querySelectorAll('.choix-discord select').forEach(s => ameliorerSelect(s, null, 'parametres'));
       marquer(false);
+      afficherEtats();
+      if (apparence) chargerApparence();
     }
     function marquer(oui) { modifie = oui; $('modifie').hidden = !oui; }
 
@@ -98,54 +145,99 @@
       afficher();
     }
 
-    // un changement non enregistré : on prévient avant de changer d'onglet (rien n'est perdu sans le dire)
+    // changer d'onglet avec des modifications en cours : on prévient (rien n'est perdu sans le dire)
     $('onglets').addEventListener('click', async e => {
       const b = e.target.closest('[data-onglet]');
-      if (!b || b.dataset.onglet === ongletCourant) return;
-      if (modifie && !await gestion.confirmer('Les modifications de cet onglet ne sont pas enregistrées.', { titre: 'Changer d’onglet ?', libelle: 'Abandonner les modifications' })) return;
-      ongletCourant = b.dataset.onglet;
+      if (!b || b.dataset.onglet === onglet) return;
+      if (modifie && !await gestion.confirmer('Les modifications de cet onglet ne sont pas enregistrées.', 'Changer d’onglet ?', 'Abandonner les modifications')) return;
+      onglet = b.dataset.onglet;
       afficher();
     });
-    $('form').addEventListener('input', () => marquer(true));
-    // choix Discord : ajouter depuis le menu, retirer avec ×
+    $('form').addEventListener('input', e => { if (!e.target.closest('.choix-discord select')) marquer(true); });
     $('panneaux').addEventListener('change', e => {
       const sel = e.target.closest('.choix-discord select');
       if (!sel || !sel.value) return;
-      const bloc = sel.closest('[data-choix]'), cache = bloc.querySelector('[data-cle]');
-      cache.value = bloc.dataset.plusieurs === '1' ? [...cache.value.split(/\s+/).filter(Boolean), sel.value].join(' ') : sel.value;
-      redessinerChoix(bloc);
+      const bloc = sel.closest('[data-choix]'), cache = bloc.querySelector('[data-cle]'), r = reglage(bloc.dataset.choix);
+      cache.value = r.type === 'ids-discord' ? [...cache.value.split(/\s+/).filter(Boolean), sel.value].join(' ') : sel.value;
+      redessiner(bloc, r);
     });
     $('panneaux').addEventListener('click', e => {
       const b = e.target.closest('[data-retirer]');
       if (!b) return;
       const bloc = b.closest('[data-choix]'), cache = bloc.querySelector('[data-cle]');
       cache.value = cache.value.split(/\s+/).filter(x => x && x !== b.dataset.retirer).join(' ');
-      redessinerChoix(bloc);
+      redessiner(bloc, reglage(bloc.dataset.choix));
     });
-    function redessinerChoix(bloc) {
-      const r = groupes.flatMap(g => g.reglages).find(x => x.cle === bloc.dataset.choix);
+    function redessiner(bloc, r) {
       r.valeur = bloc.querySelector('[data-cle]').value;
-      bloc.outerHTML = choixDiscord(r);
+      fermerSelectOuvert?.();
+      const etiquette = bloc.querySelector('select')?.getAttribute('aria-label');
+      bloc.outerHTML = choixDiscord(r, etiquette);
+      const nouveau = document.querySelector(`[data-choix="${CSS.escape(r.cle)}"]`);
+      nouveau.querySelector('select') && ameliorerSelect(nouveau.querySelector('select'), null, 'parametres');
       marquer(true);
-      document.querySelector(`[data-choix="${CSS.escape(r.cle)}"] select`)?.focus();
     }
 
-    // enregistre les réglages de l'onglet affiché (le serveur n'écrit que les clés reçues)
+    // enregistre l'onglet affiché seulement (le serveur n'écrit que les clés reçues)
     $('form').addEventListener('submit', async e => {
       e.preventDefault();
       const corps = Object.fromEntries([...$('panneaux').querySelectorAll('[data-cle]')].map(c => [c.dataset.cle, c.value.trim()]));
       $('enregistrer').disabled = true;
       try {
         await socle.api('/api/parametres', { method: 'PUT', body: corps });
+        gestion.message('zone-message', '');
+        gestion.notifier(`${onglet} : réglages enregistrés ✓`);
         await charger();
-        gestion.message(msg, '');
-        // notification en bas : le bouton est en bas de l'onglet, un message en haut passerait inaperçu
-        gestion.notifier('Réglages enregistrés : ils s’appliquent dès maintenant.');
-      } catch (err) { gestion.message(msg, err.message); }
+      } catch (err) { gestion.message('zone-message', err.message); }
       finally { $('enregistrer').disabled = false; }
     });
 
-    gestion.coque().then(charger).catch(e => gestion.message(msg, e.message));
+    // ---- apparence ----
+    let imageVisee = null;
+    async function chargerApparence() {
+      try {
+        const r = await socle.api('/api/apparence');
+        $('apparence').innerHTML = (r.stockage ? '' : '<p class="param-etat alerte" style="grid-column:1/-1;">Le stockage des images n’est pas configuré : les images d’origine restent en place. Demandez-le à la personne qui s’occupe du site.</p>') + r.images.map(i => `
+          <div class="apparence-carte">
+            <div class="apparence-apercu"><img src="${echapper(i.apercu)}?v=${i.majLe ? new Date(i.majLe).getTime() : 0}" alt=""></div>
+            <div class="apparence-infos">
+              <strong>${echapper(i.libelle)}</strong>${i.personnalisee ? ' <span class="puce puce-or">Remplacée</span>' : ''}
+              <p class="champ-aide">${echapper(i.aide)} Proportions d’origine : ${i.largeur} × ${i.hauteur}.</p>
+              <div class="apparence-actions">
+                <button type="button" class="btn btn-fantome btn-petit" data-remplacer="${echapper(i.cle)}" ${r.stockage ? '' : 'disabled'}>Remplacer</button>
+                ${i.personnalisee ? `<button type="button" class="btn btn-fantome btn-petit" data-retablir="${echapper(i.cle)}">Rétablir l’originale</button>` : ''}
+              </div>
+            </div>
+          </div>`).join('');
+      } catch (e) { gestion.message('zone-message', e.message); }
+    }
+    $('apparence').addEventListener('click', async e => {
+      const remplacer = e.target.closest('[data-remplacer]'), retablir = e.target.closest('[data-retablir]');
+      if (remplacer) { imageVisee = remplacer.dataset.remplacer; $('apparence-fichier').click(); }
+      if (retablir) {
+        if (!await gestion.confirmer('L’image d’origine du site reviendra partout.', 'Rétablir l’image d’origine ?', 'Rétablir', { danger: false })) return;
+        try { await socle.api(`/api/apparence/${encodeURIComponent(retablir.dataset.retablir)}`, { method: 'DELETE' }); gestion.notifier('Image d’origine rétablie ✓'); chargerApparence(); }
+        catch (err) { gestion.notifier(err.message, 'erreur'); }
+      }
+    });
+    $('apparence-fichier').addEventListener('change', async e => {
+      const fichier = e.target.files?.[0];
+      e.target.value = '';
+      if (!fichier || !imageVisee) return;
+      if (fichier.size > 15 * 1024 * 1024) { gestion.notifier('Image trop lourde (15 Mo au plus).', 'erreur'); return; }
+      const corps = new FormData();
+      corps.append('image', fichier);
+      gestion.notifier('Envoi de l’image…');
+      try {
+        const r = await fetch(`/api/apparence/${encodeURIComponent(imageVisee)}`, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' }, body: corps });
+        const data = await r.json().catch(() => null);
+        if (!r.ok) throw new Error(data?.error || 'L’envoi de l’image a échoué.');
+        gestion.notifier(data.avertissement ? `Image remplacée. ${data.avertissement}` : 'Image remplacée ✓ Elle s’affiche partout.', data.avertissement ? 'erreur' : 'succes');
+        chargerApparence();
+      } catch (err) { gestion.notifier(err.message, 'erreur'); }
+    });
+
+    gestion.coque('parametres').then(charger).catch(e => gestion.message('zone-message', e.message));
   </script>
 </body>
 </html>
