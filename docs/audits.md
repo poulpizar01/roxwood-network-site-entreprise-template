@@ -2,7 +2,7 @@
 
 Une revue généraliste (« est-ce prêt pour la prod ? ») trouve surtout un type de problème et passe à côté des autres. Ces prompts découpent l'audit en **angles indépendants**, à lancer séparément avant une mise en prod, après une grosse fonctionnalité, ou périodiquement.
 
-Dans Claude Code : `/audit` lance les six angles en parallèle et fusionne les rapports, `/audit <angle>` un seul (voir `.claude/skills/audit/`). Ce fichier est la seule source des prompts : les modifier ici suffit.
+Dans Claude Code : `/audit` lance les sept angles en parallèle et fusionne les rapports, `/audit <angle>` un seul (voir `.claude/skills/audit/`). Ce fichier est la seule source des prompts : les modifier ici suffit.
 
 Fichier du socle : on l'améliore dans le modèle, chaque site le récupère avec le reste du socle. Les angles couvrent le socle **et** le code de l'entreprise : dans un site, c'est surtout ce dernier qui change d'un audit à l'autre.
 
@@ -147,4 +147,18 @@ Cherche :
 - un texte qui parle à un développeur (nom de variable, .env, fichier, « webhook »), un terme inventé, une période nommée en relatif (« hier », « semaine prochaine ») ;
 - une annonce automatique (aria-live) sur une information relue périodiquement, qui serait relue à chaque passage.
 Ici, le scénario de défaillance est : quelle largeur ou quel moyen (souris, clavier, lecteur d'écran, ordinateur en jeu) → ce que la personne ne peut pas faire ou pas voir.
+```
+
+## 7. Argent et données personnelles sensibles
+
+```
+Audite uniquement les calculs financiers et les données personnelles sensibles de l'entreprise (salaire, primes, paie, comptabilité, fiches employé, ou tout équivalent propre au site).
+Cherche :
+- les calculs d'argent (paliers de prime, taux horaire, barème d'imposition, rémunération par grade, relevé de comptabilité) : arrondi incohérent entre l'affichage et la valeur enregistrée, borne de palier mal incluse ou exclue, montant négatif ou nul non géré, devise ou unité mélangée (heures vs minutes, euros vs centimes) ;
+- l'import de données externes utilisées pour calculer de l'argent (tableur, CSV collé, webhook) : une ligne réimportée ou modifiée comptée deux fois, une table de « doublons » qui ne couvre pas tous les cas de reprise, un import interrompu qui laisse les tables d'état et d'archive incohérentes entre elles ;
+- les champs personnels sensibles (téléphone, RIB, adresse, ou tout champ marqué comme tel dans permissions.ts) : lisibles par une permission plus large que celle déclarée, renvoyés dans la réponse d'une route qui n'en a pas besoin (liste, export, recherche), visibles dans un journal ou une erreur ;
+- la conservation : une durée ou une suppression annoncée dans confidentialite.html sans tâche de purge qui l'applique réellement, ou une purge qui efface moins (ou plus) que ce que la page promet ;
+- l'historique d'un montant qui change de barème ou de palier a posteriori (nouveau taux appliqué à une période déjà close, ou l'inverse) ;
+- une somme recalculée à chaque affichage à partir de lignes détaillées sans transaction : deux lectures simultanées pendant un import verraient un total différent ;
+- une donnée sensible rattachée à un compte par un nom ou un identifiant modifiable plutôt que par l'identifiant Discord (reprend le risque de l'angle 1, du point de vue du champ sensible plutôt que du grade).
 ```
