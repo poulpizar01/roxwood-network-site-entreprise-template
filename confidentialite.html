@@ -26,7 +26,11 @@
   <p>Le site enregistre :</p>
   <ul>
     <li><b>ton compte</b> : identifiant, pseudo et avatar Discord, rôles sur le serveur Discord de l'entreprise (relus à chaque connexion et régulièrement par le bot du site), nom RP, grade, date de la demande, de sa validation et de ta dernière connexion ;</li>
-    <li><b>ce que tu publies</b> dans l'espace employés (annonces).</li>
+    <li><b>ce que tu publies</b> dans l'espace employés (annonces, événements de l'agenda et invitations) ;</li>
+    <li><b>ta fiche d'employé</b>, si les ressources humaines en tiennent une : nom RP, identifiant d'employé, grade, identifiant et pseudo Discord, dates d'arrivée et de départ, et, si tu les as donnés, ton téléphone et ton RIB en jeu ;</li>
+    <li><b>ta candidature</b>, si elle a été acceptée sur Discord : le ticket et son résultat ; les réponses au formulaire ne sont gardées que tant que la candidature attend d'être traitée ;</li>
+    <li><b>tes chiffres de travail</b> : les ventes envoyées par le bot de ventes, ta ligne du Google Sheets de la direction (nombre de ventes et de locations, lue par le serveur seul : ta visite n'y est pas signalée), le relevé des Tablettes et ta rémunération, qui servent aux primes et à la déclaration DOT ;</li>
+    <li><b>tes prises et fins de service</b>, envoyées par le bot Discord de l'entreprise : qui est en service est visible par tous les employés.</li>
   </ul>
   <p>Un seul cookie est posé, <b>site.sid</b> : il garde ta session ouverte pendant 7 jours. Il est indispensable à la connexion et ne sert à rien d'autre.</p>
   <p>Le bot Discord de l'entreprise peut transmettre au site certains événements (par exemple une demande d'absence) : ils sont gardés 30 jours.</p>
@@ -35,6 +39,7 @@
   <ul>
     <li><b>Les employés</b> (compte validé) : ton nom RP, ton avatar Discord et ton grade, et ce que tu publies.</li>
     <li><b>Les responsables</b> qui gèrent les comptes : en plus, ton pseudo Discord, les dates de ton compte et le statut de ta demande.</li>
+    <li><b>Les ressources humaines et la comptabilité</b>, selon les droits de leur grade : ta fiche d'employé et tes chiffres de travail. Le téléphone et le RIB ne sont montrés qu'aux personnes qui en ont reçu le droit.</li>
     <li><b>Les prestataires techniques</b> : l'hébergeur du site et, s'il y en a, le service qui stocke les images. Les avatars sont affichés depuis Discord.</li>
   </ul>
   <p>Rien n'est vendu ni transmis à qui que ce soit d'autre.</p>
@@ -42,14 +47,18 @@
   <h2>Combien de temps</h2>
   <ul>
     <li>Ton compte : tant que tu ne le supprimes pas.</li>
+    <li>Ta fiche d'employé, tes ventes et ta rémunération : tant que l'entreprise existe, car elles font l'historique de la paie ; supprimer ton compte ne les efface pas, il les détache de toi.</li>
+    <li>Les prises et fins de service : un an. Les événements de l'agenda : un an. Les candidatures : un an, et les réponses au formulaire 30 jours au plus.</li>
     <li>Les sauvegardes de la base : 7 jours sur le serveur, et jusqu'à 30 jours pour une éventuelle copie de secours. Une donnée effacée y survit donc quelques semaines au plus.</li>
   </ul>
 
   <h2>Tes droits</h2>
   <p>Tu peux à tout moment <b>corriger</b> ton nom et <b>supprimer ton compte</b> depuis la page « Mon compte » de l'espace employés. Une demande encore en attente se retire de la même façon.</p>
-  <p>Pour toute autre demande (obtenir une copie de tes données), écris aux responsables de l'entreprise sur <a href="{{discord}}" rel="noopener">son serveur Discord</a>. Si la réponse ne te convient pas, tu peux saisir la <a href="https://www.cnil.fr/fr/plaintes" rel="noopener">CNIL</a>.</p>
+  <p>Pour toute autre demande (obtenir une copie de tes données), écris aux responsables de l'entreprise<a data-lien="discord_entreprise" rel="noopener" hidden> sur son serveur Discord</a>. Si la réponse ne te convient pas, tu peux saisir la <a href="https://www.cnil.fr/fr/plaintes" rel="noopener">CNIL</a>.</p>
 
   <p><i>Les responsables de {{nom}} sont responsables de ces données.</i></p>
 </main>
+  <!-- socle.js : lien du Discord de l’entreprise, réglé dans Paramètres (data-lien) -->
+  <script src="/socle/socle.js"></script>
 </body>
 </html>
