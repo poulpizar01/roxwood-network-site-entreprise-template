@@ -21,9 +21,269 @@ model Annonce {
   @@map("annonces")
 }
 
-// Comptabilité (page gestion/comptabilite.html, routes src/entreprise/routes/compta.ts, calculs src/entreprise/compta/).
-// Commune aux entreprises du serveur : relevé Tablettes, déclaration DOT, salaire par grade. La part variable de la
-// rémunération (primes, commissions) dépend de chaque entreprise : src/entreprise/compta/remuneration.ts.
+// Agenda partagé : visibilité, invitations et règles dans entreprise/agenda-regles.ts et routes/agenda.ts
+model EvenementAgenda {
+  id               Int      @id @default(autoincrement())
+  compteId         Int?     @map("compte_id") // auteur ; null : compte supprimé (événement partagé gardé)
+  auteurNom        String   @default("") @map("auteur_nom") @db.VarChar(64)
+  titre            String   @db.VarChar(80)
+  jour             DateTime @db.Date
+  heureDebut       String   @map("heure_debut") @db.VarChar(5) // HH:MM, heure de Paris
+  heureFin         String   @map("heure_fin") @db.VarChar(5)
+  notes            String   @default("") @db.VarChar(500)
+  typeId           Int?     @map("type_id") // classement (couleur) ; type supprimé : « Sans type »
+  type             TypeAgenda? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  // destiné à : « perso » (l'auteur et ses invités), « tous », ou « grade » (selon les droits exacts réglés par grade, agenda-regles.ts)
+  destination      String   @default("perso") @db.VarChar(10)
+  destinationGrade String?  @map("destination_grade") @db.VarChar(20)
+  invitations      InvitationAgenda[]
+  creeLe           DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+  majLe            DateTime @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+
+  @@index([compteId, jour])
+  @@index([destination, jour])
+  @@map("evenements_agenda")
+}
+
+model InvitationAgenda {
+  id               Int             @id @default(autoincrement())
+  evenementId      Int             @map("evenement_id")
+  evenement        EvenementAgenda @relation(fields: [evenementId], references: [id], onDelete: Cascade)
+  discordId        String          @map("discord_id") @db.VarChar(22)
+  nom              String          @db.VarChar(130)
+  discordSalonId   String?         @map("discord_salon_id") @db.VarChar(22)
+  discordMessageId String?         @map("discord_message_id") @db.VarChar(22)
+  prevenu          String          @default("") @db.VarChar(10) // ticket | prive | '' (non prévenu)
+
+  @@unique([evenementId, discordId])
+  @@index([discordId, evenementId])
+  @@map("agenda_invitations")
+}
+
+// Types d'événements de l'agenda : simple classement (nom, couleur), gérés par la permission « agenda-types »
+model TypeAgenda {
+  id          Int    @id @default(autoincrement())
+  nom         String @unique @db.VarChar(40)
+  couleur     String @db.VarChar(7)
+  position    Int    @default(0)
+  evenements  EvenementAgenda[]
+
+  @@map("agenda_types")
+}
+
+// Accès à l'agenda par grade (page Grades). Chaque liste contient les grades destinataires exacts autorisés.
+// Pour l'équipe, la consultation est distincte du droit combiné de créer, modifier et supprimer.
+model AgendaDroitsGrade {
+  gradeCle      String   @id @map("grade") @db.VarChar(20)
+  consulter     String[] @default([])
+  creer         String[] @default([])
+  modifier      String[] @default([])
+  consulterTous Boolean  @default(false) @map("consulter_tous")
+  gererTous     Boolean  @default(false) @map("gerer_tous")
+
+  @@map("agenda_droits_grades")
+}
+
+// Ressources humaines : la fiche employé, source de vérité de l'identité (routes/rh.ts). Les autres modules (ventes,
+// tableur, DOT) ne gardent que employeId et lisent ici nom, grade et statut. Une fiche n'est jamais supprimée : un départ
+// la passe « inactif », son historique reste rattaché. Un employé n'a pas forcément de compte sur le site : le lien
+// avec un compte se fait par l'ID Discord.
+model Employe {
+  id                     Int       @id @default(autoincrement())
+  idEmploye              String    @map("id_employe") @db.VarChar(40) // identifiant métier saisi par RH (ex. 42)
+  idEmployeNormalise     String    @unique @map("id_employe_normalise") @db.VarChar(40) // unicité sans casse
+  idProvisoire           Boolean   @default(false) @map("id_provisoire") // PROV-… : à remplacer par le vrai
+  prenom                 String    @default("") @db.VarChar(60)
+  nom                    String    @default("") @db.VarChar(60)
+  telephone              String    @default("") @db.VarChar(30) // donnée sensible (permission rh-sensible)
+  rib                    String    @default("") @db.VarChar(60) // donnée sensible (permission rh-sensible)
+  discordId              String?   @unique @map("discord_id") @db.VarChar(22)
+  discordPseudo          String    @default("") @map("discord_pseudo") @db.VarChar(100) // pseudo envoyé avec les ventes
+  discordPseudoNormalise String?   @unique @map("discord_pseudo_normalise") @db.VarChar(100)
+  gradeCle               String    @map("grade") @db.VarChar(20) // clé d'un grade du site (page Grades)
+  statut                 String    @default("actif") @db.VarChar(8) // actif | inactif
+  dateArrivee            DateTime? @map("date_arrivee") @db.Date
+  dateDepart             DateTime? @map("date_depart") @db.Date
+  creeLe                 DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
+  majLe                  DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+
+  @@index([statut, gradeCle])
+  @@map("employes")
+}
+
+// Candidature reçue du bot Discord (webhook recruitment.updated), une ligne par ticket : un renvoi du même ticket ne
+// crée jamais une deuxième fiche. resultat : creee | existante | refusee (« à traiter », réglage manquant…) |
+// attente (embauche constatée en jeu, à approuver) | ecartee (refusée dans Discord) | ecartee_rh (écartée dans RH :
+// un renvoi du bot ne la recrée pas). « reponses » (qui peuvent contenir téléphone et RIB) n'est gardé que pour un
+// ticket en suspens, 30 jours au plus.
+model ArriveeBot {
+  id        Int      @id @default(autoincrement())
+  ticketId  String   @unique @map("ticket_id") @db.VarChar(100)
+  discordId String   @default("") @map("discord_id") @db.VarChar(30)
+  nomRecu   String   @default("") @map("nom_recu") @db.VarChar(130)
+  resultat  String   @db.VarChar(10)
+  motif     String   @default("") @db.VarChar(400)
+  employeId Int?     @map("employe_id")
+  reponses  Json?
+  accepteLe String   @default("") @map("accepte_le") @db.VarChar(40)
+  evenementLe DateTime? @map("evenement_le") @db.Timestamptz(6) // date (sentAt) du dernier événement du bot appliqué à ce ticket
+  recuLe    DateTime @default(now()) @map("recu_le") @db.Timestamptz(6)
+
+  @@index([recuLe(sort: Desc)])
+  @@map("rh_arrivees_bot")
+}
+
+// ---------- Ventes & statistiques (entreprise/stats/) ----------
+
+// Vente ou location envoyée par le bot de ventes (POST /api/stats/ventes, clé STATS_BOT_SECRET). Les colonnes reprennent
+// celles du Google Sheet d'origine (A à P) : le moteur de calcul (stats/calcul.ts) les lit dans cet ordre. Rattachée à
+// la fiche RH du vendeur dès son arrivée (ID Discord, sinon pseudo) ; sans fiche, signalée dans RH « À rattacher ».
+model Vente {
+  id                 Int      @id @default(autoincrement())
+  numeroVente        String   @default("") @map("numero_vente") @db.VarChar(200)
+  dateVente          String   @default("") @map("date_vente") @db.VarChar(10) // JJ/MM/AAAA, tel que reçu
+  identite           String   @default("") @db.VarChar(200) // pseudo du vendeur reçu du bot
+  formateur          String   @default("") @db.VarChar(200)
+  identiteNormalisee String   @default("") @map("identite_normalisee") @db.VarChar(200) // identite sans casse ni espaces autour : rattachement aux fiches RH (index)
+  formateurNormalise String   @default("") @map("formateur_normalise") @db.VarChar(200)
+  identiteClient     String   @default("") @map("identite_client") @db.VarChar(200)
+  numeroTel          String   @default("") @map("numero_tel") @db.VarChar(200)
+  interieur          String   @default("") @db.VarChar(200)
+  garage             String   @default("") @db.VarChar(200)
+  garageIndispo      String   @default("") @map("garage_indispo") @db.VarChar(200)
+  garageRefus        String   @default("") @map("garage_refus") @db.VarChar(200)
+  entrepriseIdentite String   @default("") @map("entreprise_identite") @db.VarChar(200)
+  idEntreprise       String   @default("") @map("id_entreprise") @db.VarChar(200)
+  type               String   @default("") @db.VarChar(10) // Vente | Location
+  loc                Int? // quantité louée (Location)
+  achat              Int      @default(0) // montant
+  semaine            String   @default("") @db.VarChar(8) // S41-26 : fait foi pour tous les calculs
+  compteId           Int?     @map("compte_id") // saisie depuis le site ; null = envoyée par le bot
+  eventId            String?  @unique @map("event_id") @db.VarChar(200) // idempotence des renvois du bot
+  employeId          Int?     @map("employe_id")
+  formateurEmployeId Int?     @map("formateur_employe_id")
+  creeLe             DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  @@index([semaine])
+  @@index([identiteNormalisee])
+  @@index([formateurNormalise])
+  @@index([employeId])
+  @@map("ventes")
+}
+
+// Vente marquée comme doublon exact (marquage réversible, fait hors du site) : exclue des calculs, jamais de l'historique.
+model VenteDoublon {
+  id               Int      @id @default(autoincrement())
+  ligneDoublonId   Int      @unique @map("ligne_doublon_id")
+  ligneOriginaleId Int      @map("ligne_originale_id")
+  classification   String   @db.VarChar(100)
+  justification    String
+  marqueLe         DateTime @default(now()) @map("marque_le") @db.Timestamptz(6)
+  marquePar        String   @map("marque_par") @db.VarChar(100)
+
+  @@map("ventes_doublons")
+}
+
+// Palier de prime : on retient le plus haut seuil atteint (stats/calcul.ts, montantPalier).
+model BaremePrime {
+  id      Int    @id @default(autoincrement())
+  type    String @db.VarChar(10) // vente | location
+  seuil   Int
+  montant Int
+
+  @@unique([type, seuil])
+  @@map("baremes_primes")
+}
+
+// Rémunération par grade du site : salaire fixe et interrupteurs, indépendants et cumulables. Un grade sans ligne a les
+// valeurs par défaut (taux 0,48, pas de salaire, primes actives).
+model RemunerationGrade {
+  gradeCle            String @id @map("grade") @db.VarChar(20)
+  taux                Float  @default(0.48) // commission sur le montant facturé
+  salaireFixe         Int?   @map("salaire_fixe")
+  salaireActif        Boolean @default(false) @map("salaire_actif")
+  primeVenteActive    Boolean @default(true) @map("prime_vente_active")
+  primeLocationActive Boolean @default(true) @map("prime_location_active")
+  tauxHoraire         Int     @default(0) @map("taux_horaire") // $ par heure de service (relevé Tablettes) ; 0 = pas de paie à l'heure
+
+  @@map("remunerations_grades")
+}
+
+// Ligne du Google Sheets de la Direction (colonne D = nom, E = grade, L = ventes, M = locations), remplacée entièrement
+// à chaque synchronisation (table dérivée). RH fait foi : rattachée à la fiche dont le « Prénom Nom » est exactement le
+// nom écrit ; jamais de fiche créée ni de grade changé.
+model LigneTableur {
+  id           Int      @id @default(autoincrement())
+  ligneSheet   Int?     @map("ligne_sheet")
+  nomSheet     String   @map("nom_sheet") @db.VarChar(200)
+  nomNormalise String   @map("nom_normalise") @db.VarChar(200)
+  gradeSheet   String   @default("") @map("grade_sheet") @db.VarChar(40) // libellé du grade du site retrouvé en colonne E
+  nbVentes     Int      @default(0) @map("nb_ventes")
+  nbLocations  Int      @default(0) @map("nb_locations")
+  employeId    Int?     @map("employe_id")
+  compteId     Int?     @map("compte_id") // compte du site relié (« Mon profil »)
+  majLe        DateTime @default(now()) @map("maj_le") @db.Timestamptz(6)
+
+  @@index([employeId])
+  @@index([compteId])
+  @@map("tableur_lignes")
+}
+
+// État de la dernière synchronisation du tableur (une seule ligne, id 1).
+model TableurEtat {
+  id           Int       @id @default(1)
+  derniereSync DateTime? @map("derniere_sync") @db.Timestamptz(6)
+  statut       String    @default("") @db.VarChar(10) // ok | erreur | desactive
+  erreur       String    @default("") @db.VarChar(500)
+  nbLignes     Int       @default(0) @map("nb_lignes")
+  nbApparies   Int       @default(0) @map("nb_apparies")
+  // lecture réussie mais incomplète : lignes d'agents écartées (grade inconnu du site), à corriger dans le tableur ou Grades
+  avertissement String   @default("") @db.VarChar(500)
+  // n° de semaine écrit par la Direction dans le tableur (case « N° de la Semaine ») ; vide : semaines du calendrier
+  semaine      String    @default("") @db.VarChar(8)
+  // dernières lignes NON NULLES lues sous ce numéro : figées en archive quand il change (une remise à zéro faite avant
+  // le changement de numéro n'efface donc pas la semaine)
+  instantane   Json?
+  instantaneDu DateTime? @map("instantane_du") @db.Timestamptz(6)
+
+  @@map("tableur_etat")
+}
+
+// Chiffres du tableur figés chaque dimanche à 23:59 (heure de Paris), sous le code de semaine du site (S41-26) : un
+// changement de barème ultérieur ne réécrit pas le passé.
+model TableurArchive {
+  id        Int      @id @default(autoincrement())
+  semaine   String   @unique @db.VarChar(8)
+  archiveLe DateTime @map("archive_le") @db.Timestamptz(6)
+  donneesDu DateTime @map("donnees_du") @db.Timestamptz(6) // dernière lecture du tableur figée ici
+  enRetard  Boolean  @default(false) @map("en_retard") // archivée après coup (serveur arrêté dimanche soir)
+
+  lignes TableurArchiveLigne[]
+
+  @@map("tableur_archives")
+}
+
+model TableurArchiveLigne {
+  id             Int     @id @default(autoincrement())
+  archiveId      Int     @map("archive_id")
+  ligneSheet     Int?    @map("ligne_sheet")
+  nom            String  @db.VarChar(200)
+  grade          String  @default("") @db.VarChar(40)
+  ventes         Int     @default(0)
+  locations      Int     @default(0)
+  primeVente     Int     @default(0) @map("prime_vente")
+  primeLocations Int     @default(0) @map("prime_locations")
+  compte         String? @db.VarChar(100) // compte du site relié, tel qu'il s'appelait ce jour-là
+  employeId      Int?    @map("employe_id")
+
+  archive TableurArchive @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+
+  @@index([archiveId])
+  @@index([employeId])
+  @@map("tableur_archives_lignes")
+}
+
+// ---------- Comptabilité (routes/compta.ts) ----------
 
 // Relevé collé (Tablettes) : le navigateur le découpe, le serveur revalide et garde CHAQUE import (rien n'est écrasé ;
 // réinitialiser ou retirer une ligne enregistre un nouvel import). Seul le plus récent est lu.
@@ -70,73 +330,63 @@ model BaremeImposition {
   @@map("dot_bareme_imposition")
 }
 
-// Rémunération par grade (Comptabilité → Rémunération) : salaire fixe de la semaine (versé si salaireActif) et taux
-// horaire (heures de service du relevé × taux ; 0 = pas de paie à l'heure). Un grade sans ligne : rien de versé.
-model RemunerationGrade {
-  gradeCle     String  @id @map("grade") @db.VarChar(20)
-  salaireFixe  Int     @default(0) @map("salaire_fixe")
-  salaireActif Boolean @default(false) @map("salaire_actif")
-  tauxHoraire  Int     @default(0) @map("taux_horaire")
+// Images de la marque remplacées dans Paramètres → Apparence (routes/apparence.ts) : une ligne par image réglée ; sans ligne,
+// l'image livrée avec le site est servie. Les deux fichiers (grande version, miniature) sont sur le stockage.
+model ApparenceImage {
+  cle      String   @id @db.VarChar(20) // logo, icone, partage (routes/apparence.ts)
+  cleImage String   @map("cle_image") @db.VarChar(200)
+  url      String   @db.VarChar(512)
+  cleMini  String   @map("cle_mini") @db.VarChar(200)
+  urlMini  String   @map("url_mini") @db.VarChar(512)
+  compteId Int?     @map("compte_id") // qui l'a remplacée ; null si son compte a été supprimé
+  majLe    DateTime @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
-  @@map("remunerations_grades")
+  @@map("apparence_images")
 }
 
-// Agenda de départ : événements personnels, partagés avec l'équipe ou adressés à un grade exact.
-model EvenementAgenda {
-  id               Int         @id @default(autoincrement())
-  compteId         Int?        @map("compte_id")
-  auteurNom        String      @default("") @map("auteur_nom") @db.VarChar(64)
-  titre            String      @db.VarChar(80)
-  jour             DateTime    @db.Date
-  heureDebut       String      @map("heure_debut") @db.VarChar(5)
-  heureFin         String      @map("heure_fin") @db.VarChar(5)
-  notes            String      @default("") @db.VarChar(500)
-  typeId           Int?        @map("type_id")
-  type             TypeAgenda? @relation(fields: [typeId], references: [id], onDelete: SetNull)
-  destination      String      @default("perso") @db.VarChar(10)
-  destinationGrade String?     @map("destination_grade") @db.VarChar(20)
-  invitations      InvitationAgenda[]
-  creeLe           DateTime    @default(now()) @map("cree_le") @db.Timestamptz(6)
+// Fichier du stockage qui n'est plus utilisé (image de la marque remplacée ou rétablie) : effacé par la tâche de
+// nettoyage (entreprise/images-retirees.ts) ; un échec garde la ligne et son erreur, réessai au passage suivant.
+model ImageRetiree {
+  id      Int      @id @default(autoincrement())
+  cle     String   @db.VarChar(200)
+  url     String   @db.VarChar(512)
+  cleMini String   @map("cle_mini") @db.VarChar(200)
+  urlMini String   @map("url_mini") @db.VarChar(512)
+  erreur  String?  @db.VarChar(300) // dernier échec de suppression sur le stockage
+  creeLe  DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+  majLe   DateTime @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
-  @@index([compteId, jour])
-  @@index([destination, jour])
-  @@map("evenements_agenda")
+  @@index([majLe])
+  @@map("images_retirees")
 }
 
-// Personnes invitées à un événement personnel ; discordId est conservé même si leur compte est supprimé.
-model InvitationAgenda {
-  id               Int             @id @default(autoincrement())
-  evenementId      Int             @map("evenement_id")
-  evenement        EvenementAgenda @relation(fields: [evenementId], references: [id], onDelete: Cascade)
-  discordId        String          @map("discord_id") @db.VarChar(22)
-  nom              String          @db.VarChar(130)
-  discordSalonId   String?         @map("discord_salon_id") @db.VarChar(22)
-  discordMessageId String?         @map("discord_message_id") @db.VarChar(22)
-  prevenu          String          @default("") @db.VarChar(10) // ticket | prive | '' (non prévenu)
+// Membres en service (services.ts) : une ligne par service, d'après les prises et fins de service envoyées par le bot
+// Discord (événement monitoring.duty). fin vide = en service.
+model Service {
+  id           Int       @id @default(autoincrement())
+  serviceId    String    @unique @map("service_id") @db.VarChar(64) // tiré de la personne et de l'heure (un renvoi du bot ne double rien)
+  employeNom   String    @default("") @map("employe_nom") @db.VarChar(120) // nom de la fiche RH, sinon celui envoyé par le bot
+  discordId    String?   @map("discord_id") @db.VarChar(22) // identifiant Discord envoyé par le bot
+  employeId    Int?      @map("employe_id")
+  debut        DateTime  @db.Timestamptz(6)
+  fin          DateTime? @db.Timestamptz(6)
+  causeFin     String    @default("") @map("cause_fin") @db.VarChar(120)
+  finSource    String    @default("") @map("fin_source") @db.VarChar(8) // bot | auto | doublon
+  anomalie     String    @default("") @db.VarChar(20) // fin_sans_debut | debut_en_double | cloture_auto
+  majLe        DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
-  @@unique([evenementId, discordId])
-  @@index([discordId, evenementId])
-  @@map("agenda_invitations")
+  @@index([fin, debut])
+  @@index([discordId, debut]) // chaque prise ou fin de service cherche les services de la personne
+  @@index([employeId])
+  @@index([anomalie, majLe])
+  @@map("services")
 }
 
-model TypeAgenda {
-  id         Int               @id @default(autoincrement())
-  nom        String            @unique @db.VarChar(40)
-  couleur    String            @db.VarChar(7)
-  position   Int               @default(0)
-  evenements EvenementAgenda[]
+// Réception des prises et fins de service (affichée dans Paramètres : preuve que l'abonnement du bot fonctionne).
+model ServiceEtat {
+  id               Int       @id @default(1)
+  derniereLecture  DateTime? @map("derniere_lecture") @db.Timestamptz(6) // dernier événement reçu du bot
+  nbReconnus       Int       @default(0) @map("nb_reconnus") // événements reçus
 
-  @@map("agenda_types")
-}
-
-// Autorisations exactes par grade destinataire : aucune extension automatique dans la hiérarchie.
-model AgendaDroitsGrade {
-  gradeCle      String   @id @map("grade") @db.VarChar(20)
-  consulter     String[] @default([])
-  creer         String[] @default([])
-  modifier      String[] @default([])
-  consulterTous Boolean  @default(false) @map("consulter_tous")
-  gererTous     Boolean  @default(false) @map("gerer_tous")
-
-  @@map("agenda_droits_grades")
+  @@map("services_etat")
 }

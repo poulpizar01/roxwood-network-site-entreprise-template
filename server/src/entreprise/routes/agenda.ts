@@ -1,39 +1,40 @@
-// ENTREPRISE — agenda partagé. L’identité vient de la session ; un événement invisible répond comme s’il n’existait pas.
-import { Router, type Request, type RequestHandler, type Response } from 'express';
+// ENTREPRISE — Agenda de l'espace de gestion (gestion/agenda.html). Règles dans agenda-regles.ts : un événement est destiné
+// à soi et à ses invités, à toute l'équipe, ou à un grade précis ; les droits par grade sont réglés dans sa fiche
+// (page Grades). Types d'événements : simple classement (nom, couleur), gérés avec la
+// permission « agenda-types ». L'identité vient toujours de la session ; un événement qu'on ne voit pas répond 404,
+// comme un événement inexistant.
+// « Perso » pour quelqu'un d'autre : son ID Discord est lu dans sa fiche RH ; le bot poste l'événement dans son ticket
+// (catégories réglées dans Paramètres), sinon en message privé. Texte seul (un embed disparaît sans « Intégrer des
+// liens ») et seule la personne est mentionnée. Si rien n'a pu partir, l'événement est créé quand même et l'auteur le sait.
+import { Router, type Request } from 'express';
 import type { EvenementAgenda, InvitationAgenda } from '../../generated/prisma/client.js';
 import { config } from '../../socle/config.js';
 import { prisma } from '../../socle/db.js';
-import { appelBot, ErreurDiscord, ID_DISCORD, posterMessage } from '../../socle/discord.js';
+import { appelBot, ErreurDiscord, posterMessage } from '../../socle/discord.js';
 import { auDessusDe, gradeDe, tousLesGrades } from '../../socle/droits.js';
 import { body, couleur, entier, intParam, permission, text, valide } from '../../socle/http.js';
 import { site } from '../../socle/site.js';
-import { choisirTicket, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, voit, type Destination, type DroitsAgenda } from '../agenda-regles.js';
-import { idsParametre } from '../../socle/parametres.js';
+import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, voit, type Destination, type DroitsAgenda } from '../agenda-regles.js';
+import { idsRegles } from '../parametres.js';
+import { Refus, traiter } from '../refus.js';
+import { nomComplet } from '../rh.js';
 
 export const agenda = Router();
 
-class Refus extends Error {
-  constructor(message: string, readonly statut = 400) { super(message); }
-}
-const traiter = (f: (req: Request, res: Response) => Promise<void>): RequestHandler => (req, res, next) => {
-  void f(req, res).catch(e => {
-    if (e instanceof Refus) res.status(e.statut).json({ error: e.message });
-    else next(e);
-  });
-};
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/, RE_HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;
-const versDate = (jour: string) => new Date(`${jour}T00:00:00.000Z`);
-const dateValide = (jour: unknown): jour is string =>
-  typeof jour === 'string' && RE_DATE.test(jour) && !Number.isNaN(versDate(jour).getTime()) && versDate(jour).toISOString().startsWith(jour);
-const clesGrades = () => tousLesGrades().map(g => g.cle);
+// jour sans heure : stocké en DATE, échangé en AAAA-MM-JJ (jamais d'heure ni de fuseau qui le décalerait)
+const versDate = (jour: string) => new Date(`${jour}T00:00:00Z`);
+const dateValide = (jour: unknown): jour is string => typeof jour === 'string' && RE_DATE.test(jour) && !Number.isNaN(versDate(jour).getTime()) && versDate(jour).toISOString().startsWith(jour);
+
+const clesGrades = () => tousLesGrades().map(g => g.cle);   // du sommet à la base
+async function droitsDe(req: Request): Promise<DroitsAgenda> {
+  const c = req.compte;
+  const enregistres = c.gradeCle ? await prisma.agendaDroitsGrade.findUnique({ where: { gradeCle: c.gradeCle } }) : null;
+  return droitsAgenda(clesGrades(), c.gradeCle, c.proprietaire, enregistres);
+}
 const lecteur = (req: Request) => ({ id: req.compte.id, discordId: req.compte.discordId });
 
-async function droitsDe(req: Request): Promise<DroitsAgenda> {
-  const grades = clesGrades(), cle = req.compte.gradeCle;
-  const enregistres = cle ? await prisma.agendaDroitsGrade.findUnique({ where: { gradeCle: cle } }) : null;
-  return droitsAgenda(grades, cle, req.compte.proprietaire, enregistres);
-}
-
+// libellé d'un destinataire, tel que la page l'affiche
 const libelleDestination = (e: Pick<EvenementAgenda, 'destination' | 'destinationGrade'>, invitations: Pick<InvitationAgenda, 'nom'>[]): string =>
   e.destination === 'tous' ? 'Toute l’équipe'
     : e.destination === 'grade' ? gradeDe(e.destinationGrade)?.libelle ?? 'Grade supprimé'
@@ -42,80 +43,78 @@ const libelleDestination = (e: Pick<EvenementAgenda, 'destination' | 'destinatio
 
 type EvenementAvecInvitations = EvenementAgenda & { invitations: InvitationAgenda[] };
 const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAgenda) => ({
-  id: e.id,
-  titre: e.titre,
-  jour: e.jour.toISOString().slice(0, 10),
-  heure_debut: e.heureDebut,
-  heure_fin: e.heureFin,
-  notes: e.notes,
-  type_id: e.typeId,
-  destination: e.destination,
-  destination_grade: e.destinationGrade,
-  destinataire: libelleDestination(e, e.invitations),
-  auteur: e.auteurNom,
-  mien: e.compteId === req.compte.id,
+  id: e.id, titre: e.titre, jour: e.jour.toISOString().slice(0, 10), heure_debut: e.heureDebut, heure_fin: e.heureFin, notes: e.notes,
+  type_id: e.typeId, destination: e.destination, destination_grade: e.destinationGrade, destinataire: libelleDestination(e, e.invitations),
+  auteur: e.auteurNom, mien: e.compteId === req.compte.id,
   invites: e.invitations.map(({ id, nom, prevenu }) => ({
     ...(e.compteId === req.compte.id ? { invitation_id: id } : {}),
     nom, prevenu,
   })),
-  modifiable: modifiable(e, lecteur(req), droits),
+  modifiable: modifiable(e, lecteur(req), droits, clesGrades()),
 });
 
 type Champs = { titre: string; jour: Date; heureDebut: string; heureFin: string; notes: string; typeId: number | null };
 async function lire(b: Record<string, unknown>): Promise<Champs> {
   const titre = text(b.titre, 80);
   if (!titre) throw new Refus('Le titre de l’événement est obligatoire.');
-  if (!dateValide(b.jour)) throw new Refus('Date invalide : écrivez-la au format jj/mm/aaaa.');
+  if (!dateValide(b.jour)) throw new Refus('Date invalide : attendue au format jj/mm/aaaa.');
   const debut = String(b.heure_debut ?? ''), fin = String(b.heure_fin ?? '');
-  if (!RE_HEURE.test(debut) || !RE_HEURE.test(fin)) throw new Refus('Heures invalides : utilisez le format 14:30.');
+  if (!RE_HEURE.test(debut)) throw new Refus('Heure de début invalide : attendue au format 14:30.');
+  if (!RE_HEURE.test(fin)) throw new Refus('Heure de fin invalide : attendue au format 14:30.');
   if (fin <= debut) throw new Refus('L’heure de fin doit être après l’heure de début.');
-  if (typeof b.notes === 'string' && b.notes.length > 500) throw new Refus('Les notes ne peuvent pas dépasser 500 caractères.');
+  if (String(b.notes ?? '').length > 500) throw new Refus('Les notes sont trop longues (500 caractères maximum).');
   let typeId: number | null = null;
   if (b.type_id !== undefined && b.type_id !== null && b.type_id !== '') {
     typeId = entier(b.type_id);
-    if (typeId === null || !await prisma.typeAgenda.findUnique({ where: { id: typeId } })) throw new Refus('Ce type n’existe plus : choisissez-en un autre.');
+    if (typeId === null || !await prisma.typeAgenda.findUnique({ where: { id: typeId } })) throw new Refus('Ce type d’événement n’existe plus : choisissez-en un autre.');
   }
   return { titre, jour: versDate(b.jour), heureDebut: debut, heureFin: fin, notes: text(b.notes, 500), typeId };
 }
 
+// destinataire demandé : « perso », « tous » ou « grade » + destination_grade (un grade existant)
 function lireDestination(b: Record<string, unknown>): { destination: Destination; destinationGrade: string | null } {
-  const destination = b.destination === undefined ? 'perso' : b.destination;
-  if (!estDestination(destination)) throw new Refus('Destination invalide.');
+  const destination = estDestination(b.destination) ? b.destination : 'perso';
   if (destination !== 'grade') return { destination, destinationGrade: null };
   const g = gradeDe(String(b.destination_grade ?? ''));
-  if (!g) throw new Refus('Ce grade n’existe plus : choisissez un autre destinataire.');
+  if (!g) throw new Refus('Ce grade n’existe plus : choisissez à qui l’événement est destiné.');
   return { destination, destinationGrade: g.cle };
 }
+const refusDestination = (d: { destination: Destination; destinationGrade: string | null }) => new Refus(d.destination === 'tous'
+  ? 'Votre grade ne permet pas de créer un événement pour tout le monde.'
+  : `Votre grade ne permet pas de créer un événement destiné à « ${gradeDe(d.destinationGrade)?.libelle ?? 'ce grade'} ».`, 403);
 
-const listeTypes = async () => prisma.typeAgenda.findMany({ orderBy: [{ position: 'asc' }, { nom: 'asc' }] });
-const nomPris = (e: unknown) => (e as { code?: string }).code === 'P2002';
-
+// ---- prévenir chaque personne invitée : son ticket, sinon un message privé ----
 type Envoi = { prevenu: '' | 'ticket' | 'prive'; discordSalonId: string | null; discordMessageId: string | null; avertissement: string };
 const echapperMarkdown = (t: string) => t.replace(/[\\*_~`|>#[\]()-]/g, c => `\\${c}`);
 const pourquoi = (e: unknown) => e instanceof ErreurDiscord
   ? e.statut === 0 ? 'Discord ne répond pas' : e.statut === 401 ? 'le jeton du bot Discord est refusé' : e.statut === 403 ? 'le bot n’a pas le droit d’y écrire' : e.statut === 429 ? 'Discord demande de ralentir' : `Discord a refusé (HTTP ${e.statut})`
   : 'erreur inattendue';
 
-function texteInvitation(discordId: string, ev: { titre: string; jour: string; heureDebut: string; heureFin: string; notes: string }, auteur: string): string {
+function texteMessage(discordId: string, ev: { titre: string; jour: string; heureDebut: string; heureFin: string; notes: string }, auteur: string): string {
   const debut = Math.floor(parisVersDate(ev.jour, ev.heureDebut).getTime() / 1000), fin = Math.floor(parisVersDate(ev.jour, ev.heureFin).getTime() / 1000);
   return [`<@${discordId}>`, '', `📅 **${echapperMarkdown(ev.titre)}**`, `<t:${debut}:F> → <t:${fin}:t>`,
     ...(ev.notes ? [echapperMarkdown(ev.notes)] : []), '', `*Ajouté à ton agenda par ${echapperMarkdown(auteur)} · ${echapperMarkdown(site.nom)}*`].join('\n').slice(0, 2000);
 }
 
-async function prevenir(discordId: string, nom: string, ev: Parameters<typeof texteInvitation>[1], auteur: string): Promise<Envoi> {
+// salons du serveur, lus une seule fois pour tous les invités d'une même requête (pas un appel par personne)
+const lireSalons = (): Promise<unknown> | null => {
+  if (!config.discord.botToken || !idsRegles('agenda_categories_tickets').length) return null;
+  return appelBot('GET', `/guilds/${config.discord.guildId}/channels`).catch(e => { console.error('[agenda] salons du serveur :', pourquoi(e)); return null; });
+};
+
+async function prevenir(discordId: string, nom: string, ev: Parameters<typeof texteMessage>[1], auteur: string, salons: Promise<unknown> | null): Promise<Envoi> {
   const rien = (avertissement: string): Envoi => ({ prevenu: '', discordSalonId: null, discordMessageId: null, avertissement });
   if (!config.discord.botToken) return rien(`${nom} n’a pas été prévenu sur Discord : le bot n’est pas relié au site.`);
-  const contenu = { content: texteInvitation(discordId, ev, auteur) };
-  const categories = idsParametre('agenda_categories_tickets');
-  let ticket: string | null = null;
-  if (categories.length) {
-    try { ticket = choisirTicket(await appelBot('GET', `/guilds/${config.discord.guildId}/channels`), discordId, categories); }
-    catch (e) { console.error('[agenda] salons du serveur :', pourquoi(e)); }
-  }
+  const contenu = { content: texteMessage(discordId, ev, auteur) };
+  // 1. son ticket : salon d'une des catégories réglées où il a une permission à son nom
+  const categories = idsRegles('agenda_categories_tickets');
+  const ticket = salons ? choisirTicket(await salons, discordId, categories) : null;
   if (ticket) {
+    // ticket trouvé mais refusé : on le dit plutôt que d'écrire ailleurs en silence (droits du bot à corriger)
     try { return { prevenu: 'ticket', discordSalonId: ticket, discordMessageId: await posterMessage(ticket, contenu, [discordId]), avertissement: '' }; }
     catch (e) { return rien(`Le message n’a pas pu être posté dans le ticket de ${nom} (${pourquoi(e)}) : prévenez-le vous-même.`); }
   }
+  // 2. sans ticket : message privé
   try {
     const prive = await appelBot('POST', '/users/@me/channels', { recipient_id: discordId }) as { id?: unknown } | null;
     const salon = String(prive?.id ?? '');
@@ -124,6 +123,36 @@ async function prevenir(discordId: string, nom: string, ev: Parameters<typeof te
     const cause = e instanceof ErreurDiscord && e.statut === 403 ? 'ses messages privés sont fermés' : pourquoi(e);
     return rien(`${nom} n’a pas de ticket ouvert et n’a pas pu être prévenu en message privé (${cause}) : prévenez-le vous-même.`);
   }
+}
+
+// Prévenir les invités sans faire attendre la page indéfiniment : quatre à la fois, et au bout de DELAI_REPONSE_MS la
+// réponse part avec ceux déjà prévenus ; les autres continuent en arrière-plan (leur état s'enregistre quand même).
+// Sinon, avec beaucoup d'invités ou un Discord lent, la page dépassait le délai du serveur web : erreur affichée alors
+// que l'événement était créé, et l'agent le recréait en double.
+const EN_PARALLELE = 4, DELAI_REPONSE_MS = 20_000;
+async function prevenirInvitations(invitations: InvitationAgenda[], ev: Parameters<typeof texteMessage>[1], auteur: string) {
+  const envois: { nom: string; prevenu: Envoi['prevenu']; avertissement: string }[] = [];
+  if (!invitations.length) return { envois, enCours: 0 };
+  const salons = lireSalons(), file = [...invitations];
+  const travailleur = async () => {
+    for (let inv = file.shift(); inv; inv = file.shift()) {
+      const invitation = inv;
+      try {
+        const envoi = await prevenir(invitation.discordId, invitation.nom, ev, auteur, salons);
+        await prisma.invitationAgenda.updateMany({
+          where: { id: invitation.id },   // updateMany : l'invitation a pu être retirée entre-temps
+          data: { prevenu: envoi.prevenu, discordSalonId: envoi.discordSalonId, discordMessageId: envoi.discordMessageId },
+        });
+        envois.push({ nom: invitation.nom, prevenu: envoi.prevenu, avertissement: envoi.avertissement });
+      } catch (e) { console.error('[agenda] invitation non prévenue :', e); envois.push({ nom: invitation.nom, prevenu: '', avertissement: `${invitation.nom} n’a pas pu être prévenu sur Discord : prévenez-le vous-même.` }); }
+    }
+  };
+  const tous = Promise.all(Array.from({ length: Math.min(EN_PARALLELE, invitations.length) }, travailleur));
+  let minuteur: NodeJS.Timeout | undefined;
+  await Promise.race([tous, new Promise(r => { minuteur = setTimeout(r, DELAI_REPONSE_MS); })]);
+  clearTimeout(minuteur);
+  // copie : la liste continue de se remplir en arrière-plan
+  return { envois: [...envois], enCours: invitations.length - envois.length };
 }
 
 async function prevenirRetrait(invitation: InvitationAgenda, titre: string): Promise<string> {
@@ -139,122 +168,156 @@ async function prevenirRetrait(invitation: InvitationAgenda, titre: string): Pro
   }
 }
 
-agenda.get('/api/agenda/types', ...valide, async (_req, res) => { res.json({ types: await listeTypes() }); });
-agenda.post('/api/agenda/types', ...permission('agenda-types'), traiter(async (req, res) => {
-  const b = body(req), nom = text(b.nom, 40), c = couleur(b.couleur);
+// ---- types d'événements ----
+const versType = (t: { id: number; nom: string; couleur: string }) => ({ id: t.id, nom: t.nom, couleur: t.couleur });
+const listeTypes = async () => (await prisma.typeAgenda.findMany({ orderBy: [{ position: 'asc' }, { nom: 'asc' }] })).map(versType);
+
+function lireType(b: Record<string, unknown>) {
+  const nom = text(b.nom, 40), c = couleur(b.couleur);
   if (!nom) throw new Refus('Donnez un nom au type.');
-  if (!c) throw new Refus('Choisissez une couleur valide.');
-  if (await prisma.typeAgenda.count() >= 30) throw new Refus('30 types au plus : supprimez-en un avant d’en créer un autre.', 409);
+  if (!c) throw new Refus('Couleur invalide.');
+  return { nom, couleur: c };
+}
+const nomPris = (e: unknown) => (e as { code?: string }).code === 'P2002';
+
+agenda.get('/api/agenda/types', ...valide, async (_req, res) => { res.json({ types: await listeTypes() }); });
+
+agenda.post('/api/agenda/types', ...permission('agenda-types'), traiter(async (req, res) => {
+  const t = lireType(body(req));
+  if (await prisma.typeAgenda.count() >= 30) throw new Refus('30 types au plus : regroupez-en avant d’en créer un autre.');
   const position = (await prisma.typeAgenda.aggregate({ _max: { position: true } }))._max.position ?? -1;
-  try { await prisma.typeAgenda.create({ data: { nom, couleur: c, position: position + 1 } }); }
-  catch (e) { if (nomPris(e)) throw new Refus(`Le type « ${nom} » existe déjà.`, 409); throw e; }
+  try { await prisma.typeAgenda.create({ data: { ...t, position: position + 1 } }); }
+  catch (e) { if (nomPris(e)) throw new Refus(`Le type « ${t.nom} » existe déjà.`, 409); throw e; }
   res.status(201).json({ types: await listeTypes() });
 }));
+
 agenda.put('/api/agenda/types/:id', ...permission('agenda-types'), traiter(async (req, res) => {
-  const b = body(req), nom = text(b.nom, 40), c = couleur(b.couleur);
-  if (!nom) throw new Refus('Donnez un nom au type.');
-  if (!c) throw new Refus('Choisissez une couleur valide.');
-  try { await prisma.typeAgenda.update({ where: { id: intParam(req, 'id') }, data: { nom, couleur: c } }); }
+  const t = lireType(body(req));
+  try { await prisma.typeAgenda.update({ where: { id: intParam(req, 'id') }, data: t }); }
   catch (e) {
-    if (nomPris(e)) throw new Refus(`Le type « ${nom} » existe déjà.`, 409);
+    if (nomPris(e)) throw new Refus(`Le type « ${t.nom} » existe déjà.`, 409);
     if ((e as { code?: string }).code === 'P2025') throw new Refus('Type introuvable.', 404);
     throw e;
   }
   res.json({ types: await listeTypes() });
 }));
+
+// ses événements restent, « sans type » (onDelete: SetNull)
 agenda.delete('/api/agenda/types/:id', ...permission('agenda-types'), traiter(async (req, res) => {
   await prisma.typeAgenda.deleteMany({ where: { id: intParam(req, 'id') } });
   res.json({ types: await listeTypes() });
 }));
 
-agenda.get('/api/agenda/personnes', ...valide, traiter(async (req, res) => {
-  const droits = await droitsDe(req), grades = clesGrades();
-  if (!droits.tout && droits.creer.length === 0) throw new Refus('Votre grade ne permet pas d’inviter des personnes.', 403);
-  const comptes = await prisma.compte.findMany({
-    where: { statut: 'valide' },
-    orderBy: [{ nom: 'asc' }, { pseudo: 'asc' }],
-    select: { id: true, nom: true, pseudo: true, gradeCle: true, discordId: true },
-  });
-  res.json({
-    personnes: comptes.filter(c => c.id !== req.compte.id && peutInviter(droits, c.gradeCle, grades))
-      .map(c => ({ id: c.id, nom: c.nom || c.pseudo, discord: true })),
-  });
-}));
-
+// ---- droits par grade (fiche du grade, page Grades) ----
+// Les événements partagés dans toute l'équipe ont des droits séparés des événements adressés à un grade.
 agenda.get('/api/agenda/droits-grades', ...permission('grades'), async (_req, res) => {
   const lignes = new Map((await prisma.agendaDroitsGrade.findMany()).map(l => [l.gradeCle, l]));
   const grades = clesGrades();
-  res.json({ droits: grades.map(grade => {
-    const d = droitsAgenda(grades, grade, false, lignes.get(grade) ?? null);
-    return { grade, consulter: d.consulter, creer: d.creer, modifier: d.modifier, consulter_tous: d.consulterTous, gerer_tous: d.gererTous };
+  res.json({ droits: grades.map(cle => {
+    const l = lignes.get(cle);
+    const d = droitsAgenda(grades, cle, false, l ?? null);
+    return {
+      grade: cle,
+      consulter: d.consulter, creer: d.creer, modifier: d.modifier,
+      consulter_tous: d.consulterTous, gerer_tous: d.gererTous,
+    };
   }) });
 });
 
+// mêmes règles que les permissions : on ne règle que les grades sous le sien et on ne leur donne pas accès au-dessus.
 agenda.put('/api/agenda/droits-grades/:cle', ...permission('grades'), traiter(async (req, res) => {
   const cle = String(req.params.cle), b = body(req), grades = clesGrades();
   if (!gradeDe(cle)) throw new Refus('Grade introuvable.', 404);
   if (!auDessusDe(req.compte, cle)) throw new Refus('Vous ne gérez que les grades sous le vôtre.', 403);
-  const lireListe = (valeur: unknown, nom: string): string[] => {
-    if (!Array.isArray(valeur) || valeur.some(v => typeof v !== 'string') || new Set(valeur).size !== valeur.length) throw new Refus(`La sélection « ${nom} » est invalide.`);
+  const lireListe = (valeur: unknown, champ: string): string[] => {
+    if (!Array.isArray(valeur) || valeur.some(cle => typeof cle !== 'string') || new Set(valeur).size !== valeur.length) {
+      throw new Refus(`La sélection « ${champ} » est invalide.`);
+    }
     const liste = valeur as string[];
-    if (liste.some(c => !gradeAccordable(c, grades, req.compte.gradeCle, req.compte.proprietaire))) throw new Refus('Vous ne pouvez accorder des droits qu’à votre grade ou à un grade inférieur.', 403);
+    if (liste.some(cle => !gradeAccordable(cle, grades, req.compte.gradeCle, req.compte.proprietaire))) {
+      throw new Refus('Vous ne pouvez pas ouvrir l’agenda au-dessus de votre propre grade.', 403);
+    }
     return liste;
   };
-  const selection = {
+  const valeurs = {
     consulter: lireListe(b.consulter, 'Consulter'),
     creer: lireListe(b.creer, 'Créer'),
     modifier: lireListe(b.modifier, 'Modifier'),
   };
-  if (typeof b.consulter_tous !== 'boolean' || typeof b.gerer_tous !== 'boolean') throw new Refus('Choisissez les droits d’agenda pour toute l’équipe.');
-  if (b.gerer_tous && !b.consulter_tous) throw new Refus('La gestion des événements d’équipe nécessite aussi leur consultation.');
-  if (!droitsInclusDansConsultation(selection.consulter, selection.creer) || !droitsInclusDansConsultation(selection.consulter, selection.modifier)) throw new Refus('Créer ou modifier des événements nécessite aussi le droit de les consulter.');
-  const [acteur, existant] = await Promise.all([
+  if (typeof b.consulter_tous !== 'boolean' || typeof b.gerer_tous !== 'boolean') {
+    throw new Refus('Choisissez les droits de consultation et de gestion pour toute l’équipe.');
+  }
+  const consulterTous = b.consulter_tous, gererTous = b.gerer_tous;
+  if (gererTous && !consulterTous) throw new Refus('Pour gérer les événements de toute l’équipe, il faut aussi pouvoir les consulter.');
+  if (!droitsInclusDansConsultation(valeurs.consulter, valeurs.modifier)) {
+    throw new Refus('Le grade ne peut pas modifier des événements qu’il ne peut pas consulter.');
+  }
+  if (!droitsInclusDansConsultation(valeurs.consulter, valeurs.creer)) {
+    throw new Refus('Le grade ne peut pas créer des événements pour des grades qu’il ne peut pas consulter.');
+  }
+  const [droitsActeur, existant] = await Promise.all([
     droitsDe(req),
     prisma.agendaDroitsGrade.findUnique({ where: { gradeCle: cle } }),
   ]);
-  const anciens = droitsAgenda(grades, cle, false, existant);
-  for (const action of ['consulter', 'creer', 'modifier'] as const) {
-    const nouvelles = selection[action].filter(c => !anciens[action].includes(c));
-    if (!acteur.tout && nouvelles.some(c => !acteur[action].includes(c))) throw new Refus(`Vous ne pouvez accorder que les droits « ${action} » que vous détenez pour chaque grade.`, 403);
+  const droitsExistants = droitsAgenda(grades, cle, false, existant);
+  for (const [champ, libelle] of [['consulter', 'consulter'], ['creer', 'créer'], ['modifier', 'modifier']] as const) {
+    const refuses = ajoutsNonDetenus(droitsActeur, droitsActeur[champ], droitsExistants[champ], valeurs[champ]);
+    if (refuses.length) {
+      const noms = refuses.map(k => gradeDe(k)?.libelle ?? k).join(', ');
+      throw new Refus(`Vous ne pouvez accorder que des droits que vous avez vous-même : vous ne pouvez pas ${libelle} les événements destinés à ${noms}. Demandez à un supérieur.`, 403);
+    }
   }
-  if (!acteur.tout && b.consulter_tous && !acteur.consulterTous && !anciens.consulterTous) throw new Refus('Vous ne pouvez pas accorder la consultation des événements d’équipe.', 403);
-  if (!acteur.tout && b.gerer_tous && !acteur.gererTous && !anciens.gererTous) throw new Refus('Vous ne pouvez pas accorder la gestion des événements d’équipe.', 403);
-  const droits = { ...selection, consulterTous: b.consulter_tous, gererTous: b.gerer_tous };
-  await prisma.agendaDroitsGrade.upsert({ where: { gradeCle: cle }, create: { gradeCle: cle, ...droits }, update: droits });
+  if (!droitsActeur.tout && consulterTous && !droitsActeur.consulterTous && !droitsExistants.consulterTous) {
+    throw new Refus('Vous ne pouvez pas accorder un accès de consultation que vous n’avez pas.', 403);
+  }
+  if (!droitsActeur.tout && gererTous && !droitsActeur.gererTous && !droitsExistants.gererTous) {
+    throw new Refus('Vous ne pouvez pas accorder un droit de gestion que vous n’avez pas.', 403);
+  }
+  const tous = { consulterTous, gererTous };
+  await prisma.agendaDroitsGrade.upsert({ where: { gradeCle: cle }, create: { gradeCle: cle, ...valeurs, ...tous }, update: { ...valeurs, ...tous } });
   res.json({ ok: true });
 }));
 
+// ---- événements ----
 agenda.get('/api/agenda', ...valide, async (req, res) => {
-  const debut = req.query.debut, fin = req.query.fin;
-  if (!dateValide(debut) || !dateValide(fin) || debut > fin) { res.status(400).json({ error: 'Plage de dates invalide.' }); return; }
-  const droits = await droitsDe(req), grades = tousLesGrades(), moi = lecteur(req);
-  const evenements = await prisma.evenementAgenda.findMany({
+  const { debut, fin } = req.query;
+  if (!dateValide(debut) || !dateValide(fin)) { res.status(400).json({ error: 'Plage de dates invalide.' }); return; }
+  const droits = await droitsDe(req), grades = clesGrades(), moi = lecteur(req);
+  const candidats = await prisma.evenementAgenda.findMany({
     where: {
       jour: { gte: versDate(debut), lte: versDate(fin) },
-      OR: [
-        { compteId: req.compte.id },
-        { invitations: { some: { discordId: req.compte.discordId } } },
-        { destination: { in: ['tous', 'grade'] } },
-      ],
+      OR: [{ compteId: req.compte.id }, { invitations: { some: { discordId: req.compte.discordId ?? '' } } }, { destination: { in: ['tous', 'grade'] } }],
     },
     orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
-    take: 1000,
+    take: 2000,
     include: { invitations: true },
   });
-  const destinations = [{ valeur: 'perso', libelle: 'Moi uniquement' }];
-  if (peutCreer(droits, 'tous', null)) destinations.push({ valeur: 'tous', libelle: 'Toute l’équipe' });
-  for (const g of grades) if (peutCreer(droits, 'grade', g.cle)) destinations.push({ valeur: `grade:${g.cle}`, libelle: g.libelle });
+  // destinations proposées à la création : personnel, toute l'équipe, puis chaque grade autorisé
+  const destinations = [{ valeur: 'perso', libelle: 'Personnel' }];
+  if (peutCreer(droits, 'tous', null, grades)) destinations.push({ valeur: 'tous', libelle: 'Toute l’équipe' });
+  for (const g of tousLesGrades()) if (peutCreer(droits, 'grade', g.cle, grades)) destinations.push({ valeur: `grade:${g.cle}`, libelle: g.libelle });
   res.json({
-    evenements: evenements.filter(e => voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, moi, droits)).map(e => versClient(e, req, droits)),
+    evenements: candidats.filter(e => voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, moi, droits, grades)).slice(0, 1000).map(e => versClient(e, req, droits)),
     types: await listeTypes(),
     droits: { destinations, peut_inviter: droits.tout || droits.creer.length > 0 },
   });
 });
 
+// fiches RH des personnes qu'on peut inviter : elles doivent être actives et dans la limite du droit de création
+agenda.get('/api/agenda/personnes', ...valide, traiter(async (req, res) => {
+  const droits = await droitsDe(req), grades = clesGrades();
+  if (!droits.tout && droits.creer.length === 0) throw new Refus('Votre grade ne permet pas d’inviter des personnes.', 403);
+  const fiches = await prisma.employe.findMany({ where: { statut: 'actif' }, orderBy: [{ prenom: 'asc' }, { nom: 'asc' }], select: { id: true, prenom: true, nom: true, discordPseudo: true, idEmploye: true, discordId: true, gradeCle: true } });
+  res.json({ personnes: fiches.filter(f => f.discordId !== req.compte.discordId && peutInviter(droits, f.gradeCle, grades)).map(f => ({ id: f.id, nom: nomComplet(f), discord: !!f.discordId })) });
+}));
+
 agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
-  const b = body(req), champs = await lire(b), dest = lireDestination(b), droits = await droitsDe(req);
-  if (!peutCreer(droits, dest.destination, dest.destinationGrade)) throw new Refus('Votre grade ne permet pas de créer un événement pour cette destination.', 403);
-  const valeurs = b.invites_compte_ids;
+  const b = body(req), d = await lire(b), dest = lireDestination(b);
+  const droits = await droitsDe(req), grades = clesGrades();
+  if (!peutCreer(droits, dest.destination, dest.destinationGrade, grades)) throw refusDestination(dest);
+  const auteur = req.compte.nom || req.compte.pseudo;
+
+  const valeurs = b.invites_employe_ids;
   if (valeurs !== undefined && (!Array.isArray(valeurs) || valeurs.length > 100 || valeurs.some(id => entier(id) === null))) {
     throw new Refus('La liste des personnes à inviter est invalide.');
   }
@@ -264,50 +327,50 @@ agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
     if (id === null || ids.includes(id)) throw new Refus('La liste des personnes à inviter est invalide.');
     ids.push(id);
   }
-  if (ids.length && dest.destination !== 'perso') throw new Refus('Les personnes ne peuvent être invitées que pour un événement personnel.');
-  const comptes = ids.length ? await prisma.compte.findMany({ where: { id: { in: ids }, statut: 'valide' } }) : [];
-  if (comptes.length !== ids.length) throw new Refus('Une personne sélectionnée est introuvable ou n’est plus active.', 404);
-  const parId = new Map(comptes.map(c => [c.id, c]));
+  if (ids.length && dest.destination !== 'perso') {
+    throw new Refus('Les personnes ne peuvent être invitées que pour un événement personnel.');
+  }
+  const fiches = ids.length ? await prisma.employe.findMany({ where: { id: { in: ids }, statut: 'actif' } }) : [];
+  if (fiches.length !== ids.length) throw new Refus('Une personne sélectionnée est introuvable ou n’est plus active.', 404);
+  const parId = new Map(fiches.map(f => [f.id, f]));
   const personnes = ids.map(id => {
-    const compte = parId.get(id);
-    if (!compte) throw new Refus('Une personne sélectionnée est introuvable ou n’est plus active.', 404);
-    const nom = compte.nom || compte.pseudo;
-    if (!peutInviter(droits, compte.gradeCle, clesGrades())) throw new Refus(`Votre grade ne permet pas d’inviter ${nom}.`, 403);
-    if (compte.id === req.compte.id) throw new Refus('Vous ne pouvez pas vous inviter vous-même.');
-    if (!ID_DISCORD.test(compte.discordId)) throw new Refus(`Le compte de ${nom} ne peut pas recevoir d’invitation Discord.`, 409);
-    return { discordId: compte.discordId, nom };
+    const fiche = parId.get(id);
+    if (!fiche) throw new Refus('Une personne sélectionnée est introuvable ou n’est plus active.', 404);
+    const nom = nomComplet(fiche);
+    if (!peutInviter(droits, fiche.gradeCle, grades)) throw new Refus(`Votre grade ne permet pas d’inviter ${nom}.`, 403);
+    if (fiche.discordId === req.compte.discordId) throw new Refus('Vous ne pouvez pas vous inviter vous-même.');
+    if (!fiche.discordId) throw new Refus(`La fiche RH de ${nom} n’a pas d’ID Discord : complétez-la avant de l’inviter.`, 409);
+    return { discordId: fiche.discordId, nom };
   });
-  const auteur = req.compte.nom || req.compte.pseudo;
+
   const e = await prisma.evenementAgenda.create({
     data: {
-      ...champs, ...dest, compteId: req.compte.id, auteurNom: auteur.slice(0, 64),
-      invitations: { create: personnes },
+      ...d, ...dest, compteId: req.compte.id, auteurNom: auteur.slice(0, 64),
+      invitations: { create: personnes.map(p => ({ ...p })) },
     },
     include: { invitations: true },
   });
-  const notifications: { nom: string; prevenu: Envoi['prevenu'] }[] = [], avertissements: string[] = [];
-  for (const invitation of e.invitations) {
-    const envoi = await prevenir(invitation.discordId, invitation.nom, { ...champs, jour: String(b.jour) }, auteur);
-    await prisma.invitationAgenda.update({
-      where: { id: invitation.id },
-      data: { prevenu: envoi.prevenu, discordSalonId: envoi.discordSalonId, discordMessageId: envoi.discordMessageId },
-    });
-    notifications.push({ nom: invitation.nom, prevenu: envoi.prevenu });
-    if (envoi.avertissement) avertissements.push(envoi.avertissement);
-  }
-  res.status(201).json({ id: e.id, notifications, avertissements });
+  const { envois, enCours } = await prevenirInvitations(e.invitations, { ...d, jour: String(b.jour) }, auteur);
+  res.status(201).json({
+    id: e.id,
+    notifications: envois.map(({ nom, prevenu }) => ({ nom, prevenu })),
+    en_cours: enCours,
+    avertissements: envois.map(x => x.avertissement).filter(Boolean),
+  });
 }));
 
-async function evenementModifiable(req: Request) {
+// un événement qu'on ne peut pas modifier répond 404 s'il est invisible, 403 s'il est seulement visible
+async function modifiableOuRefus(req: Request) {
   const e = await prisma.evenementAgenda.findUnique({ where: { id: intParam(req, 'id') }, include: { invitations: true } });
-  const droits = await droitsDe(req);
-  if (!e || !voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, lecteur(req), droits)) throw new Refus('Événement introuvable.', 404);
-  if (!modifiable(e, lecteur(req), droits)) throw new Refus('Votre grade ne permet pas de modifier cet événement.', 403);
-  return { e, droits };
+  const droits = await droitsDe(req), grades = clesGrades();
+  if (!e || !voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, lecteur(req), droits, grades)) throw new Refus('Événement introuvable.', 404);
+  if (!modifiable(e, lecteur(req), droits, grades)) throw new Refus('Votre grade ne permet pas de modifier cet événement.', 403);
+  return { e, droits, grades };
 }
 
 agenda.put('/api/agenda/:id', ...valide, traiter(async (req, res) => {
-  const { e, droits } = await evenementModifiable(req), b = body(req), champs = await lire(b);
+  const { e, droits, grades } = await modifiableOuRefus(req);
+  const b = body(req), d = await lire(b);
   const invitationIds: number[] = [];
   if (b.invitation_ids === undefined) invitationIds.push(...e.invitations.map(i => i.id));
   else {
@@ -318,70 +381,69 @@ agenda.put('/api/agenda/:id', ...valide, traiter(async (req, res) => {
       invitationIds.push(id);
     }
   }
-  const valeursComptes = b.invites_compte_ids;
-  if (valeursComptes !== undefined && (!Array.isArray(valeursComptes) || valeursComptes.length > 100)) throw new Refus('La liste des personnes à inviter est invalide.');
-  const compteIds: number[] = [];
-  for (const valeur of Array.isArray(valeursComptes) ? valeursComptes : []) {
-    const id = entier(valeur);
-    if (id === null || compteIds.includes(id)) throw new Refus('La liste des personnes à inviter est invalide.');
-    compteIds.push(id);
+  const valeursEmployes = b.invites_employe_ids;
+  if (valeursEmployes !== undefined && (!Array.isArray(valeursEmployes) || valeursEmployes.length > 100)) {
+    throw new Refus('La liste des personnes à inviter est invalide.');
   }
-  const comptes = compteIds.length ? await prisma.compte.findMany({ where: { id: { in: compteIds }, statut: 'valide' } }) : [];
-  if (comptes.length !== compteIds.length) throw new Refus('Une personne sélectionnée est introuvable ou n’est plus active.', 404);
-  const parId = new Map(comptes.map(c => [c.id, c]));
+  const employeIds: number[] = [];
+  for (const valeur of Array.isArray(valeursEmployes) ? valeursEmployes : []) {
+    const id = entier(valeur);
+    if (id === null || employeIds.includes(id)) throw new Refus('La liste des personnes à inviter est invalide.');
+    employeIds.push(id);
+  }
+  const fiches = employeIds.length ? await prisma.employe.findMany({ where: { id: { in: employeIds }, statut: 'actif' } }) : [];
+  if (fiches.length !== employeIds.length) throw new Refus('Une personne sélectionnée est introuvable ou n’est plus active.', 404);
+  const parId = new Map(fiches.map(f => [f.id, f]));
   const invitesExistants = e.invitations.filter(i => invitationIds.includes(i.id));
   const discordDejaInvite = new Set(invitesExistants.map(i => i.discordId));
-  const nouvellesPersonnes = compteIds.map(id => {
-    const compte = parId.get(id);
-    if (!compte) throw new Refus('Une personne sélectionnée est introuvable ou n’est plus active.', 404);
-    const nom = compte.nom || compte.pseudo;
-    if (!peutInviter(droits, compte.gradeCle, clesGrades())) throw new Refus(`Votre grade ne permet pas d’inviter ${nom}.`, 403);
-    if (compte.id === req.compte.id) throw new Refus('Vous ne pouvez pas vous inviter vous-même.');
-    if (!ID_DISCORD.test(compte.discordId)) throw new Refus(`Le compte de ${nom} ne peut pas recevoir d’invitation Discord.`, 409);
-    if (discordDejaInvite.has(compte.discordId)) return null;
-    discordDejaInvite.add(compte.discordId);
-    return { discordId: compte.discordId, nom };
+  const nouvellesPersonnes = employeIds.map(id => {
+    const fiche = parId.get(id);
+    if (!fiche) throw new Refus('Une personne sélectionnée est introuvable ou n’est plus active.', 404);
+    const nom = nomComplet(fiche);
+    if (!peutInviter(droits, fiche.gradeCle, grades)) throw new Refus(`Votre grade ne permet pas d’inviter ${nom}.`, 403);
+    if (fiche.discordId === req.compte.discordId) throw new Refus('Vous ne pouvez pas vous inviter vous-même.');
+    if (!fiche.discordId) throw new Refus(`La fiche RH de ${nom} n’a pas d’ID Discord : complétez-la avant de l’inviter.`, 409);
+    if (discordDejaInvite.has(fiche.discordId)) return null;
+    discordDejaInvite.add(fiche.discordId);
+    return { discordId: fiche.discordId, nom };
   }).filter((personne): personne is { discordId: string; nom: string } => personne !== null);
+
+  // Une destination partagée n'accepte pas d'invitations nominatives ; les invitations existantes doivent être retirées d'abord.
   let dest = { destination: e.destination as Destination, destinationGrade: e.destinationGrade };
   if (b.destination !== undefined && invitationIds.length === 0 && nouvellesPersonnes.length === 0) {
     const demande = lireDestination(b);
     if (demande.destination !== dest.destination || demande.destinationGrade !== dest.destinationGrade) {
-      if (!peutCreer(droits, demande.destination, demande.destinationGrade)) throw new Refus('Votre grade ne permet pas de déplacer l’événement vers cette destination.', 403);
-      if (demande.destination === 'perso' && e.compteId !== req.compte.id) throw new Refus('Seul l’auteur peut rendre cet événement personnel.', 403);
+      if (!peutCreer(droits, demande.destination, demande.destinationGrade, grades)) throw refusDestination(demande);
+      // l'événement d'un autre ne devient pas privé à soi : il disparaîtrait de l'agenda de son auteur
+      if (demande.destination === 'perso' && e.compteId !== req.compte.id) throw new Refus('Seul son auteur peut rendre cet événement personnel.', 403);
       dest = demande;
     }
   }
-  if ((invitationIds.length || nouvellesPersonnes.length) && dest.destination !== 'perso') throw new Refus('Les personnes ne peuvent être invitées que pour un événement personnel.');
+  if ((invitationIds.length || nouvellesPersonnes.length) && dest.destination !== 'perso') {
+    throw new Refus('Les personnes ne peuvent être invitées que pour un événement personnel.');
+  }
   const retires = e.invitations.filter(i => !invitationIds.includes(i.id));
   const ajoutes = await prisma.$transaction(async tx => {
-    await tx.evenementAgenda.update({ where: { id: e.id }, data: { ...champs, ...dest } });
+    await tx.evenementAgenda.update({ where: { id: e.id }, data: { ...d, ...dest } });
     if (retires.length) await tx.invitationAgenda.deleteMany({ where: { id: { in: retires.map(i => i.id) } } });
     return nouvellesPersonnes.length
       ? Promise.all(nouvellesPersonnes.map(p => tx.invitationAgenda.create({ data: { evenementId: e.id, ...p } })))
       : [];
   });
   const auteur = req.compte.nom || req.compte.pseudo;
-  const notifications: { nom: string; prevenu: Envoi['prevenu'] }[] = [], avertissements: string[] = [];
-  for (const invitation of ajoutes) {
-    const envoi = await prevenir(invitation.discordId, invitation.nom, { ...champs, jour: String(b.jour) }, auteur);
-    await prisma.invitationAgenda.update({
-      where: { id: invitation.id },
-      data: { prevenu: envoi.prevenu, discordSalonId: envoi.discordSalonId, discordMessageId: envoi.discordMessageId },
-    });
-    notifications.push({ nom: invitation.nom, prevenu: envoi.prevenu });
-    if (envoi.avertissement) avertissements.push(envoi.avertissement);
-  }
+  const { envois, enCours } = await prevenirInvitations(ajoutes, { ...d, jour: String(b.jour) }, auteur);
+  const avertissements = envois.map(x => x.avertissement).filter(Boolean);
   let annulations = 0;
   for (const invitation of retires) {
     const avertissement = await prevenirRetrait(invitation, e.titre);
     if (!avertissement && invitation.prevenu) annulations++;
     if (avertissement) avertissements.push(avertissement);
   }
-  res.json({ ok: true, notifications, annulations, avertissements });
+  res.json({ ok: true, notifications: envois.map(({ nom, prevenu }) => ({ nom, prevenu })), en_cours: enCours, annulations, avertissements });
 }));
 
 agenda.delete('/api/agenda/:id', ...valide, traiter(async (req, res) => {
-  const { e } = await evenementModifiable(req);
+  const { e } = await modifiableOuRefus(req);
   await prisma.evenementAgenda.delete({ where: { id: e.id } });
   res.json({ ok: true });
 }));

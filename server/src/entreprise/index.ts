@@ -1,10 +1,22 @@
 // ENTREPRISE — ce que ce site branche sur le socle (contrat : src/socle/contrat.ts).
 // Tout src/entreprise/ est libre : ajouter des routes (routes/), des modules métier, des tâches planifiées.
 import type { Entreprise } from '../socle/contrat.js';
+import { prisma } from '../socle/db.js';
+import { simulerBotsDiscord } from './discord-simulation.js';
+import { planifierNettoyageImages } from './images-retirees.js';
+import { PARAMETRES } from './parametres.js';
+import { planifierPurge } from './purge.js';
+import { recevoirCandidature } from './rh.js';
+import { planifierServices, recevoirDuty } from './services.js';
+import { accueil } from './routes/accueil.js';
+import { agenda } from './routes/agenda.js';
+import { apparence } from './routes/apparence.js';
 import { annonces } from './routes/annonces.js';
 import { compta } from './routes/compta.js';
-import { agenda } from './routes/agenda.js';
-import { prisma } from '../socle/db.js';
+import { rh } from './routes/rh.js';
+import { services } from './routes/services.js';
+import { stats } from './routes/stats.js';
+import { planifierTableur } from './stats/tableur.js';
 
 export const entreprise: Entreprise = {
   // niveau d'accès de chaque page de gestion/ (sans .html) : 'public', 'connecte', 'valide' ou une permission.
@@ -16,30 +28,25 @@ export const entreprise: Entreprise = {
     agenda: 'valide',
     comptes: 'comptes',
     grades: 'grades',
-    parametres: 'parametres',
+    rh: 'rh-voir',
     comptabilite: 'compta',
+    parametres: 'parametres',
   },
 
-  routes: [annonces, compta, agenda],
+  // apparence en premier : elle répond sur les adresses des images de la marque, avant le fichier livré
+  routes: [apparence, annonces, agenda, rh, stats, compta, services, accueil],
 
-  // page Paramètres (socle/parametres.ts) : liens et réglages modifiables sans toucher au code. Exemple à adapter :
-  // le bouton « Postuler » de la vitrine (data-lien="recrutement") et l'épinglage des annonces.
-  parametres: [
-    { titre: 'Liens de la vitrine', intro: 'Boutons des pages publiques ; un lien vide masque son bouton.', reglages: [
-      { cle: 'recrutement', type: 'lien', public: true, libelle: 'Formulaire de candidature', aide: 'Bouton « Postuler » de la page d’accueil.' },
-    ] },
-    { titre: 'Annonces', reglages: [
-      { cle: 'annonces_epinglees_max', type: 'entier', min: 1, max: 10, defaut: 3, libelle: 'Annonces épinglées au plus', aide: 'Nombre d’annonces gardées en tête de liste.' },
-    ] },
-    { titre: 'Agenda', reglages: [
-      { cle: 'agenda_categories_tickets', type: 'ids-discord', discord: 'categorie', libelle: 'Catégories des tickets', aide: 'Le bot envoie l’invitation dans le ticket ouvert de la personne. Sans ticket trouvé, il essaie de lui écrire en message privé.' },
-    ] },
-  ],
+  // page Paramètres (socle) : liens et réglages de ce site, déclarés dans parametres.ts
+  parametres: PARAMETRES,
 
-  // événements du bot Discord entreprise (voir docs/webhooks.md) : un traitement par type d'événement reçu.
-  // Exemple : une absence acceptée devient une annonce. À remplacer par ce dont l'entreprise a besoin.
+  // événements du bot Discord entreprise (docs/webhooks.md) : un traitement par type d'événement reçu
   webhooks: {
-    // payload : { requestId, requesterId (ID Discord), startDate, endDate (ISO), reason, status: PENDING|ACCEPTED|REFUSED, … }
+    // candidatures acceptées → fiches RH
+    'recruitment.updated': recevoirCandidature,
+    // prises et fins de service (journaux FiveM lus par le bot) : indicateur « En service » et Accueil
+    'monitoring.duty': recevoirDuty,
+    // exemple : une absence acceptée devient une annonce. payload : { requestId, requesterId (ID Discord), startDate,
+    // endDate (ISO), reason, status: PENDING|ACCEPTED|REFUSED, … }
     'absence.updated': async e => {
       const p = e.payload as { requesterId?: string; startDate?: string; endDate?: string; status?: string };
       if (p.status !== 'ACCEPTED' || !p.startDate || !p.endDate) return;
@@ -49,12 +56,16 @@ export const entreprise: Entreprise = {
     },
   },
 
-  // Les invitations d'un compte supprimé sont retirées ; ses événements partagés restent, sans auteur.
+  // Ventes, lignes du tableur et comptabilité restent (historique de la paie), détachées du compte. Son agenda
+  // personnel et ses invitations disparaissent ; ses événements partagés restent pour l'équipe, sans son nom.
   avantSuppressionCompte: async (compteId, tx) => {
     const compte = await tx.compte.findUnique({ where: { id: compteId }, select: { discordId: true } });
     await tx.annonce.updateMany({ where: { compteId }, data: { compteId: null } });
+    await tx.vente.updateMany({ where: { compteId }, data: { compteId: null } });
+    await tx.ligneTableur.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.importCompta.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.ecritureDot.updateMany({ where: { compteId }, data: { compteId: null } });
+    await tx.apparenceImage.updateMany({ where: { compteId }, data: { compteId: null } });
     if (compte) await tx.invitationAgenda.deleteMany({ where: { discordId: compte.discordId } });
     await tx.evenementAgenda.deleteMany({ where: { compteId, destination: 'perso' } });
     await tx.evenementAgenda.updateMany({ where: { compteId }, data: { compteId: null, auteurNom: '' } });
@@ -77,5 +88,13 @@ export const entreprise: Entreprise = {
       where: { destination: 'grade', destinationGrade: gradeCle },
       data: { destination: 'perso', destinationGrade: null },
     });
+  },
+
+  demarrage: async () => {
+    planifierNettoyageImages();
+    planifierTableur();
+    planifierPurge();
+    planifierServices();
+    simulerBotsDiscord();   // développement seulement (DISCORD_BOT_TOKEN=simulation)
   },
 };
