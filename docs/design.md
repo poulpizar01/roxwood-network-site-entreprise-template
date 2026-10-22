@@ -64,7 +64,7 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
 - **Le chevron d'un sélecteur est dessiné et centré verticalement**, à distance du bord ; son ouverture ne dépasse jamais de l'écran (s'ouvrir vers le haut près du bas de la fenêtre).
 - **Un bouton nomme l'action** (« Supprimer le grade »), il n'est rouge que si l'action détruit ; un groupe de boutons reste sur une ligne tant que la place le permet.
   Vu : « Refuser » qui passait sous « Valider » sans raison de place.
-- **Chaque lien fait ce qu'il annonce.** Deux liens vers la même page dans le même bloc font croire à deux actions différentes : le second doit faire autre chose (« Ajouter un rendez-vous » ouvre directement le formulaire, `agenda.html?nouveau=1`) ou disparaître.
+- **Chaque lien fait ce qu'il promet.** Deux liens vers la même page dans le même bloc font croire à deux actions différentes : le second doit faire autre chose (« Ajouter un rendez-vous » ouvre directement le formulaire, `agenda.html?nouveau=1`) ou disparaître.
 - **Un champ qui ressemble à un champ désactivé ou surligné trompe** : un champ modifiable a l'apparence de tous les autres ; un champ en lecture seule n'a pas l'air d'un champ.
 - **Obligatoire / facultatif** : marquer « facultatif » sur les champs facultatifs plutôt qu'une astérisque inexpliquée.
 - **Bouton « Copier »** : confirme la copie par une notification, sans changer la taille ni le libellé du bouton.
@@ -88,7 +88,7 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
 - **Une erreur dit ce qui s'est passé et quoi faire ; un état vide dit ce qui manque et comment commencer** (avec le lien pour le faire).
 - **Une même chose porte le même nom partout** (menu, titre, boutons, notifications).
 - **Guillemets français avec espaces insécables** à l'intérieur ; un nom court entre guillemets (« Mon profil ») entièrement insécable.
-- **Pas d'annonce automatique répétée** (`aria-live`) sur une information relue périodiquement : elle serait lue à chaque relecture, sur chaque page.
+- **Pas de lecture automatique répétée** (`aria-live`) sur une information relue périodiquement : elle serait lue à chaque relecture, sur chaque page.
 
 ## 8. Contenu intégré (carte, présentation, service tiers)
 
@@ -128,4 +128,4 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
   Vu : « Mon profil » jugé sans défilement sur une page dont le profil ne s'était pas chargé.
 - **Avec tous les droits et avec le moins de droits** (`/auth/discord?compte=<ID>` en dev), et avec le faux bot Discord (`DISCORD_BOT_TOKEN=simulation`) pour ce qui en dépend.
 - **Mesurer ce qui bouge** quand le défaut est temporel (flash, saut) : relever les instants de peinture et de chargement des polices, ou capturer une image toutes les 50 ms, plutôt que de supposer.
-- **Ne pas annoncer une correction non vérifiée.** Si un point n'a pas pu être vérifié, le dire.
+- **Ne pas affirmer une correction non vérifiée.** Si un point n'a pas pu être vérifié, le dire.

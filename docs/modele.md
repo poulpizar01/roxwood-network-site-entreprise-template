@@ -21,7 +21,7 @@ Ce que le socle apporte, prêt à l'emploi :
 - **Exploitation** : Docker (site, base, sauvegardes quotidiennes), nginx + HTTPS, plusieurs sites sur un même VPS, contrôle de santé, arrêt propre ;
 - **Règles et outils** pour Claude Code : [CLAUDE.md](../CLAUDE.md), commande `/audit`.
 
-Et un **point de départ** côté entreprise, à transformer : une vitrine sobre, une gestion avec connexion, accueil, mon compte, comptes, grades, un agenda complet (événements personnels, d’équipe et par grade, types et droits exacts dans la fiche des grades) et un exemple métier (annonces internes).
+Et un **point de départ** côté entreprise, à transformer : une vitrine sobre, une gestion avec connexion, accueil, mon compte, comptes, grades, un agenda complet (événements personnels, d’équipe et par grade, types et droits exacts dans la fiche des grades).
 
 En bas de chaque vitrine : la signature **« Développé par Roxwood Network »** (à garder, style dans `socle/signature.css`).
 
@@ -30,7 +30,7 @@ En bas de chaque vitrine : la signature **« Développé par Roxwood Network »*
 2. **Identité** : remplir [`site.json`](../site.json). `nom` et `description` sont obligatoires, `couleur` (accent, `#rrggbb`) facultative ; le lien d’invitation au Discord de l’entreprise ne s’écrit pas ici : il se règle dans la gestion, Paramètres → Liens ; toute autre clé texte est libre (`slogan`, `secteur`, `adresse`, `horaires`…). Dans une page, `{{cle}}` insère la valeur, `{{Cle}}` la même avec une majuscule, `{{url}}` l'adresse du site (`BASE_URL`).
 3. **Direction artistique** : [`theme.css`](../theme.css) (couleurs, polices dans `assets/fonts/`, formes), chargé par toutes les pages. Puis la vitrine ([`index.html`](../index.html), [`assets/css/styles.css`](../assets/css/styles.css)) et la gestion ([`gestion/`](../gestion/)) : libres.
 4. **Visuels** (dans `assets/`) : `logo.png` (carré, fond transparent), `favicon.png`, `og-image.jpg` (1200 × 630). Ne pas toucher à `roxwood.png`.
-5. **Métier** : déclarer les permissions dans [`server/src/entreprise/permissions.ts`](../server/src/entreprise/permissions.ts), les tables dans [`entreprise.prisma`](../server/prisma/schema/entreprise.prisma), les routes dans `server/src/entreprise/routes/`, et brancher le tout dans [`server/src/entreprise/index.ts`](../server/src/entreprise/index.ts) (niveau d'accès des pages, routes, webhooks, liens et réglages de la page Paramètres). L'exemple « annonces » montre chaque étape ; le garder, le transformer ou le retirer (supprimer le modèle `Annonce`, la route, la page, puis créer une migration).
+5. **Métier** : déclarer les permissions dans [`server/src/entreprise/permissions.ts`](../server/src/entreprise/permissions.ts), les tables dans [`entreprise.prisma`](../server/prisma/schema/entreprise.prisma), les routes dans `server/src/entreprise/routes/`, et brancher le tout dans [`server/src/entreprise/index.ts`](../server/src/entreprise/index.ts) (niveau d'accès des pages, routes, webhooks, liens et réglages de la page Paramètres).
 6. **Notes** : réécrire [`README.md`](../README.md) (présentation du site, pour qui ouvre le dépôt) et [`ENTREPRISE.md`](../ENTREPRISE.md) (ce que fait le site, ses tables, ses pièges) et compléter [`confidentialite.html`](../confidentialite.html) avec ce que le site enregistre.
 7. **Déployer** : [server/README.md](../server/README.md).
 

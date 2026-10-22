@@ -22,12 +22,12 @@ Le site ne renvoie jamais de donnée sur cette route : elle sert à recevoir, pa
 | Type | Quand | `payload` (principaux champs) |
 |---|---|---|
 | `absence.updated` | déclaration, puis acceptation / refus d'une absence | `requestId`, `requesterId` (ID Discord), `startDate`, `endDate` (ISO), `reason`, `status` (`PENDING`, `ACCEPTED`, `REFUSED`), `resolverId`, `resolvedAt` |
-| `order.updated` | validation d'une commande par le client, puis chaque (re)génération de facture | articles, sous-total, livraison, réduction, total, statut de paiement, numéro de facture |
+| `order.updated` | validation d'une commande par le client, puis chaque (re)génération de facture | table `factures` (entreprise/facture.ts) : `orderId`, `ticketId`, `channelId`, `customerId` (ID Discord, aucun nom affiché), `confirmed`, `status` (`PENDING`/`PREPARING`/`DELIVERED`/`CANCELLED`), `paymentStatus` (`UNPAID`/`PAID`), `invoiceNumber`, `items: [{ name, unitPrice, quantity, weightGrams, answers: [{question, answer}] }]`, `subtotal`, `deliveryFee`, `discountPercent`, `discountAmount`, `total` |
 | `recruitment.updated` | formulaire de candidature soumis, puis chaque changement de statut, assignation ou pièce jointe | candidat, statut, recruteur, réponses, noms des pièces jointes |
-| `monitoring.duty` · `monitoring.recruitment` · `monitoring.storage` · `monitoring.invoice` · `monitoring.sale` | logs FiveM lus par le bot (service, embauche/licenciement, coffre, facture, vente) | log analysé (`parsed`) ; pour le coffre : `direction`, `quantity`, `stockAfter` |
+| `monitoring.duty` · `monitoring.recruitment` · `monitoring.storage` · `monitoring.invoice` · `monitoring.sale` | logs FiveM lus par le bot (service, embauche/licenciement, coffre, facture, vente) | log analysé (`parsed`) ; pour le coffre : `direction`, `quantity`, `stockAfter`. `monitoring.sale` (table `runs`, entreprise/run.ts) : `jobId`, `playerDiscord`, `playerName`, `description`, `parsed.{quantity, itemLabel, totalPrice, companyShare, sellerName}`. `monitoring.invoice` (table `factures`, entreprise/facture.ts) : mêmes champs de log que `monitoring.sale` (`jobId`, `playerDiscord`, `playerName`, `description`) + `parsed.{amount, taxPercent, payerName}` (`payerName` tiré du texte libre du log, pas d'identifiant Discord fiable) ; pas d'identifiant du bot propre à l'événement, dédoublonnage laissé au socle. |
 | `custom` | ligne ajoutée à un Google Sheet synchronisé par le bot | libre (en-têtes de la feuille) |
 
-La forme exacte de chaque `payload` est celle du code du bot (`src/services/*Service.ts`, appels à `dispatchWebhook`) : la vérifier avant d'écrire un traitement, et après chaque mise à jour du bot.
+La forme exacte de chaque `payload` est celle du code du bot (`src/services/*Service.ts`, appels à `dispatchWebhook`) : la vérifier avant d'écrire un traitement, et après chaque mise à jour du bot — y compris pour `order.updated` et `monitoring.invoice` ci-dessus, dont la forme documentée peut changer avec le bot.
 
 ## Écrire un traitement
 ```ts

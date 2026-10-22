@@ -28,7 +28,7 @@ Prérequis de certbot : le domaine pointe déjà sur le VPS (`dig +short <domain
 | `limit_req_zone …` (hors du bloc `server`) et `limit_req` | Limite de débit par adresse IP : 30 requêtes par seconde, rafales de 120 tolérées, `429` au-delà. Le site limite déjà son API ; nginx couvre aussi les pages et les fichiers. Le nom de la zone (`__SITE_ID__`) doit être unique sur la machine : une par site. |
 | Bloc HTTP (port 80) | Seul le défi ACME (`/.well-known/acme-challenge/`) y répond, pour obtenir et renouveler le certificat ; tout le reste est redirigé en HTTPS (`301`). |
 | `include snippets/deny-hidden.conf` | Refuse tout chemin caché (`/.env`, `/.git`…) avant même qu'il n'atteigne le site, qui ne les sert déjà pas. |
-| `server_tokens off` | nginx n'annonce plus sa version dans ses réponses et ses pages d'erreur. |
+| `server_tokens off` | nginx ne révèle plus sa version dans ses réponses et ses pages d'erreur. |
 | `location = /healthz { return 404; }` | Le contrôle de santé (une lecture en base par appel) n'est pas joignable d'Internet : Docker interroge le conteneur directement. |
 | `client_max_body_size 16m` | Taille maximale d'une requête. Le site accepte des images jusqu'à 15 Mo ; sans cette ligne, nginx refuse tout au-delà de 1 Mo (erreur 413). |
 | `proxy_pass http://127.0.0.1:__PORT__` | Transmet la requête au conteneur du site. |

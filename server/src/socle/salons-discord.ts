@@ -10,7 +10,7 @@ export type CategorieDiscord = { id: string; nom: string; position: number };
 
 const DUREE_MS = 5 * 60_000;   // les salons changent rarement ; Discord limite les appels
 let cache: { salons: SalonDiscord[]; categories: CategorieDiscord[]; le: number } | null = null;
-// types Discord : 0 texte, 5 annonces, 15 forum ; 4 catégorie
+// types Discord : 0 texte, 5 diffusion, 15 forum ; 4 catégorie
 const TEXTE = new Set([0, 5, 15]), CATEGORIE = 4;
 
 export async function salonsDiscord(): Promise<{ salons: SalonDiscord[]; categories: CategorieDiscord[] }> {

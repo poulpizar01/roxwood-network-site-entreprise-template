@@ -6,18 +6,18 @@
 const GESTION_NAV = [
   { groupe: 'Équipe' },
   { cle: 'accueil', href: 'accueil.html', label: 'Accueil', icone: 'home' },
-  { cle: 'annonces', href: 'annonces.html', label: 'Annonces', icone: 'grid' },
-  { cle: 'agenda', href: 'agenda.html', label: 'Agenda', icone: 'calendar' },
   { cle: 'compte', href: 'compte.html', label: 'Mon compte', icone: 'user' },
+  { cle: 'agenda', href: 'agenda.html', label: 'Agenda', icone: 'calendar' },
+  { cle: 'quota', href: 'quota.html', label: 'Quota', icone: 'chart', permission: 'rh-voir' },
+  { groupe: 'Comptabilité' },
+  { cle: 'factures', href: 'factures.html', label: 'Factures', icone: 'receipt', permission: 'factures' },
+  { cle: 'paie', href: 'paie.html', label: 'Paie', icone: 'coins', permission: 'paie' },
+  { cle: 'comptabilite', href: 'comptabilite.html', label: 'DOT', icone: 'calc', permission: 'compta' },
   { groupe: 'Direction' },
-  { cle: 'comptes', href: 'comptes.html', label: 'Comptes & accès', icone: 'lock', permission: 'comptes' },
   { cle: 'rh', href: 'rh.html', label: 'Ressources humaines', icone: 'users', permission: 'rh-voir' },
-  { cle: 'comptabilite', href: 'comptabilite.html', label: 'Comptabilité', icone: 'calc', permission: 'compta' },
-  { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'gear', permission: 'grades' },
-  { cle: 'parametres', href: 'parametres.html', label: 'Paramètres', icone: 'sync', permission: 'parametres' },
-  { groupe: 'Outils' },
-  // lien réglé dans Paramètres, servi aux seuls comptes validés (/api/outils) : ajouté au menu s'il est réglé
-  { cle: 'registre', label: 'Registre', icone: 'book', externe: true, regle: 'registre' },
+  { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'grade', permission: 'grades' },
+  { cle: 'comptes', href: 'comptes.html', label: 'Comptes & accès', icone: 'lock', permission: 'comptes' },
+  { cle: 'parametres', href: 'parametres.html', label: 'Paramètres', icone: 'gear', permission: 'parametres' },
   { groupe: 'Site' },
   // le site public (même onglet)
   { cle: 'site', href: '/', label: 'Voir le site', icone: 'globe' },
@@ -32,7 +32,7 @@ const GESTION_ICONES = {
   calc: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h2M12 12h2M8 16h2M12 16h2M16 12v4"/>',
   chart: '<path d="M4 20V10M10 20V4M16 20v-7M2 20h20"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
   sheet: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 9h16M4 15h16M10 9v12"/>',
   sync: '<path d="M21 12a9 9 0 0 1-15.5 6.3M3 12a9 9 0 0 1 15.5-6.3"/><path d="M18 2v4h-4M6 22v-4h4"/>',
@@ -56,7 +56,9 @@ const GESTION_ICONES = {
   copy: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
   receipt: '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
   coins: '<ellipse cx="9" cy="7" rx="6" ry="3"/><path d="M3 7v4c0 1.7 2.7 3 6 3s6-1.3 6-3V7"/><path d="M9 14v3c0 1.7 2.7 3 6 3s6-1.3 6-3v-6c0-1.7-2.7-3-6-3"/>',
+  grade: '<path d="M5 16l7-6 7 6"/><path d="M5 10l7-6 7 6"/>',
   upload: '<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
+  download: '<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
 };
 const ico = nom => `<svg class="ico" aria-hidden="true"><use href="#ico-${nom}"></use></svg>`;
 
@@ -69,15 +71,15 @@ const ligneEnService = p => `<li${p.moi ? ' class="admin-service-moi"' : ''}>
   <span class="admin-service-nom">${socle.esc(p.nom)}${p.moi ? ' <span class="admin-service-vous">vous</span>' : ''}</span>
   <span class="admin-service-detail">depuis ${socle.esc(heureParis(p.depuis))} · ${dureeDepuis(p.depuis)}</span></li>`;
 
-// Ce que le menu affiche du compte (nom, avatar, grade, permissions) et les liens réglés, gardé pour l'onglet : la page
-// suivante dessine son menu sans attendre le serveur. Affichage seulement ; effacé à la déconnexion, et dès que le
-// serveur ne reconnaît plus la session.
+// Ce que le menu affiche du compte (nom, avatar, grade, permissions), gardé pour l'onglet : la page suivante dessine
+// son menu sans attendre le serveur. Affichage seulement ; effacé à la déconnexion, et dès que le serveur ne
+// reconnaît plus la session.
 const memoCoque = {
   cle: 'gestion.coque',
   // mémo d'une autre forme (laissé par une version précédente de la coque) : ignoré, sinon le menu plantait avant d'être posé
   lire() { try { const m = JSON.parse(sessionStorage.getItem(this.cle)); return m?.moi ? m : null; } catch { return null; } },
-  ecrire(moi, outils) {
-    const m = { moi: { nom: moi.nom, pseudo: moi.pseudo, avatar: moi.avatar, proprietaire: moi.proprietaire, grade: moi.grade ? { libelle: moi.grade.libelle } : null, permissions: moi.permissions }, outils };
+  ecrire(moi) {
+    const m = { moi: { nom: moi.nom, pseudo: moi.pseudo, avatar: moi.avatar, proprietaire: moi.proprietaire, grade: moi.grade ? { libelle: moi.grade.libelle } : null, permissions: moi.permissions } };
     try { sessionStorage.setItem(this.cle, JSON.stringify(m)); } catch { /* stockage refusé : menu dessiné à la réponse */ }
     return m;
   },
@@ -91,7 +93,7 @@ const memoCoque = {
 // « En service » : un indicateur (bas du menu sur écran large, barre du haut sur téléphone) qui ouvre la liste dans un
 // panneau. Pas dans le menu lui-même : une liste qui bouge seule n'a rien à faire dans la navigation (et l'Accueil a
 // la sienne). Relu chaque minute, seulement dans un onglet visible ; une erreur passagère garde le dernier affichage.
-// Sans annonce automatique (aria-live) : elle reviendrait sur toutes les pages, à chaque relecture.
+// Sans lecture automatique (aria-live) : elle reviendrait sur toutes les pages, à chaque relecture.
 function enService(barre, haut) {
   const declencheurs = [...barre.querySelectorAll('[data-service-indic]'), ...haut.querySelectorAll('[data-service-indic]')];
   const panneau = document.createElement('div');
@@ -228,12 +230,12 @@ window.gestion = {
       <button type="button" class="admin-service-indic admin-service-indic--haut cache" data-service-indic="court" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-en-service">
         <span class="pastille-service" aria-hidden="true"></span><span data-service-texte></span></button>
       <span data-avatar></span>`;
-    const dessiner = (moi, outils) => {
-      // un groupe sans aucune rubrique visible n'est pas affiché ; un lien réglé (registre) seulement s'il l'est
-      const visibles = GESTION_NAV.filter(l => l.groupe || (l.regle ? outils?.[l.regle] : !l.permission || socle.peut(moi, l.permission)));
+    const dessiner = (moi) => {
+      // un groupe sans aucune rubrique visible n'est pas affiché
+      const visibles = GESTION_NAV.filter(l => l.groupe || !l.permission || socle.peut(moi, l.permission));
       barre.querySelector('.admin-nav').innerHTML = visibles.filter((l, i) => !l.groupe || (visibles[i + 1] && !visibles[i + 1].groupe)).map(l => l.groupe
         ? `<p class="admin-nav-groupe">${socle.esc(l.groupe)}</p>`
-        : `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.regle ? outils[l.regle] : l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`).join('');
+        : `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`).join('');
       const nom = moi.nom || moi.pseudo;
       const grade = moi.grade?.libelle || (moi.proprietaire ? 'Propriétaire' : 'Sans grade');
       const avatar = moi.avatar ? `<img class="admin-avatar" src="${socle.esc(moi.avatar)}" alt="">` : `<span class="admin-avatar" aria-hidden="true">${socle.esc(initiales(nom))}</span>`;
@@ -242,7 +244,7 @@ window.gestion = {
         <button type="button" class="admin-icone-bouton" data-deconnexion title="Se déconnecter" aria-label="Se déconnecter">${ico('logout')}</button>`;
       haut.querySelector('[data-avatar]').innerHTML = avatar;
     };
-    if (memo) dessiner(memo.moi, memo.outils);
+    if (memo) dessiner(memo.moi);
     barre.addEventListener('click', e => {
       if (!e.target.closest('[data-deconnexion]')) return;
       memoCoque.effacer();
@@ -286,11 +288,10 @@ window.gestion = {
     document.body.prepend(evitement);
     document.body.classList.add('page-agents', 'admin-connecte');
 
-    // compte connecté et liens réglés (registre, /api/outils), lus ensemble
-    let moi, outils;
-    try { [moi, outils] = await Promise.all([socle.moi(), socle.api('/api/outils').catch(() => memo?.outils ?? {})]); }
+    let moi;
+    try { moi = await socle.moi(); }
     catch (e) { memoCoque.effacer(); erreurDeChargement(main, e); throw e; }
-    if (JSON.stringify(memoCoque.ecrire(moi, outils)) !== JSON.stringify(memo)) dessiner(moi, outils);
+    if (JSON.stringify(memoCoque.ecrire(moi)) !== JSON.stringify(memo)) dessiner(moi);
     enService(barre, haut);
     indiceDefilement(barre.querySelector('.admin-nav'));
     tablesAdaptatives(main);
@@ -314,7 +315,7 @@ window.gestion = {
   },
 
   // Confirmation dans la page (aucune boîte de dialogue du navigateur : l'ordinateur en jeu ne les affiche pas).
-  // libelle : le bouton dit l'action (« Supprimer l'annonce »), jamais « Confirmer » ; danger = false pour une action
+  // libelle : le bouton dit l'action (« Supprimer le grade »), jamais « Confirmer » ; danger = false pour une action
   // qui ne détruit rien (bouton plein). Le focus reste dans la fenêtre, Échap annule, puis le focus revient où il était.
   confirmer(texte, titre = 'Confirmer', libelle = 'Confirmer', { danger = true } = {}) {
     return new Promise(resolve => {
@@ -510,25 +511,59 @@ addEventListener('resize', fermerSelectOuvert);
 // en capture pour voir le défilement d'un conteneur ; celui de la liste elle-même ne la ferme pas
 addEventListener('scroll', ev => { if (SELECT_OUVERT && SELECT_OUVERT.flottant.contains(ev.target)) return; fermerSelectOuvert(); }, true);
 
-function ameliorerSelect(select, pastille, portee) {
+// rechercher (facultatif) : ajoute un champ de recherche en tête de la liste flottante (sélection longue — ex. la
+// centaine d'employés d'une grosse entreprise) ; filtre le texte des options, sans toucher au <select> lui-même.
+function ameliorerSelect(select, pastille, portee, rechercher) {
   if (!select || select.dataset.ameliore) return;
   select.dataset.ameliore = '1';
   const enveloppe = document.createElement('span');
   enveloppe.className = 'd8-select-enveloppe';
   select.parentNode.insertBefore(enveloppe, select);
   enveloppe.appendChild(select);
+  let pastilleCourante = null;
+  if (pastille) {
+    enveloppe.classList.add('avec-pastille');
+    pastilleCourante = document.createElement('span');
+    pastilleCourante.className = 'd8-select-pastille-courante';
+    pastilleCourante.setAttribute('aria-hidden', 'true');
+    enveloppe.appendChild(pastilleCourante);
+    const majPastille = () => { pastilleCourante.style.background = pastille(select.value); };
+    majPastille();
+    select.addEventListener('change', majPastille);
+  }
   const flottant = document.createElement('div');
   flottant.className = 'd8-select-flottant cache';
   if (portee) flottant.dataset.portee = portee;
   document.body.appendChild(flottant);
 
-  function rendreOptions() {
-    flottant.innerHTML = Array.from(select.options).map(o => `
+  // zone des options (chemin commun recherche/pas recherche) : seule elle se redessine à la frappe, pour que le champ
+  // de recherche garde le focus et le curseur (un flottant.innerHTML entier l'aurait redétruit à chaque lettre)
+  const zoneOptions = document.createElement('div');
+  zoneOptions.className = 'd8-select-options';
+  let champRecherche = null;
+  if (rechercher) {
+    champRecherche = document.createElement('input');
+    champRecherche.type = 'text';
+    champRecherche.className = 'd8-select-recherche-champ';
+    champRecherche.placeholder = 'Rechercher…';
+    champRecherche.setAttribute('aria-label', 'Rechercher dans la liste');
+    const enveloppeRecherche = document.createElement('div');
+    enveloppeRecherche.className = 'd8-select-recherche';
+    enveloppeRecherche.appendChild(champRecherche);
+    flottant.append(enveloppeRecherche, zoneOptions);
+  } else {
+    flottant.appendChild(zoneOptions);
+  }
+
+  function rendreOptions(filtre = '') {
+    const f = filtre.trim().toLowerCase();
+    const options = Array.from(select.options).filter(o => !f || o.textContent.toLowerCase().includes(f));
+    zoneOptions.innerHTML = options.length ? options.map(o => `
       <div class="d8-select-option ${o.value === select.value ? 'selectionnee' : ''}${o.disabled ? ' desactivee' : ''}" data-valeur="${echapper(o.value)}"${o.disabled ? ' aria-disabled="true"' : ''}>
         ${pastille ? `<span class="d8-select-pastille" style="background:${pastille(o.value)};"></span>` : ''}
         <span>${echapper(o.textContent)}</span>
-      </div>`).join('');
-    flottant.querySelectorAll('[data-valeur]').forEach(el => {
+      </div>`).join('') : '<p class="d8-select-vide">Aucun résultat.</p>';
+    zoneOptions.querySelectorAll('[data-valeur]').forEach(el => {
       el.addEventListener('mousedown', ev => {
         ev.preventDefault();
         ev.stopPropagation();
@@ -541,9 +576,17 @@ function ameliorerSelect(select, pastille, portee) {
       });
     });
   }
+  if (champRecherche) {
+    champRecherche.addEventListener('input', () => rendreOptions(champRecherche.value));
+    champRecherche.addEventListener('keydown', ev => {
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      zoneOptions.querySelector('[data-valeur]:not(.desactivee)')?.dispatchEvent(new MouseEvent('mousedown'));
+    });
+  }
   function positionner() {
     const r = select.getBoundingClientRect();
-    const hauteurEstimee = Math.min(select.options.length * 38 + 12, 260);
+    const hauteurEstimee = Math.min(select.options.length * 38 + 12 + (rechercher ? 50 : 0), 260);
     const largeur = Math.max(Math.round(r.width), 230);
     // jamais de débordement à droite : sinon la liste s'aligne sur le bord droit du champ (largeur sans la barre de
     // défilement : innerWidth la compte, et la liste passait dessous)
@@ -558,18 +601,24 @@ function ameliorerSelect(select, pastille, portee) {
   function ouvrir() {
     if (select.disabled) return;
     fermerSelectOuvert();
+    if (champRecherche) champRecherche.value = '';
     rendreOptions();
     positionner();
     flottant.classList.remove('cache');
     enveloppe.classList.add('ouvert');
     SELECT_OUVERT = { select, flottant, enveloppe };
+    if (champRecherche) champRecherche.focus();
   }
   select.addEventListener('mousedown', ev => {
     ev.preventDefault();
     select.focus();
     if (SELECT_OUVERT && SELECT_OUVERT.select === select) fermerSelectOuvert(); else ouvrir();
   });
-  select.addEventListener('blur', () => { if (SELECT_OUVERT && SELECT_OUVERT.select === select) setTimeout(fermerSelectOuvert, 120); });
+  select.addEventListener('blur', () => {
+    if (!SELECT_OUVERT || SELECT_OUVERT.select !== select) return;
+    // le focus peut partir vers le champ de recherche du même menu (flottant) : la liste ne se ferme pas pour ça
+    setTimeout(() => { if (SELECT_OUVERT && SELECT_OUVERT.select === select && !flottant.contains(document.activeElement)) fermerSelectOuvert(); }, 120);
+  });
   select.addEventListener('keydown', ev => {
     if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(ev.key)) {
       ev.preventDefault();
@@ -635,6 +684,144 @@ function champDateFr(input) {
     const c = VALEUR_INPUT.get.call(input).replace(/\D/g, '').slice(0, 8);
     VALEUR_INPUT.set.call(input, [c.slice(0, 2), c.slice(2, 4), c.slice(4)].filter(Boolean).join('/'));
   });
+  ajouterSelecteurDate(input);
+}
+
+// ---- sélecteur de date (calendrier flottant) : posé sur un champ texte jj/mm/aaaa (opère sur le texte affiché, pas
+// sur .value — fonctionne donc aussi bien avec champDateFr, qui réécrit .value en ISO, qu'avec un champ texte brut
+// comme ecriture-dot-date). La saisie au clavier reste possible : le calendrier n'est qu'une aide, jamais obligatoire.
+// Même discipline qu'une fenêtre (docs/design.md) : focus dedans à l'ouverture, Tab qui y boucle, Échap qui ferme,
+// focus rendu au bouton. Position « fixed », comme ameliorerSelect() : un parent avec overflow:hidden (modale) ne
+// la tronquerait pas.
+const JOURS_COURTS_DATE = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+let DATE_OUVERTE = null;   // { panneau, bouton, dernierFocus, surClavier }
+function fermerDateOuverte() {
+  if (!DATE_OUVERTE) return;
+  const { panneau, bouton, dernierFocus, surClavier } = DATE_OUVERTE;
+  panneau.remove();
+  bouton.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('keydown', surClavier, true);
+  DATE_OUVERTE = null;
+  (dernierFocus || bouton).focus();
+}
+document.addEventListener('mousedown', ev => { if (DATE_OUVERTE && !DATE_OUVERTE.panneau.contains(ev.target) && ev.target !== DATE_OUVERTE.bouton) fermerDateOuverte(); });
+addEventListener('resize', fermerDateOuverte);
+addEventListener('scroll', ev => { if (DATE_OUVERTE && DATE_OUVERTE.panneau.contains(ev.target)) return; fermerDateOuverte(); }, true);
+
+function ajouterSelecteurDate(input) {
+  if (!input || input.dataset.selecteurDate) return;
+  input.dataset.selecteurDate = '1';
+  const enveloppe = document.createElement('span');
+  enveloppe.className = 'champ-date-enveloppe';
+  input.insertAdjacentElement('beforebegin', enveloppe);
+  enveloppe.appendChild(input);
+  const bouton = document.createElement('button');
+  bouton.type = 'button';
+  bouton.className = 'champ-date-bouton';
+  bouton.setAttribute('aria-label', 'Ouvrir le calendrier');
+  bouton.setAttribute('aria-haspopup', 'dialog');
+  bouton.setAttribute('aria-expanded', 'false');
+  bouton.innerHTML = ico('calendar');
+  enveloppe.appendChild(bouton);
+
+  const lireValeur = () => {
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(VALEUR_INPUT.get.call(input).trim());
+    if (!m) return null;
+    const d = new Date(+m[3], +m[2] - 1, +m[1]);
+    return d.getMonth() === +m[2] - 1 && d.getDate() === +m[1] ? d : null;
+  };
+  const ecrireValeur = d => {
+    VALEUR_INPUT.set.call(input, `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.effacerErreurFr?.();
+  };
+
+  let panneau = null, moisAffiche = null;
+
+  function construire() {
+    const an = moisAffiche.getFullYear(), mois = moisAffiche.getMonth();
+    const decalage = (new Date(an, mois, 1).getDay() + 6) % 7;   // lundi en premier
+    const nbJours = new Date(an, mois + 1, 0).getDate();
+    const selection = lireValeur();
+    const aujourdhui = new Date();
+    const cases = [];
+    for (let i = 0; i < decalage; i++) cases.push('<span class="champ-date-case champ-date-case--vide" aria-hidden="true"></span>');
+    for (let j = 1; j <= nbJours; j++) {
+      const estSelection = !!selection && selection.getFullYear() === an && selection.getMonth() === mois && selection.getDate() === j;
+      const estAujourdhui = aujourdhui.getFullYear() === an && aujourdhui.getMonth() === mois && aujourdhui.getDate() === j;
+      cases.push(`<button type="button" class="champ-date-case${estAujourdhui ? ' champ-date-case--aujourdhui' : ''}${estSelection ? ' champ-date-case--active' : ''}" data-jour="${j}" role="gridcell" aria-selected="${estSelection}">${j}</button>`);
+    }
+    panneau.querySelector('.champ-date-titre').textContent = moisAffiche.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    panneau.querySelector('.champ-date-grille').innerHTML = cases.join('');
+    panneau.querySelectorAll('[data-jour]').forEach(b => b.addEventListener('click', () => { ecrireValeur(new Date(an, mois, Number(b.dataset.jour))); fermerDateOuverte(); }));
+  }
+
+  // flèches : déplace le focus dans le mois affiché seulement (shortcut : pas de saut de mois sur un bord de grille,
+  // peu gênant — Page précédente/suivante restent accessibles à la souris et au Tab)
+  function deplacerFocus(decalageJours) {
+    const actif = document.activeElement;
+    if (!actif || !actif.dataset.jour) return;
+    panneau.querySelector(`[data-jour="${Number(actif.dataset.jour) + decalageJours}"]`)?.focus();
+  }
+  function surClavier(ev) {
+    if (ev.key === 'Escape') { ev.preventDefault(); fermerDateOuverte(); return; }
+    if (ev.key === 'ArrowRight') { ev.preventDefault(); deplacerFocus(1); }
+    else if (ev.key === 'ArrowLeft') { ev.preventDefault(); deplacerFocus(-1); }
+    else if (ev.key === 'ArrowDown') { ev.preventDefault(); deplacerFocus(7); }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); deplacerFocus(-7); }
+    else if (ev.key === 'Tab') {
+      const items = Array.from(panneau.querySelectorAll('button'));
+      const premier = items[0], dernier = items[items.length - 1];
+      if (ev.shiftKey && document.activeElement === premier) { ev.preventDefault(); dernier.focus(); }
+      else if (!ev.shiftKey && document.activeElement === dernier) { ev.preventDefault(); premier.focus(); }
+    }
+  }
+
+  function positionner() {
+    const r = enveloppe.getBoundingClientRect();
+    const largeur = Math.min(272, document.documentElement.clientWidth - 16);
+    const visible = document.documentElement.clientWidth;
+    let gauche = Math.round(r.left);
+    if (gauche + largeur > visible - 8) gauche = Math.round(r.right) - largeur;
+    panneau.style.left = Math.max(8, Math.min(gauche, visible - largeur - 8)) + 'px';
+    panneau.style.width = largeur + 'px';
+    const hauteurEstimee = 320;
+    panneau.style.top = (r.bottom + hauteurEstimee > innerHeight && r.top > hauteurEstimee ? Math.round(r.top - hauteurEstimee - 6) : Math.round(r.bottom + 6)) + 'px';
+  }
+
+  function ouvrir() {
+    fermerDateOuverte();
+    fermerSelectOuvert();
+    const dernierFocus = document.activeElement;
+    input.blur();   // ferme le clavier virtuel sur mobile : il masquerait le calendrier ou se battrait avec lui
+    moisAffiche = lireValeur() || new Date();
+    moisAffiche = new Date(moisAffiche.getFullYear(), moisAffiche.getMonth(), 1);
+    panneau = document.createElement('div');
+    panneau.className = 'champ-date-panneau';
+    panneau.setAttribute('role', 'dialog');
+    panneau.setAttribute('aria-label', 'Choisir une date');
+    panneau.innerHTML = `
+      <div class="champ-date-entete">
+        <button type="button" class="champ-date-nav" data-nav="-1" aria-label="Mois précédent"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+        <span class="champ-date-titre"></span>
+        <button type="button" class="champ-date-nav champ-date-nav--apres" data-nav="1" aria-label="Mois suivant"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+      </div>
+      <div class="champ-date-jours" aria-hidden="true">${JOURS_COURTS_DATE.map(j => `<span>${j}</span>`).join('')}</div>
+      <div class="champ-date-grille" role="grid"></div>
+      <button type="button" class="champ-date-aujourdhui">Aujourd’hui</button>`;
+    document.body.appendChild(panneau);
+    construire();
+    panneau.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => { moisAffiche.setMonth(moisAffiche.getMonth() + Number(b.dataset.nav)); construire(); }));
+    panneau.querySelector('.champ-date-aujourdhui').addEventListener('click', () => { ecrireValeur(new Date()); fermerDateOuverte(); });
+    positionner();
+    bouton.setAttribute('aria-expanded', 'true');
+    document.addEventListener('keydown', surClavier, true);
+    DATE_OUVERTE = { panneau, bouton, dernierFocus, surClavier };
+    (panneau.querySelector('.champ-date-case--active, .champ-date-case--aujourdhui') || panneau.querySelector('[data-jour]'))?.focus();
+  }
+
+  bouton.addEventListener('click', () => { if (DATE_OUVERTE && DATE_OUVERTE.bouton === bouton) fermerDateOuverte(); else ouvrir(); });
 }
 function champHeureFr(input, pasMinutes = 15) {
   if (!input || input.dataset.fr) return;

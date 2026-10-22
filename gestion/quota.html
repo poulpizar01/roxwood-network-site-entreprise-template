@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Quota — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — Quota : suivi de run (unités vendues, webhook monitoring.sale) et de facturation (montant facturé,
+       crédité à l'employé qui a enregistré le paiement en jeu — webhook monitoring.invoice uniquement ; une commande
+       boutique ou une facture saisie depuis le site n'a pas d'employé à créditer), cumulés depuis lundi (heure de
+       Paris) et comparés à l'objectif de chacun (réglé dans la fiche du grade, page Grades) et de toute l'équipe
+       (Paramètres → Quota). Permission : rh-voir.
+       Serveur : entreprise/routes/run.ts (run), entreprise/routes/compta.ts (factures, /api/compta/factures/classement). -->
+  <main class="admin-contenu">
+    <section id="panneau-run">
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Quota</h1>
+          <p style="margin:0;font-size:0.88rem;" id="run-periode">Run et facturation, cumulés depuis lundi.</p>
+        </div>
+        <div class="run-semaine-nav" role="group" aria-label="Semaine affichée">
+          <button type="button" class="run-fleche run-fleche--avant" id="run-semaine-precedente" aria-label="Semaine précédente"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+          <button type="button" class="run-semaine-bouton" id="run-aujourdhui" aria-keyshortcuts="T">Cette semaine</button>
+          <span class="run-touche" aria-hidden="true"><kbd>T</kbd> cette semaine</span>
+          <button type="button" class="run-fleche run-fleche--apres" id="run-semaine-suivante" aria-label="Semaine suivante"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+        </div>
+      </div>
+      <div id="zone-message-run" role="status"></div>
+
+      <div class="run-stats">
+        <div class="run-stat">
+          <span class="run-stat-titre">Run</span>
+          <p class="run-stat-chiffre"><span id="run-stat-total">—</span><span id="run-stat-libelle">unités vendues cette semaine</span></p>
+          <div class="run-barre" id="run-barre-equipe"><div class="run-barre-remplie"></div></div>
+        </div>
+        <div class="run-stat">
+          <span class="run-stat-titre">Facturation</span>
+          <p class="run-stat-chiffre"><span id="facture-stat-total">—</span><span id="facture-stat-libelle">facturés cette semaine</span></p>
+          <div class="run-barre" id="facture-barre-equipe"><div class="run-barre-remplie"></div></div>
+        </div>
+      </div>
+
+      <div class="run-onglets" role="tablist" aria-label="Rubriques du suivi de quota">
+        <button type="button" class="run-onglet actif" role="tab" aria-selected="true" aria-controls="run-panneau-quota" data-run-onglet="quota-run"><svg class="ico" aria-hidden="true"><use href="#ico-chart"></use></svg> Quota run</button>
+        <button type="button" class="run-onglet" role="tab" aria-selected="false" aria-controls="facture-panneau-quota" data-run-onglet="quota-facture"><svg class="ico" aria-hidden="true"><use href="#ico-chart"></use></svg> Quota facture</button>
+        <button type="button" class="run-onglet" role="tab" aria-selected="false" aria-controls="run-panneau-classement" data-run-onglet="classement"><svg class="ico" aria-hidden="true"><use href="#ico-star"></use></svg> Classements</button>
+      </div>
+
+      <div id="run-panneau-quota" role="tabpanel">
+        <div class="run-filtres">
+          <div class="comptes-recherche run-recherche">
+            <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+            <input type="search" id="run-recherche" aria-label="Rechercher une personne par son nom ou prénom" placeholder="Nom ou prénom">
+          </div>
+          <div class="comptes-filtres" role="group" aria-label="Afficher" data-run-filtre-groupe="run">
+            <button type="button" class="comptes-filtre actif" data-run-filtre="tous" aria-pressed="true">Tous</button>
+            <button type="button" class="comptes-filtre" data-run-filtre="non-atteint" aria-pressed="false">Quota non atteint</button>
+          </div>
+        </div>
+        <table class="table-admin" id="run-table">
+          <thead><tr><th data-titre>Personne</th><th>Grade</th><th>Progression</th></tr></thead>
+          <tbody id="run-quota-corps"></tbody>
+        </table>
+      </div>
+      <div id="facture-panneau-quota" class="cache" role="tabpanel">
+        <div class="run-filtres">
+          <div class="comptes-recherche run-recherche">
+            <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+            <input type="search" id="facture-recherche" aria-label="Rechercher une personne par son nom ou prénom" placeholder="Nom ou prénom">
+          </div>
+          <div class="comptes-filtres" role="group" aria-label="Afficher" data-run-filtre-groupe="facture">
+            <button type="button" class="comptes-filtre actif" data-run-filtre="tous" aria-pressed="true">Tous</button>
+            <button type="button" class="comptes-filtre" data-run-filtre="non-atteint" aria-pressed="false">Quota non atteint</button>
+          </div>
+        </div>
+        <table class="table-admin" id="facture-table">
+          <thead><tr><th data-titre>Personne</th><th>Grade</th><th>Progression</th></tr></thead>
+          <tbody id="facture-quota-corps"></tbody>
+        </table>
+      </div>
+      <div id="run-panneau-classement" class="cache" role="tabpanel">
+        <div class="run-classements">
+          <section aria-labelledby="titre-classement-run">
+            <h2 id="titre-classement-run" class="run-classement-titre"><svg class="ico" aria-hidden="true"><use href="#ico-chart"></use></svg> Run</h2>
+            <div class="podium-marches" id="run-marches"></div>
+            <ol class="run-podium" id="run-podium"></ol>
+          </section>
+          <section aria-labelledby="titre-classement-facture">
+            <h2 id="titre-classement-facture" class="run-classement-titre"><svg class="ico" aria-hidden="true"><use href="#ico-calc"></use></svg> Factures</h2>
+            <div class="podium-marches" id="facture-marches"></div>
+            <ol class="run-podium" id="facture-podium"></ol>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/gestion/quota.js"></script>
+</body>
+</html>

@@ -16,3 +16,12 @@ export const jourParis = (instant?: string | Date): string => {
   const d = instant ? new Date(instant) : new Date();
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(Number.isNaN(d.getTime()) ? new Date() : d);
 };
+// lundi de la semaine en cours ou d'un jour donné (calendrier Paris), pour cumuler un objectif hebdomadaire (quota de
+// runs) ou consulter une semaine passée.
+// shortcut: minuit posé en UTC, pas en heure de Paris (décalage d'une à deux heures autour de la bascule du lundi) ;
+// à corriger si un objectif se joue un jour à une heure près.
+export const debutSemaineParis = (jour?: string): Date => {
+  const lundi = versDate(jour ?? jourParis());
+  lundi.setUTCDate(lundi.getUTCDate() - ((lundi.getUTCDay() + 6) % 7));
+  return lundi;
+};

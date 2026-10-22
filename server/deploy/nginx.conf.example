@@ -35,7 +35,7 @@ server {
 
     include snippets/deny-hidden.conf;   # fichiers et dossiers cachés (.env, .git…) : jamais servis
 
-    server_tokens off;                 # ne pas annoncer la version de nginx
+    server_tokens off;                 # ne pas révéler la version de nginx
     client_max_body_size 16m;          # images envoyées : 15 Mo max côté site
 
     # compression : par défaut nginx ne compresse que le HTML ; CSS, JS et réponses de l'API (JSON) en profitent

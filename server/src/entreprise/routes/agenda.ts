@@ -43,7 +43,8 @@ const libelleDestination = (e: Pick<EvenementAgenda, 'destination' | 'destinatio
 
 type EvenementAvecInvitations = EvenementAgenda & { invitations: InvitationAgenda[] };
 const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAgenda) => ({
-  id: e.id, titre: e.titre, jour: e.jour.toISOString().slice(0, 10), heure_debut: e.heureDebut, heure_fin: e.heureFin, notes: e.notes,
+  id: e.id, titre: e.titre, jour: e.jour.toISOString().slice(0, 10), jour_fin: e.jourFin.toISOString().slice(0, 10),
+  heure_debut: e.heureDebut, heure_fin: e.heureFin, notes: e.notes,
   type_id: e.typeId, destination: e.destination, destination_grade: e.destinationGrade, destinataire: libelleDestination(e, e.invitations),
   auteur: e.auteurNom, mien: e.compteId === req.compte.id,
   invites: e.invitations.map(({ id, nom, prevenu }) => ({
@@ -53,22 +54,29 @@ const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAge
   modifiable: modifiable(e, lecteur(req), droits, clesGrades()),
 });
 
-type Champs = { titre: string; jour: Date; heureDebut: string; heureFin: string; notes: string; typeId: number | null };
+type Champs = { titre: string; jour: Date; jourFin: Date; heureDebut: string | null; heureFin: string | null; notes: string; typeId: number | null };
+// un seul jour : horaires obligatoires ; plusieurs jours : pas d'horaire (l'événement occupe la journée entière, chaque jour)
 async function lire(b: Record<string, unknown>): Promise<Champs> {
   const titre = text(b.titre, 80);
   if (!titre) throw new Refus('Le titre de l’événement est obligatoire.');
-  if (!dateValide(b.jour)) throw new Refus('Date invalide : attendue au format jj/mm/aaaa.');
-  const debut = String(b.heure_debut ?? ''), fin = String(b.heure_fin ?? '');
-  if (!RE_HEURE.test(debut)) throw new Refus('Heure de début invalide : attendue au format 14:30.');
-  if (!RE_HEURE.test(fin)) throw new Refus('Heure de fin invalide : attendue au format 14:30.');
-  if (fin <= debut) throw new Refus('L’heure de fin doit être après l’heure de début.');
+  if (!dateValide(b.jour)) throw new Refus('Date de début invalide : attendue au format jj/mm/aaaa.');
+  if (!dateValide(b.jour_fin)) throw new Refus('Date de fin invalide : attendue au format jj/mm/aaaa.');
+  if (String(b.jour_fin) < String(b.jour)) throw new Refus('La date de fin doit être après la date de début.');
+  const plusieursJours = String(b.jour_fin) !== String(b.jour);
+  let heureDebut: string | null = null, heureFin: string | null = null;
+  if (!plusieursJours) {
+    heureDebut = String(b.heure_debut ?? ''); heureFin = String(b.heure_fin ?? '');
+    if (!RE_HEURE.test(heureDebut)) throw new Refus('Heure de début invalide : attendue au format 14:30.');
+    if (!RE_HEURE.test(heureFin)) throw new Refus('Heure de fin invalide : attendue au format 14:30.');
+    if (heureFin <= heureDebut) throw new Refus('L’heure de fin doit être après l’heure de début.');
+  }
   if (String(b.notes ?? '').length > 500) throw new Refus('Les notes sont trop longues (500 caractères maximum).');
   let typeId: number | null = null;
   if (b.type_id !== undefined && b.type_id !== null && b.type_id !== '') {
     typeId = entier(b.type_id);
     if (typeId === null || !await prisma.typeAgenda.findUnique({ where: { id: typeId } })) throw new Refus('Ce type d’événement n’existe plus : choisissez-en un autre.');
   }
-  return { titre, jour: versDate(b.jour), heureDebut: debut, heureFin: fin, notes: text(b.notes, 500), typeId };
+  return { titre, jour: versDate(b.jour), jourFin: versDate(b.jour_fin), heureDebut, heureFin, notes: text(b.notes, 500), typeId };
 }
 
 // destinataire demandé : « perso », « tous » ou « grade » + destination_grade (un grade existant)
@@ -90,9 +98,17 @@ const pourquoi = (e: unknown) => e instanceof ErreurDiscord
   ? e.statut === 0 ? 'Discord ne répond pas' : e.statut === 401 ? 'le jeton du bot Discord est refusé' : e.statut === 403 ? 'le bot n’a pas le droit d’y écrire' : e.statut === 429 ? 'Discord demande de ralentir' : `Discord a refusé (HTTP ${e.statut})`
   : 'erreur inattendue';
 
-function texteMessage(discordId: string, ev: { titre: string; jour: string; heureDebut: string; heureFin: string; notes: string }, auteur: string): string {
-  const debut = Math.floor(parisVersDate(ev.jour, ev.heureDebut).getTime() / 1000), fin = Math.floor(parisVersDate(ev.jour, ev.heureFin).getTime() / 1000);
-  return [`<@${discordId}>`, '', `📅 **${echapperMarkdown(ev.titre)}**`, `<t:${debut}:F> → <t:${fin}:t>`,
+function texteMessage(discordId: string, ev: { titre: string; jour: string; jourFin: string; heureDebut: string | null; heureFin: string | null; notes: string }, auteur: string): string {
+  const quand = ev.heureDebut && ev.heureFin
+    ? (() => {
+      const debut = Math.floor(parisVersDate(ev.jour, ev.heureDebut!).getTime() / 1000), fin = Math.floor(parisVersDate(ev.jour, ev.heureFin!).getTime() / 1000);
+      return `<t:${debut}:F> → <t:${fin}:t>`;
+    })()
+    : (() => {
+      const debut = Math.floor(parisVersDate(ev.jour, '00:00').getTime() / 1000), fin = Math.floor(parisVersDate(ev.jourFin, '00:00').getTime() / 1000);
+      return `<t:${debut}:D> → <t:${fin}:D>`;
+    })();
+  return [`<@${discordId}>`, '', `📅 **${echapperMarkdown(ev.titre)}**`, quand,
     ...(ev.notes ? [echapperMarkdown(ev.notes)] : []), '', `*Ajouté à ton agenda par ${echapperMarkdown(auteur)} · ${echapperMarkdown(site.nom)}*`].join('\n').slice(0, 2000);
 }
 
@@ -285,7 +301,8 @@ agenda.get('/api/agenda', ...valide, async (req, res) => {
   const droits = await droitsDe(req), grades = clesGrades(), moi = lecteur(req);
   const candidats = await prisma.evenementAgenda.findMany({
     where: {
-      jour: { gte: versDate(debut), lte: versDate(fin) },
+      jour: { lte: versDate(fin) },
+      jourFin: { gte: versDate(debut) },
       OR: [{ compteId: req.compte.id }, { invitations: { some: { discordId: req.compte.discordId ?? '' } } }, { destination: { in: ['tous', 'grade'] } }],
     },
     orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
@@ -307,7 +324,7 @@ agenda.get('/api/agenda', ...valide, async (req, res) => {
 agenda.get('/api/agenda/personnes', ...valide, traiter(async (req, res) => {
   const droits = await droitsDe(req), grades = clesGrades();
   if (!droits.tout && droits.creer.length === 0) throw new Refus('Votre grade ne permet pas d’inviter des personnes.', 403);
-  const fiches = await prisma.employe.findMany({ where: { statut: 'actif' }, orderBy: [{ prenom: 'asc' }, { nom: 'asc' }], select: { id: true, prenom: true, nom: true, discordPseudo: true, idEmploye: true, discordId: true, gradeCle: true } });
+  const fiches = await prisma.employe.findMany({ where: { statut: 'actif' }, orderBy: [{ prenom: 'asc' }, { nom: 'asc' }], select: { id: true, prenom: true, nom: true, discordPseudo: true, idUnique: true, discordId: true, gradeCle: true } });
   res.json({ personnes: fiches.filter(f => f.discordId !== req.compte.discordId && peutInviter(droits, f.gradeCle, grades)).map(f => ({ id: f.id, nom: nomComplet(f), discord: !!f.discordId })) });
 }));
 
@@ -350,7 +367,7 @@ agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
     },
     include: { invitations: true },
   });
-  const { envois, enCours } = await prevenirInvitations(e.invitations, { ...d, jour: String(b.jour) }, auteur);
+  const { envois, enCours } = await prevenirInvitations(e.invitations, { ...d, jour: String(b.jour), jourFin: String(b.jour_fin) }, auteur);
   res.status(201).json({
     id: e.id,
     notifications: envois.map(({ nom, prevenu }) => ({ nom, prevenu })),
@@ -431,7 +448,7 @@ agenda.put('/api/agenda/:id', ...valide, traiter(async (req, res) => {
       : [];
   });
   const auteur = req.compte.nom || req.compte.pseudo;
-  const { envois, enCours } = await prevenirInvitations(ajoutes, { ...d, jour: String(b.jour) }, auteur);
+  const { envois, enCours } = await prevenirInvitations(ajoutes, { ...d, jour: String(b.jour), jourFin: String(b.jour_fin) }, auteur);
   const avertissements = envois.map(x => x.avertissement).filter(Boolean);
   let annulations = 0;
   for (const invitation of retires) {

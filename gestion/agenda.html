@@ -71,10 +71,17 @@
         </div>
         <div class="evenement-quand">
           <div class="champ">
-            <label for="evenement-jour">Date</label>
+            <label for="evenement-jour">Du</label>
             <input type="date" id="evenement-jour">
             <p class="champ-erreur cache" id="erreur-evenement-jour">Date au format jj/mm/aaaa.</p>
           </div>
+          <div class="champ">
+            <label for="evenement-jour-fin">Au</label>
+            <input type="date" id="evenement-jour-fin">
+            <p class="champ-erreur cache" id="erreur-evenement-jour-fin">Date au format jj/mm/aaaa ; la fin doit être après le début.</p>
+          </div>
+        </div>
+        <div class="evenement-quand" id="champ-evenement-heures">
           <div class="champ">
             <label for="evenement-heure-debut">Début</label>
             <input type="time" id="evenement-heure-debut" step="300">
@@ -84,6 +91,7 @@
             <input type="time" id="evenement-heure-fin" step="300">
           </div>
         </div>
+        <p class="champ-aide cache" id="evenement-plusieurs-jours">Sur plusieurs jours, l’événement occupe la journée entière : pas d’horaire.</p>
         <p class="champ-erreur cache evenement-erreur-heures" id="erreur-evenement-heures">Heures au format 24 h (14:30) ; la fin doit être après le début.</p>
         <div class="evenement-classement">
           <div class="champ">

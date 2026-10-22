@@ -60,13 +60,6 @@
         <div class="comptes-liste rh-liste" id="rh-liste"></div>
       </section>
 
-      <!-- Données des autres modules sans fiche RH : vendeurs inconnus des ventes du bot, lignes du tableur sans employé. -->
-      <section class="rh-section cache" id="rh-a-rattacher" aria-labelledby="titre-rattacher">
-        <h2 id="titre-rattacher" class="rh-titre">À rattacher</h2>
-        <p class="comptes-aide">Des ventes ou des lignes du tableur ne correspondent à aucune fiche. Créez la fiche, ou corrigez le pseudo Discord (ventes) ou le prénom et le nom (tableur) d’une fiche existante : elles s’y rattachent d’elles-mêmes.</p>
-        <div id="rh-a-rattacher-contenu"></div>
-      </section>
-
       <!-- Candidatures acceptées reçues du bot Discord « Roxwood Network Entreprise » (webhook recruitment.updated, reçu par
            le socle sur /webhooks/bot), et leurs réglages. -->
       <section class="rh-section cache" id="rh-bot" aria-labelledby="titre-recrutement">
@@ -110,8 +103,8 @@
               </div>
 
               <div class="rh-correspondance" role="row">
-                <div class="rh-correspondance-texte" role="cell"><label for="rh-bot-q-id-employe-choix">ID employé</label></div>
-                <div class="rh-correspondance-choix" role="cell"><input type="text" id="rh-bot-q-id-employe" maxlength="200" class="cache" data-vide="Aucune question : ID provisoire à remplacer" aria-label="Libellé exact de la question de l’ID employé"></div>
+                <div class="rh-correspondance-texte" role="cell"><label for="rh-bot-q-id-unique-choix">ID Unique</label></div>
+                <div class="rh-correspondance-choix" role="cell"><input type="text" id="rh-bot-q-id-unique" maxlength="200" class="cache" data-vide="Aucune question : ID provisoire à remplacer" aria-label="Libellé exact de la question de l’ID Unique"></div>
               </div>
               <div class="rh-correspondance" role="row">
                 <div class="rh-correspondance-texte" role="cell"><label for="rh-bot-q-telephone-choix">Téléphone</label></div>
@@ -133,7 +126,7 @@
   </main>
 
 <div class="modale-fond cache" id="modale-employe">
-  <div class="modale modale-fiche-rh" style="max-width:640px;" role="dialog" aria-modal="true" aria-labelledby="modale-employe-titre">
+  <div class="modale modale-fiche-rh" role="dialog" aria-modal="true" aria-labelledby="modale-employe-titre">
     <div class="modale-entete">
       <h2 id="modale-employe-titre" class="modale-titre">Fiche employé</h2>
       <button type="button" id="fermer-modale-employe" aria-label="Fermer">✕</button>
@@ -146,7 +139,7 @@
           <div class="champ"><label for="employe-nom">Nom</label><input type="text" id="employe-nom" required maxlength="60"></div>
         </div>
         <div class="champ-deux">
-          <div class="champ"><label for="employe-id">ID employé</label><input type="text" id="employe-id" required maxlength="12" inputmode="numeric" placeholder="Ex. 42" aria-describedby="aide-employe-id"><p class="champ-aide" id="aide-employe-id">Chiffres uniquement.</p><p class="champ-erreur cache" id="erreur-employe-id">L’ID employé ne contient que des chiffres, par exemple 42.</p></div>
+          <div class="champ"><label for="employe-id-unique">ID Unique</label><input type="text" id="employe-id-unique" required maxlength="12" inputmode="numeric" placeholder="Ex. 42" aria-describedby="aide-employe-id-unique"><p class="champ-aide" id="aide-employe-id-unique">Chiffres uniquement.</p><p class="champ-erreur cache" id="erreur-employe-id-unique">L’ID Unique ne contient que des chiffres, par exemple 42.</p></div>
           <div class="champ"><label for="employe-grade">Grade</label><select id="employe-grade"></select></div>
         </div>
         <div class="champ-deux">

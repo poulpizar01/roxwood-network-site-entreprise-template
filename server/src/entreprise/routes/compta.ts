@@ -1,21 +1,20 @@
-// ENTREPRISE — comptabilité (permission « compta ») : relevé Tablettes collé, écritures et déclaration DOT
-// hebdomadaire. La rémunération (salaires, paliers de primes)
-// est dans routes/stats.ts.
-import { Router } from 'express';
+// ENTREPRISE — comptabilité (permission « compta » : relevé Tablettes et DOT ; permission « factures » séparée : gestion
+// des factures) : relevé Tablettes collé, écritures et résumé DOT hebdomadaire.
+import { Router, type Request, type Response } from 'express';
 import { prisma } from '../../socle/db.js';
-import { gradeDe, tousLesGrades } from '../../socle/droits.js';
+import { auDessusDe, gradeDe, tousLesGrades } from '../../socle/droits.js';
 import { body, intParam, permission } from '../../socle/http.js';
+import { classementFactures, definirQuotaFacture, quotasFacture } from '../facture.js';
+import { calculerPaie, paieGrades } from '../paie.js';
 import { Refus, traiter } from '../refus.js';
-import { normaliserTexte } from '../texte.js';
-import { analyserCodeSemaine } from '../stats/calcul.js';
+import { nomComplet } from '../rh.js';
 import { calculerPaieHoraire, normaliserNom, type GradeHoraire } from '../stats/paie-horaire.js';
-import { primesTableur, recapAvecPrimesTableur, remunerations } from '../stats/recap.js';
 import { caBrutReleve, estLigneTotal as estTotal, impotDot, indexColonne, minuscules, montantReleve } from '../stats/releve.js';
-import { semaineParis } from '../stats/tableur.js';
-import { semaines } from '../stats/ventes.js';
+import { debutSemaineParis, jourValide, versDate } from '../texte.js';
 
 export const compta = Router();
 const gerer = permission('compta');
+const gererFactures = permission('factures');
 
 // ---------- relevé Tablettes ----------
 // Le navigateur découpe le tableau collé en colonnes et en lignes ; le serveur revalide ce résultat (jamais de
@@ -24,8 +23,8 @@ const gerer = permission('compta');
 // avant l'envoi
 const MAX_COLONNES = 20, MAX_LIGNES = 500, MAX_CELLULE = 300;
 
-// La ligne récap « TOTAL » collée depuis la tablette saute la case « Rang » (un grade ne se totalise pas), ce qui décale
-// le reste de la ligne : on y remet un « - », seulement pour cette ligne et si elle est trop courte. Appliqué à
+// La ligne récap « TOTAL » collée depuis la tablette saute la case « Rang » (un grade ne se totalise pas), ce qui décale
+// le reste de la ligne : on y remet un « - », seulement pour cette ligne et si elle est trop courte. Appliqué à
 // l'enregistrement et à la lecture, pour tout relevé enregistré.
 function corrigerLigneTotale(colonnes: string[], lignes: string[][]) {
   const iRang = indexColonne(minuscules(colonnes), ['rang', 'grade']);
@@ -36,7 +35,7 @@ function corrigerLigneTotale(colonnes: string[], lignes: string[][]) {
 async function dernierReleve() {
   const r = await prisma.importCompta.findFirst({ where: { type: 'tablettes' }, orderBy: [{ importeLe: 'desc' }, { id: 'desc' }] });
   const colonnes = (r?.colonnes as string[] | undefined) ?? [];
-  // une réinitialisation enregistre un import sans colonnes : comme « aucun relevé »
+  // une réinitialisation enregistre un import sans colonnes : comme « aucun relevé »
   if (!r || !colonnes.length) return null;
   const auteur = r.compteId ? await prisma.compte.findUnique({ where: { id: r.compteId }, select: { nom: true, pseudo: true } }) : null;
   // nom RP (modifiable par chacun) suivi du pseudo Discord (non modifiable sur le site) : on sait qui a importé
@@ -113,7 +112,7 @@ compta.get('/api/compta/dot/ecritures', ...gerer, async (_req, res) => {
 
 compta.post('/api/compta/dot/ecritures', ...gerer, traiter(async (req, res) => {
   const b = body(req);
-  if (!TYPES_ECRITURE.includes(String(b.type))) throw new Refus('Le type doit être « depense » ou « retrait ».');
+  if (!TYPES_ECRITURE.includes(String(b.type))) throw new Refus('Le type doit être « depense » ou « retrait ».');
   const justificatif = String(b.justificatif ?? '').trim();
   if (!justificatif) throw new Refus('Le justificatif est obligatoire.');
   if (justificatif.length > 200) throw new Refus('Le justificatif est trop long (200 caractères max).');
@@ -136,84 +135,241 @@ compta.delete('/api/compta/dot/ecritures/:id', ...gerer, async (req, res) => {
 // réinitialiser UN des deux tableaux (dépenses OU retraits), jamais l'autre
 compta.delete('/api/compta/dot/ecritures', ...gerer, traiter(async (req, res) => {
   const type = String(req.query.type ?? '').trim();
-  if (!TYPES_ECRITURE.includes(type)) throw new Refus('Le paramètre « type » doit être « depense » ou « retrait ».');
+  if (!TYPES_ECRITURE.includes(type)) throw new Refus('Le paramètre « type » doit être « depense » ou « retrait ».');
   await prisma.ecritureDot.deleteMany({ where: { type } });
   res.json({ ok: true });
 }));
 
-// ---------- déclaration DOT ----------
-const ALIAS_NOM = ['nom', 'nom de l\'employé', 'nom du salarié', 'employé', 'employe'];
-const ALIAS = { run: ['run', 'runs'], facture: ['facture', 'factures'], vente: ['vente', 'ventes'], rang: ['rang', 'grade', 'poste', 'rôle', 'role'] };
-const semaineDemandee = (v: unknown) => String(v ?? '').trim().toUpperCase();
-// semaine du tableur en cours : le numéro écrit par la Direction, sinon celle du calendrier
-const semaineEnCours = async () => (await prisma.tableurEtat.findUnique({ where: { id: 1 }, select: { semaine: true } }))?.semaine || semaineParis(new Date()).code;
+// ---------- factures (table factures, source order | monitoring | manuel) ----------
+const SOURCES_FACTURE = ['order', 'monitoring', 'manuel'];
+const STATUTS_PAYES = ['PAID', 'PAYEE'];   // valeurs de statutPaiement valant « payée », bot ou saisie manuelle
 
-// tableau des salariés « prêt à copier-coller » : RUN / FACTURE / VENTE viennent du relevé Tablettes (retrouvé par nom
-// RP), jamais des ventes du bot. Le tableau et le total de la déclaration viennent de ce seul calcul : salaire = fixe
-// (si activé) + primes du tableur (si activées) + paie à l'heure ; un interrupteur coupé dans Rémunération ne verse rien.
-// Primes : celles de la semaine choisie (archive du tableur), le tableur actuel seulement à défaut, signalé.
-// Noms comparés comme la paie à l'heure (sans casse, accents ni tirets) : « Jerome » dans la tablette et « Jérôme »
-// dans RH sont la même personne, comptée une fois (sinon son salaire fixe serait déclaré deux fois).
-async function salariesDot(semaine: string) {
-  const primePour = await primesTableur(semaine);
-  const [agents, releve, remu, fiches] = await Promise.all([recapAvecPrimesTableur(semaine, primePour), dernierReleve(), remunerations(), prisma.employe.findMany({ select: { id: true, prenom: true, nom: true, gradeCle: true } })]);
-  // paie à l'heure (stagiaires), par nom du relevé : ajoutée au salaire déclaré
-  const paieParNom = new Map(releve ? (await paieHoraire(releve.colonnes, releve.lignes)).lignes.map(p => [normaliserNom(p.nom), p.montant]) : []);
-  const colonnes = minuscules(releve?.colonnes ?? []);
-  const lignes = (releve?.lignes ?? []).filter(l => !estTotal(l));
-  const iNom = indexColonne(colonnes, ALIAS_NOM), iRun = indexColonne(colonnes, ALIAS.run), iFacture = indexColonne(colonnes, ALIAS.facture), iVente = indexColonne(colonnes, ALIAS.vente), iRang = indexColonne(colonnes, ALIAS.rang);
-  const valeur = (l: string[], i: number) => (i === -1 ? 0 : Math.round(montantReleve(l[i])));
-  const utilisees = new Set<string[]>();
-  const resultat: Record<string, unknown>[] = agents.map(a => {
-    const ligne = iNom === -1 ? undefined : lignes.find(l => { const n = normaliserNom(l[iNom]); return n !== '' && !utilisees.has(l) && (n === normaliserNom(a.identiteRp) || n === normaliserNom(a.identite)); });
-    if (ligne) utilisees.add(ligne);
-    const run = ligne ? valeur(ligne, iRun) : 0, facture = ligne ? valeur(ligne, iFacture) : 0, vente = ligne ? valeur(ligne, iVente) : 0;
-    const paie = ligne ? paieParNom.get(normaliserNom(ligne[iNom])) ?? 0 : 0;
-    return {
-      employeId: a.employeId, idEmploye: a.idEmploye, statut: a.statut, identite: a.identite, identiteRp: a.identiteRp, grade: a.grade,
-      run, facture, vente, caTotalRealise: run + facture + vente, trouveDansTablette: !!ligne,
-      salaireFixe: a.salaireVerse, primeTotale: a.primeTotale, paieHoraire: paie, salaireTotal: a.salaireVerse + a.primeTotale + paie,
-    };
-  });
-  // Toute autre personne du relevé est ajoutée : si elle a facturé, elle doit figurer dans la déclaration. Avec une
-  // fiche RH (inactive, ou absente du récapitulatif) : son grade et ses primes ; sans fiche, signalée « hors RH » :
-  // grade lu dans la colonne Rang, primes de sa ligne du tableur à ce nom.
-  if (iNom !== -1) {
-    const gradeParLibelle = new Map(tousLesGrades().map(g => [normaliserTexte(g.libelle), g.cle]));
-    const ficheParNom = new Map(fiches.map(f => [normaliserNom(`${f.prenom} ${f.nom}`), f]));
-    for (const ligne of lignes) {
-      if (utilisees.has(ligne)) continue;
-      const nom = String(ligne[iNom] ?? '').trim();
-      if (!nom) continue;
-      const fiche = ficheParNom.get(normaliserNom(nom));
-      const rang = iRang !== -1 ? String(ligne[iRang] ?? '').trim() : '';
-      const r = remu(fiche ? fiche.gradeCle : gradeParLibelle.get(normaliserTexte(rang).replace(/-/g, ' ')) ?? gradeParLibelle.get(normaliserTexte(rang)));
-      const salaireFixe = r.salaireActif ? r.salaireFixe ?? 0 : 0, primeTotale = primePour(fiche?.id ?? null, nom).primeTotale;
-      const run = valeur(ligne, iRun), facture = valeur(ligne, iFacture), vente = valeur(ligne, iVente);
-      const paie = paieParNom.get(normaliserNom(nom)) ?? 0;
-      const grade = fiche ? gradeDe(fiche.gradeCle)?.libelle ?? fiche.gradeCle : rang || '—';
-      resultat.push({ employeId: fiche?.id ?? null, identite: nom, identiteRp: nom, grade, run, facture, vente, caTotalRealise: run + facture + vente, trouveDansTablette: true, horsReferentiel: !fiche, salaireFixe, primeTotale, paieHoraire: paie, salaireTotal: salaireFixe + primeTotale + paie });
-    }
-  }
-  // semaine passée sans archive (synchronisation coupée le dimanche soir…) : primes du tableur actuel, peut-être déjà
-  // celui de la semaine suivante — à vérifier avant de déclarer
-  const avertissementPrimes = primePour.source === 'actuel' && semaine !== await semaineEnCours()
-    ? `Aucune archive du tableur pour ${semaine} : les primes sont celles du tableur actuel. Vérifiez-les avant de déclarer.`
-    : null;
-  return { agents: resultat, tabletteTrouvee: !!releve, avertissementPrimes };
+// nom affiché de l'auteur d'une saisie manuelle (même règle que dernierReleve)
+async function avecAuteurs<T extends { compteId: number | null }>(lignes: T[]) {
+  const ids = [...new Set(lignes.map(l => l.compteId).filter((id): id is number => id != null))];
+  const comptes = ids.length ? await prisma.compte.findMany({ where: { id: { in: ids } }, select: { id: true, nom: true, pseudo: true } }) : [];
+  const parId = new Map(comptes.map(c => [c.id, c.nom ? `${c.nom} (@${c.pseudo})` : `@${c.pseudo}`]));
+  return lignes.map(l => ({ ...l, saisiePar: l.compteId != null ? parId.get(l.compteId) ?? null : null }));
 }
 
-compta.get('/api/compta/dot/salaries', ...gerer, traiter(async (req, res) => {
-  const semaine = semaineDemandee(req.query.semaine);
-  if (!semaine) throw new Refus('Le paramètre « semaine » est obligatoire (ex : S36-26).');
-  res.json(await salariesDot(semaine));
+compta.get('/api/compta/factures', ...gererFactures, async (req, res) => {
+  const source = String(req.query.source ?? '');
+  const factures = await prisma.facture.findMany({
+    where: SOURCES_FACTURE.includes(source) ? { source } : undefined,
+    orderBy: { dateFacture: 'desc' },
+    take: 300,
+  });
+  res.json({ factures: await avecAuteurs(factures) });
+});
+
+// quota hebdomadaire de montant facturé par grade : réglé dans la fiche du grade (page Grades), mêmes routes que
+// l'objectif de run (server/src/entreprise/routes/run.ts). Déclarées avant /:id pour ne pas être avalées par elle.
+// Consultation : page Quota (gestion/quota.html, onglets Quota facture et Classements), permission rh-voir comme Run.
+compta.get('/api/compta/factures/classement', ...permission('rh-voir'), async (req, res) => {
+  const semaine = typeof req.query.semaine === 'string' && jourValide(req.query.semaine) ? req.query.semaine : undefined;
+  res.json(await classementFactures(semaine));
+});
+compta.get('/api/compta/factures/quotas', ...permission('grades'), async (_req, res) => { res.json({ quotas: await quotasFacture() }); });
+compta.put('/api/compta/factures/quotas/:grade', ...permission('grades'), traiter(async (req, res) => {
+  const grade = String(req.params.grade);
+  if (!gradeDe(grade)) throw new Refus('Grade introuvable.', 404);
+  if (!auDessusDe(req.compte, grade)) throw new Refus('Vous ne gérez que les grades sous le vôtre.', 403);
+  const quota = Math.round(Number(body(req).quota));
+  if (!Number.isFinite(quota) || quota < 0 || quota > 1_000_000) throw new Refus('Le quota doit être un nombre entier positif.');
+  await definirQuotaFacture(grade, quota);
+  res.json({ ok: true });
 }));
 
-// Résumé de la déclaration : CA brut (dernier relevé) − dépenses = bénéfice imposable → tranche du barème → impôts ;
-// puis primes de la semaine et retraits. Le relevé utilisé (date, auteur, nombre de lignes) est montré pour que la
-// Direction vérifie avant de valider une déclaration réelle.
-compta.get('/api/compta/dot/resume', ...gerer, async (req, res) => {
-  const semaine = semaineDemandee(req.query.semaine);
+compta.get('/api/compta/factures/:id', ...gererFactures, async (req, res) => {
+  const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
+  if (!f) { res.status(404).json({ error: 'Facture introuvable.' }); return; }
+  const avoir = await prisma.facture.findFirst({ where: { avoirDeId: f.id }, select: { id: true } });
+  res.json({ ...(await avecAuteurs([f]))[0], avoirEmis: !!avoir });
+});
+
+// saisie manuelle seulement (une facture reçue du bot n'est jamais créée ni modifiée à la main) : toujours créée « en
+// attente » (le statut n'est pas choisi à la saisie, voir changerStatutManuel ci-dessous) ; le total n'est pas saisi,
+// pour qu'il ne puisse jamais contredire sous-total + livraison − réduction ; la réduction est saisie en pourcentage
+// (même principe que order.updated, discountPercent) et convertie ici en montant. Le montant des articles n'est pas
+// saisi non plus : il vient de la liste d'articles (description/quantité/prix unitaire), comme pour order.updated —
+// une ligne sans quantité valide ou sans prix est ignorée plutôt que de fausser le sous-total ; une ligne sans nom
+// compte quand même (sinon une quantité et un prix déjà saisis disparaîtraient du total pour un oubli de libellé),
+// avec un nom par défaut pour ne pas laisser une ligne vide dans le détail de la facture.
+compta.post('/api/compta/factures', ...gererFactures, traiter(async (req, res) => {
+  const b = body(req);
+  const clientNom = String(b.clientNom ?? '').trim().slice(0, 200);
+  if (!clientNom) throw new Refus('Le nom du client est obligatoire.');
+  const montant = (v: unknown) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= 0 && n <= 2_147_483_647 ? n : null; };
+  const articles = (Array.isArray(b.articles) ? b.articles : [])
+    .map((a: unknown) => {
+      const o = a as Record<string, unknown>;
+      const name = String(o?.name ?? '').trim().slice(0, 200) || 'Article';
+      const quantity = Math.round(Number(o?.quantity));
+      const unitPrice = montant(o?.unitPrice);
+      return Number.isInteger(quantity) && quantity > 0 && quantity <= 9999 && unitPrice !== null
+        ? { name, quantity, unitPrice } : null;
+    })
+    .filter((a: unknown): a is { name: string; quantity: number; unitPrice: number } => a !== null);
+  const sousTotal = articles.reduce((s: number, a: { quantity: number; unitPrice: number }) => s + a.quantity * a.unitPrice, 0);
+  const livraison = montant(b.livraison ?? 0);
+  if (livraison === null || sousTotal > 2_147_483_647) throw new Refus('Les montants doivent être des nombres positifs.');
+  const pourcentage = Number(b.reductionPourcentage ?? 0);
+  if (!Number.isFinite(pourcentage) || pourcentage < 0 || pourcentage > 100) throw new Refus('La réduction doit être un pourcentage entre 0 et 100.');
+  const reduction = Math.round(sousTotal * pourcentage / 100);
+  // date de la facture : obligatoire à la saisie (la gestion la pré-remplit avec aujourd'hui) ; échéance facultative,
+  // jamais déduite
+  const dateFacture = String(b.dateFacture ?? '').trim();
+  if (!jourValide(dateFacture)) throw new Refus('La date de la facture est obligatoire.');
+  const dateEcheance = String(b.dateEcheance ?? '').trim();
+  if (dateEcheance && !jourValide(dateEcheance)) throw new Refus('La date d’échéance est invalide.');
+  const f = await prisma.facture.create({
+    data: {
+      source: 'manuel',
+      numeroFacture: String(b.numeroFacture ?? '').trim().slice(0, 100),
+      clientNom, sousTotal, livraison, reduction,
+      total: sousTotal + livraison - reduction,
+      statutPaiement: 'EN_ATTENTE',
+      compteId: req.compte.id,
+      details: articles.length ? { articles } : undefined,
+      dateFacture: versDate(dateFacture),
+      dateEcheance: dateEcheance ? versDate(dateEcheance) : null,
+    },
+  });
+  res.status(201).json({ id: f.id });
+}));
+
+// date de facture et date d'échéance : modifiables sur toute facture (bot ou saisie manuelle), contrairement au reste
+// (montants, statut) — le bot ne fournit aucune des deux (docs/webhooks.md), la date de facture part donc de la date
+// de réception (valeur par défaut de la colonne) jusqu'à correction ici. Un renvoi du bot (changement de statut) ne
+// les réécrit jamais : recevoirFactureCommande n'inclut pas ces champs dans son upsert.
+compta.patch('/api/compta/factures/:id/dates', ...gererFactures, traiter(async (req, res) => {
+  const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
+  if (!f) throw new Refus('Facture introuvable.', 404);
+  const b = body(req);
+  const dateFacture = String(b.dateFacture ?? '').trim();
+  if (!jourValide(dateFacture)) throw new Refus('La date de la facture est invalide.');
+  const dateEcheance = String(b.dateEcheance ?? '').trim();
+  if (dateEcheance && !jourValide(dateEcheance)) throw new Refus('La date d’échéance est invalide.');
+  await prisma.facture.update({
+    where: { id: f.id },
+    data: { dateFacture: versDate(dateFacture), dateEcheance: dateEcheance ? versDate(dateEcheance) : null },
+  });
+  res.json({ ok: true });
+}));
+
+// retirer une saisie manuelle erronée : jamais une facture reçue du bot (son historique fait foi)
+compta.delete('/api/compta/factures/:id', ...gererFactures, traiter(async (req, res) => {
+  const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
+  if (!f) throw new Refus('Facture introuvable.', 404);
+  if (f.source !== 'manuel') throw new Refus('Seule une facture saisie à la main peut être supprimée.', 403);
+  await prisma.facture.delete({ where: { id: f.id } });
+  res.json({ ok: true });
+}));
+
+// marquer payée / annulée : seulement une saisie manuelle, seulement depuis « en attente » (son seul statut de départ) —
+// une facture reçue du bot reflète ce que Discord a réellement enregistré, le site ne le corrige pas directement
+async function changerStatutManuel(req: Request, res: Response, nouveauStatut: 'PAYEE' | 'ANNULEE') {
+  const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
+  if (!f) throw new Refus('Facture introuvable.', 404);
+  if (f.source !== 'manuel') throw new Refus('Seule une facture saisie à la main peut changer de statut.', 403);
+  if (f.statutPaiement !== 'EN_ATTENTE') throw new Refus('Cette facture n’est plus en attente.', 409);
+  await prisma.facture.update({ where: { id: f.id }, data: { statutPaiement: nouveauStatut } });
+  res.json({ ok: true });
+}
+compta.post('/api/compta/factures/:id/payer', ...gererFactures, traiter((req, res) => changerStatutManuel(req, res, 'PAYEE')));
+compta.post('/api/compta/factures/:id/annuler', ...gererFactures, traiter((req, res) => changerStatutManuel(req, res, 'ANNULEE')));
+
+// avoir : facture séparée à montants négatifs, liée à l'originale (avoirDeId) — une facture payée seulement, jamais
+// un second avoir sur le même avoir ni deux avoirs sur la même facture. Une originale saisie à la main passe à
+// « annulée » (le site en est seul responsable) ; une originale reçue du bot garde son statut (PAID reste exact,
+// l'avoir est la trace comptable du remboursement, pas une correction de ce que le bot a rapporté).
+compta.post('/api/compta/factures/:id/avoir', ...gererFactures, traiter(async (req, res) => {
+  const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
+  if (!f) throw new Refus('Facture introuvable.', 404);
+  if (f.avoirDeId) throw new Refus('Un avoir ne peut pas lui-même recevoir un avoir.', 403);
+  if (!STATUTS_PAYES.includes(f.statutPaiement)) throw new Refus('Seule une facture payée peut recevoir un avoir.', 403);
+  const dejaEmis = await prisma.facture.findFirst({ where: { avoirDeId: f.id } });
+  if (dejaEmis) throw new Refus('Un avoir a déjà été émis pour cette facture.', 409);
+  const avoir = await prisma.$transaction(async tx => {
+    const a = await tx.facture.create({
+      data: {
+        source: f.source, avoirDeId: f.id,
+        numeroFacture: `AVOIR-${f.numeroFacture || f.id}`,
+        clientNom: f.clientNom,
+        sousTotal: -f.sousTotal, livraison: -f.livraison, reduction: -f.reduction, total: -f.total,
+        statutPaiement: 'PAYEE',
+        compteId: req.compte.id,
+      },
+    });
+    if (f.source === 'manuel') await tx.facture.update({ where: { id: f.id }, data: { statutPaiement: 'ANNULEE' } });
+    return a;
+  });
+  res.status(201).json({ id: avoir.id });
+}));
+
+// barème d'imposition de la DOT (dot_bareme_imposition) : fixé par l'organisme du serveur RP, affiché en lecture sous
+// « Dépenses déductibles et retraits » pour que la Direction comprenne les plafonds et le taux appliqués ci-dessus.
+compta.get('/api/compta/dot/bareme', ...gerer, async (_req, res) => {
+  const tranches = await prisma.baremeImposition.findMany({ orderBy: { seuilMin: 'asc' } });
+  res.json({ tranches });
+});
+
+// ---------- tableau des salariés (à coller dans le document de la DOT) ----------
+// Liste : les employés actifs (RH fait foi pour le nom et le grade — jamais le relevé). RUN (unités) et FACTURE ($)
+// sont les quotas réels de la semaine en cours (tables runs/factures, mêmes chiffres que les pages Paie et Quota) :
+// deux pipelines différentes pour la même activité, le relevé Tablettes n'est pas la source qui fait foi ailleurs sur
+// le site. VENTE et CA TOTAL RÉALISÉ restent lus dans le relevé Tablettes (colonnes « Ventes » et « Total
+// entreprise », retrouvées par nom comme la paie à l'heure) : 0 si l'employé n'y figure pas cette semaine-là. Salaire
+// = calculerPaie (fixe du grade + palier run/facture le plus haut atteint, jamais cumulé) + paie à l'heure ; la Prime
+// reste à 0 $, saisie à la main dans le document (bonus discrétionnaire, hors paliers).
+const ALIAS_NOM_SALARIES = ['nom', "nom de l'employé", 'nom du salarié', 'employé', 'employe'];
+async function salariesDot() {
+  const releve = await dernierReleve();
+  const colonnesMin = releve ? minuscules(releve.colonnes) : [];
+  const lignes = releve ? releve.lignes.filter(l => !estTotal(l)) : [];
+  const iNomReleve = indexColonne(colonnesMin, ALIAS_NOM_SALARIES);
+  const iVente = indexColonne(colonnesMin, ['vente', 'ventes']);
+  const iTotalEntreprise = indexColonne(colonnesMin, ['total entreprise', 'total']);
+  const ligneParNom = new Map<string, string[]>(iNomReleve === -1 ? [] : lignes.map((l): [string, string[]] => [normaliserNom(l[iNomReleve]), l]).filter(([n]) => n));
+
+  const [employes, config, paieH] = await Promise.all([
+    prisma.employe.findMany({ where: { statut: 'actif' }, select: { id: true, prenom: true, nom: true, discordPseudo: true, idUnique: true, gradeCle: true } }),
+    paieGrades(),
+    releve ? paieHoraire(releve.colonnes, releve.lignes) : null,
+  ]);
+  const configParGrade = new Map(config.map(c => [c.cle, c]));
+  const paieHoraireParNom = new Map((paieH?.lignes ?? []).map(p => [normaliserNom(p.nom), p.montant]));
+
+  const idsEmployes = employes.map(e => e.id);
+  const debut = debutSemaineParis(), fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
+  const [sommeRuns, sommeFactures] = idsEmployes.length ? await Promise.all([
+    prisma.run.groupBy({ by: ['employeId'], where: { employeId: { in: idsEmployes }, creeLe: { gte: debut, lt: fin } }, _sum: { quantite: true } }),
+    prisma.facture.groupBy({ by: ['employeId'], where: { employeId: { in: idsEmployes }, dateFacture: { gte: debut, lt: fin } }, _sum: { total: true } }),
+  ]) : [[], []];
+  const runsParEmploye = new Map(sommeRuns.map(s => [s.employeId as number, s._sum.quantite ?? 0]));
+  const facturesParEmploye = new Map(sommeFactures.map(s => [s.employeId as number, s._sum.total ?? 0]));
+
+  const agents = employes.map(e => {
+    const nom = nomComplet(e), cle = normaliserNom(nom);
+    const ligne = ligneParNom.get(cle);
+    const run = runsParEmploye.get(e.id) ?? 0, facture = facturesParEmploye.get(e.id) ?? 0;
+    const vente = ligne && iVente !== -1 ? Math.round(montantReleve(ligne[iVente])) : 0;
+    const caTotalRealise = ligne && iTotalEntreprise !== -1 ? Math.round(montantReleve(ligne[iTotalEntreprise])) : 0;
+    const c = configParGrade.get(e.gradeCle);
+    const salaire = c ? calculerPaie({ salaireFixe: c.salaireFixe, salaireActif: c.salaireActif, paliersRun: c.paliersRun, runs: run, paliersFacture: c.paliersFacture, factures: facture }).total : 0;
+    return { nom, grade: gradeDe(e.gradeCle)?.libelle ?? e.gradeCle, run, facture, vente, caTotalRealise, salaireTotal: salaire + (paieHoraireParNom.get(cle) ?? 0) };
+  });
+  return { agents, tabletteTrouvee: !!releve };
+}
+
+compta.get('/api/compta/dot/salaries', ...gerer, async (_req, res) => { res.json(await salariesDot()); });
+
+// ---------- résumé DOT ----------
+// CA brut (dernier relevé) − dépenses = bénéfice imposable → tranche du barème → impôts ; puis retraits. Le relevé
+// utilisé (date, auteur, nombre de lignes) est montré pour que la Direction vérifie avant de valider une déclaration
+// réelle. Les salaires de la semaine (tableau des salariés ci-dessus) ne sont pas repris dans ce total : la Direction
+// les ajoute elle-même dans son document (ils n'étaient déjà pas comptés dans « bénéfice net » avant cette page).
+compta.get('/api/compta/dot/resume', ...gerer, async (_req, res) => {
   const [releve, ecritures, bareme] = await Promise.all([dernierReleve(), prisma.ecritureDot.findMany(), prisma.baremeImposition.findMany({ orderBy: { seuilMin: 'asc' } })]);
   const ca = releve ? caBrutReleve(releve.colonnes, releve.lignes) : null;
   const depenses = ecritures.filter(e => e.type === 'depense').reduce((s, e) => s + e.montant, 0);
@@ -222,27 +378,13 @@ compta.get('/api/compta/dot/resume', ...gerer, async (req, res) => {
   // sous la première tranche ou en perte : 0 $ d'impôt, jamais le taux de la dernière tranche (stats/releve.ts)
   const { tranche, impots } = imposable === null ? { tranche: null, impots: null } : impotDot(imposable, bareme);
   const apresImpots = imposable === null || impots === null ? null : imposable - impots;
-  // total des salaires = somme du tableau des salariés (même calcul, paie à l'heure et personnes hors RH comprises)
-  const primes = semaine ? (await salariesDot(semaine)).agents.reduce((s, a) => s + Number(a.salaireTotal || 0), 0) : null;
   res.json({
-    semaine: semaine || null, caBrut: ca, caBrutTrouve: ca !== null,
+    caBrut: ca, caBrutTrouve: ca !== null,
     caBrutSource: releve && ca !== null ? { importeLe: releve.importeLe, importePar: releve.importePar, nbLignes: releve.lignes.filter(l => !estTotal(l)).length } : null,
     depenseDeductible: depenses, beneficeImposable: imposable, tauxImposition: tranche ? tranche.taux : imposable === null ? null : 0, montantImpots: impots,
-    beneficeApresImpots: apresImpots, montantTotalPrimes: primes,
-    beneficeApresPrimes: apresImpots === null || primes === null ? null : apresImpots - primes,
-    // « bénéfice net » tel que décrit par la Direction : après impôts, moins les retraits (les primes sont une ligne à part)
+    beneficeApresImpots: apresImpots,
+    // « bénéfice net » tel que décrit par la Direction : après impôts, moins les retraits (pas encore les salaires)
     retraits, beneficeNet: apresImpots === null ? null : apresImpots - retraits,
     plafonds: tranche ? { salaireMaxEmploye: tranche.salaireMaxEmploye, salaireMaxPatron: tranche.salaireMaxPatron, primeMaxEmploye: tranche.primeMaxEmploye, primeMaxPatron: tranche.primeMaxPatron } : null,
   });
-});
-
-// semaines proposées pour la déclaration (de la plus ancienne ayant des ventes à la semaine en cours, sans trou)
-// + les semaines du tableur (archivées et en cours) : numérotées par la Direction, elles peuvent différer du calendrier
-compta.get('/api/compta/semaines', ...gerer, async (_req, res) => {
-  const [liste, archives, enCours] = await Promise.all([semaines(), prisma.tableurArchive.findMany({ select: { semaine: true } }), semaineEnCours()]);
-  const codes = new Set(liste.semaines.map(s => s.code));
-  const ajout = [enCours, ...archives.map(a => a.semaine)].filter(c => !codes.has(c) && (codes.add(c), true)).map(code => ({ code, debut: null, fin: null, lignes: 0 }));
-  const ordre = (c: string) => { const a = analyserCodeSemaine(c); return a ? a.anneeIso * 100 + a.numero : -1; };
-  // jamais au-delà de la semaine en cours du tableur (le calendrier peut avoir une semaine d'avance sur la Direction)
-  res.json({ semaines: [...liste.semaines, ...ajout].filter(s => ordre(s.code) <= ordre(enCours)).sort((x, y) => ordre(y.code) - ordre(x.code)) });
 });

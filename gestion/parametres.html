@@ -75,7 +75,7 @@
     function saisie(r, etiquette) {
       if (avecListe(r)) return choixDiscord(r, etiquette);
       const attributs = r.type === 'entier' ? `type="number" min="${Number(r.min)}" max="${Number(r.max)}" placeholder="${Number(r.defaut)}"`
-        : r.cle === 'sheet' ? 'type="url" placeholder="https://docs.google.com/spreadsheets/d/…"' : ATTRIBUTS[r.type] || 'type="text"';
+        : ATTRIBUTS[r.type] || 'type="text"';
       return `<input id="r-${echapper(r.cle)}" data-cle="${echapper(r.cle)}" value="${echapper(r.valeur)}" autocomplete="off" ${attributs}${etiquette ? ` aria-label="${echapper(etiquette)}"` : ''}${r.discord ? ' placeholder="Identifiant Discord"' : ''}>`;
     }
     const champ = r => `<div class="champ">
@@ -99,18 +99,6 @@
           lignes.push(s.dernierRecu
             ? etat('ok', `Prises et fins de service reçues du bot : la dernière le ${echapper(quand(s.dernierRecu))}. ${s.enService} personne${s.enService > 1 ? 's' : ''} en service.`)
             : etat('neutre', 'Aucune prise de service reçue du bot pour le moment. Pour la recevoir, la personne qui s’occupe du site abonne le site à l’événement «&nbsp;Prise de service&nbsp;» (monitoring.duty) dans le panneau Monitoring du bot Discord de l’entreprise.'));
-        } catch {}
-      }
-      if (onglet === 'Google Sheets') {
-        try {
-          const t = await socle.api('/api/tableur/etat-lecture'), e = t.etat;
-          lignes.push(!t.configure ? etat('alerte', 'Google Sheets non réglé : les primes restent à zéro.')
-            : !e || e.statut === 'desactive' ? etat('neutre', 'Google Sheets : première lecture dans moins d’une minute.')
-            : e.statut === 'erreur' ? etat('erreur', `Google Sheets : la dernière lecture a échoué (${echapper(quand(e.derniereSync))}) : ${echapper(e.erreur)}`)
-            // lignes écartées (grade inconnu du site) : dit lesquelles, plutôt que « mauvais onglet »
-            : e.avertissement ? etat('alerte', `Google Sheets lu le ${echapper(quand(e.derniereSync))} : ${e.nbLignes} employé${e.nbLignes > 1 ? 's' : ''}. ${echapper(e.avertissement)}`)
-            : !e.nbLignes ? etat('alerte', `Google Sheets lu le ${echapper(quand(e.derniereSync))}, mais aucun employé trouvé : le lien vise sans doute le mauvais onglet.`)
-            : etat('ok', `Google Sheets lu le ${echapper(quand(e.derniereSync))} : ${e.nbLignes} employé${e.nbLignes > 1 ? 's' : ''}.`));
         } catch {}
       }
       zone.innerHTML = lignes.join('');

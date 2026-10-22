@@ -15,22 +15,36 @@
   <title>Mon compte — {{nom}}</title>
 </head>
 <body class="page-agents">
-  <!-- GESTION — le compte connecté : nom RP (API du socle : PATCH /api/moi) et suppression de son compte. -->
+  <!-- GESTION — le compte connecté : un seul formulaire « Mes informations » (nom RP, API du socle : PATCH /api/moi ;
+       ID Unique, téléphone, RIB — si une fiche employé est reliée à son ID Discord, API : /api/moi/fiche,
+       entreprise/routes/compte.ts ; jamais le grade ni l'ID, réservés à un supérieur RH), le quota de run de la
+       semaine, et la suppression de son compte (socle). -->
   <main class="admin-contenu admin-contenu--sans-reserve">
     <div class="entete-admin">
       <div>
         <h1 style="margin-bottom:2px;">Mon compte</h1>
-        <p style="margin:0;font-size:0.88rem;">Le nom affiché dans l’espace de gestion, et votre compte sur le site.</p>
+        <p style="margin:0;font-size:0.88rem;">Vos informations et votre compte sur le site.</p>
       </div>
     </div>
     <div id="zone-message" role="status"></div>
-    <section class="accueil-panneau compte-panneau" aria-labelledby="titre-identite">
+    <section class="accueil-panneau compte-panneau" aria-labelledby="titre-run" id="section-run" hidden>
+      <h2 class="compta-titre" id="titre-run">Mon quota de run</h2>
+      <p class="champ-aide" id="run-periode">Unités vendues en jeu cette semaine.</p>
+      <div id="run-barre-conteneur"></div>
+    </section>
+    <section class="accueil-panneau compte-panneau" aria-labelledby="titre-infos">
       <div class="comptes-identite"><span id="avatar"></span><div><div class="comptes-nom"><strong id="nom-affiche"></strong></div><span class="comptes-pseudo" id="pseudo"></span></div></div>
       <p class="champ-aide" id="grade"></p>
-      <form id="form-nom" novalidate>
-        <h2 class="compta-titre" id="titre-identite">Nom RP</h2>
+      <h2 class="compta-titre" id="titre-infos">Mes informations</h2>
+      <p class="champ-aide" id="infos-vide" hidden>Aucune fiche employé n’est reliée à votre compte Discord : un supérieur doit d’abord vous en créer une pour l’ID Unique, le téléphone et le RIB.</p>
+      <form id="form-infos" novalidate>
         <div class="champ"><label for="nom">Prénom et nom en jeu</label><input type="text" id="nom" maxlength="64" required autocomplete="off"></div>
-        <button type="submit" class="btn btn-or">Enregistrer le nom</button>
+        <div class="champ-deux" id="bloc-fiche">
+          <div class="champ"><label for="id-unique">ID Unique</label><input type="text" id="id-unique" disabled></div>
+          <div class="champ"><label for="infos-telephone">Téléphone</label><input type="text" id="infos-telephone" maxlength="30" autocomplete="off"></div>
+        </div>
+        <div class="champ" id="bloc-rib"><label for="infos-rib">RIB</label><input type="text" id="infos-rib" maxlength="60" autocomplete="off"></div>
+        <button type="submit" class="btn btn-or">Enregistrer mes informations</button>
       </form>
     </section>
     <section class="compte-supprimer" aria-labelledby="titre-supprimer">
@@ -49,14 +63,39 @@
       $('grade').textContent = `Grade : ${moi.grade?.libelle || (moi.proprietaire ? 'Propriétaire' : 'Sans grade')}`;
       $('nom').value = moi.nom || '';
     }
+    const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+    // mêmes règles de couleur que la page Quota (quota.js, etatQuota) : gris sans objectif, rouge à 0, orange en cours, vert atteint
+    const etatQuota = e => e.quota <= 0 ? 'gris' : e.unites <= 0 ? 'rouge' : e.unites < e.quota ? 'orange' : 'vert';
+    function afficherQuota(quota) {
+      if (!quota) { $('section-run').hidden = true; return; }
+      $('section-run').hidden = false;
+      const etat = etatQuota(quota), pourcentage = quota.quota > 0 ? Math.min(100, Math.round((quota.unites / quota.quota) * 100)) : 0;
+      $('run-barre-conteneur').innerHTML = quota.quota > 0
+        ? `<div class="run-barre run-etat-${etat}" role="progressbar" aria-valuenow="${pourcentage}" aria-valuemin="0" aria-valuemax="100" aria-label="Mon objectif de run"><div class="run-barre-remplie run-etat-${etat}" style="width:${pourcentage}%"></div></div><span class="run-progression-texte">${pluriel(quota.unites, 'unité')} sur ${quota.quota}</span>`
+        : `<span class="run-progression-texte run-sans-objectif">${pluriel(quota.unites, 'unité')} · pas d’objectif pour votre grade</span>`;
+    }
+    let A_UNE_FICHE = false;
+    function afficherFiche(fiche) {
+      A_UNE_FICHE = !!fiche;
+      $('infos-vide').hidden = A_UNE_FICHE;
+      $('bloc-fiche').hidden = !A_UNE_FICHE;
+      $('bloc-rib').hidden = !A_UNE_FICHE;
+      if (!fiche) return;
+      $('id-unique').value = fiche.idProvisoire ? 'À compléter par un supérieur' : fiche.idUnique;
+      $('infos-telephone').value = fiche.telephone;
+      $('infos-rib').value = fiche.rib;
+    }
     gestion.coque('compte').then(afficher).catch(e => gestion.message('zone-message', e.message));
-    $('form-nom').addEventListener('submit', async e => {
+    socle.api('/api/moi/fiche').then(({ fiche, quota }) => { afficherFiche(fiche); afficherQuota(quota); })
+      .catch(e => gestion.message('zone-message', e.message));
+    $('form-infos').addEventListener('submit', async e => {
       e.preventDefault();
       try {
-        await socle.api('/api/moi', { method: 'PATCH', body: { nom: $('nom').value } });
+        const moi = await socle.api('/api/moi', { method: 'PATCH', body: { nom: $('nom').value } });
+        if (A_UNE_FICHE) await socle.api('/api/moi/fiche', { method: 'PATCH', body: { telephone: $('infos-telephone').value, rib: $('infos-rib').value } });
         gestion.message('zone-message', '');
-        gestion.notifier('Nom enregistré.');
-        afficher(await socle.moi());
+        gestion.notifier('Informations enregistrées.');
+        afficher(moi);
       } catch (err) { gestion.message('zone-message', err.message); }
     });
     $('supprimer').addEventListener('click', async () => {

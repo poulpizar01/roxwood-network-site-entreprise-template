@@ -308,26 +308,6 @@ label, .eyebrow-label {
 .stat-libelle { font-size: 12px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--gold-strong); font-weight: 500; margin-top: 2px; }
 .stat-sous-libelle { font-size: 0.78rem; color: var(--text-faint); }
 
-.annonces-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 20px; }
-.annonces-recherche { position: relative; flex: 1 1 240px; }
-.annonces-recherche-icone { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size: 0.88rem; pointer-events: none; }
-.annonces-recherche input {
-  width: 100%; height: 44px; padding: 0 14px 0 38px; border-radius: var(--radius-sm);
-  border: 1px solid var(--d8-contour-champ); background: var(--bg2);
-  color: var(--text); font-size: 0.9rem; font-family: inherit;
-}
-.annonces-recherche input:focus { outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
-.annonces-outils select {
-  height: 44px; padding: 0 14px; border-radius: var(--radius-sm);
-  border: 1px solid var(--d8-contour-champ); background: var(--bg2);
-  color: var(--text); font-size: 0.86rem; font-family: inherit;
-}
-.annonces-outils select:focus { outline: none; border-color: var(--d8-gold-400); }
-.annonces-vue-toggle { display: flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
-.annonces-vue-bouton { width: 44px; height: 44px; background: var(--bg2); color: var(--text-faint); border: none; border-left: 1px solid var(--border); font-size: 1rem; }
-.annonces-vue-bouton:first-child { border-left: none; }
-.annonces-vue-bouton.actif { background: rgba({{couleur_rvb}}, 0.18); color: var(--gold-strong); }
-
 .table-biens-vignette { width: 44px; height: 44px; border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-elevated); }
 .table-biens-vignette img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .table-admin td.cellule-vignette { width: 60px; }
@@ -363,7 +343,6 @@ label, .eyebrow-label {
 .carte-admin-bien-prix { font-size: 0.9rem; color: var(--gold-strong); font-weight: 500; }
 .carte-admin-bien-actions { display: flex; gap: 6px; }
 
-.annonces-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 0.82rem; color: var(--text-faint); }
 .pagination-boutons { display: flex; align-items: center; gap: 6px; }
 .pagination-fleche, .pagination-page {
   width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border);
@@ -473,14 +452,20 @@ label, .eyebrow-label {
   color: var(--text-faint); pointer-events: none; transition: transform var(--d8-t), color var(--d8-t);
 }
 .d8-select-enveloppe.ouvert::after { transform: translateY(-25%) rotate(225deg); color: var(--gold-strong); }
+/* pastille de la valeur choisie, visible même fermé (sinon la couleur ne vit que le temps d'ouvrir la liste et la
+   sélection a l'air de « perdre » son code couleur une fois le menu refermé) */
+.d8-select-pastille-courante {
+  position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 9px; height: 9px;
+  border-radius: 50%; pointer-events: none;
+}
+.d8-select-enveloppe.avec-pastille select { padding-left: 32px; }
 .d8-select-enveloppe select {
   appearance: none; -webkit-appearance: none; -moz-appearance: none;
   padding-right: 34px; cursor: pointer;
   /* Habillage de base (fond sombre, bordure dorée) pour tout <select> passé à
-     ameliorerSelect() : les selects déjà placés dans un .champ ou un
-     .annonces-outils récupèrent leur propre style plus précis (déclaré plus
-     haut dans ce fichier, donc écrasé ici à égalité de spécificité) — mais un
-     select "tout seul" comme #select-semaine-dot
+     ameliorerSelect() : les selects déjà placés dans un .champ récupèrent leur
+     propre style plus précis (déclaré plus haut dans ce fichier, donc écrasé
+     ici à égalité de spécificité) — mais un select "tout seul" comme #select-semaine-dot
      n'avait autrement AUCUN habillage de couleur : seule la petite flèche
      native disparaissait (appearance: none), le reste restait blanc/natif. */
   width: 100%; min-height: 44px; padding-left: 14px;
@@ -494,10 +479,18 @@ label, .eyebrow-label {
 }
 
 .d8-select-flottant {
-  position: fixed; z-index: 100100; /* au-dessus des modales (100000) — sinon la liste s'ouvre derrière */ max-height: 260px; overflow-y: auto; overflow-x: hidden;
-  background: var(--bg-card); border: 1px solid var(--d8-gold-400); border-radius: var(--radius-sm);
-  box-shadow: var(--shadow); padding: 6px;
+  position: fixed; z-index: 100100; /* au-dessus des modales (100000) — sinon la liste s'ouvre derrière */ max-height: 260px;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg-card); border: 1px solid var(--d8-gold-400); border-radius: var(--radius-sm); box-shadow: var(--shadow);
 }
+/* champ de recherche (facultatif, ameliorerSelect(..., true)) : fixe en tête, seule .d8-select-options défile dessous */
+.d8-select-recherche { flex: 0 0 auto; padding: 6px 6px 0; }
+.d8-select-recherche-champ {
+  width: 100%; min-height: 38px; padding: 8px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--d8-contour-champ); background: var(--bg2); color: var(--text); font: inherit; font-size: 0.86rem;
+}
+.d8-select-recherche-champ:focus { outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
+.d8-select-options { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: 6px; }
 .d8-select-option {
   padding: 9px 12px; border-radius: 6px; font-size: 0.86rem; cursor: pointer; color: var(--text);
   display: flex; align-items: center; gap: 9px; white-space: normal; transition: background var(--d8-t);
@@ -505,6 +498,62 @@ label, .eyebrow-label {
 .d8-select-option:hover { background: rgba({{couleur_rvb}}, 0.16); }
 .d8-select-option.selectionnee { color: var(--gold-strong); font-weight: 600; background: rgba({{couleur_rvb}}, 0.1); }
 .d8-select-pastille { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.d8-select-vide { margin: 0; padding: 10px 12px; font-size: 0.82rem; color: var(--text-faint); }
+
+/* ---------- sélecteur de date (calendrier flottant posé sur un champ texte jj/mm/aaaa, voir champDateFr dans
+   gestion.js) : la saisie au clavier reste possible, le calendrier n'est qu'une aide ---------- */
+.champ-date-enveloppe { position: relative; display: block; width: 100%; }
+.champ-date-enveloppe input { padding-right: 42px; }
+/* top fixe (pas 50% de l'enveloppe) : un message d'erreur affiché sous le champ (erreurChampFr) agrandit l'enveloppe
+   sans déplacer le bouton, qui doit rester centré sur le champ lui-même, pas sur l'ensemble champ + erreur */
+.champ-date-bouton {
+  position: absolute; right: 5px; top: 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border: none; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-faint); cursor: pointer;
+  transition: background var(--d8-t), color var(--d8-t);
+}
+.champ-date-bouton .ico { width: 18px; height: 18px; }
+.champ-date-bouton:hover, .champ-date-bouton:focus-visible { color: var(--text); background: rgba({{couleur_rvb}}, 0.16); }
+.champ-date-bouton[aria-expanded="true"] { color: var(--gold-strong); background: rgba({{couleur_rvb}}, 0.16); }
+
+.champ-date-panneau {
+  position: fixed; z-index: 100100; /* au-dessus des modales (100000) */ width: 272px; max-width: calc(100vw - 16px);
+  background: var(--bg-card); border: 1px solid var(--d8-gold-400); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); padding: 12px;
+}
+.champ-date-entete { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.champ-date-titre { font-size: 0.88rem; font-weight: 600; color: var(--text); text-transform: capitalize; }
+.champ-date-nav {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  border: none; border-radius: var(--radius-sm); background: transparent; color: var(--text-faint); cursor: pointer;
+  transition: background var(--d8-t), color var(--d8-t);
+}
+.champ-date-nav .ico { width: 16px; height: 16px; transform: rotate(90deg); }
+.champ-date-nav--apres .ico { transform: rotate(-90deg); }
+.champ-date-nav:hover, .champ-date-nav:focus-visible { color: var(--text); background: rgba({{couleur_rvb}}, 0.16); }
+.champ-date-jours { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.72rem; color: var(--text-faint); margin-bottom: 4px; }
+.champ-date-grille { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.champ-date-case {
+  aspect-ratio: 1; min-height: 34px; border: none; border-radius: var(--radius-sm); background: transparent;
+  font-size: 0.84rem; font-family: inherit; color: var(--text); cursor: pointer;
+  transition: background var(--d8-t), color var(--d8-t);
+}
+.champ-date-case--vide { cursor: default; }
+.champ-date-case:not(.champ-date-case--vide):hover { background: rgba({{couleur_rvb}}, 0.16); }
+.champ-date-case--aujourdhui { color: var(--gold-strong); font-weight: 700; }
+.champ-date-case--active { background: var(--d8-gold-400); color: var(--or-contrast); font-weight: 700; }
+.champ-date-case:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
+.champ-date-aujourdhui {
+  display: block; width: 100%; margin-top: 10px; padding: 8px; border: none; border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-faint); font-size: 0.78rem; cursor: pointer;
+  transition: background var(--d8-t), color var(--d8-t);
+}
+.champ-date-aujourdhui:hover, .champ-date-aujourdhui:focus-visible { color: var(--text); background: rgba({{couleur_rvb}}, 0.1); }
+@media (max-width: 480px) {
+  /* feuille basse plutôt qu'à côté du champ : jamais de débordement horizontal sur petit écran */
+  .champ-date-panneau { left: 8px !important; right: 8px; width: auto; max-width: none; }
+}
 
 /* ---------- interrupteur on/off (Comptabilité -> Paramètres, §Rémunération) ---------- */
 .d8-switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; vertical-align: middle; }
@@ -589,17 +638,6 @@ label, .eyebrow-label {
 .stat-icone--mauve { color: var(--ink); }
 .stat-icone .ico { width: 20px; height: 20px; }
 
-/* ---- barre d'outils ---- */
-/* Les <select> sont habillés par layout.js dans une enveloppe pleine largeur :
-   dans la barre d'outils, on la laisse à sa largeur naturelle pour que tout
-   tienne sur une ligne (recherche extensible + filtres + bascule liste/grille). */
-.annonces-outils .d8-select-enveloppe { width: auto; flex: 0 0 auto; }
-.annonces-outils select { width: auto; }
-.annonces-recherche-icone { display: flex; }
-.annonces-recherche-icone .ico { width: 16px; height: 16px; }
-.annonces-vue-bouton { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
-.annonces-vue-bouton .ico { width: 16px; height: 16px; }
-
 /* ---- tableau encadré ---- */
 .carte-table { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); }
 .carte-table .table-admin th { background: var(--bg3); font-size: 0.75rem; letter-spacing: 0.08em; font-weight: 500; }
@@ -669,6 +707,201 @@ label, .eyebrow-label {
 
 /* ======== masquer ======== */
 .cache { display: none !important; }
+
+/* ======== Factures : détail d'une facture (modale, factures.js) ========
+   le détail de la source (articles d'une commande, ou infos du monitoring) vit dans le corps de la modale ; ces
+   deux blocs rendent le total au format reçu. Le téléchargement produit un fichier à part (pas d'impression du
+   navigateur : print() gèle le navigateur embarqué de l'ordinateur en jeu, docs/design.md §10). */
+.facture-lignes { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.88rem; }
+.facture-lignes th, .facture-lignes td { border-bottom: 1px solid var(--border); padding: 6px 4px; text-align: left; }
+.facture-lignes th:last-child, .facture-lignes td:last-child, .facture-lignes th:nth-last-child(2), .facture-lignes td:nth-last-child(2) { text-align: right; }
+.facture-totaux { font-size: 0.92rem; margin: 12px 0; }
+.facture-totaux div { display: flex; justify-content: space-between; padding: 3px 0; color: var(--text-muted); }
+.facture-totaux .total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; font-weight: 700; font-size: 1.05rem; color: var(--text); }
+
+/* Factures : nom du client dans le tableau, bouton qui ouvre le détail (plutôt qu'une icône de plus) */
+.table-lien { display: block; width: 100%; padding: 6px 0; margin: -6px 0; border: 0; background: none; color: var(--gold-strong); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.table-lien:hover, .table-lien:focus-visible { color: var(--gold-light); text-decoration: underline; }
+
+/* Factures : modale de saisie manuelle, agrandie et scindée en trois temps de remplissage numérotés
+   (Articles → Livraison et réduction → Récapitulatif), tête et pied fixes, seul le corps défile — même charpente que
+   .modale-grade/.modale-fiche-rh (une légende en taille normale, non majuscule, distingue nettement une section d'un
+   intitulé de champ, petit et majuscule). */
+.modale.modale-facture {
+  display: flex; flex-direction: column; width: 100%; max-width: 720px;
+  height: min(88vh, 760px); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
+  overflow: hidden; padding: 0;
+}
+.modale-facture > .modale-entete { flex: 0 0 auto; margin: 0; padding: 22px 28px 14px; border-bottom: 1px solid var(--border); }
+.modale-facture > form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; }
+.modale-facture > form > #zone-message-modale-facture { flex: 0 0 auto; margin: 12px 28px 0; }
+.modale-facture > form > #zone-message-modale-facture:empty { display: none; }
+.facture-corps {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px 28px 6px; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent;
+}
+.facture-pied { flex: 0 0 auto; padding: 14px 28px 22px; border-top: 1px solid var(--border); background: var(--bg-card); }
+#modale-nouvelle-facture .champ label small { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--text-faint); }
+.facture-form-ligne { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+.facture-fieldset { margin: 0 0 20px; padding: 16px 18px 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg3); }
+.facture-fieldset legend { padding: 0 6px; margin: 0 0 4px -6px; font-size: 1rem; font-weight: 500; color: var(--text); }
+.facture-form-montants { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.champ-dollar, .champ-pourcentage { position: relative; }
+.champ-dollar input, .champ-pourcentage input { padding-right: 32px; }
+.champ-dollar::after, .champ-pourcentage::after { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size: 0.85rem; pointer-events: none; }
+.champ-dollar::after { content: "$"; }
+.champ-pourcentage::after { content: "%"; }
+.facture-total-apercu-bloc { padding: 14px 18px 16px; border-radius: var(--radius); background: var(--bg2); border: 1px solid var(--border); margin: 0 0 4px; }
+.facture-totaux-titre { margin: 0 0 8px; font-size: 1rem; font-weight: 500; color: var(--text); }
+
+/* Comptabilité → Factures : lignes d'articles de la saisie manuelle (description/quantité/prix unitaire), même forme
+   que ce que le bot envoie pour une commande Discord (order.updated, items[]) */
+.facture-articles-entete, .facture-article-ligne { display: grid; grid-template-columns: 1fr 70px 130px 36px; gap: 8px; }
+.facture-articles-entete { padding: 0 2px 6px; font-size: 0.78rem; color: var(--text-faint); }
+.facture-article-ligne { align-items: center; margin-bottom: 8px; }
+.facture-article-ligne input {
+  width: 100%; min-height: 40px; padding: 8px 12px; border-radius: var(--radius-sm);
+  border: 1px solid var(--d8-contour-champ); background: var(--bg2); color: var(--text); font: inherit; font-size: 0.9rem;
+}
+.facture-article-ligne input:focus { outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
+.facture-article-ligne .champ-dollar input { padding-right: 28px; }
+.facture-article-ligne .champ-dollar::after { right: 10px; font-size: 0.8rem; }
+.facture-article-retirer {
+  display: flex; align-items: center; justify-content: center; width: 36px; height: 40px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg2); color: var(--text-faint); cursor: pointer;
+}
+.facture-article-retirer:hover, .facture-article-retirer:focus-visible { color: var(--danger-strong); border-color: var(--danger-strong); }
+.facture-article-retirer .ico { width: 16px; height: 16px; }
+.facture-article-ajouter { margin-top: 2px; }
+
+/* Paie → fiche grade : paliers de prime (seuil/prime), même forme que les lignes d'articles de facture ci-dessus */
+.palier-lignes-entete, .palier-ligne { display: grid; grid-template-columns: 1fr 1fr 42px; gap: 10px; }
+.palier-lignes-entete { padding: 0 2px 8px; font-size: 0.8rem; color: var(--text-faint); }
+.palier-ligne { align-items: center; margin-bottom: 10px; }
+.palier-ligne input {
+  width: 100%; min-height: 48px; padding: 10px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--d8-contour-champ); background: var(--bg2); color: var(--text); font: inherit; font-size: 1rem;
+}
+.palier-ligne input:focus { outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
+.palier-ligne .champ-dollar input { padding-right: 32px; }
+.palier-ligne .champ-dollar::after { right: 12px; font-size: 0.88rem; }
+.palier-ligne .facture-article-retirer { width: 42px; height: 48px; }
+
+/* message d'une fenêtre .modale-grade (quelle que soit sa page) : fixe entre le bandeau et le corps défilant, comme
+   .grade-pied ; une classe plutôt qu'un identifiant pour que toute fiche sur ce patron puisse la réutiliser */
+.modale-grade > form > .grade-zone-message { flex: 0 0 auto; margin: 0 32px; }
+.modale-grade > form > .grade-zone-message:empty { display: none; }
+
+/* Paie → simulateur : échelle de palier (seuil atteint ou non), le remplissage représente la valeur saisie par
+   rapport au plus haut seuil réglé ; le repère du palier atteint s'allume en or, comme le palier du barème DOT. */
+.palier-echelle { margin-top: 18px; }
+.palier-echelle + .palier-echelle { margin-top: 34px; }
+.palier-echelle-entete { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; font-size: 0.85rem; color: var(--text-muted); }
+.palier-echelle-entete strong { color: var(--text); font-weight: 500; }
+.palier-echelle-piste { position: relative; height: 8px; border-radius: 999px; background: var(--bg3); margin: 0 7px; }
+.palier-echelle-remplie { height: 100%; width: 0; border-radius: inherit; background: var(--d8-grad-gold); transition: width var(--d8-t); }
+.palier-echelle-reperes { position: relative; height: 0; margin: 0 7px; }
+.palier-echelle-repere {
+  position: absolute; top: -11px; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%;
+  background: var(--bg2); border: 2px solid var(--border); transition: background var(--d8-t), border-color var(--d8-t);
+}
+.palier-echelle-repere.atteint { background: var(--d8-gold-400); border-color: var(--d8-gold-400); }
+.palier-echelle-etiquettes { position: relative; height: 34px; margin: 6px 7px 0; }
+.palier-echelle-etiquette {
+  position: absolute; transform: translateX(-50%); max-width: 90px; font-size: 0.72rem; line-height: 1.3;
+  color: var(--text-faint); text-align: center; white-space: nowrap;
+}
+.palier-echelle-etiquette strong { display: block; font-size: 0.78rem; color: var(--text); }
+.palier-echelle-etiquette.atteint strong { color: var(--gold-strong); }
+
+/* Paie → fiche grade : salaire de base (interrupteur + montant sur une ligne), et les deux échelles de primes
+   (run, facture) côte à côte dans les cartes de .accueil-panneaux dès que la fiche est assez large. */
+/* la fiche paie est courte (pas de permissions, pas de droits d'agenda à cocher comme la fiche grade) : elle n'a pas
+   besoin de la hauteur fixe de .modale-grade (pensée pour un contenu long et variable) — hauteur au contenu, sinon le
+   peu de champs flotte dans un grand vide. Les champs eux-mêmes sont agrandis pour remplir l'espace au lieu de le
+   laisser vide : plus proches d'un gros chiffre qu'on règle que d'un formulaire administratif dense. */
+.modale-paie .grade-corps { padding: 26px 34px 22px; }
+
+.paie-salaire-carte { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; padding: 24px 28px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); }
+.paie-salaire-carte .d8-switch { width: 52px; height: 28px; }
+.paie-salaire-carte .d8-switch-piste::after { width: 20px; height: 20px; }
+.paie-salaire-carte .d8-switch input:checked + .d8-switch-piste::after { transform: translateX(24px); }
+.paie-salaire-texte { flex: 1 1 200px; min-width: 0; }
+.paie-salaire-titre { display: block; font-family: var(--d8-font-display); font-size: 1.15rem; color: var(--text); margin-bottom: 3px; }
+.paie-salaire-texte .champ-aide { margin: 0; }
+.paie-salaire-montant { flex: 0 1 220px; min-width: 160px; }
+.paie-salaire-montant input { min-height: 56px; padding: 8px 44px 8px 16px; font-size: 1.5rem; font-weight: 600; text-align: right; }
+.paie-salaire-montant.champ-dollar::after { right: 18px; font-size: 1.05rem; }
+.paie-salaire-unite { color: var(--text-faint); font-size: 0.9rem; white-space: nowrap; }
+
+.paie-primes-grille { margin-top: 26px; gap: 20px 28px; }
+.paie-primes-grille .accueil-panneau { padding: 22px 24px; }
+.paie-prime-entete { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.paie-prime-entete h3 { margin: 0 0 3px; font-family: var(--d8-font-display); font-size: 1.1rem; color: var(--text); }
+.paie-prime-entete .champ-aide { margin: 0; }
+.paie-prime-entete .btn-petit { height: 40px; padding: 0 20px; }
+
+/* aperçu vivant des paliers saisis, triés par seuil (évite de se fier à l'ordre des lignes, qu'on ne réordonne pas) */
+.palier-apercu { margin-top: 12px; }
+.palier-apercu-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.palier-apercu-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba({{couleur_rvb}}, 0.1); border: 1px solid rgba({{couleur_rvb}}, 0.3); color: var(--text); font-size: 0.8rem; white-space: nowrap; }
+.palier-apercu-chip svg.fleche { width: 12px; height: 12px; color: var(--text-faint); }
+.palier-apercu-chip strong { color: var(--gold-strong); }
+.palier-apercu-vide { color: var(--text-faint); font-size: 0.82rem; margin: 0; }
+
+/* Paie → simulateur : le choix du mode (données fictives / réelles) est un interrupteur à deux positions seul en tête
+   de la carte, pas une deuxième rangée de .compta-sous-onglet sous Grades/Simulateur — les deux rangées se
+   ressemblaient trop et donnaient l'impression de deux niveaux d'onglets empilés. */
+.segment-mode { display: inline-flex; flex-shrink: 0; flex-wrap: wrap; padding: 3px; border-radius: 999px; background: var(--bg3); gap: 2px; }
+.segment-mode-bouton {
+  border: 0; background: none; padding: 7px 16px; border-radius: 999px; font: inherit; font-size: 0.82rem; font-weight: 500;
+  color: var(--text-muted); cursor: pointer; white-space: nowrap; transition: background var(--d8-t), color var(--d8-t), box-shadow var(--d8-t);
+}
+.segment-mode-bouton:hover { color: var(--text); }
+.segment-mode-bouton.actif { background: var(--bg2); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); }
+.segment-mode-bouton:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 2px; }
+
+/* champs du simulateur : mêmes cartes que le reste de la page (ombre et marges du .accueil-panneau), champs un peu
+   plus grands que le formulaire standard pour rester cohérents avec la fiche grade et parce que la carte a la place */
+#formulaire-simulateur .champ input, #formulaire-simulateur .champ select { min-height: 52px; font-size: 1rem; }
+#simulateur-groupe-manuel, #simulateur-groupe-reel { margin-bottom: 18px; }
+
+/* sélecteur de semaine (données réelles) : même coquille que .run-semaine-nav (Quota, Factures — flèches rondes,
+   pilule dorée), mais le bouton central affiche le numéro de semaine ET ses dates (quand à quand), pas seulement
+   « Cette semaine » : un bouton à une ligne (.run-semaine-bouton) n'aurait pas eu la place pour les deux. */
+#simulateur-champ-semaine .run-semaine-nav { width: 100%; justify-content: space-between; }
+.semaine-detail-bouton {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1 1 auto; min-width: 0; padding: 4px 10px;
+  border: 0; border-radius: 999px; background: none; color: var(--text); font: inherit; cursor: pointer;
+  transition: background var(--d8-t);
+}
+.semaine-detail-bouton:hover { background: rgba({{couleur_rvb}}, 0.1); }
+.semaine-detail-bouton:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
+.semaine-detail-bouton strong { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+.semaine-detail-bouton span { font-size: 0.78rem; color: var(--text-faint); }
+.semaine-actuelle-tag { color: var(--gold-strong); }
+
+@media (max-width: 520px) {
+  #formulaire-simulateur .champ-deux { grid-template-columns: 1fr; gap: 0; }
+}
+
+@media (max-width: 760px) {
+  .modale-fond#modale-nouvelle-facture { padding: 0; }
+  .modale.modale-facture { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
+  .modale-facture > .modale-entete { padding: 16px 18px 12px; }
+  .facture-corps { padding: 14px 18px 10px; }
+  .modale-facture > form > #zone-message-modale-facture { margin: 0 18px; }
+  .facture-pied { padding: 10px 18px 14px; }
+}
+@media (max-width: 520px) {
+  .facture-form-ligne, .facture-form-montants { grid-template-columns: 1fr; }
+  .facture-articles-entete { display: none; }
+  .facture-article-ligne { grid-template-columns: 1fr 1fr; grid-template-areas: "nom nom" "qte prix" "retirer retirer"; }
+  .facture-article-ligne .facture-article-nom { grid-area: nom; }
+  .facture-article-ligne .facture-article-qte { grid-area: qte; }
+  .facture-article-ligne .champ-dollar { grid-area: prix; }
+  .facture-article-ligne .facture-article-retirer { grid-area: retirer; justify-self: end; }
+}
 
 /* ======== comptabilité, notifications ======== */
 /* Comptabilité → Tablettes : colonne de suppression (croix discrète, visible au survol de la ligne) */
@@ -973,19 +1206,6 @@ main.admin-contenu:focus { outline: none; }
 .accueil-tache--alerte { border-color: var(--erreur); background: var(--erreur-soft); }
 .accueil-tache--alerte:hover { border-color: var(--erreur); background: var(--erreur-soft); }
 .accueil-tache--alerte .accueil-tache-nombre { background: var(--erreur); color: #fff; }
-.accueil-indicateurs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; margin-bottom: 20px; }
-.stat-carte--lien { align-items: flex-start; color: inherit; transition: border-color var(--d8-t), background var(--d8-t); }
-.stat-carte--lien:hover { border-color: rgba({{couleur_rvb}}, 0.55); color: inherit; }
-.stat-carte--lien:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
-.accueil-prime .stat-sous-libelle { line-height: 1.45; }
-/* sur téléphone, style.css masque les sous-libellés des cartes : ceux de l'Accueil portent l'information (pas encore
-   calculée, annonces masquées), ils restent */
-.accueil-indicateurs .stat-sous-libelle { display: block; }
-.accueil-paliers { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: var(--text-muted); }
-.accueil-paliers li { display: flex; flex-direction: column; gap: 6px; }
-.accueil-paliers strong { color: var(--text); font-weight: 600; }
-.accueil-barre { display: block; height: 6px; border-radius: 999px; background: var(--bg3); overflow: hidden; }
-.accueil-barre > span { display: block; height: 100%; border-radius: inherit; background: var(--d8-grad-gold); }
 .accueil-panneaux { align-items: start; }
 .accueil-sous-titre { margin: 16px 0 2px; font-family: var(--d8-font-ui); font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
 .accueil-panneau .admin-service-liste { padding: 0; overflow: visible; max-height: none; }
@@ -1131,6 +1351,26 @@ main.admin-contenu:focus { outline: none; }
 }
 .comptes-recherche input:focus { outline: none; border-color: var(--d8-gold-400); }
 
+/* ---------- Factures (factures.html) : semaine affichée (navigation) et filtres (provenance/statut/recherche)
+   sur deux lignes distinctes — l'une ne change pas « quelles données existent », l'autre choisit lesquelles regarder
+   dans cette semaine. Chaque ligne prend toute la largeur dont elle a besoin, indépendamment de l'autre : pas de
+   justify-content partagé entre des groupes qui n'ont rien à voir (design-critique du 2026-10-21). ---------- */
+.factures-semaine-ligne { margin: 14px 0; }
+.factures-filtres { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 14px; }
+.factures-filtres .d8-select-enveloppe { flex: 1 1 190px; max-width: 260px; }
+.factures-filtres .comptes-recherche { flex: 1 1 220px; max-width: none; }
+.filtres-reinitialiser {
+  border: 0; background: none; padding: 6px 2px; color: var(--text-faint); font: inherit; font-size: 0.84rem;
+  cursor: pointer; text-decoration: underline; text-decoration-color: transparent; transition: color var(--d8-t), text-decoration-color var(--d8-t);
+}
+.filtres-reinitialiser:hover, .filtres-reinitialiser:focus-visible { color: var(--gold-light); text-decoration-color: currentColor; }
+@media (max-width: 760px) {
+  /* select de provenance et de statut côte à côte (deux filtres de même nature), recherche sur sa propre ligne —
+     comme comptes-recherche déjà plus haut, même règle reprise ici pour rester cohérent */
+  .factures-filtres .d8-select-enveloppe { flex: 1 1 140px; max-width: none; }
+  .factures-filtres .comptes-recherche { flex-basis: 100%; }
+}
+
 .comptes-liste { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); }
 .comptes-entete, .comptes-ligne { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(160px, 1fr) minmax(130px, 0.8fr) 44px; align-items: center; gap: 16px; padding: 12px 16px; }
 .comptes-entete { padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); font-size: 0.8rem; color: var(--text-faint); }
@@ -1244,6 +1484,163 @@ main.admin-contenu:focus { outline: none; }
 .rh-carte-texte { display: flex; flex-direction: column; min-width: 0; }
 .rh-carte-texte strong { font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
 .rh-carte-texte small { font-size: 0.82rem; color: var(--text-faint); }
+
+/* ---------- Quota (quota.html) : run (unités vendues) et factures (montant facturé), trois onglets (Quota run /
+   Quota facture / Classements). Aucun tableau de recherche : il faudrait soit défiler de côté, soit cacher le nom
+   derrière la bascule en cartes. ---------- */
+/* deux chiffres clés, chacun avec la progression de toute l'équipe vers son objectif (Paramètres → Quota) : le
+   nombre seul ne dit pas où on en est de la semaine, la barre en dessous le montre d'un coup d'œil. */
+.run-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; margin: 18px 0 24px; }
+.run-stat {
+  display: flex; flex-direction: column; gap: 10px; padding: 18px 22px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.08), var(--bg2) 60%);
+  box-shadow: var(--shadow);
+  animation: run-stat-entree 420ms var(--d8-ease) both;
+}
+.run-stats .run-stat:nth-child(2) { animation-delay: 60ms; }
+@keyframes run-stat-entree { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .run-stat { animation: none; } }
+.run-stat-titre { font-size: 0.8rem; color: var(--text-muted); }
+.run-stat-chiffre { margin: 0; display: flex; align-items: baseline; gap: 10px; }
+.run-stat-chiffre span:first-child { font-family: var(--d8-font-display); font-size: 2.2rem; line-height: 1; color: var(--gold-light); font-variant-numeric: tabular-nums; }
+.run-stat-chiffre span:last-child { color: var(--text-muted); font-size: 0.9rem; }
+.run-stat .run-barre { margin: 0; }
+
+/* sélecteur de semaine : même recette que l'agenda (pilule, flèches, raccourci clavier T), déclinée pour cette page —
+   semaine en cours par défaut, navigation vers le passé seulement (classementRuns ramène une semaine future à l'actuelle). */
+.run-semaine-nav {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 2px; padding: 3px;
+  border: 1px solid rgba({{couleur_rvb}}, 0.25); border-radius: 999px; background: var(--bg2);
+}
+.run-semaine-bouton, .run-fleche {
+  min-height: 36px; border: 0; border-radius: 999px; background: none; color: var(--text-muted);
+  font: inherit; font-size: 0.88rem; cursor: pointer; transition: background var(--d8-t), color var(--d8-t);
+}
+.run-semaine-bouton:hover, .run-fleche:hover { color: var(--text); background: rgba({{couleur_rvb}}, 0.1); }
+.run-semaine-bouton { padding: 0 12px; min-width: 9.5em; white-space: nowrap; }
+.run-semaine-bouton:not(.sur-semaine-courante) { color: var(--gold-light); }
+.run-fleche { display: inline-flex; align-items: center; justify-content: center; width: 36px; }
+.run-fleche .ico { width: 18px; height: 18px; }
+.run-fleche--avant .ico { transform: rotate(90deg); }
+.run-fleche--apres .ico { transform: rotate(-90deg); }
+.run-fleche:disabled { opacity: 0.35; cursor: default; }
+:is(.run-semaine-bouton, .run-fleche):focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
+.run-touche {
+  position: absolute; top: calc(100% + 6px); left: 50%; transform: translate(-50%, -2px); z-index: 5; pointer-events: none;
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 8px; white-space: nowrap;
+  background: var(--bg2); border: 1px solid rgba({{couleur_rvb}}, 0.3); color: var(--text-muted); font-size: 12px;
+  opacity: 0; transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.run-touche kbd {
+  min-width: 20px; padding: 1px 6px; border-radius: 5px; font: 600 12px/1.4 var(--d8-font-ui); text-align: center;
+  color: var(--gold-light); border: 1px solid rgba({{couleur_rvb}}, 0.55); border-bottom-width: 2px; background: rgba({{couleur_rvb}}, 0.08);
+}
+@media (hover: hover) {
+  .run-semaine-bouton:hover + .run-touche, .run-semaine-bouton:focus-visible + .run-touche { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes run-raccourci { 0% { box-shadow: 0 0 0 0 rgba({{couleur_rvb}}, 0.65); background: rgba({{couleur_rvb}}, 0.22); } 100% { box-shadow: 0 0 0 10px rgba({{couleur_rvb}}, 0); } }
+.run-semaine-bouton.raccourci { animation: run-raccourci 0.45s ease-out; }
+@media (prefers-reduced-motion: reduce) { .run-touche { transition: none; } .run-semaine-bouton.raccourci { animation: none; } }
+
+/* onglets : même recette que Comptabilité (pilule, dégradé or quand actif), déclinée pour cette page */
+.run-onglets { display: flex; gap: 8px; margin: 0 0 22px; flex-wrap: wrap; }
+.run-onglet {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-elevated); color: var(--text-faint); font-size: 0.86rem; font-weight: 500;
+}
+.run-onglet .ico { width: 16px; height: 16px; }
+.run-onglet:hover { color: var(--text); border-color: var(--border-light); }
+.run-onglet.actif { background: var(--or-grad); color: var(--or-contrast); border-color: transparent; font-weight: 600; }
+
+.run-vide { margin: 0; padding: 14px; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-faint); font-size: 0.88rem; }
+
+/* deux classements côte à côte (run, factures) ; l'un sous l'autre si la place manque */
+.run-classements { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+.run-classements > section { flex: 1 1 320px; min-width: 0; }
+.run-classement-titre { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-family: var(--d8-font-ui); font-size: 0.98rem; font-weight: 500; color: var(--text); }
+.run-classement-titre .ico { width: 17px; height: 17px; color: var(--gold-light); }
+
+/* Podium des trois premiers : hauteur des marches selon le rang (la vraie forme d'un podium), le 1er posé en avant
+   au centre — même geste qu'un podium physique, pas un simple numéro devant une liste. Ordre visuel 2/1/3 par
+   `order` (flexbox) ; l'ordre du DOM reste 1, 2, 3 pour un lecteur d'écran. */
+.podium-marches { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin: 0 0 18px; }
+.podium-marche {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 112px;
+  padding: 20px 10px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2);
+  box-shadow: var(--shadow); text-align: center;
+  animation: podium-marche-entree 420ms var(--d8-ease) both;
+}
+.podium-marche--1 { order: 2; width: 132px; padding: 26px 12px 20px; z-index: 1; animation-delay: 160ms;
+  border-color: rgba({{couleur_rvb}}, 0.45); background: linear-gradient(160deg, rgba({{couleur_rvb}}, 0.16), var(--bg2) 65%);
+  box-shadow: var(--shadow), 0 0 0 1px rgba({{couleur_rvb}}, 0.25);
+}
+.podium-marche--2 { order: 1; animation-delay: 60ms; }
+.podium-marche--3 { order: 3; animation-delay: 260ms; }
+@keyframes podium-marche-entree { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .podium-marche { animation: none; } }
+.podium-marche-rang {
+  position: absolute; top: -11px; left: 50%; transform: translateX(-50%); width: 25px; height: 25px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-family: var(--d8-font-display); font-size: 0.82rem;
+  font-weight: 600; color: var(--text-muted); background: var(--bg3); border: 1px solid var(--border);
+}
+.podium-marche--1 .podium-marche-rang { width: 29px; height: 29px; font-size: 0.92rem; color: var(--or-contrast); background: var(--d8-grad-gold); border-color: transparent; }
+.podium-marche-couronne { width: 17px; height: 17px; color: var(--gold-light); }
+.podium-marche .admin-avatar { width: 42px; height: 42px; font-size: 0.92rem; }
+.podium-marche--1 .admin-avatar { width: 54px; height: 54px; font-size: 1.05rem; }
+/* centrée et autorisée à passer le badge « vous » sur sa propre ligne : sans ça, elle démarre à gauche de la marche
+   (le texte centré du parent ne joue pas sur une ligne flex) et le badge, avec sa propre marge, désaxe tout le reste. */
+.podium-marche-nom { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; font-weight: 500; color: var(--text); font-size: 0.86rem; max-width: 100%; overflow-wrap: anywhere; }
+.podium-marche-nom .admin-service-vous { margin-left: 0; }
+.podium-marche-grade { font-size: 0.72rem; color: var(--text-faint); }
+.podium-marche-montant { margin-top: 2px; font-family: var(--d8-font-display); font-size: 1.1rem; color: var(--gold-light); font-variant-numeric: tabular-nums; }
+.podium-marche--1 .podium-marche-montant { font-size: 1.3rem; }
+
+/* 4e et 5e place : une liste compacte sous le podium, même langage que les lignes de tableau (avatar + nom) */
+.run-podium { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-width: 640px; }
+.run-podium li {
+  display: flex; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2);
+}
+.run-rang {
+  flex-shrink: 0; width: 24px; text-align: center; font-family: var(--d8-font-display); font-size: 0.98rem; color: var(--text-faint);
+}
+.run-podium-texte { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.run-podium-texte strong { display: flex; align-items: center; font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+.run-podium-texte small { font-size: 0.78rem; color: var(--text-faint); }
+.run-podium-montant { flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--gold-light); font-weight: 600; }
+@media (max-width: 400px) { .podium-marche { width: 96px; } .podium-marche--1 { width: 112px; } }
+
+/* Quota : un tableau dense (une entreprise de run peut compter une centaine d'employés — des cartes aérées s'y
+   perdent) ; recherche par nom ou prénom au-dessus. Bascule en cartes (tablesAdaptatives) sous la largeur qui le
+   justifie, comme tout .table-admin. */
+.run-filtres { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 14px; }
+.run-filtres .run-recherche { flex: 1 1 220px; max-width: none; margin: 0; }
+@media (max-width: 760px) { .run-filtres .run-recherche { flex-basis: 100%; } }
+#run-table td, #facture-table td { vertical-align: middle; }
+/* anneau de couleur autour de l'avatar, repère d'état qui ne double pas la barre (elle, n'apparaît que si un objectif
+   existe) : un coup d'œil sur la colonne Personne suffit à repérer qui est en retard, même colonne « Progression »
+   hors champ sur un petit écran. Rien pour « gris » (pas d'objectif, rien à signaler). */
+#run-table tr[data-etat="rouge"] .admin-avatar, #facture-table tr[data-etat="rouge"] .admin-avatar { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px var(--erreur); }
+#run-table tr[data-etat="orange"] .admin-avatar, #facture-table tr[data-etat="orange"] .admin-avatar { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px #f97316; }
+#run-table tr[data-etat="vert"] .admin-avatar, #facture-table tr[data-etat="vert"] .admin-avatar { box-shadow: 0 0 0 2px var(--bg2), 0 0 0 4px var(--ok); }
+/* la cellule reste une vraie cellule de tableau (ses bords de ligne restent alignés avec les autres colonnes) :
+   l'alignement avatar + nom se fait sur un conteneur interne, jamais en display:flex directement sur le <td>. */
+.run-personne { display: flex; align-items: center; gap: 10px; }
+.run-nom { display: flex; align-items: center; min-width: 0; overflow-wrap: anywhere; }
+.run-cellule-progression { min-width: 220px; }
+/* la piste elle-même est teintée (pas seulement la partie remplie) : à 0 %, la partie remplie est invisible (largeur
+   nulle) et la couleur ne se verrait pas sans cette teinte sur le fond. */
+.run-barre { height: 6px; border-radius: 999px; background: var(--bg3); overflow: hidden; margin-bottom: 4px; }
+.run-barre.run-etat-rouge { background: var(--erreur-soft); }
+.run-barre.run-etat-orange { background: rgba(249, 115, 22, 0.18); }
+.run-barre.run-etat-vert { background: var(--ok-soft); }
+.run-barre-remplie { height: 100%; border-radius: inherit; background: var(--border); transition: width var(--d8-t); }
+.run-barre-remplie.run-etat-rouge { background: var(--erreur); }
+.run-barre-remplie.run-etat-orange { background: #f97316; }
+.run-barre-remplie.run-etat-vert { background: var(--ok); }
+.run-progression-texte { font-size: 0.82rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.run-sans-objectif { color: var(--text-faint); }
+@media (max-width: 640px) { .run-cellule-progression { min-width: 0; } }
 
 /* recrutement : une carte par candidature ; la couleur dit où elle en est */
 .rh-candidatures { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -1377,12 +1774,12 @@ main.admin-contenu:focus { outline: none; }
    fenêtre (la barre latérale fait 240 px) */
 @media (min-width: 901px) { .page-agents .notifications { left: calc(50% + 120px); max-width: min(calc(100vw - 300px), 560px); } }
 
-/* ---------- Comptabilité (comptabilite.html) : chiffres clés, calcul de la DOT, titres lisibles ---------- */
+/* ---------- DOT (comptabilite.html) : chiffres clés, calcul de la DOT, titres lisibles ---------- */
 .compta-titre, .entete-admin .compta-titre { margin: 0 0 4px; font-family: var(--d8-font-display); font-weight: 400; font-size: 1.35rem; color: var(--text); }
 .compta-sous-titre { margin: 26px 0 6px; font-family: var(--d8-font-ui); font-size: 1rem; font-weight: 500; color: var(--text); }
 .compta-aide { margin: 0; font-size: 0.85rem; color: var(--text-faint); max-width: 80ch; }
 .compta-total-mini { margin-left: 8px; font-size: 0.85rem; font-weight: 500; color: var(--gold-strong); font-variant-numeric: tabular-nums; }
-#compta-panneau-tablettes > .entete-admin, #compta-panneau-parametres > .entete-admin, #compta-panneau-dot > .entete-admin { margin-top: 24px !important; }
+#compta-panneau-tablettes > .entete-admin, #compta-panneau-dot > .entete-admin { margin-top: 24px !important; }
 
 /* chiffres clés : trois au plus, le plus important en doré */
 .compta-chiffres { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin: 4px 0 18px; }
@@ -1420,77 +1817,11 @@ main.admin-contenu:focus { outline: none; }
 .dot-etapes li::marker { color: var(--gold-strong); font-weight: 600; }
 .dot-copie-libelle { text-transform: none !important; letter-spacing: 0 !important; font-size: 0.85rem !important; color: var(--text-muted) !important; }
 
-/* rémunération : intitulés des champs d'ajout de palier en casse normale */
-#compta-panneau-parametres .champ label { font-size: 0.85rem; text-transform: none; letter-spacing: 0; color: var(--text-muted); }
-/* bouton doré confirmé : le vert ne se lit pas sur l'or, on garde le texte sombre et on souligne d'un contour vert */
-
 /* en-tête de section : le texte d'aide prend la place laissée par les commandes à droite (plafonné à 80 caractères,
    il passait à la ligne alors qu'il restait de la place) */
 .entete-admin > div:first-child { flex: 1 1 320px; min-width: 0; }
 .entete-admin .compta-aide, .entete-admin .comptes-aide { max-width: none; }
 
-/* ---------- Comptabilité > Rémunération : formule, cartes par grade, barèmes en paliers, simulateur ---------- */
-.remu-section { margin-bottom: 30px; }
-.remu-formule { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 6px 0 26px; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); }
-.remu-formule-titre { margin-right: 6px; color: var(--gold-light); font-weight: 600; }
-.remu-formule-titre::after { content: " ="; color: var(--text-faint); font-weight: 400; }
-.remu-terme { padding: 4px 12px; border-radius: 999px; background: rgba({{couleur_rvb}}, 0.12); color: var(--text); font-size: 0.88rem; }
-.remu-op { color: var(--text-faint); }
-
-.remu-grades { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 14px; margin-top: 12px; }
-.remu-grade { padding: 14px 16px 8px; border: 1px solid var(--border); border-top: 3px solid var(--grade); border-radius: var(--radius); background: var(--bg2); }
-.remu-grade-nom { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-family: var(--d8-font-display); font-weight: 400; font-size: 1.15rem; color: var(--text); }
-.remu-ligne { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; padding: 4px 0; border-top: 1px solid var(--border); }
-.remu-ligne-libelle { color: var(--text); font-size: 0.92rem; }
-.remu-ligne-note { font-size: 0.8rem; color: var(--text-faint); justify-self: end; }
-.remu-ligne.inactive .remu-ligne-libelle, .remu-ligne.inactive .remu-ligne-note { color: var(--text-faint); }
-.remu-ligne.inactive .remu-montant { opacity: 0.45; }
-.remu-montant { width: 150px; }
-.remu-montant input {
-  width: 100%; min-height: 38px; padding: 6px 70px 6px 10px; border: 1px solid var(--d8-contour-champ); border-radius: var(--radius-sm);
-  background: var(--bg2); color: var(--text); font: inherit; font-size: 0.92rem; text-align: right; font-variant-numeric: tabular-nums;
-}
-.remu-montant input:focus { outline: none; border-color: var(--d8-gold-400); }
-.remu-montant span { right: 10px; font-size: 0.8rem; }
-.remu-grade .remu-montant input { padding-right: 62px; }
-.remu-palier .remu-montant input { padding-right: 26px; }
-
-.remu-baremes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 14px; margin-top: 12px; }
-/* réglage qu'on ne peut pas modifier (grade égal ou supérieur, paliers communs) : il se lit, il n'a pas l'air d'un champ */
-.remu-lecture-note { margin: 2px 0 8px; font-size: 0.8rem; color: var(--text-faint); }
-.remu-lecture .remu-ligne, .remu-lecture .remu-palier { opacity: 0.55; }
-.remu-lecture input:disabled { border-color: transparent; background: transparent; }
-.remu-bareme { padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); }
-.remu-bareme-titre { margin: 0; font-size: 1rem; font-weight: 500; color: var(--text); font-family: var(--d8-font-ui); }
-.remu-bareme-grades { margin: 2px 0 10px; font-size: 0.8rem; color: var(--text-faint); }
-.remu-paliers { list-style: none; margin: 0; padding: 0; }
-.remu-palier { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
-.remu-palier > input { width: 72px; min-height: 38px; padding: 6px 8px; border: 1px solid var(--d8-contour-champ); border-radius: var(--radius-sm); background: var(--bg2); color: var(--text); font: inherit; text-align: right; font-variant-numeric: tabular-nums; }
-.remu-palier > input:focus { outline: none; border-color: var(--d8-gold-400); }
-.remu-palier-des, .remu-palier-unite { font-size: 0.88rem; color: var(--text-muted); }
-.remu-palier-unite { min-width: 64px; }
-.remu-palier-fleche { display: inline-flex; color: var(--gold-strong); }
-.remu-palier .remu-montant { width: 130px; }
-.remu-palier .actions-icone, .remu-palier .btn { margin-left: auto; }
-.remu-palier-nouveau { border-top-style: dashed; }
-.remu-palier-nouveau > input, .remu-palier-nouveau .remu-montant input { border-style: dashed; }
-.remu-palier-vide { padding: 10px 0; font-size: 0.85rem; color: var(--text-faint); border-top: 1px solid var(--border); }
-
-.remu-simulateur { padding: 18px 22px; border: 1px solid var(--d8-gold-400); border-radius: var(--radius); background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.1), var(--bg2) 60%); }
-.remu-simu-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 12px; }
-.remu-simu-champs .champ { margin: 0; }
-.remu-simu-champs label { font-size: 0.85rem !important; }
-.remu-simu-detail { list-style: none; margin: 12px 0 0; padding: 0; max-width: 560px; }
-.remu-simu-detail li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 0.92rem; color: var(--text); }
-.remu-simu-detail li small { margin-left: 8px; color: var(--text-faint); font-size: 0.8rem; }
-.remu-simu-detail li.inactive { color: var(--text-faint); }
-.remu-simu-detail strong { font-weight: 500; font-variant-numeric: tabular-nums; }
-.remu-simu-total { display: flex; justify-content: space-between; align-items: baseline; max-width: 560px; margin: 10px 0 0; color: var(--gold-light); }
-.remu-simu-total strong { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
-.remu-grades { grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); }
-.remu-ligne-libelle { white-space: nowrap; }
-.remu-grade .remu-montant { width: 140px; }
-.remu-ligne-aide { display: block; font-size: 0.75rem; color: var(--text-faint); }
 /* demande à valider : le grade sur toute la largeur, puis Refuser et Valider côte à côte, de même largeur */
 .comptes-demande-actions { flex-direction: column; align-items: stretch; }
 .comptes-demande-grade { flex: none; }
@@ -1526,6 +1857,13 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
   display: flex; flex-direction: column; max-width: 920px; height: min(88vh, 900px); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
   overflow: hidden; padding: 0;
 }
+/* fiche plus courte que la fiche grade (pas de permissions, pas de droits d'agenda) : hauteur au contenu, sinon le peu
+   de champs flotte dans un grand vide à l'écran large (reste plein écran sur téléphone, comme toute .modale-grade) ;
+   plus étroite aussi (deux colonnes de paliers, pas la grille de droits d'agenda) ; un seul bouton au pied (pas
+   d'Annuler, la fenêtre se ferme déjà par la croix/le fond/Échap) : il prend toute la largeur plutôt que de flotter
+   à droite comme un groupe de boutons. */
+.modale.modale-paie { height: auto; max-width: 760px; }
+.modale-paie .grade-pied .btn-or { flex: 1 1 auto; }
 .modale-grade > .modale-entete { flex: 0 0 auto; margin: 0; padding: 22px 32px 14px; border-bottom: 1px solid var(--border); }
 .modale-grade > form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; }
 .grade-corps {
@@ -1536,14 +1874,18 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
 .grade-corps::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba({{couleur_rvb}}, 0.36); }
 .modale-grade > #form > #zone-message-modale { flex: 0 0 auto; margin: 0 32px; }
 .modale-grade > #form > #zone-message-modale:empty { display: none; }
-.modale-grade > #form > .grade-pied { flex: 0 0 auto; margin: 0 32px; padding: 12px 0 20px; background: var(--bg-card); }
+.modale-grade > form > .grade-pied { flex: 0 0 auto; margin: 0 32px; padding: 12px 0 20px; background: var(--bg-card); }
 .modale-grade label, .modale-grade legend { text-transform: none; letter-spacing: 0; }
 .modale-grade .champ label { display: block; margin-bottom: 6px; font-size: 0.875rem; font-weight: 500; color: var(--text-muted); }
 .modale-grade .champ label small { font-weight: 400; color: var(--text-faint); }
 .grade-identite { display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 14px; }
 .grade-couleur input { width: 100%; height: 48px; padding: 4px; }
 .grade-permissions { margin: 4px 0 14px; padding: 0; border: 0; }
-.grade-permissions legend { margin-bottom: 4px; font-size: 1rem; font-weight: 500; color: var(--text); }
+/* float + width 100% : désactive le rendu natif qui pose la légende à cheval sur la bordure (fieldset), pour que
+   le trait de séparation reste plein comme devant Run et Factures, légende dessous au lieu de dessus */
+.grade-permissions legend { float: left; width: 100%; margin-bottom: 4px; font-size: 1rem; font-weight: 500; color: var(--text); }
+/* séparation entre les catégories de la fiche grade (Droits, Run, Factures…) : un même trait pour toutes */
+.grade-separee { padding-top: 10px; border-top: 1px solid var(--border); }
 .grade-domaine { margin-top: 16px; }
 .grade-domaine h3 { margin: 0 0 4px; font-family: var(--d8-font-ui); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gold-strong); }
 .grade-permission { display: flex; align-items: flex-start; gap: 12px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; }
@@ -1552,6 +1894,13 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
 .grade-permission strong { display: block; font-weight: 500; color: var(--text); font-size: 0.92rem; }
 .grade-permission small { display: block; font-size: 0.8rem; color: var(--text-faint); }
 .grade-permission.interdite { opacity: 0.5; cursor: not-allowed; }
+/* objectif de run (fiche du grade) : un seul champ, aligné comme les autres champs de la fiche */
+.grade-run-reglages, .grade-facture-reglages { margin: 4px 0 14px; }
+.grade-run-reglages h3, .grade-facture-reglages h3 { margin: 0 0 8px; font-family: var(--d8-font-ui); font-size: 0.98rem; font-weight: 500; color: var(--text); }
+.champ-run-quota-saisie { display: flex; align-items: center; gap: 8px; max-width: 200px; }
+.champ-run-quota-saisie input { flex: 1 1 auto; min-width: 0; }
+.champ-run-quota-saisie span { color: var(--text-faint); font-size: 0.88rem; }
+
 .grade-agenda-reglages { margin: 8px 10px 4px; padding: 10px 0 0; border-top: 1px solid var(--border); }
 .grade-agenda-intro { margin: 0 0 8px; }
 .grade-agenda-partage { margin: 10px 0 12px; }
@@ -1578,12 +1927,12 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
 .grade-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
 .grade-pied .grade-supprimer { margin-right: auto; color: var(--danger-strong); border-color: var(--erreur); }
 @media (max-width: 760px) {
-  .modale-fond#modale-grade { padding: 0; }
+  .modale-fond#modale-grade, .modale-fond#modale-paie-grade { padding: 0; }
   .modale.modale-grade { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
   .modale-grade > .modale-entete { padding: 16px 18px 12px; }
   .grade-corps { padding: 14px 18px 10px; }
-  .modale-grade > #form > #zone-message-modale { margin: 0 18px; }
-  .modale-grade > #form > .grade-pied { gap: 8px; margin: 0 18px; padding: 10px 0 14px; }
+  .modale-grade > #form > #zone-message-modale, .modale-grade > form > .grade-zone-message { margin: 0 18px; }
+  .modale-grade > form > .grade-pied { gap: 8px; margin: 0 18px; padding: 10px 0 14px; }
   .grade-agenda-entete, .grade-agenda-ligne { grid-template-columns: minmax(75px, 1fr) repeat(3, minmax(68px, 1fr)); gap: 2px; padding: 5px 4px; }
   .grade-agenda-entete label, .grade-agenda-ligne label { flex-direction: column; gap: 2px; padding: 4px 2px; font-size: 0.75rem; }
   .grade-agenda-entete strong { font-size: 0.75rem; }
@@ -1670,7 +2019,7 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
 html.en-jeu .seulement-en-jeu { display: block !important; }
 
 
-/* ======== propre au modèle : marque, connexion, annonces, Mon compte ======== */
+/* ======== propre au modèle : marque, connexion, Mon compte ======== */
 /* marque du menu et de la barre du haut : le logo carré et le nom du site (socle.nomSite) */
 .admin-marque { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--text); font-family: var(--display); font-weight: 700; text-decoration: none; }
 .admin-marque img { width: 32px !important; height: 32px; flex-shrink: 0; }
@@ -1679,12 +2028,6 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .admin-barre-haut-logo.admin-marque { margin-right: auto; }
 /* pages seules (connexion, attente, refus) : logo et nom centrés au-dessus du titre */
 .logo-connexion { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; font-family: var(--display); font-weight: 700; font-size: 1.1rem; color: var(--text); text-align: center; }
-.annonces-publier { margin-bottom: 20px; }
-.annonces-publier-pied { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.annonces-publier-pied .champ-checkbox { margin: 0; text-transform: none; letter-spacing: 0; font-size: 0.92rem; color: var(--text); }
-.annonces-liste { display: flex; flex-direction: column; gap: 14px; }
-.annonce .accueil-panneau-entete h2 { font-size: 1.15rem; overflow-wrap: anywhere; }
-.annonce-texte { white-space: pre-line; overflow-wrap: anywhere; color: var(--text); }
 .compte-panneau { max-width: 640px; margin-bottom: 24px; }
 .compte-panneau form { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .compte-supprimer { max-width: 640px; }

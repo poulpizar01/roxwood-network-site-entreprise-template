@@ -54,11 +54,27 @@
           <p class="champ-aide" id="role-aide-bot"></p>
           <p class="champ-aide" id="role-aide">Qui porte ce rôle reçoit ce grade à sa connexion, et est validé d’office.<span class="role-aide-identifiant"> Identifiant : Discord → Paramètres du serveur → Rôles → clic droit sur le rôle → « Copier l’identifiant ».</span></p>
         </div>
-        <fieldset class="grade-permissions">
-          <legend>Ce que ce grade peut faire</legend>
+        <fieldset class="grade-permissions grade-separee">
+          <legend>Droits</legend>
           <p class="champ-aide" style="margin:0 0 6px;">Vous ne pouvez accorder que ce que vous pouvez faire vous-même.</p>
           <div id="cases"></div>
         </fieldset>
+        <section class="grade-run-reglages grade-separee cache" id="grade-run" aria-labelledby="titre-grade-run">
+          <h3 id="titre-grade-run">Run</h3>
+          <div class="champ champ-run-quota">
+            <label for="run-quota">Quota hebdomadaire</label>
+            <div class="champ-run-quota-saisie"><input type="number" id="run-quota" min="0" max="1000000" step="1" value="0"><span aria-hidden="true">unités</span></div>
+            <p class="champ-aide">Unités à vendre chaque semaine pour ce grade (suivi : page Quota, onglet Quota run). 0 = pas de quota.</p>
+          </div>
+        </section>
+        <section class="grade-facture-reglages grade-separee cache" id="grade-facture" aria-labelledby="titre-grade-facture">
+          <h3 id="titre-grade-facture">Factures</h3>
+          <div class="champ champ-run-quota">
+            <label for="facture-quota">Quota hebdomadaire</label>
+            <div class="champ-run-quota-saisie"><input type="number" id="facture-quota" min="0" max="1000000" step="1" value="0"><span aria-hidden="true">$</span></div>
+            <p class="champ-aide">Montant à facturer chaque semaine pour ce grade (suivi : page Quota, onglet Quota facture). 0 = pas de quota. Seules les factures constatées en jeu comptent, crédités à qui les a enregistrés : une commande Discord ou une facture saisie depuis le site (page Factures) ne crédite personne.</p>
+          </div>
+        </section>
         <template id="agenda-droits-modele">
           <section class="grade-agenda-reglages cache" id="agenda-droits" aria-label="Droits sur les événements de l’agenda">
             <p class="champ-aide grade-agenda-intro">Les événements personnels restent visibles uniquement à leur auteur et à la personne concernée.</p>
@@ -103,7 +119,7 @@
   </div>
   <script src="/gestion/vendor/Sortable.min.js"></script>
   <script>
-    let moi, grades = [], permissions = [], droitsAgenda = [], edition = null, nouveauCleMatrice = null, gradeCreeEnCours = false, effectifs = null, ouvreur = null;
+    let moi, grades = [], permissions = [], droitsAgenda = [], quotasRun = [], quotasFacture = [], edition = null, nouveauCleMatrice = null, gradeCreeEnCours = false, effectifs = null, ouvreur = null;
     // rôles du serveur Discord, lus sur Discord (vide sans DISCORD_BOT_TOKEN : l'identifiant se saisit à la main)
     let roles = [];
     const nomRole = id => roles.find(r => r.id === id)?.nom;
@@ -144,6 +160,18 @@
           </button>
         </li>`;
       }).join('') : '<li class="grades-vide">Aucun grade pour le moment : créez le premier, le plus haut, avec « + Nouveau grade ».</li>';
+    }
+
+    function afficherQuotaRun(g) {
+      $('grade-run').classList.toggle('cache', !!g && !gerable(g));
+      if (g && !gerable(g)) return;
+      $('run-quota').value = g ? (quotasRun.find(q => q.cle === g.cle)?.quota ?? 0) : 0;
+    }
+
+    function afficherQuotaFacture(g) {
+      $('grade-facture').classList.toggle('cache', !!g && !gerable(g));
+      if (g && !gerable(g)) return;
+      $('facture-quota').value = g ? (quotasFacture.find(q => q.cle === g.cle)?.quota ?? 0) : 0;
     }
 
     function actualiserDroitsEquipe() {
@@ -310,6 +338,8 @@
         }).join('')}${reglageAgenda}</div>`;
       }).join('');
       afficherDroitsAgenda(g);
+      afficherQuotaRun(g);
+      afficherQuotaFacture(g);
       gestion.message('zone-message-modale', '');
       $('modale-grade').classList.remove('cache');
       $('libelle').focus();
@@ -318,11 +348,13 @@
 
     async function charger() {
       let r;
-      [grades, permissions, r, droitsAgenda] = await Promise.all([
+      [grades, permissions, r, droitsAgenda, quotasRun, quotasFacture] = await Promise.all([
         socle.api('/api/grades'),
         socle.api('/api/permissions'),
         socle.api('/api/grades/roles-discord').catch(() => ({ roles: [] })),
         socle.api('/api/agenda/droits-grades').then(r => r.droits),
+        socle.api('/api/run/quotas').then(r => r.quotas),
+        socle.api('/api/compta/factures/quotas').then(r => r.quotas),
       ]);
       roles = r.roles || [];
       // sans bot relié au site, pas de liste : on dit pourquoi, et comment saisir l’identifiant en attendant
@@ -410,6 +442,8 @@
           gerer_tous: $('agenda-gerer-tous').checked,
         };
         await socle.api(`/api/agenda/droits-grades/${encodeURIComponent(edition)}`, { method: 'PUT', body: droits });
+        await socle.api(`/api/run/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('run-quota').value) || 0 } });
+        await socle.api(`/api/compta/factures/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('facture-quota').value) || 0 } });
         const libelle = grades.find(g => g.cle === edition)?.libelle ?? corps.libelle;
         fermer();
         gestion.notifier(gradeCreeEnCours ? `Grade « ${libelle} » créé ✓` : `Grade « ${libelle} » enregistré ✓`);

@@ -111,7 +111,7 @@ Cherche :
 Vérifie uniquement le respect des règles propres à ce modèle, décrites dans CLAUDE.md et docs/modele.md.
 Cherche :
 - dans un site créé depuis le modèle : toute différence entre les fichiers du socle (liste dans CLAUDE.md) et ceux du modèle (git remote « modele » s'il existe : git diff modele/main -- <fichiers du socle>) ; chaque différence est un point à reporter dans le modèle ou à annuler ;
-- dans le dépôt modèle : contenu propre à une entreprise (nom, lieu, métier) hors de l'exemple « annonces » ;
+- dans le dépôt modèle : contenu propre à une entreprise (nom, lieu, métier) ;
 - le contrat (server/src/socle/contrat.ts) : pages de gestion/ absentes de entreprise.pages alors qu'elles demandent une permission, permissions déclarées mais jamais utilisées (ou l'inverse), relation Prisma vers Compte dans entreprise.prisma ;
 - les pages de gestion/ sans meta application-name, sans theme.css, ou sans socle.js avant leurs scripts ; les noms imposés (index, attente, refuse, accueil) présents ;
 - les routes qui lisent req.session hors de /api et /auth ;
@@ -143,9 +143,9 @@ Cherche :
 - une page qui défile pour ne montrer que du vide (réserve de bas de page inutile), une zone qui défile dans une autre, un cadre ou un décor fixé au bord de l'écran ;
 - un tableau dont le passage en cartes dépend d'un seuil de largeur d'écran plutôt que de la place mesurée, une colonne d'actions élargie qui fait déborder le tableau à 1 280 px ;
 - un menu de gestion qui porte autre chose que la navigation et le compte, ou qui défile à 800 px de haut avec toutes les permissions ;
-- deux liens vers la même destination dans un même bloc, un lien qui ne fait pas ce qu'il annonce, un bouton « Afficher » pour un contenu attendu ;
+- deux liens vers la même destination dans un même bloc, un lien qui ne fait pas ce qu'il promet, un bouton « Afficher » pour un contenu attendu ;
 - un texte qui parle à un développeur (nom de variable, .env, fichier, « webhook »), un terme inventé, une période nommée en relatif (« hier », « semaine prochaine ») ;
-- une annonce automatique (aria-live) sur une information relue périodiquement, qui serait relue à chaque passage.
+- une lecture automatique (aria-live) sur une information relue périodiquement, qui serait relue à chaque passage.
 Ici, le scénario de défaillance est : quelle largeur ou quel moyen (souris, clavier, lecteur d'écran, ordinateur en jeu) → ce que la personne ne peut pas faire ou pas voir.
 ```
 

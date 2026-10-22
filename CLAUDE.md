@@ -14,7 +14,7 @@ Notes de conventions et de pièges pour un agent Claude Code travaillant sur ce 
 - Dans un site, on ne modifie **pas** un fichier du socle : on corrige dans le modèle, puis chaque site fait `git fetch modele && git merge modele/main` (voir docs/modele.md). Un site qui touche au socle se crée des conflits à chaque mise à jour et perd les correctifs de sécurité.
 - Reporter le modèle dans un site **uniquement par ce merge**, jamais en recopiant les fichiers ni par `git cherry-pick` : git ne saurait pas que ces commits sont intégrés, et chaque merge suivant signalerait des conflits partout. Historique déjà divergé alors que le contenu est identique (vérifier `git diff HEAD modele/main -- socle server docs`, vide hors valeurs propres au site) : `git merge -s ours modele/main` l'enregistre une fois sans changer aucun fichier.
 - Un besoin que le socle ne couvre pas : d'abord chercher s'il se fait côté entreprise (routes, pages, tâches dans `demarrage()`). S'il exige vraiment le socle (nouvelle capacité commune), l'ajouter **au modèle** pour tous.
-- Dans le dépôt **modèle** : aucun contenu propre à une entreprise (noms, lieux, métier). L'exemple « annonces » est volontairement générique.
+- Dans le dépôt **modèle** : aucun contenu propre à une entreprise (noms, lieux, métier).
 - Les fichiers du socle commencent par un commentaire `SOCLE —` ; ceux de l'entreprise par `ENTREPRISE —`, `VITRINE` ou `GESTION`.
 
 ## Ce que le socle impose à l'entreprise

@@ -8,8 +8,6 @@ import { body, intParam, permission } from '../../socle/http.js';
 import { arriveesBot, droitsRh, ecarter, fichePublique, gradesEmployes, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
 import { traiter } from '../refus.js';
-import { relireTableur } from '../stats/tableur.js';
-import { rattacherVentes } from '../stats/ventes.js';
 import { jourValide, versDate } from '../texte.js';
 
 export const rh = Router();
@@ -51,21 +49,10 @@ rh.get('/api/rh/employes', ...voir, async (req, res) => {
 rh.get('/api/rh/employes/:id', ...voir, async (req, res) => {
   const e = await prisma.employe.findUnique({ where: { id: intParam(req, 'id') } });
   if (!e) { res.status(404).json({ error: 'Employé introuvable.' }); return; }
-  const [compte, ventes, tableur, semainesArchivees] = await Promise.all([
-    e.discordId ? prisma.compte.findUnique({ where: { discordId: e.discordId }, select: { nom: true, pseudo: true, gradeCle: true, statut: true } }) : null,
-    prisma.vente.aggregate({ where: { employeId: e.id }, _count: true, _max: { creeLe: true } }),
-    prisma.ligneTableur.findFirst({ where: { employeId: e.id }, select: { nbVentes: true, nbLocations: true } }),
-    prisma.tableurArchiveLigne.count({ where: { employeId: e.id } }),
-  ]);
+  const compte = e.discordId ? await prisma.compte.findUnique({ where: { discordId: e.discordId }, select: { nom: true, pseudo: true, gradeCle: true, statut: true } }) : null;
   res.json({
     ...fichePublique(e, droitsRh(req.compte)),
     modifiable: (() => { try { verifierHierarchie(req.compte, e); return true; } catch { return false; } })(),
-    // ce que les autres modules ont rattaché à l'employé (lecture seule)
-    historique: {
-      ventesEnregistrees: ventes._count, derniereVente: ventes._max.creeLe,
-      tableurSemaineEnCours: tableur ? { ventes: tableur.nbVentes, locations: tableur.nbLocations } : null,
-      semainesArchivees,
-    },
     compteDuSite: compte ? { nom: compte.nom ?? compte.pseudo, grade: gradeDe(compte.gradeCle)?.libelle ?? null, statut: compte.statut } : null,
   });
 });
@@ -79,8 +66,6 @@ rh.post('/api/rh/employes', ...voir, exiger('creer', 'Vous n’avez pas le droit
   pasSaPropreFiche(req, champs.discordId);
   await verifierUnicite(champs);
   const e = await prisma.employe.create({ data: { statut: 'actif', ...champs } as Parameters<typeof prisma.employe.create>[0]['data'] }).catch(refusUnicite);
-  await rattacherVentes(e);
-  relireTableur();
   res.status(201).json({ id: e.id });
 }));
 
@@ -97,11 +82,10 @@ rh.patch('/api/rh/employes/:id', ...voir, exiger('modifier', 'Vous n’avez pas 
   const champs = lireChamps(b, existante);
   verifierHierarchie(req.compte, existante, champs.gradeCle);
   pasSaPropreFiche(req, champs.discordId);
-  if (champs.idEmploye && champs.idEmploye !== existante.idEmploye) champs.idProvisoire = false;
+  if (champs.idUnique && champs.idUnique !== existante.idUnique) champs.idProvisoire = false;
   if (!Object.keys(champs).length) throw new Refus('Rien à modifier.');
   await verifierUnicite(champs, id);
-  await rattacherVentes(await prisma.employe.update({ where: { id }, data: champs }).catch(refusUnicite));
-  relireTableur();
+  await prisma.employe.update({ where: { id }, data: champs }).catch(refusUnicite);
   res.json({ ok: true });
 }));
 
@@ -124,23 +108,6 @@ async function changerStatut(req: Request, res: Response, statut: 'actif' | 'ina
 }
 rh.post('/api/rh/employes/:id/desactiver', ...voir, exiger('desactiver', 'Vous n’avez pas le droit de désactiver un employé.'), traiter((req, res) => changerStatut(req, res, 'inactif')));
 rh.post('/api/rh/employes/:id/reactiver', ...voir, exiger('reactiver', 'Vous n’avez pas le droit de réactiver un employé.'), traiter((req, res) => changerStatut(req, res, 'actif')));
-
-// « À rattacher » : ce que les autres modules ont reçu sans fiche correspondante — vendeurs des ventes du bot dont le
-// pseudo n'est sur aucune fiche, lignes du tableur dont le nom n'est le « Prénom Nom » d'aucune fiche. RH crée alors la
-// fiche (ou complète le pseudo, ou le nom, d'une fiche existante) : elles s'y rattachent d'elles-mêmes.
-rh.get('/api/rh/a-rattacher', ...voir, async (_req, res) => {
-  const [vendeurs, tableur] = await Promise.all([
-    prisma.$queryRaw<{ pseudo: string; ventes: bigint; derniere_semaine: string }[]>`
-      SELECT min(btrim(identite)) AS pseudo, count(*) AS ventes, max(semaine) AS derniere_semaine
-        FROM ventes WHERE employe_id IS NULL AND identite_normalisee <> ''
-       GROUP BY identite_normalisee ORDER BY count(*) DESC`,
-    prisma.ligneTableur.findMany({ where: { employeId: null }, orderBy: { ligneSheet: 'asc' } }),
-  ]);
-  res.json({
-    vendeurs: vendeurs.map(v => ({ pseudo: v.pseudo, ventes: Number(v.ventes), derniereSemaine: v.derniere_semaine })),
-    tableur: tableur.map(l => ({ nom: l.nomSheet, grade: l.gradeSheet, ventes: l.nbVentes, locations: l.nbLocations })),
-  });
-});
 
 // candidatures reçues du bot Discord et réglages de leur lecture
 rh.get('/api/rh/bot', ...voir, async (_req, res) => { res.json({ ...(await arriveesBot()), grades: gradesEmployes() }); });

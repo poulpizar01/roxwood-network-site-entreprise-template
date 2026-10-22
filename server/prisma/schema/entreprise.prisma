@@ -6,30 +6,16 @@
 // - après chaque modification : docker compose exec app npx prisma migrate dev --name <description>, puis committer
 //   le dossier créé dans prisma/migrations/.
 
-// Exemple : annonces internes (page gestion/annonces.html, routes src/entreprise/routes/annonces.ts). À supprimer
-// ou remplacer par les tables de l'entreprise (stocks, factures, rendez-vous…).
-model Annonce {
-  id       Int      @id @default(autoincrement())
-  compteId Int?     @map("compte_id") // auteur ; null si son compte a été supprimé
-  titre    String   @db.VarChar(120)
-  texte    String   @db.VarChar(4000)
-  epingle  Boolean  @default(false)
-  creeLe   DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
-
-  @@index([creeLe(sort: Desc)])
-  @@index([compteId])
-  @@map("annonces")
-}
-
 // Agenda partagé : visibilité, invitations et règles dans entreprise/agenda-regles.ts et routes/agenda.ts
 model EvenementAgenda {
   id               Int      @id @default(autoincrement())
   compteId         Int?     @map("compte_id") // auteur ; null : compte supprimé (événement partagé gardé)
   auteurNom        String   @default("") @map("auteur_nom") @db.VarChar(64)
   titre            String   @db.VarChar(80)
-  jour             DateTime @db.Date
-  heureDebut       String   @map("heure_debut") @db.VarChar(5) // HH:MM, heure de Paris
-  heureFin         String   @map("heure_fin") @db.VarChar(5)
+  jour             DateTime @db.Date // premier jour de l'événement
+  jourFin          DateTime @map("jour_fin") @db.Date // dernier jour ; égal à `jour` pour un événement d'un seul jour
+  heureDebut       String?  @map("heure_debut") @db.VarChar(5) // HH:MM, heure de Paris ; absentes sur plusieurs jours (pas d'horaire)
+  heureFin         String?  @map("heure_fin") @db.VarChar(5)
   notes            String   @default("") @db.VarChar(500)
   typeId           Int?     @map("type_id") // classement (couleur) ; type supprimé : « Sans type »
   type             TypeAgenda? @relation(fields: [typeId], references: [id], onDelete: SetNull)
@@ -90,8 +76,8 @@ model AgendaDroitsGrade {
 // avec un compte se fait par l'ID Discord.
 model Employe {
   id                     Int       @id @default(autoincrement())
-  idEmploye              String    @map("id_employe") @db.VarChar(40) // identifiant métier saisi par RH (ex. 42)
-  idEmployeNormalise     String    @unique @map("id_employe_normalise") @db.VarChar(40) // unicité sans casse
+  idUnique               String    @map("id_unique") @db.VarChar(40) // identifiant métier saisi par RH (ex. 42)
+  idUniqueNormalise      String    @unique @map("id_unique_normalise") @db.VarChar(40) // unicité sans casse
   idProvisoire           Boolean   @default(false) @map("id_provisoire") // PROV-… : à remplacer par le vrai
   prenom                 String    @default("") @db.VarChar(60)
   nom                    String    @default("") @db.VarChar(60)
@@ -133,154 +119,107 @@ model ArriveeBot {
   @@map("rh_arrivees_bot")
 }
 
-// ---------- Ventes & statistiques (entreprise/stats/) ----------
+// ---------- Factures & runs (entreprise/facture.ts, entreprise/run.ts) ----------
 
-// Vente ou location envoyée par le bot de ventes (POST /api/stats/ventes, clé STATS_BOT_SECRET). Les colonnes reprennent
-// celles du Google Sheet d'origine (A à P) : le moteur de calcul (stats/calcul.ts) les lit dans cet ordre. Rattachée à
-// la fiche RH du vendeur dès son arrivée (ID Discord, sinon pseudo) ; sans fiche, signalée dans RH « À rattacher ».
-model Vente {
-  id                 Int      @id @default(autoincrement())
-  numeroVente        String   @default("") @map("numero_vente") @db.VarChar(200)
-  dateVente          String   @default("") @map("date_vente") @db.VarChar(10) // JJ/MM/AAAA, tel que reçu
-  identite           String   @default("") @db.VarChar(200) // pseudo du vendeur reçu du bot
-  formateur          String   @default("") @db.VarChar(200)
-  identiteNormalisee String   @default("") @map("identite_normalisee") @db.VarChar(200) // identite sans casse ni espaces autour : rattachement aux fiches RH (index)
-  formateurNormalise String   @default("") @map("formateur_normalise") @db.VarChar(200)
-  identiteClient     String   @default("") @map("identite_client") @db.VarChar(200)
-  numeroTel          String   @default("") @map("numero_tel") @db.VarChar(200)
-  interieur          String   @default("") @db.VarChar(200)
-  garage             String   @default("") @db.VarChar(200)
-  garageIndispo      String   @default("") @map("garage_indispo") @db.VarChar(200)
-  garageRefus        String   @default("") @map("garage_refus") @db.VarChar(200)
-  entrepriseIdentite String   @default("") @map("entreprise_identite") @db.VarChar(200)
-  idEntreprise       String   @default("") @map("id_entreprise") @db.VarChar(200)
-  type               String   @default("") @db.VarChar(10) // Vente | Location
-  loc                Int? // quantité louée (Location)
-  achat              Int      @default(0) // montant
-  semaine            String   @default("") @db.VarChar(8) // S41-26 : fait foi pour tous les calculs
-  compteId           Int?     @map("compte_id") // saisie depuis le site ; null = envoyée par le bot
-  eventId            String?  @unique @map("event_id") @db.VarChar(200) // idempotence des renvois du bot
-  employeId          Int?     @map("employe_id")
-  formateurEmployeId Int?     @map("formateur_employe_id")
-  creeLe             DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+// Facture de l'entreprise : commande boutique validée côté bot (webhook order.updated, renvoyée à chaque changement —
+// statut, régénération — rattachée par idBot, jamais recréée), paiement constaté en jeu par le monitoring FiveM
+// (webhook monitoring.invoice, idBot nul : pas d'identifiant propre à l'événement, dédoublonnage laissé au socle,
+// comme pour `runs`), ou saisie à la main depuis la gestion (idBot nul, compteId l'auteur). `details` ne garde que ce
+// qui varie selon la source (articles de la commande…) : jamais interrogé en SQL, seulement affiché. employeId :
+// rattachement au quota de facturation (page Quota), seulement pour un paiement constaté en jeu (monitoring.invoice,
+// même principe que `runs` : la fiche RH de l'employé qui a enregistré le paiement, jamais le client).
+model Facture {
+  id             Int      @id @default(autoincrement())
+  source         String   @db.VarChar(12) // order | monitoring | manuel
+  idBot          String?  @unique @map("id_bot") @db.VarChar(100) // identifiant du bot (orderId…) : idempotence des renvois
+  numeroFacture  String   @default("") @map("numero_facture") @db.VarChar(100)
+  clientNom      String   @default("") @map("client_nom") @db.VarChar(200)
+  sousTotal      Int      @default(0) @map("sous_total")
+  livraison      Int      @default(0)
+  reduction      Int      @default(0)
+  total          Int      @default(0)
+  statutPaiement String   @default("") @map("statut_paiement") @db.VarChar(20)
+  details        Json?
+  compteId       Int?     @map("compte_id") // saisie depuis le site ; null = reçue du bot
+  employeId      Int?     @map("employe_id") // qui a enregistré le paiement en jeu (monitoring.invoice uniquement) ; quota de facturation
+  avoirDeId      Int?     @map("avoir_de_id") // renseigné seulement sur l'avoir : facture d'origine qu'il annule (montants négatifs)
+  dateFacture    DateTime  @default(now()) @map("date_facture") @db.Timestamptz(6) // date de la facture : reçue du bot, prise à défaut sur l'instant de réception ; saisie à la main sinon ; modifiable ensuite dans les deux cas (routes/compta.ts) — jamais réécrite par un renvoi du bot (changement de statut)
+  dateEcheance   DateTime? @map("date_echeance") @db.Timestamptz(6) // date d'échéance de paiement, facultative : jamais fournie par le bot, saisie et modifiée depuis la gestion
+  majLe          DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
-  @@index([semaine])
-  @@index([identiteNormalisee])
-  @@index([formateurNormalise])
+  @@index([source, dateFacture(sort: Desc)])
+  @@index([compteId])
   @@index([employeId])
-  @@map("ventes")
+  @@index([avoirDeId])
+  @@map("factures")
 }
 
-// Vente marquée comme doublon exact (marquage réversible, fait hors du site) : exclue des calculs, jamais de l'historique.
-model VenteDoublon {
+// Vente d'objet en jeu (« run »), reçue du bot Discord entreprise : événement monitoring.sale, un message par vente
+// annoncée dans le salon de monitoring. Rattachée à la fiche RH du vendeur (ID Discord, sinon pseudo) quand elle
+// existe ; sans fiche, gardée telle quelle (entreprise/run.ts). jobId identifie le métier RP du vendeur, jamais la
+// transaction : aucune clé d'idempotence propre à cette table, le dédoublonnage des renvois du bot est déjà fait par
+// le socle (empreinte du corps, socle/routes/webhooks.ts).
+model Run {
   id               Int      @id @default(autoincrement())
-  ligneDoublonId   Int      @unique @map("ligne_doublon_id")
-  ligneOriginaleId Int      @map("ligne_originale_id")
-  classification   String   @db.VarChar(100)
-  justification    String
-  marqueLe         DateTime @default(now()) @map("marque_le") @db.Timestamptz(6)
-  marquePar        String   @map("marque_par") @db.VarChar(100)
+  jobId            String   @default("") @map("job_id") @db.VarChar(100)
+  vendeurNom       String   @default("") @map("vendeur_nom") @db.VarChar(120) // tel qu'envoyé par le bot
+  vendeurDiscordId String?  @map("vendeur_discord_id") @db.VarChar(22)
+  employeId        Int?     @map("employe_id")
+  itemLabel        String   @default("") @map("item_label") @db.VarChar(120)
+  quantite         Int      @default(0)
+  totalPrice       Int      @default(0) @map("total_price")
+  companyShare     Int      @default(0) @map("company_share")
+  description      String   @default("") @db.VarChar(500) // texte brut du bot, pour vérifier un rattachement douteux
+  creeLe           DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
 
-  @@map("ventes_doublons")
+  @@index([creeLe(sort: Desc)])
+  @@index([employeId])
+  @@map("runs")
 }
 
-// Palier de prime : on retient le plus haut seuil atteint (stats/calcul.ts, montantPalier).
-model BaremePrime {
-  id      Int    @id @default(autoincrement())
-  type    String @db.VarChar(10) // vente | location
-  seuil   Int
-  montant Int
+// Objectif hebdomadaire de runs par grade (part entreprise, « company_share »), réglé dans Ressources humaines →
+// Run. Un grade sans ligne n'a pas d'objectif (0 = jamais affiché en retard).
+model RunsQuotaGrade {
+  gradeCle String @id @map("grade") @db.VarChar(20)
+  quota    Int    @default(0)
 
-  @@unique([type, seuil])
-  @@map("baremes_primes")
+  @@map("runs_quota_grades")
 }
 
-// Rémunération par grade du site : salaire fixe et interrupteurs, indépendants et cumulables. Un grade sans ligne a les
-// valeurs par défaut (taux 0,48, pas de salaire, primes actives).
+// Quota hebdomadaire de montant facturé par grade, réglé dans la fiche du grade (page Grades). Un grade sans ligne
+// n'a pas de quota (0 = jamais affiché en retard). Consultation : page Quota (entreprise/facture.ts, classementFactures).
+model FacturesQuotaGrade {
+  gradeCle String @id @map("grade") @db.VarChar(20)
+  quota    Int    @default(0)
+
+  @@map("factures_quota_grades")
+}
+
+// Rémunération par grade du site : salaire de base, paie à l'heure, indépendants et cumulables. Un grade sans ligne a
+// les valeurs par défaut (pas de salaire, pas de paie à l'heure). Salaire de base réglé page Paie (entreprise/paie.ts) ;
+// paie à l'heure toujours réglée en base seulement (pas d'UI), lue par stats/paie-horaire.ts.
 model RemunerationGrade {
-  gradeCle            String @id @map("grade") @db.VarChar(20)
-  taux                Float  @default(0.48) // commission sur le montant facturé
-  salaireFixe         Int?   @map("salaire_fixe")
-  salaireActif        Boolean @default(false) @map("salaire_actif")
-  primeVenteActive    Boolean @default(true) @map("prime_vente_active")
-  primeLocationActive Boolean @default(true) @map("prime_location_active")
-  tauxHoraire         Int     @default(0) @map("taux_horaire") // $ par heure de service (relevé Tablettes) ; 0 = pas de paie à l'heure
+  gradeCle     String  @id @map("grade") @db.VarChar(20)
+  salaireFixe  Int?    @map("salaire_fixe")
+  salaireActif Boolean @default(false) @map("salaire_actif")
+  tauxHoraire  Int     @default(0) @map("taux_horaire") // $ par heure de service (relevé Tablettes) ; 0 = pas de paie à l'heure
 
   @@map("remunerations_grades")
 }
 
-// Ligne du Google Sheets de la Direction (colonne D = nom, E = grade, L = ventes, M = locations), remplacée entièrement
-// à chaque synchronisation (table dérivée). RH fait foi : rattachée à la fiche dont le « Prénom Nom » est exactement le
-// nom écrit ; jamais de fiche créée ni de grade changé.
-model LigneTableur {
-  id           Int      @id @default(autoincrement())
-  ligneSheet   Int?     @map("ligne_sheet")
-  nomSheet     String   @map("nom_sheet") @db.VarChar(200)
-  nomNormalise String   @map("nom_normalise") @db.VarChar(200)
-  gradeSheet   String   @default("") @map("grade_sheet") @db.VarChar(40) // libellé du grade du site retrouvé en colonne E
-  nbVentes     Int      @default(0) @map("nb_ventes")
-  nbLocations  Int      @default(0) @map("nb_locations")
-  employeId    Int?     @map("employe_id")
-  compteId     Int?     @map("compte_id") // compte du site relié (« Mon profil »)
-  majLe        DateTime @default(now()) @map("maj_le") @db.Timestamptz(6)
+// Prime par palier de quota (page Paie), run ou facture : seul le palier le plus haut atteint compte (comme le barème
+// d'imposition, jamais cumulé avec les paliers inférieurs) ; si un grade a des paliers des deux domaines, les deux
+// primes s'additionnent (entreprise/paie.ts, calculerPaie).
+model PrimePalierGrade {
+  id       Int    @id @default(autoincrement())
+  gradeCle String @map("grade") @db.VarChar(20)
+  domaine  String @db.VarChar(10) // run | facture
+  seuil    Int
+  prime    Int
 
-  @@index([employeId])
-  @@index([compteId])
-  @@map("tableur_lignes")
-}
-
-// État de la dernière synchronisation du tableur (une seule ligne, id 1).
-model TableurEtat {
-  id           Int       @id @default(1)
-  derniereSync DateTime? @map("derniere_sync") @db.Timestamptz(6)
-  statut       String    @default("") @db.VarChar(10) // ok | erreur | desactive
-  erreur       String    @default("") @db.VarChar(500)
-  nbLignes     Int       @default(0) @map("nb_lignes")
-  nbApparies   Int       @default(0) @map("nb_apparies")
-  // lecture réussie mais incomplète : lignes d'agents écartées (grade inconnu du site), à corriger dans le tableur ou Grades
-  avertissement String   @default("") @db.VarChar(500)
-  // n° de semaine écrit par la Direction dans le tableur (case « N° de la Semaine ») ; vide : semaines du calendrier
-  semaine      String    @default("") @db.VarChar(8)
-  // dernières lignes NON NULLES lues sous ce numéro : figées en archive quand il change (une remise à zéro faite avant
-  // le changement de numéro n'efface donc pas la semaine)
-  instantane   Json?
-  instantaneDu DateTime? @map("instantane_du") @db.Timestamptz(6)
-
-  @@map("tableur_etat")
-}
-
-// Chiffres du tableur figés chaque dimanche à 23:59 (heure de Paris), sous le code de semaine du site (S41-26) : un
-// changement de barème ultérieur ne réécrit pas le passé.
-model TableurArchive {
-  id        Int      @id @default(autoincrement())
-  semaine   String   @unique @db.VarChar(8)
-  archiveLe DateTime @map("archive_le") @db.Timestamptz(6)
-  donneesDu DateTime @map("donnees_du") @db.Timestamptz(6) // dernière lecture du tableur figée ici
-  enRetard  Boolean  @default(false) @map("en_retard") // archivée après coup (serveur arrêté dimanche soir)
-
-  lignes TableurArchiveLigne[]
-
-  @@map("tableur_archives")
-}
-
-model TableurArchiveLigne {
-  id             Int     @id @default(autoincrement())
-  archiveId      Int     @map("archive_id")
-  ligneSheet     Int?    @map("ligne_sheet")
-  nom            String  @db.VarChar(200)
-  grade          String  @default("") @db.VarChar(40)
-  ventes         Int     @default(0)
-  locations      Int     @default(0)
-  primeVente     Int     @default(0) @map("prime_vente")
-  primeLocations Int     @default(0) @map("prime_locations")
-  compte         String? @db.VarChar(100) // compte du site relié, tel qu'il s'appelait ce jour-là
-  employeId      Int?    @map("employe_id")
-
-  archive TableurArchive @relation(fields: [archiveId], references: [id], onDelete: Cascade)
-
-  @@index([archiveId])
-  @@index([employeId])
-  @@map("tableur_archives_lignes")
+  @@unique([gradeCle, domaine, seuil])
+  @@index([gradeCle, domaine])
+  @@map("primes_palier_grades")
 }
 
 // ---------- Comptabilité (routes/compta.ts) ----------

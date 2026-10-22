@@ -32,7 +32,7 @@ await entreprise.demarrage?.();
 
 const app = express();
 app.set('trust proxy', 1);                     // derrière nginx (adresse IP réelle pour les limites de requêtes)
-app.disable('x-powered-by');                   // ne pas annoncer Express, même sur les hôtes annexes (hors helmet)
+app.disable('x-powered-by');                   // ne pas signaler Express, même sur les hôtes annexes (hors helmet)
 
 // Hôtes annexes de l'entreprise (contrat.ts) : servis avant tout le reste, sans session ni en-têtes du site. Le nom
 // vient de X-Forwarded-Host (nginx) : un hôte non déclaré suit le chemin ordinaire du site.

@@ -4,7 +4,7 @@
 // de salons et privés gardés en mémoire et relus par GET …/messages. De quoi voir fonctionner sans vrai bot ce qui en dépend
 // (page Paramètres, Grades, tâches de l'entreprise). Rien n'est envoyé à Discord ; tout est perdu au redémarrage.
 // L'entreprise y ajoute ce que son propre bot ferait : personnes ayant un ticket (ajouterPersonnesSimulees), messages
-// publiés dans un salon (publierMessageSimule, ex. annonces d'un bot tiers).
+// publiés dans un salon (publierMessageSimule, ex. notifications d'un bot tiers).
 import { config } from './config.js';
 import { prisma } from './db.js';
 import { ErreurDiscord, ID_DISCORD } from './discord.js';
@@ -28,7 +28,7 @@ const CATEGORIES = [
   { id: '900000000000000104', name: 'Tickets archivés', position: 3 },
 ];
 const SALONS = [
-  { id: '900000000000000201', name: 'annonces', type: 5, parent_id: '900000000000000101', position: 0 },
+  { id: '900000000000000201', name: 'informations', type: 5, parent_id: '900000000000000101', position: 0 },
   { id: '900000000000000202', name: 'général', type: 0, parent_id: '900000000000000101', position: 1 },
   { id: '900000000000000203', name: 'prise-de-service', type: 0, parent_id: '900000000000000102', position: 0 },
   { id: '900000000000000204', name: 'planning', type: 0, parent_id: '900000000000000102', position: 1 },

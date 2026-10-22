@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Paie — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — paie (permission « paie ») : salaire de base et primes par palier de quota (run, facture) par grade,
+       et un simulateur. Serveur : server/src/entreprise/routes/paie.ts. -->
+  <main class="admin-contenu">
+    <section id="panneau-paie">
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Paie</h1>
+          <p style="margin:0;font-size:0.88rem;">Salaire de base et primes par palier, par grade.</p>
+        </div>
+      </div>
+
+      <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques de la paie">
+        <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="paie-panneau-grades" data-paie-onglet="grades"><svg class="ico" aria-hidden="true"><use href="#ico-grade"></use></svg> Grades</button>
+        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="paie-panneau-simulateur" data-paie-onglet="simulateur"><svg class="ico" aria-hidden="true"><use href="#ico-chart"></use></svg> Simulateur</button>
+      </div>
+
+      <!-- Sous-onglet : Grades — un grade par ligne (même liste que la page Grades), salaire et primes résumés en
+           étiquettes ; un clic ouvre la fiche complète -->
+      <div id="paie-panneau-grades">
+        <div id="zone-message-paie" style="margin-top:14px;"></div>
+        <ul class="grades-liste" id="liste-paie-grades" aria-label="Grades, salaire de base et primes" style="margin-top:14px;">
+          <li class="grades-vide">Chargement…</li>
+        </ul>
+        <p class="comptes-aide grades-note">Vous ne gérez que les grades sous le vôtre.</p>
+      </div>
+
+      <!-- Sous-onglet : Simulateur — formulaire et résultat côte à côte (empilés sur téléphone) ; chiffres saisis à la
+           main, ou vraies données d'un employé sur une semaine. Le choix du mode est un interrupteur à deux positions
+           dans l'en-tête de la carte « Données » (pas une deuxième rangée d'onglets sous Grades/Simulateur : les deux
+           se ressemblaient trop et faisaient croire à deux niveaux de navigation). -->
+      <div id="paie-panneau-simulateur" class="cache">
+        <div id="zone-message-simulateur" style="margin-top:14px;"></div>
+
+        <div class="accueil-panneaux" style="margin-top:14px;align-items:start;">
+          <div class="accueil-panneau">
+            <div class="segment-mode" role="group" aria-label="Source des données" style="margin-bottom:18px;">
+              <button type="button" class="segment-mode-bouton actif" aria-pressed="true" data-simulateur-mode="manuel">Données fictives</button>
+              <button type="button" class="segment-mode-bouton" aria-pressed="false" data-simulateur-mode="reel">Données réelles</button>
+            </div>
+            <form id="formulaire-simulateur">
+              <div id="simulateur-groupe-manuel">
+                <div class="champ" id="simulateur-champ-grade">
+                  <label for="simulateur-grade">Grade</label>
+                  <select id="simulateur-grade"></select>
+                </div>
+                <div class="champ-deux">
+                  <div class="champ" id="simulateur-champ-runs">
+                    <label for="simulateur-runs">Runs <small>unités / semaine</small></label>
+                    <input type="number" id="simulateur-runs" min="0" step="1" value="0">
+                  </div>
+                  <div class="champ" id="simulateur-champ-factures">
+                    <label for="simulateur-factures">Factures <small>$ / semaine</small></label>
+                    <div class="champ-dollar"><input type="number" id="simulateur-factures" min="0" step="1" value="0"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="simulateur-groupe-reel" class="cache">
+                <div class="champ" id="simulateur-champ-employe">
+                  <label for="simulateur-employe">Employé</label>
+                  <select id="simulateur-employe"></select>
+                </div>
+                <div class="champ" id="simulateur-champ-semaine">
+                  <label id="simulateur-semaine-label">Semaine</label>
+                  <div class="run-semaine-nav" role="group" aria-labelledby="simulateur-semaine-label">
+                    <button type="button" class="run-fleche run-fleche--avant" id="simulateur-semaine-precedente" aria-label="Semaine précédente"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+                    <button type="button" class="semaine-detail-bouton" id="simulateur-semaine-aujourdhui">
+                      <strong id="simulateur-semaine-numero"></strong>
+                      <span id="simulateur-semaine-plage"></span>
+                    </button>
+                    <button type="button" class="run-fleche run-fleche--apres" id="simulateur-semaine-suivante" aria-label="Semaine suivante"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+                  </div>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-or" style="width:100%;margin-top:4px;">Calculer</button>
+            </form>
+          </div>
+
+          <div class="accueil-panneau" id="simulateur-panneau-resultat">
+            <div class="accueil-panneau-entete" style="align-items:center;">
+              <h2>Paie obtenue</h2>
+              <button type="button" class="btn btn-fantome btn-petit cache" id="bouton-copier-simulateur"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier</button>
+            </div>
+            <div id="simulateur-vide" class="etat-vide">
+              <p>Remplissez les données puis cliquez sur « Calculer ».</p>
+            </div>
+            <div id="simulateur-resultat" class="cache">
+              <div class="compta-chiffres" id="simulateur-chiffres"></div>
+              <div id="simulateur-echelles"></div>
+              <p class="compta-aide" id="simulateur-detail" style="margin:4px 0 0;"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modale-fond cache" id="modale-paie-grade" data-echap>
+    <div class="modale modale-grade modale-paie" role="dialog" aria-modal="true" aria-labelledby="titre-modale-paie">
+      <div class="modale-entete">
+        <h3 id="titre-modale-paie" class="modale-titre"><span class="pastille-grade" id="paie-pastille-titre" aria-hidden="true"></span><span id="paie-titre-texte">Paie</span></h3>
+        <button type="button" id="fermer-modale-paie" aria-label="Fermer">✕</button>
+      </div>
+      <form id="formulaire-paie-grade">
+        <div id="zone-message-modale-paie" class="grade-zone-message"></div>
+        <div class="grade-corps">
+          <div class="paie-salaire-carte">
+            <label class="d8-switch"><input type="checkbox" id="paie-salaire-actif" aria-label="Salaire de base actif pour ce grade"><span class="d8-switch-piste"></span></label>
+            <div class="paie-salaire-texte">
+              <span class="paie-salaire-titre">Salaire de base</span>
+              <p class="champ-aide">Versé chaque semaine à qui a ce grade, en plus des primes.</p>
+            </div>
+            <div class="champ-dollar paie-salaire-montant"><input type="number" id="paie-salaire-fixe" min="0" max="1000000" step="1" value="0" disabled aria-label="Salaire de base par semaine"></div>
+            <span class="paie-salaire-unite" aria-hidden="true">/ semaine</span>
+          </div>
+
+          <div class="accueil-panneaux paie-primes-grille">
+            <section class="accueil-panneau">
+              <div class="paie-prime-entete">
+                <div>
+                  <h3>Primes — Run</h3>
+                  <p class="champ-aide">Unités vendues par semaine.</p>
+                </div>
+                <button type="button" class="btn btn-fantome btn-petit" data-ajouter-palier="run">+ Palier</button>
+              </div>
+              <div class="palier-lignes-entete"><span>Seuil (unités)</span><span>Prime</span><span></span></div>
+              <div id="paie-paliers-run"></div>
+              <div class="palier-apercu" id="paie-apercu-run"></div>
+            </section>
+
+            <section class="accueil-panneau">
+              <div class="paie-prime-entete">
+                <div>
+                  <h3>Primes — Factures</h3>
+                  <p class="champ-aide">$ facturés par semaine.</p>
+                </div>
+                <button type="button" class="btn btn-fantome btn-petit" data-ajouter-palier="facture">+ Palier</button>
+              </div>
+              <div class="palier-lignes-entete"><span>Seuil ($)</span><span>Prime</span><span></span></div>
+              <div id="paie-paliers-facture"></div>
+              <div class="palier-apercu" id="paie-apercu-facture"></div>
+            </section>
+          </div>
+          <p class="champ-aide">Dans chaque échelle, seul le palier le plus haut atteint compte ; jamais cumulé. Une prime run et une prime facture s’additionnent entre elles.</p>
+        </div>
+        <div class="grade-pied">
+          <button type="submit" class="btn btn-or" id="enregistrer-paie">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <template id="paie-palier-modele">
+    <div class="palier-ligne">
+      <input type="number" class="palier-seuil" min="0" max="1000000" step="1" value="0" aria-label="Seuil">
+      <div class="champ-dollar"><input type="number" class="palier-prime" min="0" max="1000000" step="1" value="0" aria-label="Prime"></div>
+      <button type="button" class="facture-article-retirer" aria-label="Retirer ce palier"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg></button>
+    </div>
+  </template>
+
+  <script src="/gestion/paie.js"></script>
+</body>
+</html>

@@ -5,36 +5,11 @@
 import type { GroupeParametres } from '../socle/contrat.js';
 import { entierParametre, idsParametre, lienParametre, parametre } from '../socle/parametres.js';
 
-// lien de partage Google Sheets (ou identifiant seul) → { id, gid }
-export function lireLienSheet(valeur: string): { id: string; gid: string } | null {
-  if (/^[A-Za-z0-9_-]{20,}$/.test(valeur)) return { id: valeur, gid: '0' };
-  let u: URL;
-  try { u = new URL(valeur); } catch { return null; }
-  if (u.protocol !== 'https:' || u.hostname !== 'docs.google.com') return null;
-  const id = u.pathname.match(/^\/spreadsheets\/d\/([A-Za-z0-9_-]{20,})(?:\/|$)/)?.[1];
-  if (!id) return null;
-  return { id, gid: u.hash.match(/gid=(\d+)/)?.[1] ?? u.search.match(/[?&]gid=(\d+)/)?.[1] ?? '0' };
-}
-const lienSheet = (s: { id: string; gid: string }) => `https://docs.google.com/spreadsheets/d/${s.id}/edit#gid=${s.gid}`;
-
-// Onglets de la page Paramètres : Liens, Annonces, Google Sheets, Discord (Apparence : propre à la page). Les aides parlent à la direction, pas à un
+// Onglets de la page Paramètres : Discord (Apparence : propre à la page). Les aides parlent à la direction, pas à un
 // administrateur : ni .env ni jargon ; un réglage Discord se choisit par son nom (discord).
 export const PARAMETRES: GroupeParametres[] = [
-  { onglet: 'Liens', titre: 'Espace de gestion', reglages: [
-    { cle: 'registre_url', type: 'lien', libelle: 'Registre (intranet)', aide: 'Bouton « Registre » du menu. Vide : bouton masqué.' },
-  ] },
-  { onglet: 'Liens', titre: 'Site public', intro: 'Un lien vide masque son bouton.', reglages: [
+  { onglet: 'Discord', titre: 'Site public', intro: 'Un lien vide masque son bouton.', reglages: [
     { cle: 'discord_entreprise', type: 'lien', public: true, libelle: 'Discord de l’entreprise', aide: 'Bouton « Rejoindre le Discord » de la page d’accueil et lien de la page Confidentialité.' },
-    { cle: 'recrutement', type: 'lien', public: true, libelle: 'Formulaire de candidature', aide: 'Bouton « Postuler » de la page d’accueil.' },
-  ] },
-  { onglet: 'Annonces', titre: 'Annonces', reglages: [
-    { cle: 'annonces_epinglees_max', type: 'entier', min: 1, max: 10, defaut: 3, libelle: 'Annonces épinglées au plus', aide: 'Nombre d’annonces gardées en tête de liste.' },
-  ] },
-  { onglet: 'Google Sheets', titre: 'Google Sheets de la direction', intro: 'Les ventes et locations de chaque employé, lues toutes les 5 minutes pour les primes.', reglages: [
-    // enregistré sous la forme d'un lien complet vers l'onglet (identifiant du classeur + gid)
-    { cle: 'sheet', type: 'texte', libelle: 'Lien de l’onglet du récapitulatif',
-      aide: 'Ouvrez l’onglet dans Google Sheets et collez l’adresse de la barre du navigateur (elle finit par « gid=… »). Le classeur doit être partagé à « Tous les utilisateurs disposant du lien », en lecture.',
-      lire: v => { const s = lireLienSheet(v); return s ? lienSheet(s) : { erreur: 'collez le lien du Google Sheets (https://docs.google.com/spreadsheets/d/…).' }; } },
   ] },
   // les prises et fins de service arrivent du bot (événement monitoring.duty, services.ts) : seule la clôture se règle
   { onglet: 'Discord', titre: 'Membres en service', intro: 'Le bot Discord de l’entreprise envoie au site chaque prise et fin de service lue en jeu : rien d’autre à régler que la clôture automatique.', reglages: [
@@ -46,11 +21,20 @@ export const PARAMETRES: GroupeParametres[] = [
     { cle: 'agenda_categories_tickets', type: 'ids-discord', discord: 'categorie', libelle: 'Catégories des tickets',
       aide: 'Les catégories où le bot de tickets les ouvre : le site y cherche le ticket de la personne (le bot doit pouvoir y voir les salons et écrire). Vide : message privé seulement.' },
   ] },
+  // Quota : le quota de chacun (run et factures) se règle dans la fiche de son grade (page Grades) ; ici, seulement
+  // l'objectif de toute l'équipe, comparé au total de la semaine (page Quota).
+  { onglet: 'Quota', titre: 'Run', reglages: [
+    { cle: 'run_objectif_hebdo', type: 'entier', min: 0, max: 1000000, defaut: 0, libelle: 'Objectif hebdomadaire (unités)',
+      aide: 'Total d’unités que toute l’équipe vise à vendre chaque semaine. 0 = pas d’objectif affiché.' },
+  ] },
+  { onglet: 'Quota', titre: 'Factures', reglages: [
+    { cle: 'facture_objectif_hebdo', type: 'entier', min: 0, max: 1000000, defaut: 0, libelle: 'Objectif hebdomadaire ($)',
+      aide: 'Montant que toute l’équipe vise à facturer chaque semaine. 0 = pas d’objectif affiché.' },
+  ] },
 ];
 
 // ---- lecture typée, pour le reste du site ----
 export { parametre };
 export const lienRegle = lienParametre;
-export const sheetRegle = (): { id: string; gid: string } | null => (parametre('sheet') ? lireLienSheet(parametre('sheet')) : null);
 export const idsRegles = idsParametre;
 export const entierRegle = entierParametre;

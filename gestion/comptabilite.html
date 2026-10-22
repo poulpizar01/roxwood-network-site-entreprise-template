@@ -12,24 +12,23 @@
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
-  <title>Comptabilité — {{nom}}</title>
+  <title>DOT — {{nom}}</title>
 </head>
 <body class="page-agents">
-  <!-- GESTION — comptabilité (permission « compta ») : relevé Tablettes, déclaration DOT, rémunération. Serveur :
-       entreprise/routes/compta.ts et routes/stats.ts. -->
+  <!-- GESTION — DOT (permission « compta ») : relevé Tablettes, résumé de la déclaration DOT. Serveur :
+       entreprise/routes/compta.ts. -->
   <main class="admin-contenu">
     <section id="panneau-comptabilite">
       <div class="entete-admin">
         <div>
-          <h1 style="margin-bottom:2px;">Comptabilité</h1>
+          <h1 style="margin-bottom:2px;">DOT</h1>
           <p style="margin:0;font-size:0.88rem;">Suivi des chiffres de l'entreprise.</p>
         </div>
       </div>
 
-      <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques de la comptabilité">
+      <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques de la DOT">
         <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="compta-panneau-tablettes" data-compta-onglet="tablettes"><svg class="ico" aria-hidden="true"><use href="#ico-sheet"></use></svg> Tablettes</button>
-        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="compta-panneau-dot" data-compta-onglet="dot"><svg class="ico" aria-hidden="true"><use href="#ico-receipt"></use></svg> Déclaration DOT</button>
-        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="compta-panneau-parametres" data-compta-onglet="parametres"><svg class="ico" aria-hidden="true"><use href="#ico-coins"></use></svg> Rémunération</button>
+        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="compta-panneau-dot" data-compta-onglet="dot"><svg class="ico" aria-hidden="true"><use href="#ico-coins"></use></svg> Déclaration DOT</button>
       </div>
 
       <!-- Sous-onglet : Tablettes -->
@@ -48,7 +47,7 @@
         </div>
         <div id="zone-message-tablette"></div>
         <div id="compta-tablette-vide" class="etat-vide">
-          <p>Aucune donnée importée pour le moment. Cliquez sur « Importer » pour coller votre premier relevé.</p>
+          <p>Aucune donnée importée pour le moment. Cliquez sur « Importer » pour coller votre premier relevé.</p>
         </div>
         <div id="compta-tablette-resultat" class="cache">
           <!-- les chiffres qui comptent pour la suite (CA brut de la DOT, paie à l'heure), avant le détail -->
@@ -57,8 +56,8 @@
           <div style="overflow-x:auto;">
             <table class="table-admin" id="table-tablette"></table>
           </div>
-          <!-- Paie à l'heure (stagiaires) : heures de service du relevé × taux horaire du grade (Rémunération), avec le
-               détail du calcul. Rempli à partir de GET /api/compta/tablettes (paie_horaire). -->
+          <!-- Paie à l'heure (stagiaires) : heures de service du relevé × taux horaire du grade (table remunerations_grades),
+               avec le détail du calcul. Rempli à partir de GET /api/compta/tablettes (paie_horaire). -->
           <div id="compta-paie-horaire" class="cache">
             <h3 class="compta-sous-titre">Paie à l’heure</h3>
             <p class="champ-aide" id="compta-paie-horaire-aide" style="margin:0 0 10px;"></p>
@@ -72,72 +71,18 @@
         </div>
       </div>
 
-      <!-- Sous-onglet : Rémunération (salaire fixe, primes par palier, taux horaire, par grade), enregistrée dans
-           remunerations_grades et baremes_primes (routes/stats.ts) : les tables que lisent la DOT et les primes partout.
-           Salaire de la semaine = fixe (si activé) + palier ventes (si activé) + palier locations (si activé)
-           + heures × taux horaire. Chaque modification s'enregistre aussitôt. -->
-      <div id="compta-panneau-parametres" class="cache">
-        <div class="entete-admin" style="margin-top:24px;">
-          <div>
-            <h2 class="compta-titre">Rémunération</h2>
-            <p class="compta-aide">Ce que touche chaque grade par semaine. Repris dans la déclaration DOT. Chaque modification s’enregistre aussitôt.</p>
-          </div>
-        </div>
-        <div id="zone-message-parametres" role="status"></div>
-
-        <div class="remu-formule" aria-label="Calcul du salaire de la semaine">
-          <span class="remu-formule-titre">Salaire de la semaine</span>
-          <span class="remu-terme">Salaire fixe</span><span class="remu-op" aria-hidden="true">+</span>
-          <span class="remu-terme">Prime ventes</span><span class="remu-op" aria-hidden="true">+</span>
-          <span class="remu-terme">Prime locations</span><span class="remu-op" aria-hidden="true">+</span>
-          <span class="remu-terme">Heures × taux horaire</span>
-        </div>
-
-        <section class="remu-section" aria-labelledby="titre-remu-grades">
-          <h3 class="compta-sous-titre" id="titre-remu-grades">Par grade</h3>
-          <p class="compta-aide">Activez ce que touche chaque grade. Les primes suivent les barèmes plus bas, les mêmes pour tous les grades.</p>
-          <div class="remu-grades" id="remu-grades"><p class="compta-aide">Chargement…</p></div>
-        </section>
-
-        <section class="remu-section" aria-labelledby="titre-remu-baremes">
-          <h3 class="compta-sous-titre" id="titre-remu-baremes">Barèmes des primes</h3>
-          <p class="compta-aide">La prime est celle du plus haut palier atteint dans la semaine ; sous le premier palier, pas de prime.</p>
-          <div class="remu-baremes">
-            <div class="remu-bareme" data-type="vente"></div>
-            <div class="remu-bareme" data-type="location"></div>
-          </div>
-        </section>
-
-        <section class="remu-section remu-simulateur" aria-labelledby="titre-remu-simu">
-          <h3 class="compta-sous-titre" id="titre-remu-simu" style="margin-top:0;">Simuler un salaire</h3>
-          <p class="compta-aide">Choisissez un grade et des chiffres de semaine pour voir ce qu’il toucherait avec les réglages ci-dessus. Rien n’est enregistré.</p>
-          <div class="remu-simu-champs">
-            <div class="champ"><label for="simu-grade">Grade</label><select id="simu-grade"></select></div>
-            <div class="champ"><label for="simu-ventes">Ventes</label><input type="number" id="simu-ventes" min="0" step="1" value="25" inputmode="numeric"></div>
-            <div class="champ"><label for="simu-locations">Locations</label><input type="number" id="simu-locations" min="0" step="1" value="5" inputmode="numeric"></div>
-            <div class="champ"><label for="simu-heures">Heures de service</label><input type="number" id="simu-heures" min="0" step="0.5" value="10" inputmode="decimal"></div>
-          </div>
-          <div class="remu-simu-resultat" id="simu-resultat" aria-live="polite"></div>
-        </section>
-      </div>
-
       <!-- Sous-onglet : DOT — la déclaration hebdomadaire versée à la DOT (organisme fiscal du serveur RP), calculée à
-           partir du CA Brut (colonne « Total entreprise » du relevé Tablettes), des dépenses et retraits saisis
-           ci-dessous, et des primes : les mêmes montants que « Mon profil » (tableur de la Direction + barèmes du
-           site, recapAvecPrimesTableur dans stats/recap.ts). -->
+           partir du CA Brut (colonne « Total entreprise » du relevé Tablettes) et des dépenses et retraits saisis
+           ci-dessous. -->
       <div id="compta-panneau-dot" class="cache">
         <div class="entete-admin" style="margin-top:20px;">
           <div>
             <h2 class="compta-titre">Déclaration DOT</h2>
-            <p class="compta-aide">À partir du relevé Tablettes et des dépenses et retraits ci-dessous. Les salaires suivent les réglages de l’onglet Rémunération.</p>
+            <p class="compta-aide">À partir du relevé Tablettes et des dépenses et retraits ci-dessous.</p>
           </div>
-          <div class="dot-semaine"><label for="select-semaine-dot">Semaine</label><select id="select-semaine-dot"></select></div>
         </div>
         <div id="zone-message-dot"></div>
 
-        <div id="dot-resume-vide" class="etat-vide cache">
-          <p>Aucune vente/location enregistrée pour cette semaine — le total des salaires ne peut pas être calculé (le reste s'affiche quand même ci-dessous).</p>
-        </div>
         <!-- les trois chiffres à déclarer ou à verser, puis le calcul ligne à ligne (même formule que le serveur :
              routes/compta.ts, /api/compta/dot/resume) -->
         <!-- place réservée (squelettes) : les chiffres arrivent sans pousser le détail du calcul -->
@@ -191,30 +136,48 @@
           </div>
         </div>
 
-        <div class="entete-admin" style="margin-top:36px;">
+        <!-- Tableau des salariés, à coller dans le document de la DOT : Nom et Grade viennent de RH, RUN (unités) et
+             FACTURE ($) des quotas réels de la semaine (mêmes chiffres que Paie/Quota), VENTE et CA TOTAL RÉALISÉ du
+             relevé Tablettes (0 si l'employé n'y figure pas), Salaire du calcul de la page Paie. Serveur :
+             GET /api/compta/dot/salaries. -->
+        <div class="entete-admin" style="margin-top:32px;">
           <div>
             <h2 class="compta-titre">Tableau des salariés</h2>
-            <p class="compta-aide">À coller dans le document de la DOT. Run, facture et vente viennent du relevé (0 si la personne n’y figure pas) ; le salaire est le fixe du grade plus son palier ; la prime se saisit à la main dans le document.</p>
+            <p class="compta-aide">À coller dans le document de la DOT. Run et facture viennent des quotas réels de la semaine ; vente et CA total réalisé du relevé Tablettes (0 si la personne n’y figure pas) ; le salaire est le fixe du grade plus son palier ; la prime se saisit à la main dans le document.</p>
             <ol class="dot-etapes">
-              <li>Dans le document de la DOT, repérez la ligne de la première personne et indiquez son numéro dans « N° de ligne du premier salarié ».</li>
-              <li>Cliquez sur « Copier le tableau ».</li>
+              <li>Dans le document de la DOT, repérez la ligne de la première personne et indiquez son numéro dans « N° de ligne du premier salarié ».</li>
+              <li>Cliquez sur « Copier le tableau ».</li>
               <li>Dans le document, cliquez sur la case de la colonne A de cette ligne, puis collez (Ctrl+V).</li>
             </ol>
-            <p class="compta-aide" style="margin-top:6px;">Les titres des colonnes ne sont pas copiés. Le CA total réalisé se calcule tout seul dans le document.</p>
+            <p class="compta-aide" style="margin-top:6px;">Les titres des colonnes ne sont pas copiés.</p>
           </div>
           <div class="dot-copie-outils">
             <label for="dot-copie-premiere-ligne" class="dot-copie-libelle">N° de ligne du premier salarié</label>
-            <input type="number" id="dot-copie-premiere-ligne" class="table-input dot-copie-ligne" min="1" step="1" value="2" title="Numéro de la ligne du document DOT où sera collée la première personne (pour que la formule CA TOTAL vise les bonnes cases)">
+            <input type="number" id="dot-copie-premiere-ligne" class="table-input dot-copie-ligne" min="1" step="1" value="2" title="Numéro de la ligne du document DOT où sera collée la première personne">
             <button type="button" class="btn btn-or" id="bouton-copier-salaries"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
           </div>
         </div>
-        <div id="dot-primes-avertissement"></div>
         <div style="overflow-x:auto;">
           <table class="table-admin">
             <thead>
               <tr><th>Nom du salarié</th><th>Grade</th><th>RUN</th><th>FACTURE</th><th>VENTE</th><th>CA TOTAL REALISE</th><th>Salaire</th><th>Prime</th></tr>
             </thead>
             <tbody id="corps-table-dot-salaries"></tbody>
+          </table>
+        </div>
+
+        <!-- barème d'imposition de la DOT (fixé par l'organisme du serveur RP, en lecture) : les tranches servent au
+             calcul ci-dessus, et expliquent les plafonds affichés sous le détail du calcul -->
+        <div class="entete-admin" style="margin-top:32px;">
+          <div>
+            <h2 class="compta-titre">Barème d’imposition de la DOT</h2>
+            <p class="compta-aide">Fixé par l’organisme du serveur, le même pour toutes les entreprises.</p>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="table-admin">
+            <thead><tr><th>Bénéfice imposable</th><th>Taux</th><th>Salaire max. employé</th><th>Salaire max. patron</th><th>Prime max. employée</th><th>Prime max. patron</th></tr></thead>
+            <tbody id="corps-table-dot-bareme"></tbody>
           </table>
         </div>
       </div>
@@ -233,7 +196,7 @@
         <label for="import-tablette-texte">Collez vos données ici</label>
         <p class="champ-aide" style="margin-top:-4px;">
           Le plus fiable : copiez les cellules directement depuis Excel, Google Sheets ou un tableau similaire, puis collez-les ici (Ctrl+V) — la première ligne doit contenir les titres des colonnes.
-          Si vous tapez ou collez un texte à espaces (par exemple depuis Discord) et qu'une ligne comme « TOTAL » n'a pas de valeur pour une colonne, mettez un tiret « - » à cet endroit avant de coller, sinon les colonnes suivantes risquent de se décaler — vérifiez toujours l'aperçu ci-dessous avant d'enregistrer.
+          Si vous tapez ou collez un texte à espaces (par exemple depuis Discord) et qu'une ligne comme « TOTAL » n'a pas de valeur pour une colonne, mettez un tiret « - » à cet endroit avant de coller, sinon les colonnes suivantes risquent de se décaler — vérifiez toujours l'aperçu ci-dessous avant d'enregistrer.
         </p>
         <textarea id="import-tablette-texte" rows="18" wrap="off" style="font-family:monospace;font-size:0.82rem;white-space:pre;overflow-x:auto;" placeholder="Nom    Rang    Factures    Runs    Ventes    Total entreprise    Part employé    Heures de service
 Javier Silva    Co-patron    0    0    0    0    0    0h52min

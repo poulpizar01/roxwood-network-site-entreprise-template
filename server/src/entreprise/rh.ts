@@ -10,8 +10,6 @@ import { auDessusDe, gradeDe, peut, tousLesGrades } from '../socle/droits.js';
 import { definirReglage, reglage } from '../socle/reglages.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { jourParis, jourValide, normaliserPseudo, normaliserTexte, versDate, versJour } from './texte.js';
-import { relireTableur } from './stats/tableur.js';
-import { rattacherVentes } from './stats/ventes.js';
 
 export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'sensible', 'parametrer'] as const;
 export type DroitRh = typeof DROITS_RH[number];
@@ -24,21 +22,37 @@ export { Refus };
 
 // ---------- lecture ----------
 
-export const nomComplet = (e: Pick<Employe, 'prenom' | 'nom' | 'discordPseudo' | 'idEmploye'>) =>
-  `${e.prenom} ${e.nom}`.trim() || e.discordPseudo || e.idEmploye;
+export const nomComplet = (e: Pick<Employe, 'prenom' | 'nom' | 'discordPseudo' | 'idUnique'>) =>
+  `${e.prenom} ${e.nom}`.trim() || e.discordPseudo || e.idUnique;
 
 // Fiche telle qu'envoyée au navigateur : téléphone et RIB n'y figurent QUE pour un compte qui a rh-sensible — jamais
 // masqués côté interface seulement.
 export function fichePublique(e: Employe, droits: Set<DroitRh>) {
   const g = gradeDe(e.gradeCle);
   return {
-    id: e.id, idEmploye: e.idEmploye, idProvisoire: e.idProvisoire, prenom: e.prenom, nom: e.nom, nomComplet: nomComplet(e),
+    id: e.id, idUnique: e.idUnique, idProvisoire: e.idProvisoire, prenom: e.prenom, nom: e.nom, nomComplet: nomComplet(e),
     discordId: e.discordId ?? '', discordPseudo: e.discordPseudo,
-    grade: e.gradeCle, gradeLibelle: g?.libelle ?? e.gradeCle, statut: e.statut,
+    grade: e.gradeCle, gradeLibelle: g?.libelle ?? e.gradeCle, gradeCouleur: g?.couleur ?? null, statut: e.statut,
     dateArrivee: versJour(e.dateArrivee), dateDepart: versJour(e.dateDepart),
     aCompleter: !e.prenom || !e.nom || e.idProvisoire,
     ...(droits.has('sensible') && { telephone: e.telephone, rib: e.rib }),
   };
+}
+
+// Fiche de son propre compte (Mon compte) : téléphone et RIB modifiables par l'employé lui-même — seule exception à
+// « sa propre fiche ne se modifie que par un supérieur » (verifierHierarchie), le grade et l'ID restent hors d'atteinte.
+export async function maFiche(discordId: string | null | undefined) {
+  if (!discordId) return null;
+  const e = await prisma.employe.findUnique({ where: { discordId } });
+  if (!e) return null;
+  return { id: e.id, idUnique: e.idUnique, idProvisoire: e.idProvisoire, telephone: e.telephone, rib: e.rib };
+}
+
+export async function definirMaFiche(discordId: string | null | undefined, b: Record<string, unknown>): Promise<void> {
+  if (!discordId) throw new Refus('Aucune fiche employé n’est reliée à votre compte Discord.', 404);
+  const e = await prisma.employe.findUnique({ where: { discordId } });
+  if (!e) throw new Refus('Aucune fiche employé n’est reliée à votre compte Discord.', 404);
+  await prisma.employe.update({ where: { id: e.id }, data: { telephone: texte(b.telephone, 30), rib: texte(b.rib, 60) } });
 }
 
 // ordre d'affichage : actifs d'abord, puis par grade (position dans la page Grades), puis par nom
@@ -57,14 +71,14 @@ type Champs = Partial<Omit<Employe, 'id' | 'creeLe' | 'majLe'>>;
 export function lireChamps(b: Record<string, unknown>, existante: Employe | null): Champs {
   const c: Champs = {};
   const pris = (cle: string) => b[cle] !== undefined;
-  if (!existante || pris('idEmploye')) {
-    const id = texte(b.idEmploye, 40);
-    if (!id) throw new Refus('L’ID employé est obligatoire.');
-    // l'ID employé de l'entreprise est un numéro ; seul l'ID provisoire que le site crée lui-même (PROV-…, candidature
+  if (!existante || pris('idUnique')) {
+    const id = texte(b.idUnique, 40);
+    if (!id) throw new Refus('L’ID Unique est obligatoire.');
+    // l'ID Unique de l'entreprise est un numéro ; seul l'ID provisoire que le site crée lui-même (PROV-…, candidature
     // sans ID) porte des lettres, en attendant d'être remplacé
-    if (!/^\d{1,12}$/.test(id) && !/^PROV-[\w-]+$/.test(id)) throw new Refus('L’ID employé ne contient que des chiffres, par exemple 42.');
-    c.idEmploye = id;
-    c.idEmployeNormalise = id.toLowerCase();
+    if (!/^\d{1,12}$/.test(id) && !/^PROV-[\w-]+$/.test(id)) throw new Refus('L’ID Unique ne contient que des chiffres, par exemple 42.');
+    c.idUnique = id;
+    c.idUniqueNormalise = id.toLowerCase();
   }
   for (const [cle, libelle] of [['prenom', 'Le prénom'], ['nom', 'Le nom']] as const) {
     if (!existante || pris(cle)) {
@@ -116,10 +130,10 @@ export function verifierHierarchie(acteur: Compte, existante: Employe | null, gr
   if (gradeCle && !auDessusDe(acteur, gradeCle)) throw new Refus('Vous ne pouvez attribuer qu’un grade inférieur au vôtre.', 403);
 }
 
-// unicité (ID employé sans casse, ID Discord, pseudo) : message clair avant l'écriture ; la base garantit le reste
+// unicité (ID Unique sans casse, ID Discord, pseudo) : message clair avant l'écriture ; la base garantit le reste
 export async function verifierUnicite(c: Champs, idExclu = 0, tx: Prisma.TransactionClient = prisma): Promise<void> {
   const verifs: [unknown, Prisma.EmployeWhereInput, string][] = [
-    [c.idEmployeNormalise, { idEmployeNormalise: c.idEmployeNormalise }, 'Cet ID employé est déjà attribué.'],
+    [c.idUniqueNormalise, { idUniqueNormalise: c.idUniqueNormalise }, 'Cet ID Unique est déjà attribué.'],
     [c.discordId, { discordId: c.discordId }, 'Cet ID Discord est déjà sur une autre fiche.'],
     [c.discordPseudoNormalise, { discordPseudoNormalise: c.discordPseudoNormalise }, 'Ce pseudo Discord est déjà sur une autre fiche.'],
   ];
@@ -133,7 +147,7 @@ export function refusUnicite(e: unknown): never {
   if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
     const cible = String((e.meta as { target?: unknown } | undefined)?.target ?? '');
     throw new Refus(cible.includes('discord_id') ? 'Cet ID Discord est déjà sur une autre fiche.'
-      : cible.includes('pseudo') ? 'Ce pseudo Discord est déjà sur une autre fiche.' : 'Cet ID employé est déjà attribué.', 409);
+      : cible.includes('pseudo') ? 'Ce pseudo Discord est déjà sur une autre fiche.' : 'Cet ID Unique est déjà attribué.', 409);
   }
   throw e;
 }
@@ -147,7 +161,7 @@ export function refusUnicite(e: unknown): never {
 // qui ne peut pas encore devenir une fiche (réglage manquant, nom incomplet…) est gardée « à traiter », et RH la
 // retraite après correction.
 // Règles : un ticket = une fiche ; un compte Discord qui a déjà une fiche n'en reçoit pas une deuxième, et sa fiche
-// n'est pas modifiée (RH fait foi) ; sans ID employé dans les réponses, ID provisoire « PROV-B… ».
+// n'est pas modifiée (RH fait foi) ; sans ID Unique dans les réponses, ID provisoire « PROV-B… ».
 
 export const REGLAGES_BOT = {
   gradeArrivee: 'rh.grade_arrivee',
@@ -156,7 +170,7 @@ export const REGLAGES_BOT = {
   questionNom: 'rh.question_nom',
   questionTelephone: 'rh.question_telephone',
   questionRib: 'rh.question_rib',
-  questionIdEmploye: 'rh.question_id_employe',
+  questionIdUnique: 'rh.question_id_unique',
 } as const;
 type Reglages = Record<keyof typeof REGLAGES_BOT, string>;
 export const lireReglagesBot = (): Reglages =>
@@ -216,14 +230,14 @@ async function creerDepuisCandidature(c: Candidature): Promise<Resultat> {
   const { prenom, nom } = identite(c.reponses, r);
   if (!prenom || !nom) return { resultat: 'refusee', motif: `Prénom ou nom introuvable dans les réponses. Questions reçues : ${questions}.` };
   if (!gradeDe(r.gradeArrivee)) return { resultat: 'refusee', motif: 'Réglez le grade donné aux arrivées.' };
-  const idEmploye = reponseA(c.reponses, r.questionIdEmploye);
+  const idUnique = reponseA(c.reponses, r.questionIdUnique);
   let champs: Champs;
   try {
     champs = lireChamps({
       prenom, nom, grade: r.gradeArrivee, discordId: c.discordId, dateArrivee: jourParis(c.accepteLe || undefined),
       telephone: reponseA(c.reponses, r.questionTelephone), rib: reponseA(c.reponses, r.questionRib),
       // sans ID dans les réponses : provisoire, remplacé ci-dessous par PROV-B + numéro de la fiche
-      idEmploye: idEmploye || `PROV-tmp-${crypto.randomUUID().slice(0, 8)}`,
+      idUnique: idUnique || `PROV-tmp-${crypto.randomUUID().slice(0, 8)}`,
     }, null);
     await verifierUnicite(champs);
   } catch (e) {
@@ -232,18 +246,16 @@ async function creerDepuisCandidature(c: Candidature): Promise<Resultat> {
   }
   try {
     const fiche = await prisma.$transaction(async tx => {
-      const f = await tx.employe.create({ data: { ...champs, statut: 'actif', idProvisoire: !idEmploye } as Prisma.EmployeUncheckedCreateInput });
-      if (idEmploye) return f;
+      const f = await tx.employe.create({ data: { ...champs, statut: 'actif', idProvisoire: !idUnique } as Prisma.EmployeUncheckedCreateInput });
+      if (idUnique) return f;
       const prov = `PROV-B${String(f.id).padStart(4, '0')}`;
-      return tx.employe.update({ where: { id: f.id }, data: { idEmploye: prov, idEmployeNormalise: prov.toLowerCase() } });
+      return tx.employe.update({ where: { id: f.id }, data: { idUnique: prov, idUniqueNormalise: prov.toLowerCase() } });
     });
-    await rattacherVentes(fiche);
-    relireTableur();
     return { resultat: 'creee', employeId: fiche.id, motif: '' };
   } catch (e) {
     // deux envois simultanés pour le même compte : le second trouve la fiche du premier
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-      return (await ficheDuCompte(c.discordId)) ?? { resultat: 'refusee', motif: 'Cet ID employé est déjà sur une autre fiche.' };
+      return (await ficheDuCompte(c.discordId)) ?? { resultat: 'refusee', motif: 'Cet ID Unique est déjà sur une autre fiche.' };
     }
     throw e;
   }
@@ -341,7 +353,7 @@ export async function arriveesBot() {
         id: l.id, ticketId: l.ticketId, discordId: l.discordId, nomRecu: l.nomRecu, resultat: l.resultat, motif: l.motif, recuLe: l.recuLe,
         traitable: EN_SUSPENS.includes(l.resultat) && !!l.reponses,
         ecartable: EN_SUSPENS.includes(l.resultat),
-        employe: f ? { id: f.id, idEmploye: f.idEmploye, nomComplet: nomComplet(f), statut: f.statut } : null,
+        employe: f ? { id: f.id, idUnique: f.idUnique, nomComplet: nomComplet(f), statut: f.statut } : null,
       };
     }),
   };

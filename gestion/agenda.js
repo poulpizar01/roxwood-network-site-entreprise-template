@@ -80,8 +80,11 @@ function minutesDepuisMinuit(hhmm) {
 
 const heureActuelleHHMM = () => maintenantParis().hhmm;
 
-const evenementsDu = iso => CACHE_EVENEMENTS.filter(e => e.jour === iso)
-  .sort((a, b) => minutesDepuisMinuit(a.heure_debut) - minutesDepuisMinuit(b.heure_debut));
+// un événement sans horaire (sur plusieurs jours) occupe la journée entière, sur chaque jour qu'il traverse
+const segmentJour = e => e.heure_debut && e.heure_fin ? { debut: e.heure_debut, fin: e.heure_fin } : { debut: "00:00", fin: "24:00" };
+const texteHoraire = e => e.heure_debut && e.heure_fin ? `${e.heure_debut} – ${e.heure_fin}` : "Toute la journée";
+const evenementsDu = iso => CACHE_EVENEMENTS.filter(e => e.jour <= iso && e.jour_fin >= iso)
+  .sort((a, b) => minutesDepuisMinuit(segmentJour(a).debut) - minutesDepuisMinuit(segmentJour(b).debut));
 
 function majEnteteAgenda() {
   const span = document.getElementById("agenda-plage-dates");
@@ -89,7 +92,7 @@ function majEnteteAgenda() {
   const vue = agendaVue();
   // Le bouton du milieu dit où l'on est : la période actuelle par son nom (« Aujourd’hui », « Cette semaine », « Ce
   // mois-ci »), toute autre par sa date (« Sem. du 5 oct. ») — pas de « hier » ni de « semaine prochaine », qu'il faudrait
-  // recalculer de tête. Un clic ramène toujours à la période actuelle, ce que son nom accessible annonce.
+  // recalculer de tête. Un clic ramène toujours à la période actuelle, ce que son nom accessible indique.
   const auj = aujourdhuiParis(), ref = new Date(AGENDA_REF); ref.setHours(0, 0, 0, 0);
   const parSemaine = vue === "semaine" || vue === "liste";
   let ecart, nom, actuelle;
@@ -136,7 +139,7 @@ function defilerVersMaintenant() {
 // Événements qui se chevauchent : côte à côte plutôt que l'un sur l'autre. Chaque groupe d'événements liés par un
 // chevauchement est réparti en colonnes ; chacun reçoit sa colonne et le nombre de colonnes de son groupe.
 function disposerEvenements(evts) {
-  const places = evts.map(e => ({ e, debut: minutesDepuisMinuit(e.heure_debut), fin: Math.max(minutesDepuisMinuit(e.heure_fin), minutesDepuisMinuit(e.heure_debut) + 15) }));
+  const places = evts.map(e => { const s = segmentJour(e); return { e, debut: minutesDepuisMinuit(s.debut), fin: Math.max(minutesDepuisMinuit(s.fin), minutesDepuisMinuit(s.debut) + 15) }; });
   let groupe = [], finGroupe = -1;
   const fermer = () => {
     const colonnes = [];
@@ -155,7 +158,31 @@ function disposerEvenements(evts) {
   return places;
 }
 
-const descriptionEvenement = e => `${e.titre}, de ${e.heure_debut} à ${e.heure_fin}${typeDe(e) ? `, ${typeDe(e).nom}` : ""}, pour ${e.destinataire || "moi"}`;
+const descriptionEvenement = e => `${e.titre}, ${texteHoraire(e)}${typeDe(e) ? `, ${typeDe(e).nom}` : ""}, pour ${e.destinataire || "moi"}`;
+
+// Événements sans horaire (sur un ou plusieurs jours) : une bande par événement, étirée sur les jours qu'il couvre
+// (comme dans un agenda courant), plutôt qu'un bloc plein écran répété dans chaque colonne horaire.
+const diffJours = (a, b) => Math.round((a - b) / 864e5);
+function evenementsToutJour(jours) {
+  const debut = formaterDateISO(jours[0]), fin = formaterDateISO(jours[jours.length - 1]);
+  return CACHE_EVENEMENTS.filter(e => !e.heure_debut && e.jour <= fin && e.jour_fin >= debut);
+}
+// colonnes (clampées à la période affichée) puis rangée : la première rangée libre à ce point, comme disposerEvenements
+function disposerToutJour(evts, jours) {
+  const places = evts.map(e => ({
+    e,
+    col1: Math.max(0, diffJours(new Date(e.jour + "T00:00"), jours[0])),
+    col2: Math.min(jours.length - 1, diffJours(new Date(e.jour_fin + "T00:00"), jours[0])),
+  })).sort((a, b) => a.col1 - b.col1 || a.col2 - b.col2);
+  const finRangee = [];
+  for (const p of places) {
+    let r = finRangee.findIndex(fin => fin < p.col1);
+    if (r < 0) { r = finRangee.length; finRangee.push(-1); }
+    finRangee[r] = p.col2;
+    p.rangee = r;
+  }
+  return places;
+}
 
 // ---- vues jour et semaine : grille horaire ----
 function rendreGrilleAgenda(jours) {
@@ -168,6 +195,17 @@ function rendreGrilleAgenda(jours) {
       <span class="agenda-jour-nom">${nomCourtJour(d)}</span><span class="agenda-jour-num">${d.getDate()}</span>
     </button>`).join("");
 
+  const toutJourPlaces = disposerToutJour(evenementsToutJour(jours), jours);
+  const toutJour = toutJourPlaces.length ? `
+    <div class="agenda-toutjour">
+      <span class="agenda-coin" aria-hidden="true"></span>
+      ${toutJourPlaces.map(p => `
+        <div class="agenda-toutjour-barre" data-id="${p.e.id}" tabindex="0" role="button"
+             style="${styleType(p.e)}grid-column:${p.col1 + 2} / ${p.col2 + 3};grid-row:${p.rangee + 1}" aria-label="${echapper(descriptionEvenement(p.e))}">
+          ${echapper(p.e.titre)}
+        </div>`).join("")}
+    </div>` : "";
+
   let heures = "";
   for (let h = 1; h < 24; h++) heures += `<span style="top:${h * AGENDA_HEURE_HAUTEUR}px">${String(h).padStart(2, "0")}:00</span>`;
 
@@ -179,7 +217,7 @@ function rendreGrilleAgenda(jours) {
       const fin = h === 23 ? "23:59" : String(h + 1).padStart(2, "0") + ":00";
       cases += `<button type="button" class="agenda-case" data-jour="${iso}" data-heure-debut="${debut}" data-heure-fin="${fin}" aria-label="Ajouter un événement le ${jourLong(d)} à ${debut}"></button>`;
     }
-    const evts = disposerEvenements(evenementsDu(iso)).map(p => {
+    const evts = disposerEvenements(evenementsDu(iso).filter(e => e.heure_debut)).map(p => {
       const top = (p.debut / 60) * AGENDA_HEURE_HAUTEUR;
       const hauteur = Math.max(((p.fin - p.debut) / 60) * AGENDA_HEURE_HAUTEUR - 2, 22);
       const largeur = 100 / p.nbCols;
@@ -187,7 +225,7 @@ function rendreGrilleAgenda(jours) {
         <div class="agenda-evenement${hauteur < 44 ? " court" : ""}" data-id="${p.e.id}" tabindex="0" role="button"
              style="${styleType(p.e)}top:${top}px;height:${hauteur}px;left:calc(${p.col * largeur}% + 2px);width:calc(${largeur}% - 4px)" aria-label="${echapper(descriptionEvenement(p.e))}">
           <span class="agenda-evenement-titre">${echapper(p.e.titre)}</span>
-          <span class="agenda-evenement-heure">${p.e.heure_debut} – ${p.e.heure_fin}</span>
+          <span class="agenda-evenement-heure">${texteHoraire(p.e)}</span>
         </div>`;
     }).join("");
     const maintenant = estAujourdhui(d)
@@ -197,7 +235,10 @@ function rendreGrilleAgenda(jours) {
 
   grille.className = "agenda-grille agenda-horaire";
   grille.innerHTML = `
-    <div class="agenda-horaire-entete"><span class="agenda-coin"></span>${entete}</div>
+    <div class="agenda-horaire-fixe">
+      <div class="agenda-horaire-entete"><span class="agenda-coin"></span>${entete}</div>
+      ${toutJour}
+    </div>
     <div class="agenda-horaire-corps"><div class="agenda-heures" aria-hidden="true">${heures}</div>${colonnes}</div>`;
 }
 
@@ -211,7 +252,7 @@ function rendreMoisAgenda() {
     const evs = evenementsDu(iso);
     const puces = evs.slice(0, 3).map(e => `
       <span class="agenda-mois-evenement" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
-        <span class="agenda-mois-heure">${e.heure_debut}</span> ${echapper(e.titre)}
+        ${e.heure_debut ? `<span class="agenda-mois-heure">${e.heure_debut}</span> ` : ""}${echapper(e.titre)}
       </span>`).join("");
     const plus = evs.length > 3 ? `<button type="button" class="agenda-mois-plus" data-aller-jour="${iso}">${evs.length - 3} de plus</button>` : "";
     return `
@@ -242,7 +283,7 @@ function rendreListeAgenda() {
   const liste = evs.length
     ? `<ul class="agenda-liste-evenements">${evs.map(e => `
         <li><div class="agenda-carte" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
-          <span class="agenda-carte-heures">${e.heure_debut}<small>${e.heure_fin}</small></span>
+          <span class="agenda-carte-heures">${e.heure_debut ? `${e.heure_debut}<small>${e.heure_fin}</small>` : "<small>Toute la journée</small>"}</span>
           <span class="agenda-carte-texte"><strong>${echapper(e.titre)}</strong><small>${typeDe(e) ? `${echapper(typeDe(e).nom)} · ` : ""}${echapper(e.destinataire || "Moi")}${e.auteur && !e.mien ? ` · ajouté par ${echapper(e.auteur)}` : ""}</small></span>
         </div></li>`).join("")}</ul>`
     : `<p class="agenda-vide">Rien de prévu ce jour-là.</p>`;
@@ -286,7 +327,7 @@ async function chargerAgenda(reinitialiserDefilement) {
 const grilleAgenda = document.getElementById("agenda-grille");
 function ouvrirEvenementExistant(id) {
   const e = CACHE_EVENEMENTS.find(x => String(x.id) === String(id));
-  if (e) ouvrirModaleEvenement({ id: e.id, jour: e.jour, heureDebut: e.heure_debut, heureFin: e.heure_fin, titre: e.titre, notes: e.notes, evenement: e });
+  if (e) ouvrirModaleEvenement({ id: e.id, jour: e.jour, jourFin: e.jour_fin, heureDebut: e.heure_debut, heureFin: e.heure_fin, titre: e.titre, notes: e.notes, evenement: e });
 }
 grilleAgenda.addEventListener("click", ev => {
   const cible = ev.target.closest("[data-id], [data-aller-jour], [data-choisir-jour], [data-ajouter-jour], .agenda-case");
@@ -478,9 +519,11 @@ function ouvrirModaleEvenement(options) {
   document.getElementById("evenement-id").value = o.id || "";
   document.getElementById("evenement-titre").value = o.titre || "";
   document.getElementById("evenement-jour").value = o.jour || maintenantParis().iso;
+  document.getElementById("evenement-jour-fin").value = o.jourFin || o.jour || maintenantParis().iso;
   document.getElementById("evenement-heure-debut").value = o.heureDebut || "09:00";
   document.getElementById("evenement-heure-fin").value = o.heureFin || "10:00";
   document.getElementById("evenement-notes").value = o.notes || "";
+  majChampHeures();
 
   // Type : « Sans type » puis les types de la Direction (un type supprimé depuis : « Sans type »)
   const selectType = document.getElementById("evenement-type");
@@ -536,6 +579,15 @@ function ouvrirModaleEvenement(options) {
   (modifiable ? premierChamp : document.getElementById("bouton-annuler-evenement")).focus();
 }
 
+// sur plusieurs jours, pas d'horaire : l'événement occupe chaque journée entière (voir segmentJour)
+function majChampHeures() {
+  const jour = document.getElementById("evenement-jour").value, jourFin = document.getElementById("evenement-jour-fin").value;
+  const multi = !!jour && !!jourFin && jourFin !== jour;
+  document.getElementById("champ-evenement-heures").classList.toggle("cache", multi);
+  document.getElementById("evenement-plusieurs-jours").classList.toggle("cache", !multi);
+}
+document.getElementById("evenement-jour").addEventListener("input", majChampHeures);
+document.getElementById("evenement-jour-fin").addEventListener("input", majChampHeures);
 document.getElementById("evenement-destination").addEventListener("change", majChampInvites);
 const rechercheInvites = document.getElementById("recherche-evenement-invites");
 rechercheInvites.addEventListener("focus", () => {
@@ -593,6 +645,7 @@ document.getElementById("liste-evenement-invites").addEventListener("click", e =
   rechercheInvites.focus();
 });
 champDateFr(document.getElementById("evenement-jour"));
+champDateFr(document.getElementById("evenement-jour-fin"));
 champHeureFr(document.getElementById("evenement-heure-debut"));
 champHeureFr(document.getElementById("evenement-heure-fin"));
 
@@ -619,18 +672,24 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
 
   const titre = document.getElementById("evenement-titre").value.trim();
   const jour = document.getElementById("evenement-jour").value;
+  const jourFin = document.getElementById("evenement-jour-fin").value;
   const heureDebut = document.getElementById("evenement-heure-debut").value;
   const heureFin = document.getElementById("evenement-heure-fin").value;
+  const multi = !!jour && !!jourFin && jourFin !== jour;
   let premierChamp = null;
   if (!jour) {
     document.getElementById("erreur-evenement-jour").classList.remove("cache");
     premierChamp = document.getElementById("evenement-jour");
   }
+  if (!jourFin || (jour && jourFin < jour)) {
+    document.getElementById("erreur-evenement-jour-fin").classList.remove("cache");
+    premierChamp ||= document.getElementById("evenement-jour-fin");
+  }
   if (!titre) {
     document.getElementById("erreur-evenement-titre").classList.remove("cache");
     premierChamp = document.getElementById("evenement-titre");
   }
-  if (!heureDebut || !heureFin || heureFin <= heureDebut) {
+  if (!multi && (!heureDebut || !heureFin || heureFin <= heureDebut)) {
     document.getElementById("erreur-evenement-heures").classList.remove("cache");
     premierChamp ||= document.getElementById("evenement-heure-fin");
   }
@@ -640,8 +699,9 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
   const payload = {
     titre,
     jour,
-    heure_debut: heureDebut,
-    heure_fin: heureFin,
+    jour_fin: jourFin,
+    heure_debut: multi ? null : heureDebut,
+    heure_fin: multi ? null : heureFin,
     notes: document.getElementById("evenement-notes").value.trim(),
     type_id: document.getElementById("evenement-type").value || null,
   };
