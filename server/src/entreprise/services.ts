@@ -78,16 +78,15 @@ export async function recevoirDuty(e: EvenementBot): Promise<void> {
   await prisma.serviceEtat.upsert({ where: { id: 1 }, create: { id: 1, derniereLecture: new Date(), nbReconnus: 1 }, update: { derniereLecture: new Date(), nbReconnus: { increment: 1 } } });
 }
 
-// services ouverts depuis plus de `heures` : fermés à début + heures
+// services ouverts depuis plus de `heures` : fermés à début + heures (chaque ligne a sa propre fin, calculée à partir
+// de son propre début : une seule requête, plutôt qu'un aller-retour par service ouvert)
 export async function cloturerServicesOublies(heures: number, maintenant = new Date()): Promise<number> {
-  const ouverts = await prisma.service.findMany({ where: { fin: null, debut: { lte: new Date(maintenant.getTime() - heures * 3600e3) } }, select: { id: true, debut: true } });
-  for (const o of ouverts) {
-    await prisma.service.updateMany({
-      where: { id: o.id, fin: null },
-      data: { fin: new Date(o.debut.getTime() + heures * 3600e3), causeFin: `Clôture automatique (${heures} h sans fin de service)`, finSource: 'auto', anomalie: 'cloture_auto' },
-    });
-  }
-  return ouverts.length;
+  const limite = new Date(maintenant.getTime() - heures * 3600e3);
+  const cause = `Clôture automatique (${heures} h sans fin de service)`;
+  return await prisma.$executeRaw`
+    UPDATE services SET fin = debut + (${heures} * interval '1 hour'), cause_fin = ${cause}, fin_source = 'auto', anomalie = 'cloture_auto'
+    WHERE fin IS NULL AND debut <= ${limite}
+  `;
 }
 
 // clôture des services oubliés, chaque minute

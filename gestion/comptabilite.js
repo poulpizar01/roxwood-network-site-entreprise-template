@@ -72,7 +72,7 @@ async function chargerDotSalaries() {
     DOT_SALARIES = r.agents || [];
     corps.innerHTML = DOT_SALARIES.length
       ? DOT_SALARIES.map(a => `<tr>
-            <td>${echapper(a.nom)}</td>
+            <td>${echapper(a.nom)}${a.ambigu ? ` <span class="grades-tag alerte" title="Un autre employé actif porte le même nom RP : vente, CA total réalisé et paie à l’heure ne peuvent pas lui être attribués sans ambiguïté, et sont comptés à 0 ici.">Nom ambigu</span>` : ""}</td>
             <td>${echapper(a.grade)}</td>
             <td>${formaterNombreStats(a.run)}</td>
             <td>${formaterArgentStats(a.facture)}</td>

@@ -72,6 +72,8 @@ export const entreprise: Entreprise = {
   avantSuppressionGrade: async (gradeCle, tx) => {
     await tx.remunerationGrade.deleteMany({ where: { gradeCle } });
     await tx.primePalierGrade.deleteMany({ where: { gradeCle } });
+    await tx.runsQuotaGrade.deleteMany({ where: { gradeCle } });
+    await tx.facturesQuotaGrade.deleteMany({ where: { gradeCle } });
     await tx.agendaDroitsGrade.deleteMany({ where: { gradeCle } });
     const droits = await tx.agendaDroitsGrade.findMany();
     for (const ligne of droits) {

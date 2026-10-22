@@ -16,12 +16,15 @@ export const jourParis = (instant?: string | Date): string => {
   const d = instant ? new Date(instant) : new Date();
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(Number.isNaN(d.getTime()) ? new Date() : d);
 };
+// décalage (en minutes) de l'heure de Paris par rapport à UTC au jour donné (+60 en hiver, +120 en été)
+const decalageParis = (d: Date): number => {
+  const nom = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', timeZoneName: 'shortOffset' }).formatToParts(d).find(p => p.type === 'timeZoneName')?.value ?? 'GMT+0';
+  return (Number(/GMT([+-]\d+)/.exec(nom)?.[1]) || 0) * 60;
+};
 // lundi de la semaine en cours ou d'un jour donné (calendrier Paris), pour cumuler un objectif hebdomadaire (quota de
-// runs) ou consulter une semaine passée.
-// shortcut: minuit posé en UTC, pas en heure de Paris (décalage d'une à deux heures autour de la bascule du lundi) ;
-// à corriger si un objectif se joue un jour à une heure près.
+// runs) ou consulter une semaine passée. Minuit posé en heure de Paris (CET/CEST), pas en UTC.
 export const debutSemaineParis = (jour?: string): Date => {
   const lundi = versDate(jour ?? jourParis());
   lundi.setUTCDate(lundi.getUTCDate() - ((lundi.getUTCDay() + 6) % 7));
-  return lundi;
+  return new Date(lundi.getTime() - decalageParis(lundi) * 60000);
 };

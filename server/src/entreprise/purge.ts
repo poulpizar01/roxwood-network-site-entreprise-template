@@ -12,8 +12,8 @@ async function purger(): Promise<void> {
   const avant = (jours: number) => new Date(Date.now() - jours * JOUR);
   const [agenda, candidatures, services] = await Promise.all([
     prisma.evenementAgenda.deleteMany({ where: { jour: { lt: avant(AGENDA_JOURS) } } }),
-    // une candidature encore à traiter (refusée faute de réglage) reste, quel que soit son âge
-    prisma.arriveeBot.deleteMany({ where: { resultat: { not: 'refusee' }, recuLe: { lt: avant(CANDIDATURES_JOURS) } } }),
+    // confidentialite.html promet un an pour toute candidature, y compris celle restée en suspens sans être retraitée
+    prisma.arriveeBot.deleteMany({ where: { recuLe: { lt: avant(CANDIDATURES_JOURS) } } }),
     // services terminés (un service en cours reste)
     prisma.service.deleteMany({ where: { fin: { lt: avant(SERVICES_JOURS) } } }),
   ]);

@@ -142,15 +142,15 @@ model Facture {
   details        Json?
   compteId       Int?     @map("compte_id") // saisie depuis le site ; null = reçue du bot
   employeId      Int?     @map("employe_id") // qui a enregistré le paiement en jeu (monitoring.invoice uniquement) ; quota de facturation
-  avoirDeId      Int?     @map("avoir_de_id") // renseigné seulement sur l'avoir : facture d'origine qu'il annule (montants négatifs)
+  avoirDeId      Int?     @unique @map("avoir_de_id") // renseigné seulement sur l'avoir : facture d'origine qu'il annule (montants négatifs) ; unique pour empêcher deux avoirs sur la même facture en cas de double requête simultanée
   dateFacture    DateTime  @default(now()) @map("date_facture") @db.Timestamptz(6) // date de la facture : reçue du bot, prise à défaut sur l'instant de réception ; saisie à la main sinon ; modifiable ensuite dans les deux cas (routes/compta.ts) — jamais réécrite par un renvoi du bot (changement de statut)
   dateEcheance   DateTime? @map("date_echeance") @db.Timestamptz(6) // date d'échéance de paiement, facultative : jamais fournie par le bot, saisie et modifiée depuis la gestion
   majLe          DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@index([source, dateFacture(sort: Desc)])
+  @@index([dateFacture(sort: Desc)])
   @@index([compteId])
   @@index([employeId])
-  @@index([avoirDeId])
   @@map("factures")
 }
 

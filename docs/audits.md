@@ -103,6 +103,7 @@ Cherche :
 - les tâches périodiques qui peuvent se chevaucher (pas de verrou « en cours ») ou rester bloquées sur les mêmes lignes en échec en tête de file ;
 - les fichiers déposés sur le stockage avant une écriture en base qui échoue (retirer le fichier dans le catch) ;
 - les réglages qui ne doivent plus changer en exploitation (STORAGE_PREFIX…) et qui le disent.
+- avantSuppressionCompte et avantSuppressionGrade face à toutes les tables qui portent un compteId ou une gradeCle (grep sur ces colonnes dans entreprise.prisma) : une table ajoutée après coup et oubliée dans le nettoyage transactionnel laisse une ligne orpheline, qui peut se réattacher au mauvais compte ou grade si l'identifiant est réutilisé.
 ```
 
 ## 5. Socle et règles du modèle
@@ -124,6 +125,7 @@ Cherche :
 - un lien, un identifiant Discord ou une adresse de service écrit en dur dans une page ou un script au lieu d'être déclaré dans entreprise.parametres (Paramètres) ;
 - un contenu recopié dans le code depuis sa source (texte, images, tarifs d'un document tenu ailleurs) : deux versions qui finiront par se contredire ;
 - une règle de conception corrigée dans le code mais absente de docs/design.md (elle se reproduira ailleurs), ou une règle propre à un site écrite dans le modèle (elle va dans ENTREPRISE.md).
+- une fonctionnalité retirée du code (route, table, webhook) dont une variable d'environnement, une ligne de .env.example ou une phrase de confidentialite.html parle encore : la documentation décrirait alors une collecte de données ou un réglage qui n'existe plus (dérive inverse de celle ci-dessus).
 ```
 
 ## 6. Ergonomie et accessibilité (gestion et vitrine)
@@ -145,7 +147,8 @@ Cherche :
 - un menu de gestion qui porte autre chose que la navigation et le compte, ou qui défile à 800 px de haut avec toutes les permissions ;
 - deux liens vers la même destination dans un même bloc, un lien qui ne fait pas ce qu'il promet, un bouton « Afficher » pour un contenu attendu ;
 - un texte qui parle à un développeur (nom de variable, .env, fichier, « webhook »), un terme inventé, une période nommée en relatif (« hier », « semaine prochaine ») ;
-- une lecture automatique (aria-live) sur une information relue périodiquement, qui serait relue à chaque passage.
+- une lecture automatique (aria-live) sur une information relue périodiquement, qui serait relue à chaque passage ;
+- un champ qui prend la place d'un autre selon une condition (bot relié ou non, option cochée) : si le <label for> reste pointé sur le champ caché, le champ affiché n'a plus de nom accessible.
 Ici, le scénario de défaillance est : quelle largeur ou quel moyen (souris, clavier, lecteur d'écran, ordinateur en jeu) → ce que la personne ne peut pas faire ou pas voir.
 ```
 
@@ -160,5 +163,7 @@ Cherche :
 - la conservation : une durée ou une suppression annoncée dans confidentialite.html sans tâche de purge qui l'applique réellement, ou une purge qui efface moins (ou plus) que ce que la page promet ;
 - l'historique d'un montant qui change de barème ou de palier a posteriori (nouveau taux appliqué à une période déjà close, ou l'inverse) ;
 - une somme recalculée à chaque affichage à partir de lignes détaillées sans transaction : deux lectures simultanées pendant un import verraient un total différent ;
-- une donnée sensible rattachée à un compte par un nom ou un identifiant modifiable plutôt que par l'identifiant Discord (reprend le risque de l'angle 1, du point de vue du champ sensible plutôt que du grade).
+- une donnée sensible rattachée à un compte par un nom ou un identifiant modifiable plutôt que par l'identifiant Discord (reprend le risque de l'angle 1, du point de vue du champ sensible plutôt que du grade) ;
+- un regroupement ou un classement financier indexé par un champ non garanti unique (nom RP, pseudo normalisé) : deux fiches actives avec la même valeur partageraient silencieusement la même ligne de résultat ;
+- une opération financière qui ne peut survenir qu'une fois (avoir, remboursement, clôture) sans contrainte d'unicité en base : deux requêtes presque simultanées (double clic, nouvelle tentative réseau) passeraient toutes les deux un contrôle « déjà fait » lu avant leur propre transaction.
 ```

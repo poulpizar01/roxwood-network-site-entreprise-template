@@ -1,5 +1,6 @@
 // ENTREPRISE — comptabilité (permission « compta » : relevé Tablettes et DOT ; permission « factures » séparée : gestion
 // des factures) : relevé Tablettes collé, écritures et résumé DOT hebdomadaire.
+import { Prisma } from '../../generated/prisma/client.js';
 import { Router, type Request, type Response } from 'express';
 import { prisma } from '../../socle/db.js';
 import { auDessusDe, gradeDe, tousLesGrades } from '../../socle/droits.js';
@@ -290,20 +291,28 @@ compta.post('/api/compta/factures/:id/avoir', ...gererFactures, traiter(async (r
   if (!STATUTS_PAYES.includes(f.statutPaiement)) throw new Refus('Seule une facture payée peut recevoir un avoir.', 403);
   const dejaEmis = await prisma.facture.findFirst({ where: { avoirDeId: f.id } });
   if (dejaEmis) throw new Refus('Un avoir a déjà été émis pour cette facture.', 409);
-  const avoir = await prisma.$transaction(async tx => {
-    const a = await tx.facture.create({
-      data: {
-        source: f.source, avoirDeId: f.id,
-        numeroFacture: `AVOIR-${f.numeroFacture || f.id}`,
-        clientNom: f.clientNom,
-        sousTotal: -f.sousTotal, livraison: -f.livraison, reduction: -f.reduction, total: -f.total,
-        statutPaiement: 'PAYEE',
-        compteId: req.compte.id,
-      },
+  // avoirDeId est unique en base (contrainte) : une seconde requête presque simultanée, passée malgré le contrôle
+  // ci-dessus, échoue ici plutôt que de créer un second avoir.
+  let avoir;
+  try {
+    avoir = await prisma.$transaction(async tx => {
+      const a = await tx.facture.create({
+        data: {
+          source: f.source, avoirDeId: f.id,
+          numeroFacture: `AVOIR-${f.numeroFacture || f.id}`,
+          clientNom: f.clientNom,
+          sousTotal: -f.sousTotal, livraison: -f.livraison, reduction: -f.reduction, total: -f.total,
+          statutPaiement: 'PAYEE',
+          compteId: req.compte.id,
+        },
+      });
+      if (f.source === 'manuel') await tx.facture.update({ where: { id: f.id }, data: { statutPaiement: 'ANNULEE' } });
+      return a;
     });
-    if (f.source === 'manuel') await tx.facture.update({ where: { id: f.id }, data: { statutPaiement: 'ANNULEE' } });
-    return a;
-  });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new Refus('Un avoir a déjà été émis pour cette facture.', 409);
+    throw e;
+  }
   res.status(201).json({ id: avoir.id });
 }));
 
@@ -339,6 +348,10 @@ async function salariesDot() {
   ]);
   const configParGrade = new Map(config.map(c => [c.cle, c]));
   const paieHoraireParNom = new Map((paieH?.lignes ?? []).map(p => [normaliserNom(p.nom), p.montant]));
+  // deux fiches actives avec le même nom normalisé liraient sinon silencieusement la même ligne du relevé (vente, paie
+  // à l'heure) : on compte les occurrences pour les signaler plutôt que de deviner à qui elle appartient.
+  const comptesParNom = new Map<string, number>();
+  for (const e of employes) { const cle = normaliserNom(nomComplet(e)); comptesParNom.set(cle, (comptesParNom.get(cle) ?? 0) + 1); }
 
   const idsEmployes = employes.map(e => e.id);
   const debut = debutSemaineParis(), fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
@@ -351,13 +364,14 @@ async function salariesDot() {
 
   const agents = employes.map(e => {
     const nom = nomComplet(e), cle = normaliserNom(nom);
-    const ligne = ligneParNom.get(cle);
+    const ambigu = (comptesParNom.get(cle) ?? 0) > 1;
+    const ligne = ambigu ? undefined : ligneParNom.get(cle);
     const run = runsParEmploye.get(e.id) ?? 0, facture = facturesParEmploye.get(e.id) ?? 0;
     const vente = ligne && iVente !== -1 ? Math.round(montantReleve(ligne[iVente])) : 0;
     const caTotalRealise = ligne && iTotalEntreprise !== -1 ? Math.round(montantReleve(ligne[iTotalEntreprise])) : 0;
     const c = configParGrade.get(e.gradeCle);
     const salaire = c ? calculerPaie({ salaireFixe: c.salaireFixe, salaireActif: c.salaireActif, paliersRun: c.paliersRun, runs: run, paliersFacture: c.paliersFacture, factures: facture }).total : 0;
-    return { nom, grade: gradeDe(e.gradeCle)?.libelle ?? e.gradeCle, run, facture, vente, caTotalRealise, salaireTotal: salaire + (paieHoraireParNom.get(cle) ?? 0) };
+    return { nom, grade: gradeDe(e.gradeCle)?.libelle ?? e.gradeCle, run, facture, vente, caTotalRealise, salaireTotal: salaire + (ambigu ? 0 : paieHoraireParNom.get(cle) ?? 0), ambigu };
   });
   return { agents, tabletteTrouvee: !!releve };
 }
