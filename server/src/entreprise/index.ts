@@ -73,6 +73,10 @@ export const entreprise: Entreprise = {
   },
 
   avantSuppressionGrade: async (gradeCle, tx) => {
+    // une fiche RH active avec ce grade continuerait d'exister sans qu'aucun grade ne corresponde plus : les
+    // calculs de paie/quota qui relisent gradeDe(e.gradeCle) retomberaient silencieusement à zéro (annule la suppression)
+    const porteurs = await tx.employe.count({ where: { gradeCle, statut: 'actif' } });
+    if (porteurs) throw new Error(`Ce grade est encore porté par ${porteurs} fiche(s) RH active(s) : change-leur de grade d’abord.`);
     await tx.remunerationGrade.deleteMany({ where: { gradeCle } });
     await tx.primePalierGrade.deleteMany({ where: { gradeCle } });
     await tx.runsQuotaGrade.deleteMany({ where: { gradeCle } });

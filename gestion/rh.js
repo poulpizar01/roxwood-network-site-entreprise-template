@@ -227,6 +227,7 @@ async function ouvrirFicheEmploye(id, preremplissage) {
 const fermerModaleEmploye = () => { $rh('modale-employe').classList.add('cache'); if (OUVREUR_FICHE?.isConnected) OUVREUR_FICHE.focus(); };
 $rh('bouton-nouvel-employe').addEventListener('click', () => ouvrirFicheEmploye(null));
 $rh('fermer-modale-employe').addEventListener('click', fermerModaleEmploye);
+$rh('employe-annuler').addEventListener('click', fermerModaleEmploye);
 $rh('modale-employe').addEventListener('click', e => { if (e.target.id === 'modale-employe') fermerModaleEmploye(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$rh('modale-employe').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) fermerModaleEmploye(); });
 

@@ -145,6 +145,7 @@ function ouvrirModalePaie(cle) {
 const fermerModalePaie = () => $('modale-paie-grade').classList.add('cache');
 $('paie-salaire-actif').addEventListener('change', () => { $('paie-salaire-fixe').disabled = !$('paie-salaire-actif').checked; });
 $('fermer-modale-paie').addEventListener('click', fermerModalePaie);
+$('annuler-paie').addEventListener('click', fermerModalePaie);
 $('modale-paie-grade').addEventListener('click', ev => { if (ev.target.id === 'modale-paie-grade') fermerModalePaie(); });
 
 $('formulaire-paie-grade').addEventListener('submit', async ev => {

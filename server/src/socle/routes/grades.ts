@@ -109,10 +109,16 @@ grades.delete('/api/grades/:cle', ...permission('grades'), async (req, res) => {
   if (!auDessusDe(req.compte, g.cle)) { res.status(403).json({ error: 'Ce grade est égal ou supérieur au tien.' }); return; }
   const porteurs = await prisma.compte.count({ where: { gradeCle: g.cle } });
   if (porteurs) { res.status(409).json({ error: `Ce grade est encore porté par ${porteurs} compte(s) : change-leur de grade d’abord.` }); return; }
-  await prisma.$transaction(async tx => {
-    await entreprise.avantSuppressionGrade?.(g.cle, tx);
-    await tx.grade.delete({ where: { cle: g.cle } });
-  });
+  try {
+    await prisma.$transaction(async tx => {
+      await entreprise.avantSuppressionGrade?.(g.cle, tx);
+      await tx.grade.delete({ where: { cle: g.cle } });
+    });
+  } catch (err) {
+    // l'entreprise peut refuser la suppression (ex. grade encore porté par une fiche RH active) : son message est fait pour être montré tel quel
+    res.status(409).json({ error: err instanceof Error ? err.message : 'Suppression impossible.' });
+    return;
+  }
   await chargerGrades();
   repondreListe(res);
 });

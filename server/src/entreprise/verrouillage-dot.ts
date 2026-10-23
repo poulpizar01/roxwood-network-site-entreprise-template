@@ -5,12 +5,19 @@ import { construireEtVerrouiller, estVerrouillee, semaineCourante } from './dot.
 
 const JOUR = 24 * 3600e3;
 const semainePrecedente = (iso: string) => new Date(new Date(`${iso}T00:00:00Z`).getTime() - 7 * JOUR).toISOString().slice(0, 10);
+// une panne ou un échec silencieux de plusieurs jours à cheval sur un changement de semaine civile ne doit pas
+// laisser les semaines plus anciennes indéfiniment déverrouillées : on remonte jusqu'à en retrouver une déjà
+// verrouillée, avec une borne pour ne pas boucler sans fin sur un site jamais encore verrouillé
+const LIMITE_RATTRAPAGE = 52;
 
 async function verrouillerSiOubliee(): Promise<void> {
-  const semaine = semainePrecedente(semaineCourante());
-  if (await estVerrouillee(semaine)) return;
-  await construireEtVerrouiller(semaine, null, 'auto');
-  console.log(`[dot] déclaration de la semaine du ${semaine} verrouillée automatiquement`);
+  let semaine = semainePrecedente(semaineCourante());
+  for (let i = 0; i < LIMITE_RATTRAPAGE; i++) {
+    if (await estVerrouillee(semaine)) return;
+    await construireEtVerrouiller(semaine, null, 'auto');
+    console.log(`[dot] déclaration de la semaine du ${semaine} verrouillée automatiquement`);
+    semaine = semainePrecedente(semaine);
+  }
 }
 
 // au démarrage puis une fois par jour ; unref : ce minuteur ne retient pas l'arrêt du serveur

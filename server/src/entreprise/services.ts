@@ -72,8 +72,14 @@ export async function recevoirDuty(e: EvenementBot): Promise<void> {
   // forme inattendue : ignorée (la renvoyer ne la rendrait pas valide), mais consignée — si le bot change de format,
   // c'est la seule trace qui le dira
   if (!ev) { console.warn('[services] événement monitoring.duty ignoré : forme inattendue', JSON.stringify(e.payload).slice(0, 300)); return; }
-  const employes = await prisma.employe.findMany({ select: { id: true, prenom: true, nom: true, discordId: true } });
-  await enregistrer(ev, trouverFiche(employes, ev));
+  // cas courant (le bot connaît l'ID Discord) : une seule ligne lue plutôt que toute la table ; repli par nom
+  // seulement si aucune fiche ne porte encore cet identifiant
+  let fiche: Fiche | null = await prisma.employe.findFirst({ where: { discordId: ev.discordId }, select: { id: true, prenom: true, nom: true, discordId: true } });
+  if (!fiche) {
+    const employes = await prisma.employe.findMany({ select: { id: true, prenom: true, nom: true, discordId: true } });
+    fiche = trouverFiche(employes, ev);
+  }
+  await enregistrer(ev, fiche);
   // dernier événement reçu : affiché dans Paramètres (preuve que l'abonnement fonctionne)
   await prisma.serviceEtat.upsert({ where: { id: 1 }, create: { id: 1, derniereLecture: new Date(), nbReconnus: 1 }, update: { derniereLecture: new Date(), nbReconnus: { increment: 1 } } });
 }

@@ -37,7 +37,9 @@ export async function recevoirFactureCommande(e: EvenementBot): Promise<void> {
   if (!p || typeof p !== 'object') { console.warn('[facture] événement order.updated ignoré : contenu absent'); return; }
   const idBot = texte(p.orderId, 100);
   if (!idBot) { console.warn('[facture] événement order.updated ignoré : pas de orderId'); return; }
-  const articles = (Array.isArray(p.items) ? p.items as Article[] : []).map(a => ({
+  // bornée comme les réponses de candidature (rh.ts) : une commande à très nombreux articles ne doit pas gonfler
+  // sans limite details.articles, réécrit en entier à chaque renvoi (changement de statut)
+  const articles = (Array.isArray(p.items) ? p.items as Article[] : []).slice(0, 50).map(a => ({
     name: texte(a.name, 120),
     unitPrice: entier(a.unitPrice),
     quantity: entier(a.quantity),

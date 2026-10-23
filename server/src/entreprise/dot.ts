@@ -2,6 +2,7 @@
 // d'une semaine donnée, verrouillage (manuel, bouton « Valider » ; ou automatique, verrouillage-dot.ts si personne ne
 // l'a fait). Une fois verrouillée (compta_dot_declarations), une semaine est figée : son résumé, ses salariés et ses
 // mouvements ne sont plus recalculés, même si le barème, le relevé Tablettes ou le solde bancaire changent ensuite.
+import { Prisma } from '../generated/prisma/client.js';
 import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { reglage } from '../socle/reglages.js';
@@ -140,10 +141,12 @@ export async function salariesDot(iso: string) {
 // CA brut (relevé Tablettes + recettes exceptionnelles) − dépenses déductibles (plafonnées) = bénéfice imposable →
 // impôts (taux du bénéfice + taux de la richesse, un seul impôt combiné) → bénéfice après impôts → primes → bénéfice
 // après primes → retraits = bénéfice net.
-export async function resumeDot(iso: string) {
+// salariesPrecalcules : pour que construireEtVerrouiller ne relance pas salariesDot() une seconde fois en
+// parallèle du tableau figé dans la même déclaration (les deux pourraient sinon diverger sur une écriture concurrente)
+export async function resumeDot(iso: string, salariesPrecalcules?: Awaited<ReturnType<typeof salariesDot>>) {
   const [releve, ecritures, bareme, baremeRichesse, salaries, nombreEmployes] = await Promise.all([
     dernierReleve(), prisma.ecritureDot.findMany({ where: { semaine: semaineDate(iso) } }), prisma.baremeImposition.findMany({ orderBy: { seuilMin: 'asc' } }),
-    prisma.baremeRichesse.findMany({ orderBy: { seuilMin: 'asc' } }), salariesDot(iso), prisma.employe.count({ where: { statut: 'actif' } }),
+    prisma.baremeRichesse.findMany({ orderBy: { seuilMin: 'asc' } }), salariesPrecalcules ?? salariesDot(iso), prisma.employe.count({ where: { statut: 'actif' } }),
   ]);
   const caTablette = releve ? caBrutReleve(releve.colonnes, releve.lignes) : null;
   const recettes = ecritures.filter(e => e.type === 'recette').reduce((s, e) => s + e.montant, 0);
@@ -187,6 +190,13 @@ export async function resumeDot(iso: string) {
 // `compteId` null = verrouillage automatique (verrouillage-dot.ts), sinon manuel (« Valider la déclaration »).
 export async function construireEtVerrouiller(iso: string, compteId: number | null, statut: 'validee' | 'auto') {
   if (await estVerrouillee(iso)) throw new Refus('Cette semaine est déjà verrouillée.', 409);
-  const [resume, salaries, ecritures] = await Promise.all([resumeDot(iso), salariesDot(iso), ecrituresBrutes(iso)]);
-  await prisma.declarationDot.create({ data: { semaine: semaineDate(iso), statut, compteId, resume, salaries, ecritures } });
+  const salaries = await salariesDot(iso);
+  const [resume, ecritures] = await Promise.all([resumeDot(iso, salaries), ecrituresBrutes(iso)]);
+  try {
+    await prisma.declarationDot.create({ data: { semaine: semaineDate(iso), statut, compteId, resume, salaries, ecritures } });
+  } catch (e) {
+    // semaine (@id) déjà verrouillée par une requête presque simultanée (double clic, nouvelle tentative réseau)
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new Refus('Cette semaine est déjà verrouillée.', 409);
+    throw e;
+  }
 }

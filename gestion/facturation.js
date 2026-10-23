@@ -669,6 +669,7 @@ async function ouvrirFactureForm(id) {
 function fermerModaleFactureForm() { document.getElementById("modale-facture-form").classList.add("cache"); }
 document.getElementById("bouton-nouvelle-facture").addEventListener("click", () => ouvrirFactureForm(null));
 document.getElementById("fermer-modale-facture-form").addEventListener("click", fermerModaleFactureForm);
+document.getElementById("bouton-annuler-facture").addEventListener("click", fermerModaleFactureForm);
 document.getElementById("modale-facture-form").addEventListener("click", (ev) => { if (ev.target.id === "modale-facture-form") fermerModaleFactureForm(); });
 
 document.getElementById("formulaire-facture").addEventListener("submit", async (ev) => {

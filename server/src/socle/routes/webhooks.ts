@@ -15,6 +15,11 @@ import { entreprise } from '../../entreprise/index.js';
 
 export const webhooks = Router();
 
+// une même empreinte en cours de traitement (deux livraisons simultanées) ne doit démarrer le traitement de
+// l'entreprise qu'une seule fois : verrou en mémoire (une seule instance par VPS, cf. CLAUDE.md « Déploiement »)
+// tenu de la création de la ligne jusqu'à son marquage traité, pas seulement sur l'insertion
+const empreintesEnCours = new Set<string>();
+
 const signatureValide = (corps: Buffer, recue: string): boolean => {
   if (!/^[0-9a-f]{64}$/i.test(recue)) return false;
   const attendue = Buffer.from(recue.toLowerCase(), 'hex');
@@ -50,6 +55,10 @@ webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, 
       throw err;
     }
   }
+  // la ligne existe déjà mais n'est pas encore marquée traitée (l'autre requête en est au traitement, pas qu'à
+  // la création) : sans ce verrou, les deux requêtes lanceraient entreprise.webhooks[type] en parallèle
+  if (empreintesEnCours.has(empreinte)) { res.json({ ok: true, deja: true }); return; }
+  empreintesEnCours.add(empreinte);
 
   const traitement = entreprise.webhooks?.[e.eventType];
   try { if (traitement) await traitement(e); }
@@ -59,6 +68,7 @@ webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, 
     res.status(500).json({ error: 'traitement en échec' });
     return;
   }
+  finally { empreintesEnCours.delete(empreinte); }
   // traité : seule l'empreinte reste utile (dédoublonnage). Le corps, qui peut porter des données personnelles
   // (réponses d'un candidat), n'est gardé que tant que le traitement échoue, pour le diagnostiquer.
   await prisma.webhookRecu.update({ where: { id: recu.id }, data: { traite: true, contenu: {} } });
