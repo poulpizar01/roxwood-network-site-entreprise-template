@@ -22,9 +22,9 @@
       <div class="entete-admin">
         <div>
           <h1 style="margin-bottom:2px;">Ressources humaines</h1>
-          <p style="margin:0;font-size:0.88rem;">La fiche de chaque employé : identité, grade, statut. Les ventes et la DOT s’y rattachent.</p>
+          <p style="margin:0;font-size:var(--fs-3);">La fiche de chaque employé : identité, grade, statut. Les ventes et la DOT s’y rattachent.</p>
         </div>
-        <button type="button" class="btn btn-or cache" id="bouton-nouvel-employe">+ Ajouter un membre</button>
+        <button type="button" class="btn btn-or cache" id="bouton-nouvel-employe"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un membre</button>
       </div>
       <div id="zone-message-rh" role="status"></div>
 
@@ -140,7 +140,7 @@
         </div>
         <div class="champ-deux">
           <div class="champ"><label for="employe-id-unique">ID Unique</label><input type="text" id="employe-id-unique" required maxlength="12" inputmode="numeric" placeholder="Ex. 42" aria-describedby="aide-employe-id-unique"><p class="champ-aide" id="aide-employe-id-unique">Chiffres uniquement.</p><p class="champ-erreur cache" id="erreur-employe-id-unique">L’ID Unique ne contient que des chiffres, par exemple 42.</p></div>
-          <div class="champ"><label for="employe-grade">Grade</label><select id="employe-grade"></select></div>
+          <div class="champ"><label for="employe-grade">Grade</label><select id="employe-grade" aria-describedby="employe-grade-aide"></select><small class="champ-aide" id="employe-grade-aide">Donne aussi les droits sur le site à son compte (même ID Discord).</small></div>
         </div>
         <div class="champ-deux">
           <div class="champ"><label for="employe-discord-id">ID Discord</label><input type="text" id="employe-discord-id" inputmode="numeric" maxlength="22" placeholder="18 chiffres environ" aria-describedby="aide-discord-id"><p class="champ-aide" id="aide-discord-id">Clic droit sur le membre dans Discord, « Copier l’identifiant ».</p></div>

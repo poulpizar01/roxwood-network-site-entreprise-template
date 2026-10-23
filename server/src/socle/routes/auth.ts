@@ -5,6 +5,7 @@ import { config } from '../config.js';
 import { prisma } from '../db.js';
 import { tousLesGrades } from '../droits.js';
 import { gradeALaConnexion } from '../grade-connexion.js';
+import { gradesImposes } from '../grades-imposes.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 const REDIRECT_URI = `${config.baseUrl}/auth/discord/callback`;
@@ -101,7 +102,9 @@ auth.get('/auth/discord/callback', async (req, res) => {
 
     // 3. grade : règles dans grade-connexion.ts (rôle Discord porté, grade attribué à la main, ancien propriétaire)
     const existant = await prisma.compte.findUnique({ where: { discordId: user.id } });
-    const { grade, parRole: gradeParRole } = gradeALaConnexion(tousLesGrades(), guildMember.roles, existant?.gradeCle, !!existant?.proprietaire && !proprietaire);
+    const { grade: gradeDiscord, parRole: gradeParRole } = gradeALaConnexion(tousLesGrades(), guildMember.roles, existant?.gradeCle, !!existant?.proprietaire && !proprietaire);
+    // grade imposé par l'entreprise (fiche RH…) : il l'emporte ; il ne valide pas le compte à lui seul
+    const grade = (await gradesImposes([user.id])).get(user.id)?.grade ?? gradeDiscord;
     // nouveau propriétaire : l'ancien perd aussitôt ce que la propriété lui donnait, sans attendre sa reconnexion
     if (proprietaire) await retirerProprietaires(user.id);
 

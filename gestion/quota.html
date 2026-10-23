@@ -26,7 +26,7 @@
       <div class="entete-admin">
         <div>
           <h1 style="margin-bottom:2px;">Quota</h1>
-          <p style="margin:0;font-size:0.88rem;" id="run-periode">Run et facturation, cumulés depuis lundi.</p>
+          <p style="margin:0;font-size:var(--fs-3);" id="run-periode">Run et facturation, cumulés depuis lundi.</p>
         </div>
         <div class="run-semaine-nav" role="group" aria-label="Semaine affichée">
           <button type="button" class="run-fleche run-fleche--avant" id="run-semaine-precedente" aria-label="Semaine précédente"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
@@ -67,10 +67,12 @@
             <button type="button" class="comptes-filtre" data-run-filtre="non-atteint" aria-pressed="false">Quota non atteint</button>
           </div>
         </div>
-        <table class="table-admin" id="run-table">
-          <thead><tr><th data-titre>Personne</th><th>Grade</th><th>Progression</th></tr></thead>
-          <tbody id="run-quota-corps"></tbody>
-        </table>
+        <div class="carte-table">
+          <table class="table-admin" id="run-table">
+            <thead><tr id="run-entete"></tr></thead>
+            <tbody id="run-quota-corps"></tbody>
+          </table>
+        </div>
       </div>
       <div id="facture-panneau-quota" class="cache" role="tabpanel">
         <div class="run-filtres">
@@ -83,10 +85,12 @@
             <button type="button" class="comptes-filtre" data-run-filtre="non-atteint" aria-pressed="false">Quota non atteint</button>
           </div>
         </div>
-        <table class="table-admin" id="facture-table">
-          <thead><tr><th data-titre>Personne</th><th>Grade</th><th>Progression</th></tr></thead>
-          <tbody id="facture-quota-corps"></tbody>
-        </table>
+        <div class="carte-table">
+          <table class="table-admin" id="facture-table">
+            <thead><tr id="facture-entete"></tr></thead>
+            <tbody id="facture-quota-corps"></tbody>
+          </table>
+        </div>
       </div>
       <div id="run-panneau-classement" class="cache" role="tabpanel">
         <div class="run-classements">

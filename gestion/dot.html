@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>DOT — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — DOT (permission « compta ») : relevé Tablettes, résumé de la déclaration DOT. Serveur :
+       entreprise/routes/compta.ts. -->
+  <main class="admin-contenu">
+    <section id="panneau-comptabilite">
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">DOT</h1>
+          <p style="margin:0;font-size:var(--fs-3);">Suivi des chiffres de l'entreprise.</p>
+        </div>
+      </div>
+
+      <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques de la DOT">
+        <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="compta-panneau-tablettes" data-compta-onglet="tablettes"><svg class="ico" aria-hidden="true"><use href="#ico-sheet"></use></svg> Tablettes</button>
+        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="compta-panneau-dot" data-compta-onglet="dot"><svg class="ico" aria-hidden="true"><use href="#ico-coins"></use></svg> Déclaration DOT</button>
+      </div>
+
+      <!-- Sous-onglet : Tablettes -->
+      <div id="compta-panneau-tablettes">
+        <div class="entete-admin" style="margin-top:20px;">
+          <div>
+            <h2 class="compta-titre">Relevé Tablettes</h2>
+            <p class="compta-aide">Le relevé de la semaine (runs, factures, ventes, heures), collé depuis un outil externe. Son total donne le CA brut de la déclaration DOT.</p>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-or" id="bouton-importer-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-upload"></use></svg> Importer</button>
+            <button type="button" class="btn btn-fantome cache" id="bouton-copier-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
+            <!-- action d’effacement : après l’action principale, en bouton discret -->
+            <button type="button" class="btn btn-fantome cache" id="bouton-reinitialiser-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Réinitialiser</button>
+          </div>
+        </div>
+        <div id="zone-message-tablette"></div>
+        <div id="compta-tablette-vide" class="etat-vide">
+          <p>Aucune donnée importée pour le moment. Cliquez sur « Importer » pour coller votre premier relevé.</p>
+        </div>
+        <div id="compta-tablette-resultat" class="cache">
+          <!-- les chiffres qui comptent pour la suite (CA brut de la DOT, paie à l'heure), avant le détail -->
+          <div class="compta-chiffres" id="compta-tablette-synthese"></div>
+          <p class="compta-aide" id="compta-tablette-info" style="margin:0 0 10px;"></p>
+          <div class="carte-table" style="overflow-x:auto;">
+            <table class="table-admin" id="table-tablette"></table>
+          </div>
+          <!-- Paie à l'heure (stagiaires) : heures de service du relevé × taux horaire du grade (table remunerations_grades),
+               avec le détail du calcul. Rempli à partir de GET /api/compta/tablettes (paie_horaire). -->
+          <div id="compta-paie-horaire" class="cache">
+            <h3 class="compta-sous-titre">Paie à l’heure</h3>
+            <p class="champ-aide" id="compta-paie-horaire-aide" style="margin:0 0 10px;"></p>
+            <div class="carte-table" style="overflow-x:auto;">
+              <table class="table-admin">
+                <thead><tr><th>Nom</th><th>Grade</th><th style="text-align:right;">Heures de service</th><th style="text-align:right;">Taux horaire</th><th>Détail</th><th style="text-align:right;">Montant</th></tr></thead>
+                <tbody id="corps-table-paie-horaire"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sous-onglet : DOT — déclaration hebdomadaire versée à la DOT (organisme fiscal du serveur RP). Lecture de haut en
+           bas comme un compte de résultat : ce qu'il faut verser, d'où vient le chiffre (produits, charges, impôt), les
+           mouvements de la semaine, le tableau des salariés à coller, puis les barèmes. Calcul : routes/compta.ts,
+           GET /api/compta/dot/resume (la page ne recalcule rien). -->
+      <div id="compta-panneau-dot" class="cache">
+        <div class="dot-entete entete-admin">
+          <div>
+            <h2 class="compta-titre" id="dot-titre-semaine">Déclaration de la semaine</h2>
+            <p class="compta-aide" id="dot-source">&nbsp;</p>
+          </div>
+          <div class="dot-entete-actions">
+            <div class="run-semaine-nav" role="group" aria-label="Semaine affichée">
+              <button type="button" class="run-fleche run-fleche--avant" id="dot-semaine-precedente" aria-label="Semaine précédente"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+              <button type="button" class="run-semaine-bouton" id="dot-aujourdhui" aria-keyshortcuts="T">Cette semaine</button>
+              <span class="run-touche" aria-hidden="true"><kbd>T</kbd> cette semaine</span>
+              <button type="button" class="run-fleche run-fleche--apres" id="dot-semaine-suivante" aria-label="Semaine suivante"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+            </div>
+            <button type="button" class="btn btn-or" id="bouton-valider-declaration">Valider la déclaration</button>
+          </div>
+        </div>
+        <div id="dot-bandeau-verrouillee" class="dot-bandeau cache" role="status"></div>
+        <div id="zone-message-dot"></div>
+
+        <!-- trois chiffres : ce qu'il faut verser d'abord ; place réservée (squelettes), rien ne pousse le calcul -->
+        <div class="dot-resultats" id="dot-chiffres"><div class="compta-chiffre squelette" aria-hidden="true"><span class="compta-chiffre-libelle">&nbsp;</span><strong>&nbsp;</strong><small>&nbsp;</small></div><div class="compta-chiffre squelette" aria-hidden="true"><span class="compta-chiffre-libelle">&nbsp;</span><strong>&nbsp;</strong><small>&nbsp;</small></div><div class="compta-chiffre squelette" aria-hidden="true"><span class="compta-chiffre-libelle">&nbsp;</span><strong>&nbsp;</strong><small>&nbsp;</small></div></div>
+
+        <div class="dot-grille">
+          <!-- compte de résultat : chaque ligne avec sa part du CA brut (barre fine, une seule teinte) -->
+          <section class="dot-carte" aria-labelledby="dot-titre-resultat">
+            <h3 class="dot-carte-titre" id="dot-titre-resultat">Compte de résultat</h3>
+            <div id="dot-calcul" class="dot-resultat"></div>
+          </section>
+
+          <!-- l'impôt : taux du bénéfice + taux de la richesse (solde saisi ici), plafonds de la tranche -->
+          <section class="dot-carte" aria-labelledby="dot-titre-impot">
+            <h3 class="dot-carte-titre" id="dot-titre-impot">Taux d’imposition</h3>
+            <dl class="dot-taux" id="dot-taux"></dl>
+            <form class="dot-solde" id="formulaire-solde-bancaire">
+              <label for="dot-solde-bancaire">Solde bancaire de l’entreprise</label>
+              <p class="champ-aide">Relevé en jeu avant de déclarer : il fixe le taux de richesse.</p>
+              <div class="dot-solde-ligne">
+                <input type="number" id="dot-solde-bancaire" min="0" step="1" inputmode="numeric" autocomplete="off">
+                <button type="submit" class="btn btn-fantome">Enregistrer</button>
+              </div>
+            </form>
+            <h4 class="dot-sous-titre">Plafonds de la tranche</h4>
+            <table class="dot-plafonds" id="dot-plafonds" data-tableau-fixe>
+              <thead><tr><th scope="col"><span class="visuellement-cache">Montant</span></th><th scope="col">Employé</th><th scope="col">Patron</th></tr></thead>
+              <tbody><tr><th scope="row">Salaire</th><td>—</td><td>—</td></tr><tr><th scope="row">Prime</th><td>—</td><td>—</td></tr></tbody>
+            </table>
+          </section>
+        </div>
+
+        <!-- journal de la semaine : recettes exceptionnelles, dépenses déductibles et retraits dans une seule liste,
+             filtrée par type (même table compta_dot_ecritures) -->
+        <section class="dot-section" aria-labelledby="dot-titre-journal">
+          <div class="dot-section-entete">
+            <div>
+              <h3 class="compta-titre" id="dot-titre-journal">Mouvements de la semaine</h3>
+              <p class="compta-aide">Recettes hors Tablettes, dépenses déductibles et retraits : chaque ajout entre aussitôt dans le calcul.</p>
+            </div>
+            <button type="button" class="btn btn-or" id="bouton-nouvelle-ecriture"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un mouvement</button>
+          </div>
+          <div class="dot-journal-outils">
+            <div class="segment-mode" role="group" aria-label="Type de mouvement affiché" id="dot-filtres-journal">
+              <button type="button" class="segment-mode-bouton actif" aria-pressed="true" data-filtre-ecriture="">Toutes</button>
+              <button type="button" class="segment-mode-bouton" aria-pressed="false" data-filtre-ecriture="recette">Recettes <span class="dot-filtre-total" data-total-ecriture="recette"></span></button>
+              <button type="button" class="segment-mode-bouton" aria-pressed="false" data-filtre-ecriture="depense">Dépenses <span class="dot-filtre-total" data-total-ecriture="depense"></span></button>
+              <button type="button" class="segment-mode-bouton" aria-pressed="false" data-filtre-ecriture="retrait">Retraits <span class="dot-filtre-total" data-total-ecriture="retrait"></span></button>
+            </div>
+            <div class="dot-journal-actions">
+              <button type="button" class="btn btn-fantome btn-petit" id="bouton-copier-ecritures"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier</button>
+              <button type="button" class="btn btn-fantome btn-petit cache" id="bouton-reinitialiser-ecritures"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> <span id="libelle-reinitialiser-ecritures">Tout effacer</span></button>
+            </div>
+          </div>
+          <div class="carte-table">
+            <table class="table-admin dot-journal">
+              <thead><tr><th>Date</th><th data-titre>Justificatif</th><th>Type</th><th class="dot-montant">Montant</th><th class="col-actions" aria-label="Actions"></th></tr></thead>
+              <tbody id="corps-table-dot-ecritures"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Tableau des salariés, à coller dans le document de la DOT : Nom et Grade viennent de RH, RUN (unités) et
+             FACTURE ($) des quotas réels de la semaine (mêmes chiffres que Paie/Quota), VENTE et CA TOTAL RÉALISÉ du
+             relevé Tablettes (0 si l'employé n'y figure pas), Salaire du calcul de la page Paie, Prime saisie ici pour
+             la semaine en cours. Serveur : GET /api/compta/dot/salaries. -->
+        <section class="dot-section" aria-labelledby="dot-titre-salaries">
+          <div class="dot-section-entete">
+            <div>
+              <h3 class="compta-titre" id="dot-titre-salaries">Tableau des salariés</h3>
+              <p class="compta-aide" id="dot-salaries-resume">Run et facture : quotas réels de la semaine. Vente et CA total réalisé : relevé Tablettes. Salaire : fixe du grade et palier atteint. Prime : à saisir ici.</p>
+            </div>
+            <button type="button" class="btn btn-or" id="bouton-copier-salaries"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
+          </div>
+          <details class="dot-aide-repliable">
+            <summary>Coller dans le document de la DOT</summary>
+            <ol class="dot-etapes">
+              <li>Dans le document, cliquez sur la case de la colonne A de la ligne du premier salarié.</li>
+              <li>Cliquez sur « Copier le tableau » (les titres des colonnes ne sont pas copiés), puis collez (Ctrl+V).</li>
+            </ol>
+          </details>
+          <div class="carte-table">
+            <table class="table-admin dot-salaries">
+              <thead>
+                <tr><th data-titre>Nom du salarié</th><th>Grade</th><th class="dot-montant">Run</th><th class="dot-montant">Facture</th><th class="dot-montant">Vente</th><th class="dot-montant">CA total réalisé</th><th class="dot-montant">Salaire</th><th class="dot-montant">Prime</th></tr>
+              </thead>
+              <tbody id="corps-table-dot-salaries"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- barèmes de l'organisme RP (lecture) : repliés, ce sont des références ; la tranche appliquée est surlignée -->
+        <details class="dot-section dot-baremes">
+          <summary><span class="compta-titre">Barèmes de la DOT</span> <span class="compta-aide">Fixés par l’organisme du serveur, les mêmes pour toutes les entreprises. La tranche appliquée cette semaine est surlignée.</span></summary>
+          <div class="dot-baremes-grille">
+            <div>
+              <h4 class="dot-sous-titre">Impôt sur le bénéfice</h4>
+              <div class="carte-table">
+                <table class="table-admin">
+                  <thead><tr><th data-titre>Bénéfice imposable</th><th class="dot-montant">Taux</th><th class="dot-montant">Salaire max. employé</th><th class="dot-montant">Salaire max. patron</th><th class="dot-montant">Prime max. employé</th><th class="dot-montant">Prime max. patron</th></tr></thead>
+                  <tbody id="corps-table-dot-bareme"></tbody>
+                </table>
+              </div>
+            </div>
+            <div>
+              <h4 class="dot-sous-titre">Impôt sur la richesse</h4>
+              <div class="carte-table">
+                <table class="table-admin">
+                  <thead><tr><th data-titre>Solde bancaire</th><th class="dot-montant">Taux ajouté</th></tr></thead>
+                  <tbody id="corps-table-dot-bareme-richesse"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+  </main>
+
+<div class="modale-fond cache" id="modale-import-tablette" data-echap>
+  <div class="modale modale-import-tablette" style="max-width:1100px;" role="dialog" aria-modal="true" aria-labelledby="titre-modale-import-tablette">
+    <div class="modale-entete">
+      <h3 id="titre-modale-import-tablette">Importer un relevé — Tablettes</h3>
+      <button type="button" id="fermer-modale-import-tablette" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-import"></div>
+    <div class="import-tablette-corps">
+      <div class="champ">
+        <label for="import-tablette-texte">Collez vos données ici</label>
+        <p class="champ-aide" style="margin-top:-4px;">
+          Le plus fiable : copiez les cellules directement depuis Excel, Google Sheets ou un tableau similaire, puis collez-les ici (Ctrl+V) — la première ligne doit contenir les titres des colonnes.
+          Si vous tapez ou collez un texte à espaces (par exemple depuis Discord) et qu'une ligne comme « TOTAL » n'a pas de valeur pour une colonne, mettez un tiret « - » à cet endroit avant de coller, sinon les colonnes suivantes risquent de se décaler — vérifiez toujours l'aperçu ci-dessous avant d'enregistrer.
+        </p>
+        <textarea id="import-tablette-texte" rows="18" wrap="off" style="font-family:monospace;font-size:var(--fs-2);white-space:pre;overflow-x:auto;" placeholder="Nom    Rang    Factures    Runs    Ventes    Total entreprise    Part employé    Heures de service
+Javier Silva    Co-patron    0    0    0    0    0    0h52min
+TOTAL    -    0    0    0    0    0    -"></textarea>
+      </div>
+      <div id="apercu-import-tablette" class="cache">
+        <p class="champ-aide" style="margin:14px 0 8px;">Aperçu — vérifiez que chaque valeur est dans la bonne colonne avant d'enregistrer :</p>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius-sm);">
+          <table class="table-admin" id="table-apercu-import"></table>
+        </div>
+      </div>
+    </div>
+    <div class="import-tablette-pied">
+      <button type="button" class="btn btn-or" id="bouton-enregistrer-import-tablette" disabled>Enregistrer ce tableau</button>
+      <button type="button" class="btn btn-fantome" id="bouton-annuler-import-tablette">Annuler</button>
+    </div>
+  </div>
+</div>
+<div class="modale-fond cache" id="modale-ecriture-dot" data-echap>
+  <div class="modale modale-ecriture-dot" role="dialog" aria-modal="true" aria-labelledby="titre-modale-ecriture-dot">
+    <div class="modale-entete">
+      <h3 id="titre-modale-ecriture-dot">Nouveau mouvement</h3>
+      <button type="button" id="fermer-modale-ecriture-dot" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-ecriture-dot"></div>
+    <form id="formulaire-ecriture-dot">
+      <div class="dot-modale-corps">
+      <fieldset class="dot-types">
+        <legend>Type de mouvement</legend>
+        <label class="dot-type"><input type="radio" name="ecriture-dot-type" value="recette"><span><strong>Recette exceptionnelle</strong><small>Don, vente hors Tablettes : s’ajoute au CA brut.</small></span></label>
+        <label class="dot-type"><input type="radio" name="ecriture-dot-type" value="depense"><span><strong>Dépense déductible</strong><small>Achat lié à l’activité : réduit le bénéfice imposable.</small></span></label>
+        <label class="dot-type"><input type="radio" name="ecriture-dot-type" value="retrait"><span><strong>Retrait</strong><small>Argent sorti du compte : réduit le bénéfice net, pas l’impôt.</small></span></label>
+      </fieldset>
+      <div class="champ">
+        <label for="ecriture-dot-justificatif">Justificatif</label>
+        <input type="text" id="ecriture-dot-justificatif" required maxlength="200" placeholder="ex. : Permis d’exploitation" autocomplete="off">
+      </div>
+      <div class="dot-champs-ligne">
+        <div class="champ">
+          <label for="ecriture-dot-montant">Montant ($)</label>
+          <input type="number" id="ecriture-dot-montant" required min="0" step="1" inputmode="numeric" autocomplete="off">
+        </div>
+        <div class="champ">
+          <label for="ecriture-dot-date">Date <span class="champ-facultatif">(facultatif)</span></label>
+          <input type="text" id="ecriture-dot-date" placeholder="JJ/MM/AAAA" maxlength="10" autocomplete="off">
+        </div>
+      </div>
+      </div>
+      <div class="dot-modale-pied">
+        <button type="submit" class="btn btn-or">Ajouter le mouvement</button>
+        <button type="button" class="btn btn-fantome" id="annuler-modale-ecriture-dot">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <script src="/gestion/dot.js"></script>
+</body>
+</html>

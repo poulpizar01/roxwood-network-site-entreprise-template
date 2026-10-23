@@ -4,19 +4,20 @@
    gestion.coque('<rubrique>') après socle.js ; le menu est décrit une seule fois ici.
    permission : la rubrique n'apparaît qu'à qui la détient (le serveur applique la même règle : entreprise/index.ts → pages). */
 const GESTION_NAV = [
-  { groupe: 'Équipe' },
+  // « Mon compte » n'est pas une rubrique : on y va par le compte en bas du menu (ou l'avatar de la barre du haut)
   { cle: 'accueil', href: 'accueil.html', label: 'Accueil', icone: 'home' },
-  { cle: 'compte', href: 'compte.html', label: 'Mon compte', icone: 'user' },
   { cle: 'agenda', href: 'agenda.html', label: 'Agenda', icone: 'calendar' },
+  { groupe: 'Équipe' },
   { cle: 'quota', href: 'quota.html', label: 'Quota', icone: 'chart', permission: 'rh-voir' },
-  { groupe: 'Comptabilité' },
-  { cle: 'factures', href: 'factures.html', label: 'Factures', icone: 'receipt', permission: 'factures' },
-  { cle: 'paie', href: 'paie.html', label: 'Paie', icone: 'coins', permission: 'paie' },
-  { cle: 'comptabilite', href: 'comptabilite.html', label: 'DOT', icone: 'calc', permission: 'compta' },
-  { groupe: 'Direction' },
   { cle: 'rh', href: 'rh.html', label: 'Ressources humaines', icone: 'users', permission: 'rh-voir' },
+  { groupe: 'Comptabilité' },
+  { cle: 'facturation', href: 'facturation.html', label: 'Facturation', icone: 'receipt', permission: 'factures' },
+  { cle: 'paie', href: 'paie.html', label: 'Paie', icone: 'coins', permission: 'paie' },
+  { cle: 'dot', href: 'dot.html', label: 'DOT', icone: 'calc', permission: 'compta' },
+  // réglages, en dernier : on y vient rarement, ils ne passent pas avant le travail de tous les jours
+  { groupe: 'Administration' },
   { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'grade', permission: 'grades' },
-  { cle: 'comptes', href: 'comptes.html', label: 'Comptes & accès', icone: 'lock', permission: 'comptes' },
+  { cle: 'comptes', href: 'comptes.html', label: 'Comptes', icone: 'lock', permission: 'comptes' },
   { cle: 'parametres', href: 'parametres.html', label: 'Paramètres', icone: 'gear', permission: 'parametres' },
   { groupe: 'Site' },
   // le site public (même onglet)
@@ -59,6 +60,7 @@ const GESTION_ICONES = {
   grade: '<path d="M5 16l7-6 7 6"/><path d="M5 10l7-6 7 6"/>',
   upload: '<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
   download: '<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
+  points: '<circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/>',
 };
 const ico = nom => `<svg class="ico" aria-hidden="true"><use href="#ico-${nom}"></use></svg>`;
 
@@ -198,6 +200,32 @@ window.gestion = {
   ligneEnService,
   ordreEnService,
 
+  // Tri de colonne pour un tableau ou une liste en grille, réinitialisable sans recharger la page : un premier clic
+  // sur une colonne trie en croissant, un second en décroissant, un troisième revient à l'ordre d'origine (aucun
+  // tri). defaut (facultatif) ne sert qu'au premier affichage, avant tout clic ; il n'intervient plus ensuite — y
+  // revenir au 3e clic semblait pratique, mais bloquait le cycle en boucle sur sa propre colonne quand defaut
+  // trie en décroissant (l'état « déjà au point de départ » se confondait avec l'état « à réinitialiser »).
+  // comparateurs : { cle: (a, b) => nombre }.
+  creerTri(comparateurs, defaut = null) {
+    let etat = defaut ? { ...defaut } : null;
+    return {
+      get etat() { return etat; },
+      cycler(cle) {
+        etat = !etat || etat.cle !== cle ? { cle, sens: 1 } : etat.sens > 0 ? { cle, sens: -1 } : null;
+      },
+      appliquer(liste) {
+        return etat ? [...liste].sort((a, b) => comparateurs[etat.cle](a, b) * etat.sens) : liste;
+      },
+      // bouton d'en-tête triable à poser dans un <th> (ou une cellule de grille) ; le clic (data-tri) appelle cycler()
+      bouton(cle, libelle) {
+        const actif = etat?.cle === cle;
+        const sens = actif ? etat.sens : 0;
+        return `<button type="button" class="tri-colonne${actif ? ' actif' : ''}" data-tri="${cle}" aria-sort="${actif ? (sens > 0 ? 'ascending' : 'descending') : 'none'}"
+          aria-label="Trier par ${libelle.toLowerCase()}${actif ? (sens > 0 ? ', ordre croissant' : ', ordre décroissant') : ''}">${echapper(libelle)}<span class="tri-colonne-fleche">${fleche(actif ? (sens > 0 ? 'haut' : 'bas') : 'hautbas')}</span></button>`;
+      },
+    };
+  },
+
   // construit la coque autour de <main class="admin-contenu"> et renvoie le compte connecté
   async coque(rubrique) {
     const sprite = document.createElement('div');
@@ -229,7 +257,7 @@ window.gestion = {
       <a href="accueil.html" class="admin-barre-haut-logo admin-marque">${marque}</a>
       <button type="button" class="admin-service-indic admin-service-indic--haut cache" data-service-indic="court" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-en-service">
         <span class="pastille-service" aria-hidden="true"></span><span data-service-texte></span></button>
-      <span data-avatar></span>`;
+      <a href="compte.html" class="admin-barre-haut-compte" data-avatar aria-label="Mon compte"></a>`;
     const dessiner = (moi) => {
       // un groupe sans aucune rubrique visible n'est pas affiché
       const visibles = GESTION_NAV.filter(l => l.groupe || !l.permission || socle.peut(moi, l.permission));
@@ -239,8 +267,9 @@ window.gestion = {
       const nom = moi.nom || moi.pseudo;
       const grade = moi.grade?.libelle || (moi.proprietaire ? 'Propriétaire' : 'Sans grade');
       const avatar = moi.avatar ? `<img class="admin-avatar" src="${socle.esc(moi.avatar)}" alt="">` : `<span class="admin-avatar" aria-hidden="true">${socle.esc(initiales(nom))}</span>`;
-      barre.querySelector('[data-compte]').innerHTML = `${avatar}
-        <div class="admin-compte-texte"><strong>${socle.esc(nom)}</strong><span class="admin-compte-grade">${socle.esc(grade)}</span></div>
+      const ici = rubrique === 'compte';
+      barre.querySelector('[data-compte]').innerHTML = `<a class="admin-compte-lien${ici ? ' actif' : ''}" href="compte.html"${ici ? ' aria-current="page"' : ''} aria-label="Mon compte : ${socle.esc(nom)}">${avatar}
+        <div class="admin-compte-texte"><strong>${socle.esc(nom)}</strong><span class="admin-compte-grade">${socle.esc(grade)}</span></div></a>
         <button type="button" class="admin-icone-bouton" data-deconnexion title="Se déconnecter" aria-label="Se déconnecter">${ico('logout')}</button>`;
       haut.querySelector('[data-avatar]').innerHTML = avatar;
     };
@@ -347,10 +376,20 @@ window.gestion = {
       fond.addEventListener('click', e => { if (e.target === fond) fin(false); });
       document.addEventListener('keydown', clavier, true);
       document.body.append(fond);
+      verrouillerDefilement(true);
       boutons[0].focus();
-    });
+    }).finally(() => verrouillerDefilement(false));
   },
 };
+
+// Défilement de la page bloqué tant qu'une fenêtre reste ouverte (confirmation comprise) : sans ça, la page derrière
+// une fenêtre position:fixed continue de défiler sous le doigt sur mobile — l'overlay ne suffit pas à l'empêcher.
+// Compteur : plusieurs fenêtres peuvent s'empiler (une confirmation par-dessus un formulaire).
+let FENETRES_OUVERTES = 0;
+function verrouillerDefilement(ouvre) {
+  FENETRES_OUVERTES = Math.max(0, FENETRES_OUVERTES + (ouvre ? 1 : -1));
+  document.documentElement.classList.toggle('defilement-bloque', FENETRES_OUVERTES > 0);
+}
 
 // Tableaux adaptatifs : un tableau (.table-admin) qui ne tient plus dans sa largeur devient une grille de cartes
 // (classe en-cartes, styles dans gestion.css) au lieu de défiler de côté. Chaque cellule reçoit l'intitulé de sa
@@ -905,7 +944,8 @@ document.addEventListener('keydown', ev => {
     for (const m of mutations) {
       if (m.type !== 'attributes' || !m.target.classList?.contains('modale-fond')) continue;
       const visible = !m.target.classList.contains('cache'), avant = !String(m.oldValue || '').split(/\s+/).includes('cache');
-      if (visible && !avant) ouverte(m.target); else if (!visible && avant) fermee(m.target);
+      if (visible && !avant) { verrouillerDefilement(true); ouverte(m.target); }
+      else if (!visible && avant) { verrouillerDefilement(false); fermee(m.target); }
     }
   }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'], attributeOldValue: true });
 })();

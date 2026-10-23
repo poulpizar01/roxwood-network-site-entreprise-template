@@ -73,8 +73,11 @@ grades.patch('/api/grades/:cle', ...permission('grades'), async (req, res) => {
   if (b.permissions !== undefined) {
     const perms = lirePermissions(b.permissions);
     if (!perms) { res.status(400).json({ error: 'Permissions invalides.' }); return; }
-    // on ne peut ni ajouter ni retirer une permission qu'on n'a pas (sinon un gestionnaire limité retirerait celles des autres)
-    const changees = [...perms.filter(p => !g.permissions.includes(p)), ...g.permissions.filter(p => !perms.includes(p))];
+    // on ne peut ni ajouter ni retirer une permission qu'on n'a pas (sinon un gestionnaire limité retirerait celles des autres).
+    // actuelles : filtrées comme permissionsDe() — une clé retirée du code (plus dans CLES_PERMISSIONS) ne compte déjà plus pour
+    // personne ; la considérer encore « détenue » par le grade l'aurait rendue impossible à retirer, même pour le propriétaire.
+    const actuelles = g.permissions.filter(p => CLES_PERMISSIONS.has(p));
+    const changees = [...perms.filter(p => !actuelles.includes(p)), ...actuelles.filter(p => !perms.includes(p))];
     if (!peutAccorder(moi, changees)) { res.status(403).json({ error: 'Tu ne peux changer que des permissions que tu détiens.' }); return; }
     data.permissions = perms;
   }

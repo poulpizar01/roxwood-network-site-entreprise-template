@@ -9,7 +9,7 @@ import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { entierRegle } from './parametres.js';
 import { nomComplet } from './rh.js';
-import { debutSemaineParis, normaliserPseudo, versJour } from './texte.js';
+import { debutSemaineParis, jourDeSemaineParis, normaliserPseudo } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -131,8 +131,8 @@ export async function classementFactures(semaineDemandee?: string) {
     .sort((a, b) => a.position - b.position || a.nomComplet.localeCompare(b.nomComplet, 'fr'));
   const classement = [...lignes].filter(l => l.montant > 0).sort((a, b) => b.montant - a.montant).slice(0, 5);
   return {
-    debutSemaine: versJour(debut),
-    semaineCourante: versJour(semaineCourante),
+    debutSemaine: jourDeSemaineParis(debut),
+    semaineCourante: jourDeSemaineParis(semaineCourante),
     montantSemaine: total._sum.total ?? 0,
     objectifEquipe: entierRegle('facture_objectif_hebdo'),
     employes: lignes.map(({ position, ...l }) => l),

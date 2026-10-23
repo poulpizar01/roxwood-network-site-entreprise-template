@@ -28,3 +28,7 @@ export const debutSemaineParis = (jour?: string): Date => {
   lundi.setUTCDate(lundi.getUTCDate() - ((lundi.getUTCDay() + 6) % 7));
   return new Date(lundi.getTime() - decalageParis(lundi) * 60000);
 };
+// jour (AAAA-MM-JJ) d'un instant renvoyé par debutSemaineParis : jamais versJour() (toISOString()) dessus — Paris
+// étant toujours en avance sur UTC, cet instant (minuit à Paris) tombe la veille en UTC, et versJour renverrait donc
+// le dimanche au lieu du lundi. Relire le jour en heure de Paris, comme la date du jour elle-même (jourParis).
+export const jourDeSemaineParis = (d: Date): string => jourParis(d);

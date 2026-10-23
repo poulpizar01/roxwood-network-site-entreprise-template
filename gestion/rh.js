@@ -11,7 +11,6 @@ let GRADES_ATTRIBUABLES = [];   // clés des grades qu'on peut donner (sous le s
 let DROITS_RH = new Set();
 let FICHE_OUVERTE = null;   // id de la fiche en cours d'édition ; null = création
 let FILTRE_STATUT = 'actif';
-let TRI = { cle: 'grade', sens: 1 };   // colonne et sens du tri de la liste
 const A_FAIRE = { completer: 0, candidatures: 0 };
 
 const aDroitRh = droit => DROITS_RH.has(droit);
@@ -75,6 +74,7 @@ const COMPARER = {
   arrivee: (a, b) => String(a.dateArrivee || '9999').localeCompare(String(b.dateArrivee || '9999')),
 };
 const COLONNES = [['nom', 'Employé'], ['grade', 'Grade'], ['discord', 'Discord'], ['arrivee', 'Arrivée']];
+const TRI = gestion.creerTri(COMPARER, { cle: 'grade', sens: 1 });   // trié par grade avant tout clic
 
 function choisirStatut(statut) {
   FILTRE_STATUT = statut;
@@ -91,15 +91,10 @@ function afficherEmployes() {
     const s = b.dataset.nbStatut;
     b.textContent = CACHE_EMPLOYES.filter(e => s === 'a-completer' ? e.aCompleter && e.statut === 'actif' : !s || e.statut === s).length;
   }
-  const liste = CACHE_EMPLOYES.filter(e => correspond(e) && (!grade || e.grade === grade)
-    && (!recherche || [e.nomComplet, e.idUnique, e.discordPseudo, e.discordId].some(v => String(v || '').toLowerCase().includes(recherche))))
-    .sort((a, b) => COMPARER[TRI.cle](a, b) * TRI.sens);
+  const liste = TRI.appliquer(CACHE_EMPLOYES.filter(e => correspond(e) && (!grade || e.grade === grade)
+    && (!recherche || [e.nomComplet, e.idUnique, e.discordPseudo, e.discordId].some(v => String(v || '').toLowerCase().includes(recherche)))));
 
-  const entete = COLONNES.map(([cle, libelle]) => {
-    const actif = TRI.cle === cle;
-    return `<button type="button" class="rh-tri${actif ? ' actif' : ''}" data-tri="${cle}" aria-sort="${actif ? (TRI.sens > 0 ? 'ascending' : 'descending') : 'none'}"
-      aria-label="Trier par ${libelle.toLowerCase()}${actif ? (TRI.sens > 0 ? ', ordre croissant' : ', ordre décroissant') : ''}">${libelle}<span class="rh-tri-fleche">${fleche(actif ? (TRI.sens > 0 ? 'haut' : 'bas') : 'hautbas')}</span></button>`;
-  }).join('');
+  const entete = COLONNES.map(([cle, libelle]) => TRI.bouton(cle, libelle)).join('');
 
   const lignes = liste.map(e => {
     const etiquettes = [
@@ -121,14 +116,14 @@ function afficherEmployes() {
       <span class="rh-cellule" data-libelle="Discord">${e.discordPseudo ? `${echapper(e.discordPseudo)}` : '<span class="comptes-discret">—</span>'}${e.discordId ? `<span class="rh-id-discord">${echapper(e.discordId)}</span>` : ''}</span>
       <span class="rh-cellule" data-libelle="Arrivée">${dateCourte(e.dateArrivee)}</span>
       <div class="comptes-menu">
-        <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(e.nomComplet)}">⋯</button>
+        <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(e.nomComplet)}">${gestion.ico('points')}</button>
         <div class="comptes-menu-liste cache" role="menu">${actions}</div>
       </div>
     </div>`;
   }).join('');
 
   $rh('rh-liste').innerHTML = liste.length
-    ? `<div class="comptes-entete rh-entete">${entete}<span></span></div>${lignes}`
+    ? `<div class="comptes-entete entete-tri">${entete}<span></span></div>${lignes}`
     : `<p class="comptes-vide">${CACHE_EMPLOYES.length ? 'Aucun employé ne correspond à ces critères.' : 'Aucune fiche pour le moment. Ajoutez un membre pour commencer.'}</p>`;
 }
 $rh('recherche-employes').addEventListener('input', afficherEmployes);
@@ -148,9 +143,9 @@ function fermerMenuRh(rendreFocus) {
 $rh('rh-liste').addEventListener('click', e => {
   const tri = e.target.closest('[data-tri]');
   if (tri) {
-    TRI = TRI.cle === tri.dataset.tri ? { cle: TRI.cle, sens: -TRI.sens } : { cle: tri.dataset.tri, sens: 1 };
+    TRI.cycler(tri.dataset.tri);
     afficherEmployes();
-    document.querySelector(`[data-tri="${TRI.cle}"]`)?.focus();
+    document.querySelector(`[data-tri="${TRI.etat?.cle ?? tri.dataset.tri}"]`)?.focus();
     return;
   }
   const ouvreur = e.target.closest('.comptes-menu-bouton');

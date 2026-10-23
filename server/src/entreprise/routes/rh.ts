@@ -3,7 +3,8 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type { Employe } from '../../generated/prisma/client.js';
 import { prisma } from '../../socle/db.js';
-import { auDessusDe, gradeDe } from '../../socle/droits.js';
+import { auDessusDe, gradeDe, peut } from '../../socle/droits.js';
+import { actualiserGrades } from '../../socle/grades-imposes.js';
 import { body, intParam, permission } from '../../socle/http.js';
 import { arriveesBot, droitsRh, ecarter, fichePublique, gradesEmployes, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
@@ -23,6 +24,17 @@ const exiger = (droit: DroitRh, message: string) => (req: Request, res: Response
 function pasSaPropreFiche(req: Request, discordId: string | null | undefined) {
   if (!req.compte.proprietaire && discordId && discordId === req.compte.discordId) {
     throw new Refus('Votre propre fiche est créée ou reliée à votre compte Discord par un supérieur.', 403);
+  }
+}
+
+// Le grade d'une fiche active est celui du compte sur le site (index.ts, gradesImposes). Donner un autre grade à un
+// compte déjà validé, c'est changer ses droits, comme dans Comptes : il faut aussi la permission « comptes ». Un compte
+// en attente n'a aucun droit tant qu'il n'est pas validé (dans Comptes, donc par quelqu'un qui l'a).
+async function verifierDroitsDuCompte(req: Request, discordId: string | null | undefined, gradeCle: string) {
+  if (!discordId || peut(req.compte, 'comptes')) return;
+  const c = await prisma.compte.findUnique({ where: { discordId }, select: { statut: true, gradeCle: true } });
+  if (c?.statut === 'valide' && c.gradeCle !== gradeCle) {
+    throw new Refus('Ce grade change les droits sur le site d’un compte déjà validé : il faut aussi la permission « Gérer les comptes ».', 403);
   }
 }
 
@@ -64,8 +76,10 @@ rh.post('/api/rh/employes', ...voir, exiger('creer', 'Vous n’avez pas le droit
   const champs = lireChamps(b, null);
   verifierHierarchie(req.compte, null, champs.gradeCle);
   pasSaPropreFiche(req, champs.discordId);
+  if (champs.gradeCle) await verifierDroitsDuCompte(req, champs.discordId, champs.gradeCle);
   await verifierUnicite(champs);
   const e = await prisma.employe.create({ data: { statut: 'actif', ...champs } as Parameters<typeof prisma.employe.create>[0]['data'] }).catch(refusUnicite);
+  await actualiserGrades([e.discordId]);
   res.status(201).json({ id: e.id });
 }));
 
@@ -84,8 +98,11 @@ rh.patch('/api/rh/employes/:id', ...voir, exiger('modifier', 'Vous n’avez pas 
   pasSaPropreFiche(req, champs.discordId);
   if (champs.idUnique && champs.idUnique !== existante.idUnique) champs.idProvisoire = false;
   if (!Object.keys(champs).length) throw new Refus('Rien à modifier.');
+  const apres = { discordId: champs.discordId !== undefined ? champs.discordId : existante.discordId, gradeCle: champs.gradeCle ?? existante.gradeCle, statut: champs.statut ?? existante.statut };
+  if (apres.statut === 'actif') await verifierDroitsDuCompte(req, apres.discordId, apres.gradeCle);
   await verifierUnicite(champs, id);
   await prisma.employe.update({ where: { id }, data: champs }).catch(refusUnicite);
+  await actualiserGrades([existante.discordId, apres.discordId]);   // l'ancien compte relié perd le grade de la fiche
   res.json({ ok: true });
 }));
 
@@ -102,8 +119,9 @@ async function changerStatut(req: Request, res: Response, statut: 'actif' | 'ina
     if (!jourValide(v)) throw new Refus('La date de départ doit être une date valide (AAAA-MM-JJ).');
     dateDepart = versDate(v);
     if (e.dateArrivee && dateDepart < e.dateArrivee) throw new Refus('La date de départ ne peut pas précéder la date d’arrivée.');
-  }
+  } else await verifierDroitsDuCompte(req, e.discordId, e.gradeCle);   // réactiver redonne le grade de la fiche
   await prisma.employe.update({ where: { id: e.id }, data: { statut, dateDepart } });
+  await actualiserGrades([e.discordId]);   // départ : le compte retombe sur son rôle Discord
   res.json({ ok: true, employe: nomComplet(e) });
 }
 rh.post('/api/rh/employes/:id/desactiver', ...voir, exiger('desactiver', 'Vous n’avez pas le droit de désactiver un employé.'), traiter((req, res) => changerStatut(req, res, 'inactif')));

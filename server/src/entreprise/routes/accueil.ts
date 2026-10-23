@@ -6,6 +6,7 @@ import { prisma } from '../../socle/db.js';
 import { peut } from '../../socle/droits.js';
 import { valide } from '../../socle/http.js';
 import { EN_SUSPENS } from '../rh.js';
+import { debutSemaineParis } from '../texte.js';
 
 export const accueil = Router();
 
@@ -21,6 +22,12 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
   if (peut(c, 'rh-voir') && peut(c, 'rh-creer')) {
     const n = await prisma.arriveeBot.count({ where: { resultat: { in: EN_SUSPENS } } });
     if (n) taches.push({ cle: 'candidatures', nombre: n, texte: `${pluriel(n, 'candidature')} à traiter`, lien: 'rh.html#rh-bot' });
+  }
+  if (peut(c, 'factures')) {
+    // semaine en cours seulement : Facturation n'affiche qu'une semaine à la fois, le lien doit montrer ce qu'il compte
+    // mêmes statuts que la catégorie « En attente » de Facturation (facturation.js, CATEGORIES_STATUT)
+    const n = await prisma.facture.count({ where: { statutPaiement: { in: ['EN_ATTENTE', 'UNPAID'] }, dateFacture: { gte: debutSemaineParis() } } });
+    if (n) taches.push({ cle: 'factures', nombre: n, texte: `${pluriel(n, 'facture')} en attente de paiement cette semaine`, lien: 'facturation.html?statut=attente' });
   }
   res.json({ taches });
 });

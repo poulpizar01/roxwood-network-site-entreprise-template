@@ -5,6 +5,7 @@ import type { Compte } from '../../generated/prisma/client.js';
 import { body, connecte, intParam, permission, text, valide } from '../http.js';
 import { auDessusDe, gradeDe, permissions, permissionsDe, rang } from '../droits.js';
 import { entreprise } from '../../entreprise/index.js';
+import { gradesImposes, type GradeImpose } from '../grades-imposes.js';
 
 export const comptes = Router();
 
@@ -14,10 +15,12 @@ const grade = (cle: string | null) => {
   return g ? { cle: g.cle, libelle: g.libelle, couleur: g.couleur } : null;
 };
 // compte tel qu'exposé à la gestion (jamais de session, jamais de donnée de l'entreprise)
-const comptePublic = (c: Compte) => ({
+// gradeImpose : raison (« Fiche RH ») quand l'entreprise fixe le grade (grades-imposes.ts) — il ne se change pas ici
+const comptePublic = (c: Compte, impose?: GradeImpose) => ({
   id: c.id, discordId: c.discordId, pseudo: c.pseudo, nom: c.nom, avatar: avatar(c), statut: c.statut,
   proprietaire: c.proprietaire, grade: grade(c.gradeCle), creeLe: c.creeLe, connecteLe: c.connecteLe, valideLe: c.valideLe,
   quitteLe: c.quitteLe,   // parti du serveur Discord (vu par le bot, synchro-discord.ts)
+  gradeImpose: impose?.raison ?? null,
 });
 
 // suppression d'un compte : d'abord ce que l'entreprise lui rattache, puis le compte, dans une seule transaction
@@ -65,7 +68,8 @@ comptes.get('/api/annuaire', ...valide, async (_req, res) => {
 // ---------- gestion des comptes ----------
 comptes.get('/api/comptes', ...permission('comptes'), async (_req, res) => {
   const liste = await prisma.compte.findMany({ orderBy: { creeLe: 'desc' } });
-  res.json(liste.map(comptePublic));
+  const imposes = await gradesImposes(liste.map(c => c.discordId));
+  res.json(liste.map(c => comptePublic(c, imposes.get(c.discordId))));
 });
 
 // valider / refuser, renommer, changer de grade. Hors propriétaire : seulement un compte sous son propre grade, vers un
@@ -90,14 +94,16 @@ comptes.patch('/api/comptes/:id', ...permission('comptes'), async (req, res) => 
     if (!nom) { res.status(400).json({ error: 'Le nom ne peut pas être vide.' }); return; }
     data.nom = nom;
   }
+  const impose = (await gradesImposes([cible.discordId])).get(cible.discordId);
   if (b.grade !== undefined) {
+    if (impose) { res.status(409).json({ error: `Le grade de ce compte est fixé par : ${impose.raison}. Changez-le là-bas.` }); return; }
     const cle = b.grade === null || b.grade === '' ? null : String(b.grade);
     if (cle !== null && !gradeDe(cle)) { res.status(400).json({ error: 'Grade inconnu.' }); return; }
     if (cle !== null && !auDessusDe(moi, cle)) { res.status(403).json({ error: 'Tu ne peux attribuer qu’un grade inférieur au tien.' }); return; }
     data.gradeCle = cle;
   }
   const c = await prisma.compte.update({ where: { id: cible.id }, data });
-  res.json(comptePublic(c));
+  res.json(comptePublic(c, impose));
 });
 
 comptes.delete('/api/comptes/:id', ...permission('comptes'), async (req, res) => {

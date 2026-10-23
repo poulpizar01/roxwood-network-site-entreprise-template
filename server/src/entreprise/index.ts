@@ -1,6 +1,8 @@
 // ENTREPRISE — ce que ce site branche sur le socle (contrat : src/socle/contrat.ts).
 // Tout src/entreprise/ est libre : ajouter des routes (routes/), des modules métier, des tâches planifiées.
 import type { Entreprise } from '../socle/contrat.js';
+import { prisma } from '../socle/db.js';
+import { actualiserGrades } from '../socle/grades-imposes.js';
 import { simulerBotsDiscord } from './discord-simulation.js';
 import { planifierNettoyageImages } from './images-retirees.js';
 import { PARAMETRES } from './parametres.js';
@@ -9,6 +11,7 @@ import { recevoirFactureCommande, recevoirFactureMonitoring } from './facture.js
 import { recevoirCandidature } from './rh.js';
 import { recevoirRun } from './run.js';
 import { planifierServices, recevoirDuty } from './services.js';
+import { planifierVerrouillageDot } from './verrouillage-dot.js';
 import { accueil } from './routes/accueil.js';
 import { agenda } from './routes/agenda.js';
 import { apparence } from './routes/apparence.js';
@@ -30,8 +33,8 @@ export const entreprise: Entreprise = {
     grades: 'grades',
     rh: 'rh-voir',
     quota: 'rh-voir',
-    comptabilite: 'compta',
-    factures: 'factures',
+    dot: 'compta',
+    facturation: 'factures',
     paie: 'paie',
     parametres: 'parametres',
   },
@@ -92,10 +95,20 @@ export const entreprise: Entreprise = {
     });
   },
 
+  // une seule vérité pour le grade : celui de la fiche RH active donne les droits sur le site (socle/grades-imposes.ts)
+  gradesImposes: async discordIds => {
+    const fiches = await prisma.employe.findMany({ where: { statut: 'actif', discordId: { in: discordIds } }, select: { discordId: true, gradeCle: true } });
+    return new Map(fiches.map(f => [f.discordId as string, { grade: f.gradeCle, raison: 'Fiche RH' }]));
+  },
+
   demarrage: async () => {
+    // fiches actives : grade du compte aligné dès le démarrage (fiches créées avant cette règle, base restaurée)
+    const fiches = await prisma.employe.findMany({ where: { statut: 'actif', discordId: { not: null } }, select: { discordId: true } });
+    await actualiserGrades(fiches.map(f => f.discordId));
     planifierNettoyageImages();
     planifierPurge();
     planifierServices();
+    planifierVerrouillageDot();
     simulerBotsDiscord();   // développement seulement (DISCORD_BOT_TOKEN=simulation)
   },
 };

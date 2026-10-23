@@ -8,7 +8,7 @@ const carteChiffre = (libelle, valeur, accent) => `<div class="compta-chiffre${a
   <span class="compta-chiffre-libelle">${libelle}</span><strong>${valeur}</strong></div>`;
 
 // ---- semaine (données réelles) : lundi (AAAA-MM-JJ, calendrier Paris) de la semaine en cours par défaut, navigation
-// vers le passé seulement (même recette que Quota et Factures, quota.js/factures.js) ; numéro ISO affiché en plus
+// vers le passé seulement (même recette que Quota et Factures, quota.js/facturation.js) ; numéro ISO affiché en plus
 // de la plage de dates, comme demandé pour ce champ précis. ----
 const jourParisISO = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(d);
 function lundiDe(iso) {
@@ -75,9 +75,11 @@ function afficherGrades() {
       : `<span class="grades-tag">Aucun palier facture</span>`;
     return `<li class="grades-ligne${peut ? '' : ' verrouille'}" data-cle="${echapper(g.cle)}">
       <button type="button" class="grades-principal" data-ouvrir-paie ${peut ? '' : 'disabled'}>
-        <span class="pastille-grade" style="background:${echapper(couleurDe(g.cle))}"></span>
-        <span class="grades-nom">${echapper(g.libelle)}</span>
-        <span class="grades-tags">${tagSalaire}${tagRun}${tagFacture}</span>
+        <span class="grades-info">
+          <span class="pastille-grade" style="background:${echapper(couleurDe(g.cle))}"></span>
+          <span class="grades-nom">${echapper(g.libelle)}</span>
+          <span class="grades-tags">${tagSalaire}${tagRun}${tagFacture}</span>
+        </span>
         <span class="grades-suite" aria-hidden="true">${peut ? fleche('suivant') : 'Au-dessus de vous'}</span>
       </button>
     </li>`;

@@ -22,14 +22,14 @@
     <div class="entete-admin">
       <div>
         <h1 style="margin-bottom:2px;" id="bonjour">Bonjour</h1>
-        <p style="margin:0;font-size:0.88rem;" id="date-du-jour">Bienvenue dans l’espace de gestion de {{nom}}.</p>
+        <p style="margin:0;font-size:var(--fs-3);" id="date-du-jour">Bienvenue dans l’espace de gestion de {{nom}}.</p>
       </div>
     </div>
     <div id="zone-message"></div>
     <!-- en attendant les données : une silhouette de la page, puis tout s'affiche d'un coup (les blocs ne se poussent
          plus les uns les autres en arrivant) -->
     <div class="accueil-attente" id="accueil-attente" aria-hidden="true">
-      <div class="accueil-panneaux"><div class="accueil-panneau squelette"></div><div class="accueil-panneau squelette"></div></div>
+      <div class="accueil-panneaux"><div class="accueil-panneau squelette"></div><div class="accueil-panneau squelette"></div><div class="accueil-panneau squelette"></div></div>
     </div>
     <div class="accueil-corps" id="accueil-corps" aria-busy="true">
     <section class="accueil-a-traiter cache" id="a-traiter" aria-labelledby="titre-a-traiter">
@@ -37,6 +37,14 @@
       <ul id="a-traiter-liste"></ul>
     </section>
     <div class="accueil-panneaux">
+      <!-- la semaine en chiffres : mon run (fiche RH), puis l'équipe et son écart avec la semaine d'avant (rh-voir) -->
+      <section class="accueil-panneau cache" aria-labelledby="titre-semaine" id="panneau-semaine">
+        <div class="accueil-panneau-entete">
+          <h2 id="titre-semaine">Cette semaine</h2>
+          <a href="quota.html" class="cache" id="lien-quota">Voir le quota</a>
+        </div>
+        <ul class="accueil-liste accueil-chiffres" id="semaine"></ul>
+      </section>
       <section class="accueil-panneau" aria-labelledby="titre-aujourdhui">
         <div class="accueil-panneau-entete">
           <h2 id="titre-aujourdhui">Aujourd’hui</h2>
@@ -68,6 +76,21 @@
     const jourLisible = j => new Date(`${j}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
     const ligneVide = texte => `<li class="accueil-vide">${texte}</li>`;
     const SERVICE_VISIBLES = 8;
+    const montant = n => `${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} $`;
+    // lundi d'une semaine (AAAA-MM-JJ), décalé de n semaines ; même calcul que quota.js (jours en UTC, midi évite l'heure d'été)
+    const lundi = (j, n = 0) => { const d = new Date(`${j}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7 + 7 * n); return d.toISOString().slice(0, 10); };
+    // une ligne de chiffre : libellé, valeur / objectif, barre (couleurs de Quota : rouge à 0, orange en cours, vert atteint),
+    // et l'écart avec la semaine d'avant quand on le connaît
+    function ligneChiffre(libelle, valeur, objectif, format, avant, semaineAvant) {
+      const etat = objectif <= 0 ? 'gris' : valeur <= 0 ? 'rouge' : valeur < objectif ? 'orange' : 'vert';
+      const pct = objectif > 0 ? Math.min(100, Math.round(valeur / objectif * 100)) : 0;
+      const ecart = avant == null ? '' : valeur - avant;
+      const texteEcart = ecart === '' ? '' : `<span class="accueil-ecart accueil-ecart--${ecart > 0 ? 'hausse' : ecart < 0 ? 'baisse' : 'egal'}">${ecart > 0 ? '+' : ecart < 0 ? '−' : ''}${socle.esc(format(Math.abs(ecart)))} par rapport à la semaine du ${socle.esc(jourLisible(semaineAvant).replace(/^\S+ /, ''))}</span>`;
+      return `<li><span class="accueil-chiffre-libelle">${socle.esc(libelle)}</span>
+        <span class="accueil-chiffre-valeur">${socle.esc(format(valeur))}${objectif > 0 ? `<small> / ${socle.esc(format(objectif))}</small>` : ''}</span>
+        ${objectif > 0 ? `<div class="run-barre run-etat-${etat}" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="${socle.esc(libelle)} : objectif"><div class="run-barre-remplie run-etat-${etat}" style="width:${pct}%"></div></div>` : ''}
+        ${texteEcart}</li>`;
+    }
 
     gestion.coque('accueil').then(async moi => {
       document.getElementById('bonjour').textContent = `Bonjour, ${moi.nom || moi.pseudo}`;
@@ -75,11 +98,26 @@
       document.getElementById('date-du-jour').textContent = jour.charAt(0).toUpperCase() + jour.slice(1);
 
       // chaque bloc se charge seul : une erreur dans l'un n'empêche pas d'afficher les autres
-      const [taches, agenda, service] = await Promise.allSettled([
+      const equipe = socle.peut(moi, 'rh-voir'), avant = lundi(aujourdhui, -1);
+      const [taches, agenda, service, fiche, run, runAvant, fact, factAvant] = await Promise.allSettled([
         socle.api('/api/accueil/a-traiter'),
         socle.api(`/api/agenda?debut=${aujourdhui}&fin=${dansUneSemaine}`),
         socle.api('/api/services/en-cours'),
+        socle.api('/api/moi/fiche'),
+        ...(equipe ? [`/api/run?semaine=${lundi(aujourdhui)}`, `/api/run?semaine=${avant}`,
+          `/api/compta/factures/classement?semaine=${lundi(aujourdhui)}`, `/api/compta/factures/classement?semaine=${avant}`].map(u => socle.api(u)) : []),
       ]);
+
+      // cette semaine : chaque ligne n'apparaît que si sa donnée est arrivée ; panneau masqué s'il n'y en a aucune
+      const unites = n => `${n} unité${n > 1 ? 's' : ''}`;
+      const lignes = [];
+      const q = fiche.value?.quota;
+      if (q) lignes.push(ligneChiffre('Mon run', q.unites, q.quota, unites));
+      if (run?.value) lignes.push(ligneChiffre('Run de l’équipe', run.value.uniteSemaine, run.value.objectifEquipe, unites, runAvant.value?.uniteSemaine, avant));
+      if (fact?.value) lignes.push(ligneChiffre('Facturé par l’équipe', fact.value.montantSemaine, fact.value.objectifEquipe, montant, factAvant.value?.montantSemaine, avant));
+      document.getElementById('semaine').innerHTML = lignes.join('');
+      document.getElementById('panneau-semaine').classList.toggle('cache', !lignes.length);
+      document.getElementById('lien-quota').classList.toggle('cache', !equipe);
 
       // à traiter : une ligne par action, vers la page qui la traite ; bloc masqué s'il n'y a rien
       const liste = taches.value?.taches || [];
@@ -118,7 +156,7 @@
       }
       document.getElementById('accueil-attente').remove();
       document.getElementById('accueil-corps').removeAttribute('aria-busy');
-      const erreur = [taches].find(r => r.status === 'rejected');
+      const erreur = [taches, run, fact].find(r => r?.status === 'rejected');
       if (erreur) gestion.message('zone-message', `Une partie de l’accueil n’a pas pu se charger (${erreur.reason.message}). Rechargez la page dans un instant.`);
     });
   </script>

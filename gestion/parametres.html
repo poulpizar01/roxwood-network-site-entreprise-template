@@ -16,14 +16,14 @@
 </head>
 <body class="page-agents">
   <!-- GESTION — paramètres du site (permission « parametres », serveur : entreprise/parametres.ts, socle/parametres.ts).
-       Un onglet par « onglet » déclaré côté serveur, plus Apparence ; chaque onglet s'enregistre à part et montre en tête
+       Un onglet par « onglet » déclaré côté serveur, plus Images ; chaque onglet s'enregistre à part et montre en tête
        l'état de ce qui en dépend. Un réglage Discord (rôle, salon, catégorie) se choisit par son nom quand le bot est
        relié au site (/api/parametres/discord), sinon par son identifiant. -->
   <main class="admin-contenu">
     <div class="entete-admin">
       <div>
         <h1 style="margin-bottom:2px;">Paramètres</h1>
-        <p style="margin:0;font-size:0.88rem;">Les liens et réglages du site. Chacun s’applique dès l’enregistrement.</p>
+        <p style="margin:0;font-size:var(--fs-3);">Les liens et réglages du site. Chacun s’applique dès l’enregistrement.</p>
       </div>
     </div>
     <div class="compta-sous-onglets" role="tablist" id="onglets"></div>
@@ -37,9 +37,9 @@
       </div>
     </form>
 
-    <!-- Apparence : images de la marque (serveur : entreprise/routes/apparence.ts) ; s'enregistrent aussitôt -->
+    <!-- Images : images de la marque (serveur : entreprise/routes/apparence.ts) ; s'enregistrent aussitôt -->
     <section id="panneau-apparence" class="cache" aria-labelledby="titre-apparence">
-      <h2 class="compta-titre" id="titre-apparence">Images de la marque</h2>
+      <h2 class="compta-titre" id="titre-apparence">Images de l’entreprise</h2>
       <p class="compta-aide" style="margin-bottom:16px;">Sur les pages publiques comme dans l’espace de gestion. Une image remplacée s’affiche partout aussitôt (quelques minutes pour les visiteurs déjà venus). Gardez les proportions de l’image d’origine pour qu’elle ne soit pas déformée.</p>
       <p class="compta-aide seulement-en-jeu" style="margin-bottom:16px;">En jeu, l’ordinateur ne permet pas toujours de choisir un fichier : si rien ne s’ouvre, ajoutez l’image depuis un navigateur, avec le même compte.</p>
       <div class="apparence-grille" id="apparence"></div>
@@ -50,7 +50,7 @@
   <script>
     const $ = id => document.getElementById(id);
     const ATTRIBUTS = { lien: 'type="url" placeholder="https://…"', origine: 'type="url" placeholder="https://…"', 'id-discord': 'type="text" inputmode="numeric"', 'ids-discord': 'type="text"' };
-    const APPARENCE = 'Apparence';
+    const APPARENCE = 'Images';
     let groupes = [], discord = { configure: false, roles: [], salons: [], categories: [] }, modifie = false;
     // onglet demandé par l'adresse (?onglet=Discord, depuis l'Accueil), sinon le premier
     let onglet = new URLSearchParams(location.search).get('onglet');

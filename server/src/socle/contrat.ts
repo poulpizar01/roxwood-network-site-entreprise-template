@@ -53,6 +53,11 @@ export type Entreprise = {
   avantSuppressionCompte?: (compteId: number, tx: Prisma.TransactionClient) => Promise<void>;
   // avant la suppression d'un grade, dans la même transaction : nettoyer les données liées à sa clé
   avantSuppressionGrade?: (gradeCle: string, tx: Prisma.TransactionClient) => Promise<void>;
+  // grade que l'entreprise impose à des comptes, par ID Discord (ex. celui de leur fiche RH active) : il l'emporte sur
+  // le rôle Discord et l'attribution à la main, et ne se change plus dans Comptes. raison : affichée à la place du
+  // choix du grade (« Fiche RH »). Un ID absent de la réponse suit les règles du socle. Après un changement de son
+  // côté, l'entreprise appelle actualiserGrades() (socle/grades-imposes.ts) pour l'appliquer sans attendre.
+  gradesImposes?: (discordIds: string[]) => Promise<Map<string, { grade: string; raison: string }>>;
   // au démarrage, après le chargement du socle (tâches planifiées, caches…)
   demarrage?: () => Promise<void>;
   // origines https supplémentaires autorisées par la politique de sécurité : exception à justifier (voir CLAUDE.md),

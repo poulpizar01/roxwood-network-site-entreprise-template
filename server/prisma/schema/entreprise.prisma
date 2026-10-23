@@ -239,19 +239,42 @@ model ImportCompta {
   @@map("compta_imports")
 }
 
-// Dépense déductible ou retrait de la semaine, saisis à la main pour la déclaration DOT.
+// Recette exceptionnelle, dépense déductible ou retrait, saisis à la main pour la déclaration DOT d'une semaine
+// (lundi de la semaine, calendrier Paris) : chaque semaine a son propre journal, jamais mélangé à la suivante. Un
+// mouvement ne se crée ou ne se supprime que sur la semaine en cours, et seulement si elle n'est pas verrouillée
+// (DeclarationDot).
 model EcritureDot {
   id           Int      @id @default(autoincrement())
-  type         String   @db.VarChar(10) // depense | retrait
+  type         String   @db.VarChar(10) // recette | depense | retrait
+  semaine      DateTime @db.Date
   dateEcriture String   @default("") @map("date_ecriture") @db.VarChar(10) // JJ/MM/AAAA
   justificatif String   @db.VarChar(200)
   montant      Int
   compteId     Int?     @map("compte_id")
   creeLe       DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
 
-  @@index([type])
+  @@index([semaine, type])
   @@index([compteId])
   @@map("compta_dot_ecritures")
+}
+
+// Déclaration DOT d'une semaine, verrouillée (figée) : une fois présente, la semaine devient lecture seule — plus
+// aucun mouvement, prime ou solde bancaire ne la change, et son résumé ne recalcule plus rien (même si le barème ou
+// le relevé Tablettes changent ensuite). `resume`, `salaries` et `ecritures` reprennent exactement la forme des
+// réponses JSON de GET /api/compta/dot/resume, /salaries et /ecritures au moment du verrouillage — autonomes, donc
+// toujours lisibles même si une table liée change de forme plus tard. Verrouillage manuel (« Valider la déclaration »,
+// compteId renseigné) ou automatique (planifiée la semaine suivante si personne ne l'a fait, compteId nul) :
+// entreprise/verrouillage-dot.ts.
+model DeclarationDot {
+  semaine  DateTime @id @db.Date
+  statut   String   @db.VarChar(10) // validee | auto
+  figeeLe  DateTime @default(now()) @map("figee_le") @db.Timestamptz(6)
+  compteId Int?     @map("compte_id") // qui a validé ; null si verrouillage automatique
+  resume   Json
+  salaries Json
+  ecritures Json
+
+  @@map("compta_dot_declarations")
 }
 
 // Barème d'imposition de la DOT (fixé par l'organisme du serveur RP, le même pour toutes les entreprises) : rempli par
@@ -267,6 +290,31 @@ model BaremeImposition {
   primeMaxPatron    Int   @map("prime_max_patron")
 
   @@map("dot_bareme_imposition")
+}
+
+// Barème de l'impôt sur la richesse de la DOT (même organisme, même principe que BaremeImposition) : son taux
+// s'ajoute à celui de BaremeImposition (pas un second impôt séparé) et s'applique au même bénéfice imposable ; la
+// tranche choisie dépend du solde bancaire de l'entreprise (reglages, clé « dot.solde_bancaire »), saisi à la main.
+model BaremeRichesse {
+  id       Int   @id @default(autoincrement())
+  seuilMin Int   @map("seuil_min")
+  seuilMax Int   @map("seuil_max")
+  taux     Float
+
+  @@map("dot_bareme_richesse")
+}
+
+// Prime versée à un employé pour une semaine de la DOT (saisie à la main dans le tableau des salariés) : une ligne par
+// employé et par semaine (lundi de la semaine, calendrier Paris). Entre dans « Montant total des primes » du résumé DOT.
+model PrimeEmployeSemaine {
+  id        Int      @id @default(autoincrement())
+  employeId Int      @map("employe_id")
+  semaine   DateTime @db.Date
+  montant   Int      @default(0)
+  majLe     DateTime @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+
+  @@unique([employeId, semaine])
+  @@map("compta_dot_primes")
 }
 
 // Images de la marque remplacées dans Paramètres → Apparence (routes/apparence.ts) : une ligne par image réglée ; sans ligne,

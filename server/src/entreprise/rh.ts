@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { Prisma, type Compte, type Employe } from '../generated/prisma/client.js';
 import { prisma } from '../socle/db.js';
 import { auDessusDe, gradeDe, peut, tousLesGrades } from '../socle/droits.js';
+import { actualiserGrades } from '../socle/grades-imposes.js';
 import { definirReglage, reglage } from '../socle/reglages.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { jourParis, jourValide, normaliserPseudo, normaliserTexte, versDate, versJour } from './texte.js';
@@ -251,6 +252,7 @@ async function creerDepuisCandidature(c: Candidature): Promise<Resultat> {
       const prov = `PROV-B${String(f.id).padStart(4, '0')}`;
       return tx.employe.update({ where: { id: f.id }, data: { idUnique: prov, idUniqueNormalise: prov.toLowerCase() } });
     });
+    await actualiserGrades([fiche.discordId]);   // le compte du site (s'il existe) prend le grade d'arrivée
     return { resultat: 'creee', employeId: fiche.id, motif: '' };
   } catch (e) {
     // deux envois simultanés pour le même compte : le second trouve la fiche du premier

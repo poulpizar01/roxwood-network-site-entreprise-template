@@ -1,42 +1,32 @@
-/* GESTION (personnalisable) — styles de l'espace de gestion. Mise en page et composants repris d'un site du réseau ;
-   couleurs, polices et formes viennent de theme.css uniquement : le pont ci-dessous relie les noms de ces
-   règles aux variables du thème. Changer l'apparence : d'abord theme.css, puis ce pont, puis les règles. */
+/* GESTION (personnalisable) — styles de l'espace de gestion. Couleurs, polices et formes viennent de theme.css ; le
+   pont ci-dessous ne garde que les noms propres à la gestion (fonds de carte, textes, échelle typographique). Changer
+   l'apparence : d'abord theme.css, puis ce pont, puis les règles. Les anciens alias hérités (--d8-*, --accent*, --or-*,
+   --ok*, --erreur*) ont disparu : écrire directement le jeton du thème (--accent, --accent-dark, --ok, --erreur…). */
 :root {
   /* fonds et filets */
   --bg-elevated: var(--bg2); --bg-card: var(--bg2); --bg-card-hover: var(--bg3);
   --border: var(--line); --border-light: rgba({{couleur_rvb}}, 0.45);
+  --filet: linear-gradient(90deg, transparent, rgba({{couleur_rvb}}, 0.55) 15%, rgba({{couleur_rvb}}, 0.55) 85%, transparent);
   /* contour d'un champ de saisie : 3:1 au moins sur le fond, sinon on ne voit pas où écrire */
-  --d8-contour-champ: var(--ink2);
+  --contour-champ: var(--ink2);
   /* textes */
   --text: var(--ink); --text-muted: var(--ink); --text-faint: var(--ink2);
-  /* accent : aplat et texte posé dessus ; texte en couleur d'accent : sa nuance sombre, lisible sur fond clair */
-  --gold: var(--accent); --gold-strong: var(--accent-dark); --gold-light: var(--accent-dark);
-  --accent-strong: var(--accent-dark); --accent-contrast: var(--on-accent);
-  --or-grad: var(--accent); --or-contrast: var(--on-accent);
-  /* états */
-  --danger: var(--erreur); --danger-strong: var(--erreur); --success: var(--ok);
-  --green: var(--ok); --green-dark: var(--ok); --green-light: var(--ok);
-  /* formes */
-  --radius-sm: max(2px, calc(var(--radius) - 4px)); --max-width: var(--wrap);
-  /* noms des jetons d'origine */
-  --d8-navy-950: var(--bg); --d8-navy-900: var(--bg); --d8-navy-800: var(--bg2); --d8-navy-700: var(--bg2); --d8-navy-600: var(--bg3);
-  --d8-gold-100: var(--accent-dark); --d8-gold-300: var(--accent-dark); --d8-gold-400: var(--accent); --d8-gold-500: var(--accent);
-  --d8-gold-600: var(--accent-dark); --d8-gold-700: var(--accent-dark);
-  --d8-red-500: var(--erreur); --d8-red-700: var(--erreur);
-  --d8-cream: var(--ink); --d8-text: var(--ink); --d8-muted: var(--ink2);
-  --d8-grad-gold: var(--accent); --d8-grad-gold-soft: var(--accent-soft); --d8-grad-card: var(--bg2); --d8-grad-red: var(--erreur);
-  --d8-rule: linear-gradient(90deg, transparent, rgba({{couleur_rvb}}, 0.55) 15%, rgba({{couleur_rvb}}, 0.55) 85%, transparent);
-  --d8-r-xs: 2px; --d8-r-sm: var(--radius-sm); --d8-r-md: var(--radius); --d8-r-pill: 999px;
-  --d8-shadow-card: var(--shadow); --d8-shadow-card-hover: var(--shadow), 0 0 0 1px rgba({{couleur_rvb}}, 0.45);
-  --d8-shadow-gold: 0 1px 2px rgba(0, 0, 0, 0.12);
-  --d8-font-display: var(--display); --d8-font-ui: var(--body);
-  --d8-ease: cubic-bezier(0.2, 0.7, 0.3, 1); --d8-t: 280ms var(--d8-ease);
+  /* formes, ombres, mouvement */
+  --radius-sm: max(2px, calc(var(--radius) - 4px)); --max-width: var(--wrap); --rayon-xs: 2px; --rayon-pilule: 999px;
+  --ombre-survol: var(--shadow), 0 0 0 1px rgba({{couleur_rvb}}, 0.45);
+  --ombre-bouton: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1); --transition: 280ms var(--ease);
+  /* échelle typographique : neuf tailles et pas d'autre (il y en avait 37). Jamais sous 12 px : lisibilité en jeu. */
+  --fs-1: 0.75rem; --fs-2: 0.8125rem; --fs-3: 0.875rem; --fs-4: 0.9375rem; --fs-5: 1rem;
+  --fs-6: 1.125rem; --fs-7: 1.3rem; --fs-8: 1.5rem; --fs-9: 2.2rem;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); line-height: 1.6; overflow-x: hidden; font-variant-numeric: lining-nums; }
 [hidden] { display: none !important; }
+/* posée tant qu'une fenêtre (.modale-fond) reste ouverte : gestion.js, verrouillerDefilement() */
+html.defilement-bloque, html.defilement-bloque body { overflow: hidden; }
 
 /* ======== base : défilement, focus, mouvement réduit ======== */
 /* Barres de défilement aux couleurs du site, partout (page, menus, listes, fenêtres) : pilule dorée discrète sur fond
@@ -49,7 +39,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--
   background-color: rgba({{couleur_rvb}}, 0.45);
 }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba({{couleur_rvb}}, 0.7); }
-::-webkit-scrollbar-thumb:active { background-color: var(--d8-gold-400); }
+::-webkit-scrollbar-thumb:active { background-color: var(--accent); }
 ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 @supports not selector(::-webkit-scrollbar) {
   * { scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.45) transparent; }
@@ -58,7 +48,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--
 /* Anneau de focus clavier visible partout (accessibilité) — jamais de outline:none
    sans remplacement. Les champs de formulaire ont leur propre anneau (box-shadow,
    voir plus bas) donc on ne double pas l'effet dessus. */
-:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 3px; }
 .champ input:focus-visible, .champ select:focus-visible, .champ textarea:focus-visible { outline: none; }
 
 /* Filet de sécurité global — en plus des règles ciblées déjà présentes plus bas,
@@ -89,18 +79,18 @@ svg.fleche { width: 1.1em; height: 1.1em; flex-shrink: 0; vertical-align: -0.2em
 
 /* Titres : serif italique fine — jamais de gras, le luxe est dans la finesse. */
 h1, h2, h3, h4 {
-  font-family: var(--d8-font-display);
+  font-family: var(--display);
   font-style: normal;
   font-weight: 400;
   line-height: 1.12;
   margin: 0 0 0.5em;
   letter-spacing: 0.015em;
-  color: var(--d8-cream);
+  color: var(--text);
 }
 
 h1 { font-size: clamp(2.5rem, 5.2vw, 4.25rem); line-height: 1.06; }
 h2 { font-size: clamp(1.9rem, 3.4vw, 3rem); }
-h3 { font-size: 1.3rem; font-weight: 500; }
+h3 { font-size: var(--fs-7); font-weight: 500; }
 
 p { margin: 0 0 1em; color: var(--text-muted); }
 a { color: inherit; text-decoration: none; }
@@ -112,12 +102,12 @@ button { font-family: inherit; cursor: pointer; }
    anciennes pastilles arrondies au-dessus des titres de hero. */
 .eyebrow {
   display: inline-flex; align-items: center; gap: 10px;
-  font-family: var(--d8-font-ui); font-weight: 500; font-size: 12px;
-  text-transform: uppercase; letter-spacing: 0.28em; color: var(--d8-gold-500);
+  font-family: var(--body); font-weight: 500; font-size: var(--fs-1);
+  text-transform: uppercase; letter-spacing: 0.28em; color: var(--accent);
 }
 label, .eyebrow-label {
-  font-family: var(--d8-font-ui); font-weight: 400; font-size: 12px;
-  text-transform: uppercase; letter-spacing: 0.2em; color: var(--d8-muted);
+  font-family: var(--body); font-weight: 400; font-size: var(--fs-1);
+  text-transform: uppercase; letter-spacing: 0.2em; color: var(--text-faint);
 }
 
 /* ======== boutons ======== */
@@ -130,32 +120,32 @@ label, .eyebrow-label {
   gap: 8px;
   height: 40px;
   padding: 0 20px;
-  border-radius: var(--d8-r-pill);
-  font-family: var(--d8-font-ui);
-  font-size: 12px;
+  border-radius: var(--rayon-pilule);
+  font-family: var(--body);
+  font-size: var(--fs-1);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   border: 1px solid transparent;
-  transition: transform var(--d8-t), background var(--d8-t), border-color var(--d8-t), box-shadow var(--d8-t), filter var(--d8-t);
+  transition: transform var(--transition), background var(--transition), border-color var(--transition), box-shadow var(--transition), filter var(--transition);
   white-space: nowrap;
 }
 
 .btn:active { transform: translateY(1px); }
-.btn:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 3px; }
+.btn:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 3px; }
 
-.btn-large { height: 52px; padding: 0 34px; font-size: 12.5px; }
+.btn-large { height: 52px; padding: 0 34px; font-size: var(--fs-1); }
 /* petit écran : un long libellé passe à la ligne plutôt que de déborder de la page */
 @media (max-width: 480px) { .btn-large { height: auto; min-height: 52px; padding: 12px 22px; white-space: normal; text-align: center; max-width: 100%; } }
-.btn-petit { height: 34px; padding: 0 16px; font-size: 12px; }
+.btn-petit { height: 34px; padding: 0 16px; font-size: var(--fs-1); }
 
 .btn-or {
   position: relative;
   overflow: hidden;
-  background: var(--d8-grad-gold);
-  color: var(--or-contrast);
+  background: var(--accent);
+  color: var(--on-accent);
   border: 0;
-  box-shadow: var(--d8-shadow-gold);
+  box-shadow: var(--ombre-bouton);
 }
 /* Reflet lumineux discret : invisible au repos, ne balaie le bouton qu'au survol
    (contrairement à une barre diagonale fixe façon "bouton glacé" des années 2000,
@@ -183,13 +173,13 @@ label, .eyebrow-label {
 .btn-fantome {
   background: rgba({{couleur_rvb}}, 0.12);
   border-color: rgba({{couleur_rvb}}, 0.55);
-  color: var(--d8-gold-300);
+  color: var(--accent-dark);
 }
-.btn-fantome:hover { background: rgba({{couleur_rvb}}, 0.2); border-color: var(--d8-gold-400); }
+.btn-fantome:hover { background: rgba({{couleur_rvb}}, 0.2); border-color: var(--accent); }
 
 .btn-danger {
   background: var(--erreur-soft);
-  color: var(--danger-strong);
+  color: var(--erreur);
   border-color: var(--erreur);
 }
 .btn-danger:hover { background: var(--erreur-soft); }
@@ -207,23 +197,23 @@ label, .eyebrow-label {
 
 .champ { margin-bottom: 18px; }
 .champ label {
-  display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.2em;
-  color: var(--d8-muted); margin-bottom: 8px; font-weight: 500;
+  display: block; font-size: var(--fs-1); text-transform: uppercase; letter-spacing: 0.2em;
+  color: var(--text-faint); margin-bottom: 8px; font-weight: 500;
 }
 .champ input, .champ select, .champ textarea {
   width: 100%; min-height: 48px; padding: 11px 14px; border-radius: var(--radius-sm);
-  border: 1px solid var(--d8-contour-champ); background: var(--bg2);
-  color: var(--text); font-size: 0.95rem; font-family: inherit;
-  transition: border-color var(--d8-t), box-shadow var(--d8-t);
+  border: 1px solid var(--contour-champ); background: var(--bg2);
+  color: var(--text); font-size: var(--fs-4); font-family: inherit;
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
 .champ input:focus, .champ select:focus, .champ textarea:focus {
-  outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15);
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15);
 }
 .champ textarea { resize: vertical; min-height: 90px; }
 .champ-checkbox { display: flex; align-items: center; gap: 10px; }
 .champ-checkbox input { width: auto; min-height: 0; }
 .champ-deux { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.champ-aide { font-size: 0.78rem; color: var(--text-faint); margin-top: 5px; }
+.champ-aide { font-size: var(--fs-1); color: var(--text-faint); margin-top: 5px; }
 
 /* ======== structure ======== */
 /* ---------- admin : structure ---------- */
@@ -238,7 +228,7 @@ label, .eyebrow-label {
 }
 .admin-barre-laterale a, .admin-barre-laterale button.lien-onglet {
   display: block; width: 100%; text-align: left; background: none; border: none; color: var(--text-muted);
-  padding: 11px 14px; border-radius: var(--radius-sm); font-size: 0.92rem;
+  padding: 11px 14px; border-radius: var(--radius-sm); font-size: var(--fs-4);
 }
 .admin-barre-laterale button.lien-onglet.actif, .admin-barre-laterale button.lien-onglet:hover,
 .admin-barre-laterale a.lien-onglet:hover { background: var(--bg-card); color: var(--text); }
@@ -277,8 +267,8 @@ label, .eyebrow-label {
 }
 
 .table-admin { width: 100%; border-collapse: collapse; }
-.table-admin th, .table-admin td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
-.table-admin th { color: var(--text-faint); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; }
+.table-admin th, .table-admin td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: var(--fs-3); }
+.table-admin th { color: var(--text-faint); text-transform: uppercase; font-size: var(--fs-1); letter-spacing: 0.5px; font-weight: 500; }
 .table-admin tr:hover td { background: var(--bg-card-hover); }
 .actions-ligne { display: flex; gap: 8px; }
 
@@ -297,106 +287,112 @@ label, .eyebrow-label {
 }
 .stat-icone {
   flex-shrink: 0; width: 46px; height: 46px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+  display: flex; align-items: center; justify-content: center; font-size: var(--fs-6);
 }
 .stat-icone--or { background: rgba({{couleur_rvb}}, 0.18); }
 .stat-icone--vert { background: var(--ok-soft); }
 .stat-icone--ambre { background: rgba({{couleur_rvb}}, 0.22); }
 .stat-icone--mauve { background: rgba(151, 138, 224, 0.2); }
 .stat-icone img { width: 30px; height: 30px; object-fit: contain; }
-.stat-valeur { font-family: var(--d8-font-ui); font-size: 1.3rem; font-weight: 500; color: var(--text); line-height: 1.2; }
-.stat-libelle { font-size: 12px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--gold-strong); font-weight: 500; margin-top: 2px; }
-.stat-sous-libelle { font-size: 0.78rem; color: var(--text-faint); }
+.stat-valeur { font-family: var(--body); font-size: var(--fs-7); font-weight: 500; color: var(--text); line-height: 1.2; }
+.stat-libelle { font-size: var(--fs-1); text-transform: uppercase; letter-spacing: 0.16em; color: var(--accent-dark); font-weight: 500; margin-top: 2px; }
+.stat-sous-libelle { font-size: var(--fs-1); color: var(--text-faint); }
 
 .table-biens-vignette { width: 44px; height: 44px; border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-elevated); }
 .table-biens-vignette img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .table-admin td.cellule-vignette { width: 60px; }
-.table-admin tr.ligne-coup-de-coeur td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
-.table-admin tr.ligne-total td { font-weight: 700; color: var(--gold-strong); border-top: 2px solid var(--d8-gold-400); }
+/* Colonne Actions, identique sur tous les tableaux (une icône seule pour une action destructive unique, ou le menu
+   « ⋯ » pour plusieurs actions) : en-tête toujours vide (aria-label porte l'intitulé), largeur fixe, alignée à droite. */
+.table-admin th.col-actions, .table-admin td.col-actions { width: 44px; text-align: right; padding-right: 8px !important; }
+.table-admin tr.ligne-coup-de-coeur td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.table-admin tr.ligne-total td { font-weight: 700; color: var(--accent-dark); border-top: 2px solid var(--accent); }
 
 /* ---------- admin : Comptabilité (sous-onglets + tableaux importés) ---------- */
 .compta-sous-onglets { display: flex; gap: 8px; margin: 18px 0 4px; flex-wrap: wrap; }
 .compta-sous-onglet {
-  padding: 8px 18px; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--bg-elevated); color: var(--text-faint); font-size: 0.86rem; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-elevated); color: var(--text-faint); font-size: var(--fs-3); font-weight: 500;
 }
+.compta-sous-onglet .ico { width: 16px; height: 16px; }
 .compta-sous-onglet:hover { color: var(--text); border-color: var(--border-light); }
-.compta-sous-onglet.actif { background: var(--or-grad); color: var(--or-contrast); border-color: transparent; font-weight: 600; }
+.compta-sous-onglet.actif { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; }
 
+/* 44px : cible tactile visée par le projet sur téléphone — et largeur déjà réservée par .col-actions sur desktop */
 .actions-icone {
-  width: 34px; height: 34px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center;
-  background: rgba({{couleur_rvb}}, 0.12); border: 1px solid rgba({{couleur_rvb}}, 0.3); color: var(--d8-gold-300); font-size: 0.85rem;
+  width: 44px; height: 44px; border-radius: var(--radius-sm); display: inline-flex; align-items: center; justify-content: center;
+  background: rgba({{couleur_rvb}}, 0.12); border: 1px solid rgba({{couleur_rvb}}, 0.3); color: var(--accent-dark); font-size: var(--fs-3);
 }
 .actions-icone:hover { background: rgba({{couleur_rvb}}, 0.22); }
-.actions-icone--danger { background: var(--erreur-soft); border-color: var(--erreur); color: var(--danger-strong); }
-.actions-icone--danger:hover { background: var(--erreur); }
 
 .grille-admin-biens { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px; margin-bottom: 22px; }
 .carte-admin-bien { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.carte-admin-bien.ligne-coup-de-coeur { box-shadow: inset 3px 0 0 var(--gold); }
+.carte-admin-bien.ligne-coup-de-coeur { box-shadow: inset 3px 0 0 var(--accent); }
 .carte-admin-bien-visuel { aspect-ratio: 4/3; background: var(--bg-elevated); }
 .carte-admin-bien-visuel img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .carte-admin-bien-corps { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
-.carte-admin-bien-titre { font-family: var(--d8-font-display); font-style: normal; font-size: 1.02rem; }
-.carte-admin-bien-meta { font-size: 0.78rem; color: var(--text-faint); }
+.carte-admin-bien-titre { font-family: var(--display); font-style: normal; font-size: var(--fs-5); }
+.carte-admin-bien-meta { font-size: var(--fs-1); color: var(--text-faint); }
 .carte-admin-bien-pied { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
-.carte-admin-bien-prix { font-size: 0.9rem; color: var(--gold-strong); font-weight: 500; }
+.carte-admin-bien-prix { font-size: var(--fs-3); color: var(--accent-dark); font-weight: 500; }
 .carte-admin-bien-actions { display: flex; gap: 6px; }
 
 .pagination-boutons { display: flex; align-items: center; gap: 6px; }
 .pagination-fleche, .pagination-page {
   width: 32px; height: 32px; border-radius: var(--radius-sm); border: 1px solid var(--border);
-  background: var(--bg2); color: var(--text-muted); font-size: 0.82rem; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg2); color: var(--text-muted); font-size: var(--fs-2); display: inline-flex; align-items: center; justify-content: center;
 }
 .pagination-fleche:disabled { opacity: 0.4; cursor: not-allowed; }
-.pagination-page.actif { background: rgba({{couleur_rvb}}, 0.22); border-color: var(--d8-gold-400); color: var(--gold-strong); }
+.pagination-page.actif { background: rgba({{couleur_rvb}}, 0.22); border-color: var(--accent); color: var(--accent-dark); }
 
 .admin-bas { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 14px; }
 .admin-aide { background: rgba({{couleur_rvb}}, 0.08); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; }
-.admin-aide-titre { font-size: 0.82rem; margin: 0 0 4px; color: var(--text); }
-.admin-aide a { font-size: 0.78rem; color: var(--gold-strong); }
-.admin-aide a:hover { color: var(--gold-light); }
+.admin-aide-titre { font-size: var(--fs-2); margin: 0 0 4px; color: var(--text); }
+.admin-aide a { font-size: var(--fs-1); color: var(--accent-dark); }
+.admin-aide a:hover { color: var(--accent-dark); }
 .admin-compte-profil { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .admin-avatar {
   width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  background: var(--d8-grad-gold); color: var(--or-contrast); font-family: var(--d8-font-ui); font-size: 0.78rem; font-weight: 600;
+  background: var(--accent); color: var(--on-accent); font-family: var(--body); font-size: var(--fs-1); font-weight: 600;
 }
 .admin-avatar-img { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; object-fit: cover; background: var(--bg-card-hover); display: block; }
 .table-admin .admin-avatar, .table-admin .admin-avatar-img { width: 32px; height: 32px; }
 .admin-compte-profil > div { min-width: 0; }
-.admin-compte-profil strong { display: block; font-size: 0.88rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.admin-compte-grade { font-size: 0.75rem; color: var(--text-faint); }
+.admin-compte-profil strong { display: block; font-size: var(--fs-3); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.admin-compte-grade { font-size: var(--fs-1); color: var(--text-faint); }
 
 
 .modale-fond {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(3px);
   display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100000;
 }
+/* navigateur sans backdrop-filter (vieux Chromium embarqué, docs/folkos.md) : pas de flou, donc fond plus sombre
+   pour garder le contenu derrière la fenêtre illisible sans lui — sinon le fond resterait quasi transparent. */
+@supports not (backdrop-filter: blur(1px)) { .modale-fond { background: rgba(0, 0, 0, 0.72); } }
 .modale {
   width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; background: var(--bg-card);
   border: 1px solid var(--border-light); border-radius: var(--radius); padding: 30px 32px; box-shadow: var(--shadow);
 }
 .modale-entete { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.modale-entete button { background: none; border: none; color: var(--text-faint); font-size: 1.4rem; line-height: 1; }
+.modale-entete button { background: none; border: none; color: var(--text-faint); font-size: var(--fs-7); line-height: 1; }
 
 .puce {
   display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
-  font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+  font-size: var(--fs-1); font-weight: 600; text-transform: uppercase;
 }
-.puce-ok { background: var(--ok-soft); color: var(--success); }
-.puce-off { background: var(--erreur-soft); color: var(--danger-strong); }
-.puce-or { background: rgba({{couleur_rvb}}, 0.18); color: var(--gold-strong); }
+.puce-ok { background: var(--ok-soft); color: var(--ok); }
+.puce-off { background: var(--erreur-soft); color: var(--erreur); }
+.puce-or { background: rgba({{couleur_rvb}}, 0.18); color: var(--accent-dark); }
 
 .message {
-  padding: 12px 16px; border-radius: var(--radius-sm); font-size: 0.88rem; margin-bottom: 18px;
+  padding: 12px 16px; border-radius: var(--radius-sm); font-size: var(--fs-3); margin-bottom: 18px;
 }
-.message-erreur { background: var(--erreur-soft); color: var(--danger-strong); border: 1px solid var(--erreur); }
-.message-succes { background: var(--ok-soft); color: var(--success); border: 1px solid var(--ok); }
+.message-erreur { background: var(--erreur-soft); color: var(--erreur); border: 1px solid var(--erreur); }
+.message-succes { background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); }
 
 /* ---------- formulaire "nouveau bien" : champs obligatoires, erreurs, compteur ---------- */
 
-.champ-obligatoire { color: var(--danger-strong); }
-.champ-erreur { font-size: 0.78rem; color: var(--danger-strong); margin-top: 5px; }
+.champ-obligatoire { color: var(--erreur); }
+.champ-erreur { font-size: var(--fs-1); color: var(--erreur); margin-top: 5px; }
 .champ-compteur { float: right; font-weight: 400; color: var(--text-faint); text-transform: none; letter-spacing: 0; }
 
 /* ======== profil, comptes, menus déroulants, interrupteurs ======== */
@@ -405,9 +401,9 @@ label, .eyebrow-label {
 .profil-photo-bloc { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 190px; flex-shrink: 0; }
 .profil-photo-apercu {
   width: 150px; height: 150px; border-radius: 50%; overflow: hidden;
-  background: var(--d8-grad-gold); border: 3px solid var(--border-light);
+  background: var(--accent); border: 3px solid var(--border-light);
   display: flex; align-items: center; justify-content: center;
-  color: var(--or-contrast); font-family: var(--d8-font-ui); font-size: 2rem; font-weight: 700;
+  color: var(--on-accent); font-family: var(--body); font-size: var(--fs-9); font-weight: 700;
 }
 .profil-photo-apercu img { width: 100%; height: 100%; object-fit: cover; }
 #formulaire-profil { flex: 1; min-width: 280px; }
@@ -417,7 +413,7 @@ label, .eyebrow-label {
 .bouton-discord svg { flex-shrink: 0; }
 
 /* Onglet admin « Comptes & accès » */
-.comptes-sous-titre { margin: 26px 0 4px; font-size: 1.05rem; }
+.comptes-sous-titre { margin: 26px 0 4px; font-size: var(--fs-5); }
 .comptes-sous-titre:first-of-type { margin-top: 0; }
 
 .demande-attente-ligne {
@@ -426,16 +422,16 @@ label, .eyebrow-label {
   background: rgba({{couleur_rvb}}, 0.06); margin-bottom: 10px;
 }
 .demande-attente-info { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.demande-attente-info strong { display: block; font-size: 0.92rem; color: var(--text); }
+.demande-attente-info strong { display: block; font-size: var(--fs-4); color: var(--text); }
 .demande-attente-actions { display: flex; gap: 8px; flex-shrink: 0; }
 
 .table-input, .table-select {
   min-height: 38px; padding: 7px 10px; border-radius: var(--radius-sm);
-  border: 1px solid var(--d8-contour-champ); background: var(--bg2);
-  color: var(--text); font-size: 0.86rem; font-family: inherit;
+  border: 1px solid var(--contour-champ); background: var(--bg2);
+  color: var(--text); font-size: var(--fs-3); font-family: inherit;
 }
 .table-input:focus, .table-select:focus {
-  outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15);
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15);
 }
 .table-input { width: 100%; min-width: 140px; }
 .table-select { width: 100%; min-width: 170px; border-width: 2px; }
@@ -449,9 +445,9 @@ label, .eyebrow-label {
   content: ""; position: absolute; right: 16px; top: 50%; width: 7px; height: 7px;
   border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
   transform: translateY(-75%) rotate(45deg);
-  color: var(--text-faint); pointer-events: none; transition: transform var(--d8-t), color var(--d8-t);
+  color: var(--text-faint); pointer-events: none; transition: transform var(--transition), color var(--transition);
 }
-.d8-select-enveloppe.ouvert::after { transform: translateY(-25%) rotate(225deg); color: var(--gold-strong); }
+.d8-select-enveloppe.ouvert::after { transform: translateY(-25%) rotate(225deg); color: var(--accent-dark); }
 /* pastille de la valeur choisie, visible même fermé (sinon la couleur ne vit que le temps d'ouvrir la liste et la
    sélection a l'air de « perdre » son code couleur une fois le menu refermé) */
 .d8-select-pastille-courante {
@@ -471,34 +467,34 @@ label, .eyebrow-label {
   width: 100%; min-height: 44px; padding-left: 14px;
   border-radius: var(--radius-sm); border: 1px solid rgba({{couleur_rvb}}, 0.28);
   background: var(--bg2); color: var(--text);
-  font-size: 0.9rem; font-family: inherit;
-  transition: border-color var(--d8-t), box-shadow var(--d8-t);
+  font-size: var(--fs-3); font-family: inherit;
+  transition: border-color var(--transition), box-shadow var(--transition);
 }
 .d8-select-enveloppe select:focus {
-  outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15);
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15);
 }
 
 .d8-select-flottant {
   position: fixed; z-index: 100100; /* au-dessus des modales (100000) — sinon la liste s'ouvre derrière */ max-height: 260px;
   display: flex; flex-direction: column; overflow: hidden;
-  background: var(--bg-card); border: 1px solid var(--d8-gold-400); border-radius: var(--radius-sm); box-shadow: var(--shadow);
+  background: var(--bg-card); border: 1px solid var(--accent); border-radius: var(--radius-sm); box-shadow: var(--shadow);
 }
 /* champ de recherche (facultatif, ameliorerSelect(..., true)) : fixe en tête, seule .d8-select-options défile dessous */
 .d8-select-recherche { flex: 0 0 auto; padding: 6px 6px 0; }
 .d8-select-recherche-champ {
   width: 100%; min-height: 38px; padding: 8px 12px; border-radius: var(--radius-sm);
-  border: 1px solid var(--d8-contour-champ); background: var(--bg2); color: var(--text); font: inherit; font-size: 0.86rem;
+  border: 1px solid var(--contour-champ); background: var(--bg2); color: var(--text); font: inherit; font-size: var(--fs-3);
 }
-.d8-select-recherche-champ:focus { outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
+.d8-select-recherche-champ:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
 .d8-select-options { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: 6px; }
 .d8-select-option {
-  padding: 9px 12px; border-radius: 6px; font-size: 0.86rem; cursor: pointer; color: var(--text);
-  display: flex; align-items: center; gap: 9px; white-space: normal; transition: background var(--d8-t);
+  padding: 9px 12px; border-radius: 6px; font-size: var(--fs-3); cursor: pointer; color: var(--text);
+  display: flex; align-items: center; gap: 9px; white-space: normal; transition: background var(--transition);
 }
 .d8-select-option:hover { background: rgba({{couleur_rvb}}, 0.16); }
-.d8-select-option.selectionnee { color: var(--gold-strong); font-weight: 600; background: rgba({{couleur_rvb}}, 0.1); }
+.d8-select-option.selectionnee { color: var(--accent-dark); font-weight: 600; background: rgba({{couleur_rvb}}, 0.1); }
 .d8-select-pastille { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.d8-select-vide { margin: 0; padding: 10px 12px; font-size: 0.82rem; color: var(--text-faint); }
+.d8-select-vide { margin: 0; padding: 10px 12px; font-size: var(--fs-2); color: var(--text-faint); }
 
 /* ---------- sélecteur de date (calendrier flottant posé sur un champ texte jj/mm/aaaa, voir champDateFr dans
    gestion.js) : la saisie au clavier reste possible, le calendrier n'est qu'une aide ---------- */
@@ -511,43 +507,43 @@ label, .eyebrow-label {
   display: inline-flex; align-items: center; justify-content: center;
   width: 34px; height: 34px; border: none; border-radius: var(--radius-sm);
   background: transparent; color: var(--text-faint); cursor: pointer;
-  transition: background var(--d8-t), color var(--d8-t);
+  transition: background var(--transition), color var(--transition);
 }
 .champ-date-bouton .ico { width: 18px; height: 18px; }
 .champ-date-bouton:hover, .champ-date-bouton:focus-visible { color: var(--text); background: rgba({{couleur_rvb}}, 0.16); }
-.champ-date-bouton[aria-expanded="true"] { color: var(--gold-strong); background: rgba({{couleur_rvb}}, 0.16); }
+.champ-date-bouton[aria-expanded="true"] { color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.16); }
 
 .champ-date-panneau {
   position: fixed; z-index: 100100; /* au-dessus des modales (100000) */ width: 272px; max-width: calc(100vw - 16px);
-  background: var(--bg-card); border: 1px solid var(--d8-gold-400); border-radius: var(--radius-sm);
+  background: var(--bg-card); border: 1px solid var(--accent); border-radius: var(--radius-sm);
   box-shadow: var(--shadow); padding: 12px;
 }
 .champ-date-entete { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.champ-date-titre { font-size: 0.88rem; font-weight: 600; color: var(--text); text-transform: capitalize; }
+.champ-date-titre { font-size: var(--fs-3); font-weight: 600; color: var(--text); text-transform: capitalize; }
 .champ-date-nav {
   display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
   border: none; border-radius: var(--radius-sm); background: transparent; color: var(--text-faint); cursor: pointer;
-  transition: background var(--d8-t), color var(--d8-t);
+  transition: background var(--transition), color var(--transition);
 }
 .champ-date-nav .ico { width: 16px; height: 16px; transform: rotate(90deg); }
 .champ-date-nav--apres .ico { transform: rotate(-90deg); }
 .champ-date-nav:hover, .champ-date-nav:focus-visible { color: var(--text); background: rgba({{couleur_rvb}}, 0.16); }
-.champ-date-jours { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.72rem; color: var(--text-faint); margin-bottom: 4px; }
+.champ-date-jours { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: var(--fs-1); color: var(--text-faint); margin-bottom: 4px; }
 .champ-date-grille { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
 .champ-date-case {
   aspect-ratio: 1; min-height: 34px; border: none; border-radius: var(--radius-sm); background: transparent;
-  font-size: 0.84rem; font-family: inherit; color: var(--text); cursor: pointer;
-  transition: background var(--d8-t), color var(--d8-t);
+  font-size: var(--fs-2); font-family: inherit; color: var(--text); cursor: pointer;
+  transition: background var(--transition), color var(--transition);
 }
 .champ-date-case--vide { cursor: default; }
 .champ-date-case:not(.champ-date-case--vide):hover { background: rgba({{couleur_rvb}}, 0.16); }
-.champ-date-case--aujourdhui { color: var(--gold-strong); font-weight: 700; }
-.champ-date-case--active { background: var(--d8-gold-400); color: var(--or-contrast); font-weight: 700; }
-.champ-date-case:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
+.champ-date-case--aujourdhui { color: var(--accent-dark); font-weight: 700; }
+.champ-date-case--active { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.champ-date-case:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
 .champ-date-aujourdhui {
   display: block; width: 100%; margin-top: 10px; padding: 8px; border: none; border-radius: var(--radius-sm);
-  background: transparent; color: var(--text-faint); font-size: 0.78rem; cursor: pointer;
-  transition: background var(--d8-t), color var(--d8-t);
+  background: transparent; color: var(--text-faint); font-size: var(--fs-1); cursor: pointer;
+  transition: background var(--transition), color var(--transition);
 }
 .champ-date-aujourdhui:hover, .champ-date-aujourdhui:focus-visible { color: var(--text); background: rgba({{couleur_rvb}}, 0.1); }
 @media (max-width: 480px) {
@@ -562,15 +558,15 @@ label, .eyebrow-label {
 }
 .d8-switch-piste {
   position: absolute; inset: 0; background: var(--bg3); border: 1px solid rgba({{couleur_rvb}}, 0.28);
-  border-radius: 999px; transition: background var(--d8-t), border-color var(--d8-t); pointer-events: none;
+  border-radius: 999px; transition: background var(--transition), border-color var(--transition); pointer-events: none;
 }
 .d8-switch-piste::after {
   content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
-  background: var(--text-faint); transition: transform var(--d8-t), background var(--d8-t);
+  background: var(--text-faint); transition: transform var(--transition), background var(--transition);
 }
-.d8-switch input:checked + .d8-switch-piste { background: rgba({{couleur_rvb}}, 0.28); border-color: var(--d8-gold-400); }
-.d8-switch input:checked + .d8-switch-piste::after { transform: translateX(18px); background: var(--gold-strong); }
-.d8-switch input:focus-visible + .d8-switch-piste { outline: 2px solid var(--d8-gold-400); outline-offset: 2px; }
+.d8-switch input:checked + .d8-switch-piste { background: rgba({{couleur_rvb}}, 0.28); border-color: var(--accent); }
+.d8-switch input:checked + .d8-switch-piste::after { transform: translateX(18px); background: var(--accent-dark); }
+.d8-switch input:focus-visible + .d8-switch-piste { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 
 /* ======== espace de gestion : icônes, barre latérale, en-têtes, indicateurs, tableaux encadrés, badges ======== */
@@ -587,33 +583,35 @@ label, .eyebrow-label {
   stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px;
 }
 .btn .ico { width: 14px; height: 14px; }
+/* points (menu « ⋯ ») : des ronds pleins, pas un trait — seule icône du sprite qui déroge au style fin-et-vide */
+#ico-points circle { fill: currentColor; stroke: none; }
 
 /* ---- barre latérale ---- */
 .admin-barre-laterale { gap: 4px; }
 .admin-barre-laterale a.logo { margin-bottom: 12px !important; }
 .admin-barre-laterale a.logo img { height: auto; width: 150px; max-width: 100%; }
 .admin-nav-groupe {
-  margin: 0; padding: 14px 14px 6px; font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase;
-  color: var(--d8-gold-600); font-weight: 500;
+  margin: 0; padding: 14px 14px 6px; font-size: var(--fs-1); letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent-dark); font-weight: 500;
 }
 .admin-barre-laterale button.lien-onglet, .admin-barre-laterale a.lien-onglet {
-  display: flex; align-items: center; gap: 12px; padding: 10px 14px; font-size: 0.92rem; color: var(--text-muted);
-  font-family: var(--d8-font-ui); font-weight: 400; cursor: pointer; transition: background var(--d8-t), color var(--d8-t), box-shadow var(--d8-t);
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px; font-size: var(--fs-4); color: var(--text-muted);
+  font-family: var(--body); font-weight: 400; cursor: pointer; transition: background var(--transition), color var(--transition), box-shadow var(--transition);
 }
 .admin-barre-laterale button.lien-onglet .ico, .admin-barre-laterale a.lien-onglet .ico { color: var(--text-faint); }
 .admin-barre-laterale button.lien-onglet:hover, .admin-barre-laterale a.lien-onglet:hover { background: var(--bg-card); color: var(--text); }
 .admin-barre-laterale button.lien-onglet:hover .ico, .admin-barre-laterale a.lien-onglet:hover .ico { color: var(--text); }
 .admin-barre-laterale button.lien-onglet.actif {
-  background: var(--d8-grad-gold-soft); color: var(--gold-light);
+  background: var(--accent-soft); color: var(--accent-dark);
   box-shadow: inset 0 0 0 1px rgba({{couleur_rvb}}, 0.35);
 }
-.admin-barre-laterale button.lien-onglet.actif .ico { color: var(--gold-light); }
+.admin-barre-laterale button.lien-onglet.actif .ico { color: var(--accent-dark); }
 .admin-bas { border-top: none; padding-top: 12px; gap: 12px; }
 .admin-aide { display: flex; flex-direction: column; gap: 4px; background: none; }
-.admin-aide-titre { display: flex; align-items: center; gap: 8px; color: var(--gold-light); }
-.admin-barre-laterale .admin-aide a { display: inline; width: auto; padding: 0; font-size: 0.8rem; color: var(--gold-strong); }
+.admin-aide-titre { display: flex; align-items: center; gap: 8px; color: var(--accent-dark); }
+.admin-barre-laterale .admin-aide a { display: inline; width: auto; padding: 0; font-size: var(--fs-2); color: var(--accent-dark); }
 .admin-aide-titre .ico { width: 16px; height: 16px; }
-.admin-compte-grade { text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.75rem; color: var(--gold); }
+.admin-compte-grade { text-transform: uppercase; letter-spacing: 0.16em; font-size: var(--fs-1); color: var(--accent); }
 #bouton-deconnexion .ico { width: 14px; height: 14px; }
 
 /* La zone de contenu ne doit jamais déborder du viewport : les tableaux larges
@@ -624,52 +622,60 @@ label, .eyebrow-label {
 .admin-contenu { max-width: none; width: 100%; }
 
 /* ---- en-tête de panneau + filet or ---- */
-.entete-admin { align-items: flex-end; padding-bottom: 18px; margin-bottom: 22px; position: relative; }
+.entete-admin { align-items: flex-end; padding-bottom: 14px; margin-bottom: 20px; position: relative; }
 .entete-admin::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--d8-rule);
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--filet);
 }
-.entete-admin h1, .entete-admin h2 { font-size: clamp(1.9rem, 3vw, 2.75rem); }
-.entete-admin p { color: var(--text-faint); }
+.entete-admin h2 { font-size: var(--fs-7); margin-bottom: 0.25em; }
+.entete-admin p { color: var(--text-faint); margin-bottom: 0; }
 
 /* ---- indicateurs ---- */
-.stat-carte { background: var(--d8-grad-card); border-radius: var(--radius); padding: 14px 20px; box-shadow: var(--d8-shadow-card); }
-.stat-icone { color: var(--gold-light); }
+.stat-carte { background: var(--bg2); border-radius: var(--radius); padding: 14px 20px; box-shadow: var(--shadow); }
+.stat-icone { color: var(--accent-dark); }
 .stat-icone--vert { color: var(--ok); }
 .stat-icone--mauve { color: var(--ink); }
 .stat-icone .ico { width: 20px; height: 20px; }
 
 /* ---- tableau encadré ---- */
+/* seule différence volontaire avec un .table-admin nu : des cellules plus denses (9px au lieu de 12px). Le reste
+   (couleur, graisse, majuscules, fond de l'en-tête…) vient uniquement de .table-admin th et .tri-colonne, jamais
+   d'ici — sinon chaque tableau dérive un peu plus loin du suivant à chaque retouche. */
 .carte-table { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); }
-.carte-table .table-admin th { background: var(--bg3); font-size: 0.75rem; letter-spacing: 0.08em; font-weight: 500; }
-.carte-table .table-admin th, .carte-table .table-admin td { padding: 9px 14px; border-bottom-color: rgba({{couleur_rvb}}, 0.18); }
+.carte-table .table-admin th, .carte-table .table-admin td { padding: 9px 14px; }
 .carte-table .table-admin tr:last-child td { border-bottom: none; }
+/* la carte resserre le padding des cellules (9px au lieu de 12px) : le bouton de tri doit suivre, sinon il déborde */
+.carte-table .table-admin th .tri-colonne { margin-top: -9px; margin-bottom: -9px; padding-top: 9px; padding-bottom: 9px; }
 .table-admin tr.ligne-coup-de-coeur td:first-child { box-shadow: none; }
 .table-biens-vignette { width: 40px; height: 40px; }
 .table-biens-titre { display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--text); }
-.table-biens-fav { color: var(--gold-strong); display: inline-flex; }
+.table-biens-fav { color: var(--accent-dark); display: inline-flex; }
 .table-biens-fav .ico { width: 14px; height: 14px; }
-.table-biens-sous { font-size: 0.76rem; color: var(--text-faint); margin-top: 1px; }
-.table-biens-prix { font-weight: 500; color: var(--gold-light); white-space: nowrap; }
+.table-biens-sous { font-size: var(--fs-1); color: var(--text-faint); margin-top: 1px; }
+.table-biens-prix { font-weight: 500; color: var(--accent-dark); white-space: nowrap; }
 .table-biens-titre, .carte-table .table-admin td:nth-child(5) .table-biens-sous { white-space: nowrap; }
-.actions-icone { width: 32px; height: 32px; background: var(--bg3); border-color: var(--border); color: var(--text-muted); cursor: pointer; }
+.actions-icone { width: 44px; height: 44px; background: var(--bg3); border-color: var(--border); color: var(--text-muted); cursor: pointer; }
 .actions-icone .ico { width: 16px; height: 16px; }
 .actions-icone:hover { background: rgba({{couleur_rvb}}, 0.18); color: var(--text); }
 .actions-icone--rond { border-radius: 999px; width: 30px; height: 30px; }
 .actions-icone--rond .ico { width: 15px; height: 15px; }
+/* une action qui détruit (supprimer une ligne) : neutre au repos comme toute autre icône, bascule au rouge au survol
+   et au focus seulement — jamais rouge en permanence, qui alourdirait une liste entière. Même principe que les
+   boutons « retirer » des paliers de prime et des articles de facture (.facture-article-retirer). */
+.actions-icone--erreur:hover, .actions-icone--erreur:focus-visible { background: var(--erreur-soft); border-color: var(--erreur); color: var(--erreur); }
 
 /* ---- badges de statut (point + libellé) ---- */
-.puce { font-size: 0.75rem; letter-spacing: 0.12em; font-weight: 500; padding: 0 10px; height: 24px; }
-.puce-ok::before, .puce-off::before, .puce-masquee::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.puce { font-size: var(--fs-1); letter-spacing: 0.12em; font-weight: 500; padding: 0 10px; height: 24px; }
+.puce-ok::before, .puce-off::before, .puce-or::before, .puce-masquee::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .puce-ok { color: var(--ok); background: var(--ok-soft); }
 .puce-masquee { background: var(--bg3); color: var(--text-faint); }
 
 /* ---- vue grille : cartes photo ---- */
 .grille-admin-biens { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 18px; }
 .carte-admin-bien {
-  display: flex; flex-direction: column; background: var(--d8-grad-card); border: 1px solid var(--border);
-  border-radius: var(--radius); box-shadow: var(--d8-shadow-card); transition: transform var(--d8-t), box-shadow var(--d8-t);
+  display: flex; flex-direction: column; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow); transition: transform var(--transition), box-shadow var(--transition);
 }
-.carte-admin-bien:hover { transform: translateY(-2px); box-shadow: var(--d8-shadow-card-hover); }
+.carte-admin-bien:hover { transform: translateY(-2px); box-shadow: var(--ombre-survol); }
 .carte-admin-bien-visuel { position: relative; aspect-ratio: 16 / 7; background: var(--bg-elevated); }
 .carte-admin-bien-visuel::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
@@ -677,22 +683,22 @@ label, .eyebrow-label {
 }
 .carte-admin-bien-fav {
   position: absolute; top: 10px; left: 10px; z-index: 1; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px;
-  border-radius: 999px; background: linear-gradient(135deg, var(--d8-gold-600), var(--d8-gold-300)); color: var(--or-contrast);
-  font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500;
+  border-radius: 999px; background: linear-gradient(135deg, var(--accent-dark), var(--accent-dark)); color: var(--on-accent);
+  font-size: var(--fs-1); letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500;
 }
 .carte-admin-bien-fav .ico { width: 13px; height: 13px; }
 .carte-admin-bien-categorie {
-  position: absolute; bottom: 10px; left: 12px; z-index: 1; font-size: 12px; letter-spacing: 0.18em;
-  text-transform: uppercase; color: var(--gold-light); font-weight: 500;
+  position: absolute; bottom: 10px; left: 12px; z-index: 1; font-size: var(--fs-1); letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--accent-dark); font-weight: 500;
 }
 .carte-admin-bien-corps { padding: 12px 14px 14px; gap: 10px; }
 .carte-admin-bien-entete { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .carte-admin-bien-entete .puce { flex-shrink: 0; }
-.carte-admin-bien-titre { font-family: var(--d8-font-display); font-style: normal; font-weight: 500; font-size: 1.3rem; line-height: 1.1; margin: 0; color: var(--text); }
-.carte-admin-bien-meta { font-size: 0.76rem; color: var(--text-faint); margin-top: 3px; }
+.carte-admin-bien-titre { font-family: var(--display); font-style: normal; font-weight: 500; font-size: var(--fs-7); line-height: 1.1; margin: 0; color: var(--text); }
+.carte-admin-bien-meta { font-size: var(--fs-1); color: var(--text-faint); margin-top: 3px; }
 .carte-admin-bien-pied { margin-top: 0; }
-.carte-admin-bien-prix { font-size: 0.95rem; color: var(--gold-light); font-weight: 500; }
-.carte-admin-bien-loc { font-size: 0.76rem; color: var(--text-faint); font-weight: 300; margin-left: 4px; }
+.carte-admin-bien-prix { font-size: var(--fs-4); color: var(--accent-dark); font-weight: 500; }
+.carte-admin-bien-loc { font-size: var(--fs-1); color: var(--text-faint); font-weight: 300; margin-left: 4px; }
 
 /* ---- mobile / tablette (la barre latérale y devient un tiroir : gestion/gestion.css) ---- */
 @media (max-width: 800px) {
@@ -708,20 +714,35 @@ label, .eyebrow-label {
 /* ======== masquer ======== */
 .cache { display: none !important; }
 
-/* ======== Factures : détail d'une facture (modale, factures.js) ========
+/* ======== Factures : détail d'une facture (modale, facturation.js) ========
    le détail de la source (articles d'une commande, ou infos du monitoring) vit dans le corps de la modale ; ces
    deux blocs rendent le total au format reçu. Le téléchargement produit un fichier à part (pas d'impression du
    navigateur : print() gèle le navigateur embarqué de l'ordinateur en jeu, docs/design.md §10). */
-.facture-lignes { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.88rem; }
+.facture-lignes { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: var(--fs-3); }
 .facture-lignes th, .facture-lignes td { border-bottom: 1px solid var(--border); padding: 6px 4px; text-align: left; }
 .facture-lignes th:last-child, .facture-lignes td:last-child, .facture-lignes th:nth-last-child(2), .facture-lignes td:nth-last-child(2) { text-align: right; }
-.facture-totaux { font-size: 0.92rem; margin: 12px 0; }
+.facture-totaux { font-size: var(--fs-4); margin: 12px 0; }
 .facture-totaux div { display: flex; justify-content: space-between; padding: 3px 0; color: var(--text-muted); }
-.facture-totaux .total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; font-weight: 700; font-size: 1.05rem; color: var(--text); }
+.facture-totaux .total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 8px; font-weight: 700; font-size: var(--fs-5); color: var(--text); }
+
+/* En-tête d'information d'une facture existante (provenance, détail de la source, statut de paiement) : statut bien
+   visible dès l'ouverture, jamais une phrase séparée en bas du panel qui passait inaperçue après un clic en haut. */
+.facture-detail-entete { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin: 0 0 4px; }
+.facture-detail-note { margin: 0 0 14px; }
+/* valeur en lecture seule (client/n° d'une facture reçue du bot) : un champ qui n'est pas modifiable n'a pas l'air
+   d'un champ (docs/design.md §5) — texte simple à la place d'un input désactivé */
+.champ-valeur { min-height: 48px; display: flex; align-items: center; font-size: var(--fs-4); color: var(--text); }
+/* pied de fenêtre à plusieurs actions (statut, avoir, téléchargement, suppression) : sur une ligne tant que la place
+   le permet (docs/design.md §5) */
+.facture-pied.facture-detail-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.facture-detail-actions-statut { display: flex; gap: 10px; flex-wrap: wrap; }
+/* l'action qui détruit (Supprimer) reste à l'écart des autres, jamais adjacente à un bouton cliqué par réflexe */
+.facture-detail-supprimer { margin-left: auto; }
+@media (max-width: 480px) { .facture-detail-supprimer { margin-left: 0; } }
 
 /* Factures : nom du client dans le tableau, bouton qui ouvre le détail (plutôt qu'une icône de plus) */
-.table-lien { display: block; width: 100%; padding: 6px 0; margin: -6px 0; border: 0; background: none; color: var(--gold-strong); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
-.table-lien:hover, .table-lien:focus-visible { color: var(--gold-light); text-decoration: underline; }
+.table-lien { display: block; width: 100%; padding: 6px 0; margin: -6px 0; border: 0; background: none; color: var(--accent-dark); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.table-lien:hover, .table-lien:focus-visible { color: var(--accent-dark); text-decoration: underline; }
 
 /* Factures : modale de saisie manuelle, agrandie et scindée en trois temps de remplissage numérotés
    (Articles → Livraison et réduction → Récapitulatif), tête et pied fixes, seul le corps défile — même charpente que
@@ -741,50 +762,50 @@ label, .eyebrow-label {
   scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent;
 }
 .facture-pied { flex: 0 0 auto; padding: 14px 28px 22px; border-top: 1px solid var(--border); background: var(--bg-card); }
-#modale-nouvelle-facture .champ label small { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--text-faint); }
+#modale-facture-form .champ label small { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--text-faint); }
 .facture-form-ligne { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
 .facture-fieldset { margin: 0 0 20px; padding: 16px 18px 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg3); }
-.facture-fieldset legend { padding: 0 6px; margin: 0 0 4px -6px; font-size: 1rem; font-weight: 500; color: var(--text); }
+.facture-fieldset legend { padding: 0 6px; margin: 0 0 4px -6px; font-size: var(--fs-5); font-weight: 500; color: var(--text); }
 .facture-form-montants { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .champ-dollar, .champ-pourcentage { position: relative; }
 .champ-dollar input, .champ-pourcentage input { padding-right: 32px; }
-.champ-dollar::after, .champ-pourcentage::after { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size: 0.85rem; pointer-events: none; }
+.champ-dollar::after, .champ-pourcentage::after { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--text-faint); font-size: var(--fs-3); pointer-events: none; }
 .champ-dollar::after { content: "$"; }
 .champ-pourcentage::after { content: "%"; }
 .facture-total-apercu-bloc { padding: 14px 18px 16px; border-radius: var(--radius); background: var(--bg2); border: 1px solid var(--border); margin: 0 0 4px; }
-.facture-totaux-titre { margin: 0 0 8px; font-size: 1rem; font-weight: 500; color: var(--text); }
+.facture-totaux-titre { margin: 0 0 8px; font-size: var(--fs-5); font-weight: 500; color: var(--text); }
 
 /* Comptabilité → Factures : lignes d'articles de la saisie manuelle (description/quantité/prix unitaire), même forme
    que ce que le bot envoie pour une commande Discord (order.updated, items[]) */
 .facture-articles-entete, .facture-article-ligne { display: grid; grid-template-columns: 1fr 70px 130px 36px; gap: 8px; }
-.facture-articles-entete { padding: 0 2px 6px; font-size: 0.78rem; color: var(--text-faint); }
+.facture-articles-entete { padding: 0 2px 6px; font-size: var(--fs-1); color: var(--text-faint); }
 .facture-article-ligne { align-items: center; margin-bottom: 8px; }
 .facture-article-ligne input {
   width: 100%; min-height: 40px; padding: 8px 12px; border-radius: var(--radius-sm);
-  border: 1px solid var(--d8-contour-champ); background: var(--bg2); color: var(--text); font: inherit; font-size: 0.9rem;
+  border: 1px solid var(--contour-champ); background: var(--bg2); color: var(--text); font: inherit; font-size: var(--fs-3);
 }
-.facture-article-ligne input:focus { outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
+.facture-article-ligne input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
 .facture-article-ligne .champ-dollar input { padding-right: 28px; }
-.facture-article-ligne .champ-dollar::after { right: 10px; font-size: 0.8rem; }
+.facture-article-ligne .champ-dollar::after { right: 10px; font-size: var(--fs-2); }
 .facture-article-retirer {
   display: flex; align-items: center; justify-content: center; width: 36px; height: 40px; border: 1px solid var(--border);
   border-radius: var(--radius-sm); background: var(--bg2); color: var(--text-faint); cursor: pointer;
 }
-.facture-article-retirer:hover, .facture-article-retirer:focus-visible { color: var(--danger-strong); border-color: var(--danger-strong); }
+.facture-article-retirer:hover, .facture-article-retirer:focus-visible { color: var(--erreur); border-color: var(--erreur); }
 .facture-article-retirer .ico { width: 16px; height: 16px; }
 .facture-article-ajouter { margin-top: 2px; }
 
 /* Paie → fiche grade : paliers de prime (seuil/prime), même forme que les lignes d'articles de facture ci-dessus */
 .palier-lignes-entete, .palier-ligne { display: grid; grid-template-columns: 1fr 1fr 42px; gap: 10px; }
-.palier-lignes-entete { padding: 0 2px 8px; font-size: 0.8rem; color: var(--text-faint); }
+.palier-lignes-entete { padding: 0 2px 8px; font-size: var(--fs-2); color: var(--text-faint); }
 .palier-ligne { align-items: center; margin-bottom: 10px; }
 .palier-ligne input {
   width: 100%; min-height: 48px; padding: 10px 14px; border-radius: var(--radius-sm);
-  border: 1px solid var(--d8-contour-champ); background: var(--bg2); color: var(--text); font: inherit; font-size: 1rem;
+  border: 1px solid var(--contour-champ); background: var(--bg2); color: var(--text); font: inherit; font-size: var(--fs-5);
 }
-.palier-ligne input:focus { outline: none; border-color: var(--d8-gold-400); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
+.palier-ligne input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
 .palier-ligne .champ-dollar input { padding-right: 32px; }
-.palier-ligne .champ-dollar::after { right: 12px; font-size: 0.88rem; }
+.palier-ligne .champ-dollar::after { right: 12px; font-size: var(--fs-3); }
 .palier-ligne .facture-article-retirer { width: 42px; height: 48px; }
 
 /* message d'une fenêtre .modale-grade (quelle que soit sa page) : fixe entre le bandeau et le corps défilant, comme
@@ -796,23 +817,23 @@ label, .eyebrow-label {
    rapport au plus haut seuil réglé ; le repère du palier atteint s'allume en or, comme le palier du barème DOT. */
 .palier-echelle { margin-top: 18px; }
 .palier-echelle + .palier-echelle { margin-top: 34px; }
-.palier-echelle-entete { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; font-size: 0.85rem; color: var(--text-muted); }
+.palier-echelle-entete { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 10px; font-size: var(--fs-3); color: var(--text-muted); }
 .palier-echelle-entete strong { color: var(--text); font-weight: 500; }
 .palier-echelle-piste { position: relative; height: 8px; border-radius: 999px; background: var(--bg3); margin: 0 7px; }
-.palier-echelle-remplie { height: 100%; width: 0; border-radius: inherit; background: var(--d8-grad-gold); transition: width var(--d8-t); }
+.palier-echelle-remplie { height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width var(--transition); }
 .palier-echelle-reperes { position: relative; height: 0; margin: 0 7px; }
 .palier-echelle-repere {
   position: absolute; top: -11px; transform: translateX(-50%); width: 14px; height: 14px; border-radius: 50%;
-  background: var(--bg2); border: 2px solid var(--border); transition: background var(--d8-t), border-color var(--d8-t);
+  background: var(--bg2); border: 2px solid var(--border); transition: background var(--transition), border-color var(--transition);
 }
-.palier-echelle-repere.atteint { background: var(--d8-gold-400); border-color: var(--d8-gold-400); }
+.palier-echelle-repere.atteint { background: var(--accent); border-color: var(--accent); }
 .palier-echelle-etiquettes { position: relative; height: 34px; margin: 6px 7px 0; }
 .palier-echelle-etiquette {
-  position: absolute; transform: translateX(-50%); max-width: 90px; font-size: 0.72rem; line-height: 1.3;
+  position: absolute; transform: translateX(-50%); max-width: 90px; font-size: var(--fs-1); line-height: 1.3;
   color: var(--text-faint); text-align: center; white-space: nowrap;
 }
-.palier-echelle-etiquette strong { display: block; font-size: 0.78rem; color: var(--text); }
-.palier-echelle-etiquette.atteint strong { color: var(--gold-strong); }
+.palier-echelle-etiquette strong { display: block; font-size: var(--fs-1); color: var(--text); }
+.palier-echelle-etiquette.atteint strong { color: var(--accent-dark); }
 
 /* Paie → fiche grade : salaire de base (interrupteur + montant sur une ligne), et les deux échelles de primes
    (run, facture) côte à côte dans les cartes de .accueil-panneaux dès que la fiche est assez large. */
@@ -827,43 +848,43 @@ label, .eyebrow-label {
 .paie-salaire-carte .d8-switch-piste::after { width: 20px; height: 20px; }
 .paie-salaire-carte .d8-switch input:checked + .d8-switch-piste::after { transform: translateX(24px); }
 .paie-salaire-texte { flex: 1 1 200px; min-width: 0; }
-.paie-salaire-titre { display: block; font-family: var(--d8-font-display); font-size: 1.15rem; color: var(--text); margin-bottom: 3px; }
+.paie-salaire-titre { display: block; font-family: var(--display); font-size: var(--fs-6); color: var(--text); margin-bottom: 3px; }
 .paie-salaire-texte .champ-aide { margin: 0; }
 .paie-salaire-montant { flex: 0 1 220px; min-width: 160px; }
-.paie-salaire-montant input { min-height: 56px; padding: 8px 44px 8px 16px; font-size: 1.5rem; font-weight: 600; text-align: right; }
-.paie-salaire-montant.champ-dollar::after { right: 18px; font-size: 1.05rem; }
-.paie-salaire-unite { color: var(--text-faint); font-size: 0.9rem; white-space: nowrap; }
+.paie-salaire-montant input { min-height: 56px; padding: 8px 44px 8px 16px; font-size: var(--fs-8); font-weight: 600; text-align: right; }
+.paie-salaire-montant.champ-dollar::after { right: 18px; font-size: var(--fs-5); }
+.paie-salaire-unite { color: var(--text-faint); font-size: var(--fs-3); white-space: nowrap; }
 
 .paie-primes-grille { margin-top: 26px; gap: 20px 28px; }
 .paie-primes-grille .accueil-panneau { padding: 22px 24px; }
 .paie-prime-entete { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-.paie-prime-entete h3 { margin: 0 0 3px; font-family: var(--d8-font-display); font-size: 1.1rem; color: var(--text); }
+.paie-prime-entete h3 { margin: 0 0 3px; font-family: var(--display); font-size: var(--fs-6); color: var(--text); }
 .paie-prime-entete .champ-aide { margin: 0; }
 .paie-prime-entete .btn-petit { height: 40px; padding: 0 20px; }
 
 /* aperçu vivant des paliers saisis, triés par seuil (évite de se fier à l'ordre des lignes, qu'on ne réordonne pas) */
 .palier-apercu { margin-top: 12px; }
 .palier-apercu-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.palier-apercu-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba({{couleur_rvb}}, 0.1); border: 1px solid rgba({{couleur_rvb}}, 0.3); color: var(--text); font-size: 0.8rem; white-space: nowrap; }
+.palier-apercu-chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba({{couleur_rvb}}, 0.1); border: 1px solid rgba({{couleur_rvb}}, 0.3); color: var(--text); font-size: var(--fs-2); white-space: nowrap; }
 .palier-apercu-chip svg.fleche { width: 12px; height: 12px; color: var(--text-faint); }
-.palier-apercu-chip strong { color: var(--gold-strong); }
-.palier-apercu-vide { color: var(--text-faint); font-size: 0.82rem; margin: 0; }
+.palier-apercu-chip strong { color: var(--accent-dark); }
+.palier-apercu-vide { color: var(--text-faint); font-size: var(--fs-2); margin: 0; }
 
 /* Paie → simulateur : le choix du mode (données fictives / réelles) est un interrupteur à deux positions seul en tête
    de la carte, pas une deuxième rangée de .compta-sous-onglet sous Grades/Simulateur — les deux rangées se
    ressemblaient trop et donnaient l'impression de deux niveaux d'onglets empilés. */
 .segment-mode { display: inline-flex; flex-shrink: 0; flex-wrap: wrap; padding: 3px; border-radius: 999px; background: var(--bg3); gap: 2px; }
 .segment-mode-bouton {
-  border: 0; background: none; padding: 7px 16px; border-radius: 999px; font: inherit; font-size: 0.82rem; font-weight: 500;
-  color: var(--text-muted); cursor: pointer; white-space: nowrap; transition: background var(--d8-t), color var(--d8-t), box-shadow var(--d8-t);
+  border: 0; background: none; padding: 7px 16px; border-radius: 999px; font: inherit; font-size: var(--fs-2); font-weight: 500;
+  color: var(--text-muted); cursor: pointer; white-space: nowrap; transition: background var(--transition), color var(--transition), box-shadow var(--transition);
 }
 .segment-mode-bouton:hover { color: var(--text); }
 .segment-mode-bouton.actif { background: var(--bg2); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); }
-.segment-mode-bouton:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 2px; }
+.segment-mode-bouton:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 2px; }
 
 /* champs du simulateur : mêmes cartes que le reste de la page (ombre et marges du .accueil-panneau), champs un peu
    plus grands que le formulaire standard pour rester cohérents avec la fiche grade et parce que la carte a la place */
-#formulaire-simulateur .champ input, #formulaire-simulateur .champ select { min-height: 52px; font-size: 1rem; }
+#formulaire-simulateur .champ input, #formulaire-simulateur .champ select { min-height: 52px; font-size: var(--fs-5); }
 #simulateur-groupe-manuel, #simulateur-groupe-reel { margin-bottom: 18px; }
 
 /* sélecteur de semaine (données réelles) : même coquille que .run-semaine-nav (Quota, Factures — flèches rondes,
@@ -873,20 +894,20 @@ label, .eyebrow-label {
 .semaine-detail-bouton {
   display: flex; flex-direction: column; align-items: center; gap: 1px; flex: 1 1 auto; min-width: 0; padding: 4px 10px;
   border: 0; border-radius: 999px; background: none; color: var(--text); font: inherit; cursor: pointer;
-  transition: background var(--d8-t);
+  transition: background var(--transition);
 }
 .semaine-detail-bouton:hover { background: rgba({{couleur_rvb}}, 0.1); }
-.semaine-detail-bouton:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
-.semaine-detail-bouton strong { font-size: 0.9rem; font-weight: 600; color: var(--text); }
-.semaine-detail-bouton span { font-size: 0.78rem; color: var(--text-faint); }
-.semaine-actuelle-tag { color: var(--gold-strong); }
+.semaine-detail-bouton:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
+.semaine-detail-bouton strong { font-size: var(--fs-3); font-weight: 600; color: var(--text); }
+.semaine-detail-bouton span { font-size: var(--fs-1); color: var(--text-faint); }
+.semaine-actuelle-tag { color: var(--accent-dark); }
 
 @media (max-width: 520px) {
   #formulaire-simulateur .champ-deux { grid-template-columns: 1fr; gap: 0; }
 }
 
 @media (max-width: 760px) {
-  .modale-fond#modale-nouvelle-facture { padding: 0; }
+  .modale-fond#modale-facture-form { padding: 0; }
   .modale.modale-facture { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
   .modale-facture > .modale-entete { padding: 16px 18px 12px; }
   .facture-corps { padding: 14px 18px 10px; }
@@ -904,27 +925,19 @@ label, .eyebrow-label {
 }
 
 /* ======== comptabilité, notifications ======== */
-/* Comptabilité → Tablettes : colonne de suppression (croix discrète, visible au survol de la ligne) */
-.compta-col-actions { width: 44px; text-align: right; padding-right: 8px !important; }
-.compta-supprimer-ligne { width: 28px; height: 28px; padding: 0; font-size: 0.8rem; line-height: 1; opacity: 0.45; transition: opacity var(--d8-t), background var(--d8-t); }
-tr:hover .compta-supprimer-ligne, .compta-supprimer-ligne:focus-visible { opacity: 1; }
 
 /* Bouton WebMap dans la barre de navigation */
 .nav-webmap { display: inline-flex; align-items: center; gap: 7px; }
 .nav-webmap svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
 @media (max-width: 560px) { .nav-webmap span { display: none; } .nav-webmap { padding: 0 11px; } }
 
-/* Comptabilité → DOT : réglage « coller à partir de la ligne » à côté du bouton de copie */
-.dot-copie-outils { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.dot-copie-libelle { font-family: var(--d8-font-ui); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
-.dot-copie-ligne { width: 72px; text-align: center; }
 /* menus habillés : le texte s'arrête avant le chevron (à 16 px du bord) au lieu de passer dessous */
 .d8-select-enveloppe select { padding-right: 44px !important; text-overflow: ellipsis; }
 
 /* notifications (notifier, layout.js) : en bas au centre, au-dessus de tout, au-dessus de la bulle de messagerie */
 .notifications { position: fixed; left: 50%; bottom: 24px; z-index: 100200; display: flex; flex-direction: column; align-items: center; gap: 8px; transform: translateX(-50%); width: max-content; max-width: min(92vw, 560px); pointer-events: none; }
 .notification {
-  padding: 10px 18px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); font-size: 0.9rem; text-align: center;
+  padding: 10px 18px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); font-size: var(--fs-3); text-align: center;
   background: var(--bg2); color: var(--ok); border: 1px solid var(--ok); animation: notification-entree 0.2s ease-out;
 }
 .notification-erreur { background: var(--bg2); color: var(--erreur); border-color: var(--erreur); }
@@ -938,10 +951,10 @@ tr:hover .compta-supprimer-ligne, .compta-supprimer-ligne:focus-visible { opacit
 /* rubriques : des liens (une page par rubrique), plus des boutons d'onglets */
 .admin-nav { display: flex; flex-direction: column; gap: 4px; }
 .admin-barre-laterale a.lien-onglet.actif {
-  background: var(--d8-grad-gold-soft); color: var(--gold-light);
+  background: var(--accent-soft); color: var(--accent-dark);
   box-shadow: inset 0 0 0 1px rgba({{couleur_rvb}}, 0.35);
 }
-.admin-barre-laterale a.lien-onglet.actif .ico { color: var(--gold-light); }
+.admin-barre-laterale a.lien-onglet.actif .ico { color: var(--accent-dark); }
 img.admin-avatar { object-fit: cover; padding: 0; }
 
 /* Écran large : trois zones — logo, navigation, pied (indicateur « En service », compte). Seule la navigation peut
@@ -975,19 +988,19 @@ img.admin-avatar { object-fit: cover; padding: 0; }
 .admin-service-indic {
   display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 6px 10px 6px 12px;
   background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text);
-  font: inherit; font-size: 13px; cursor: pointer; transition: background var(--d8-t), border-color var(--d8-t);
+  font: inherit; font-size: var(--fs-2); cursor: pointer; transition: background var(--transition), border-color var(--transition);
 }
 .admin-service-indic:hover, .admin-service-indic[aria-expanded="true"] { background: var(--bg-card); border-color: rgba({{couleur_rvb}}, 0.35); }
 .admin-service-indic .ico { width: 16px; height: 16px; margin-left: auto; color: var(--text-muted); transform: rotate(-90deg); }
 .admin-compte { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .admin-compte .admin-avatar { width: 34px; height: 34px; }
 .admin-compte-texte { flex: 1; min-width: 0; margin-left: 4px; }
-.admin-compte-texte strong { display: block; font-size: 0.88rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.admin-compte-texte strong { display: block; font-size: var(--fs-3); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .admin-compte-texte .admin-compte-grade { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .admin-icone-bouton, .admin-barre-laterale a.admin-icone-bouton {
   flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0;
   background: none; border: 1px solid transparent; border-radius: var(--radius-sm); color: var(--text-muted);
-  font-size: 1.3rem; line-height: 1; cursor: pointer; transition: background var(--d8-t), color var(--d8-t), border-color var(--d8-t);
+  font-size: var(--fs-7); line-height: 1; cursor: pointer; transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 .admin-icone-bouton:hover, .admin-barre-laterale a.admin-icone-bouton:hover { background: var(--bg-card); color: var(--text); border-color: var(--border); }
 .admin-icone-bouton .ico { width: 18px; height: 18px; }
@@ -1000,12 +1013,12 @@ img.admin-avatar { object-fit: cover; padding: 0; }
 }
 .admin-service-panneau[hidden] { display: none; }
 .admin-service-panneau-tete { display: flex; align-items: center; gap: 8px; padding: 10px 8px 8px 16px; border-bottom: 1px solid var(--border); }
-.admin-service-panneau-tete h2 { margin: 0; font-size: 15px; font-family: var(--d8-font-ui); font-weight: 600; color: var(--text); }
+.admin-service-panneau-tete h2 { margin: 0; font-size: var(--fs-4); font-family: var(--body); font-weight: 600; color: var(--text); }
 .admin-service-panneau-tete .admin-icone-bouton { margin-left: auto; }
 .admin-service-liste { list-style: none; margin: 0; padding: 6px 8px 10px; overflow-y: auto; }
 .admin-service-liste li { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-radius: var(--radius-sm); }
-.admin-service-nom { font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
-.admin-service-detail, .admin-service-vide { font-size: 12.5px; color: var(--text-muted); }
+.admin-service-nom { font-size: var(--fs-3); color: var(--text); overflow-wrap: anywhere; }
+.admin-service-detail, .admin-service-vide { font-size: var(--fs-1); color: var(--text-muted); }
 .admin-barre-haut, .admin-voile { display: none; }
 .admin-service-indic--haut.cache { display: none; }
 
@@ -1024,6 +1037,12 @@ img.admin-avatar { object-fit: cover; padding: 0; }
   .admin-barre-haut-logo { display: flex; margin-right: auto; }
   .admin-barre-haut-logo img { height: 36px; width: auto; }
   .admin-barre-haut .admin-avatar { width: 34px; height: 34px; }
+  /* zone tactile 44px (comme .admin-burger) : marge négative pour ne pas élargir la barre, l'avatar garde sa taille visuelle */
+  .admin-barre-haut-compte {
+    display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-right: -6px;
+    border-radius: 50%;
+  }
+  .admin-barre-haut-compte:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
   .admin-barre-laterale {
     position: fixed; top: 0; left: 0; bottom: 0; z-index: 70; width: min(300px, 86vw); height: 100vh; height: 100dvh;
     transform: translateX(-100%); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s;
@@ -1049,7 +1068,7 @@ img.admin-avatar { object-fit: cover; padding: 0; }
 /* lien d'évitement (gestion.js) : visible seulement quand il reçoit le focus */
 .evitement {
   position: absolute; left: 12px; top: -60px; z-index: 100; padding: 10px 16px; border-radius: var(--radius-sm);
-  background: var(--d8-grad-gold); color: var(--or-contrast); font-weight: 600;
+  background: var(--accent); color: var(--on-accent); font-weight: 600;
 }
 .evitement:focus { top: 12px; }
 main.admin-contenu:focus { outline: none; }
@@ -1067,14 +1086,17 @@ main.admin-contenu:focus { outline: none; }
 /* tableaux de la Direction (comptes, grades) */
 .cellule-compte { display: flex; align-items: center; gap: 12px; }
 .cellule-compte .admin-avatar { flex-shrink: 0; }
-.case-permission { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 0.88rem; }
+.case-permission { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: var(--fs-3); }
 .case-permission input { width: auto; }
 .liste-permissions { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 16px; }
 .pastille-grade { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: 0; }
 
 /* lien d'image sous la photo de profil : le groupe est prévu pour une ligne (flex: 1 1 260px), ici dans une colonne */
 
-/* ---- Paramètres → Apparence : une carte par image de la marque ---- */
+/* ---- Paramètres → Images : une carte par image de l'entreprise ---- */
+/* même espace sous les onglets que les autres (.param-groupe, padding-top: 20px) : ce panneau est hors du <form>
+   (ses images s'enregistrent aussitôt, pas avec « Enregistrer »), donc hors de .param-groupe aussi, sans en hériter */
+#panneau-apparence { padding-top: 20px; }
 .apparence-grille {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -1101,21 +1123,25 @@ main.admin-contenu:focus { outline: none; }
   overflow: hidden;
 }
 .apparence-apercu img { max-width: 100%; max-height: 100%; object-fit: contain; image-rendering: auto; }
-.apparence-infos { min-width: 0; flex: 1; }
-.apparence-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+/* colonne : « Remplacer »/« Rétablir » poussés en bas (margin-top: auto) plutôt que juste sous le texte d'aide, dont
+   la longueur varie d'une image à l'autre (logo, icône, image de partage) — aligné avec les cartes voisines, la
+   grille (align-items: stretch, par défaut) les ayant déjà mises à la même hauteur sur une même ligne. */
+.apparence-infos { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.apparence-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 10px; }
 @media (max-width: 520px) {
   .apparence-grille { grid-template-columns: 1fr; }
   .apparence-apercu { flex-basis: 80px; height: 80px; }
 }
 
 /* ---- « En service » : pastille et compteur, communs au panneau du menu et à l'Accueil ---- */
-.admin-en-service-nombre { margin-left: auto; font-size: 0.75rem; padding: 1px 8px; border-radius: 999px; background: var(--ok-soft); color: var(--ok); }
+.admin-en-service-nombre { margin-left: auto; font-size: var(--fs-1); padding: 1px 8px; border-radius: 999px; background: var(--ok-soft); color: var(--ok); }
 .admin-service-panneau-tete .admin-en-service-nombre { margin-left: 0; }
 .pastille-service { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); flex-shrink: 0; }
 
 
 /* titre de la page : un <h1> par page (lecteurs d'écran), à la taille des anciens titres de section */
-.admin-contenu h1 { font-size: clamp(1.9rem, 3vw, 2.75rem); line-height: 1.15; }
+/* titre d'outil, pas de vitrine : 2 rem au plus, pour que le contenu commence dans le premier écran */
+.admin-contenu h1 { font-size: clamp(1.6rem, 2.2vw, 2rem); line-height: 1.15; }
 
 /* Tableau en cartes (gestion.js, tablesAdaptatives) : un .table-admin trop large pour sa place devient une grille de
    cartes, plusieurs par rangée sur écran large, une sur téléphone ; chaque cellule montre l’intitulé de sa colonne. */
@@ -1129,36 +1155,40 @@ main.admin-contenu:focus { outline: none; }
   background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
 }
 .table-admin.en-cartes td { padding: 0; border: none; min-width: 0; text-align: left !important; white-space: normal !important; }
-.table-admin.en-cartes td:not([data-libelle]), .table-admin.en-cartes td[colspan], .table-admin.en-cartes .table-cartes-large { grid-column: 1 / -1; }
-.table-admin.en-cartes .cellule-titre { font-size: 1rem; order: -1; }
+.table-admin.en-cartes td:not([data-libelle]):not(.col-actions), .table-admin.en-cartes td[colspan], .table-admin.en-cartes .table-cartes-large { grid-column: 1 / -1; }
+.table-admin.en-cartes .cellule-titre { font-size: var(--fs-5); order: -1; }
+/* la colonne Actions rejoint le titre en haut de la carte, à sa droite — pas en bas sous un filet : c'est l'action
+   qu'on cherche en premier en ouvrant la carte (même emplacement que le menu « ⋯ » de RH/Comptes). */
+/* posée en absolu : en grille, le titre (pleine largeur) la renvoyait sur une ligne vide à elle seule */
+.table-admin.en-cartes tr { position: relative; }
+.table-admin.en-cartes .cellule-titre { padding-right: 44px !important; }
+.table-admin.en-cartes td.col-actions { position: absolute; top: 10px; right: 10px; width: auto; padding: 0 !important; }
 .table-admin.en-cartes td[data-libelle]::before {
-  content: attr(data-libelle); display: block; margin-bottom: 4px; font-size: 0.75rem; letter-spacing: 0.08em;
+  content: attr(data-libelle); display: block; margin-bottom: 4px; font-size: var(--fs-1); font-weight: 500; letter-spacing: 0.5px;
   text-transform: uppercase; color: var(--text-faint);
 }
 .table-admin.en-cartes td select { width: 100%; min-width: 0; }
 .table-admin.en-cartes td:empty { display: none; }
 .table-admin.en-cartes .actions-ligne { flex-wrap: wrap; }
-/* dernière case : les actions, séparées du contenu par un filet */
-.table-admin.en-cartes td:last-child:not([data-libelle]):not(.cellule-titre) { padding-top: 12px; border-top: 1px solid var(--border); }
-.rh-id-discord { font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+/* dernière case (hors colonne Actions, remontée en haut à droite ci-dessus) : séparée du contenu par un filet */
+.table-admin.en-cartes td:last-child:not([data-libelle]):not(.cellule-titre):not(.col-actions) { padding-top: 12px; border-top: 1px solid var(--border); }
+.rh-id-discord { font-size: var(--fs-1); font-variant-numeric: tabular-nums; }
 
-/* Lisibilité dans l'espace agents (aussi affiché dans l'ordinateur en jeu) : rien sous 12 px ; les majuscules espacées
-   restent au bouton doré principal, les autres boutons sont en casse normale (« Ouvrir la fiche » se lit, « OUVRIR LA
-   FICHE » s'épelle). La vitrine garde ses tailles (style.css). */
-.page-agents .btn { font-size: 12.5px; }
-.page-agents .btn-petit { font-size: 12px; }
-.page-agents .btn-fantome, .page-agents .btn-danger { text-transform: none; letter-spacing: 0.02em; font-size: 13.5px; }
-.page-agents .btn-fantome.btn-petit, .page-agents .btn-danger.btn-petit { font-size: 13px; }
-.page-agents .stat-libelle { font-size: 12px; letter-spacing: 0.1em; }
-.page-agents .admin-nav-groupe { font-size: 12px; letter-spacing: 0.16em; }
-.page-agents .admin-compte-grade { font-size: 0.75rem; }
-.page-agents .table-admin th, .page-agents .carte-table .table-admin th { font-size: 0.75rem; }
-.page-agents .puce { font-size: 0.75rem; }
-.page-agents .champ label { font-size: 12px; }
+/* Lisibilité dans l'espace agents (aussi affiché dans l'ordinateur en jeu) : rien sous 12 px ; boutons, badges et
+   libellés de champ en casse normale (« Ajouter un membre » se lit, « AJOUTER UN MEMBRE » s'épelle et crie sur chaque
+   page). La vitrine garde ses tailles (style.css). */
+.page-agents .btn { text-transform: none; letter-spacing: 0.01em; font-size: var(--fs-3); font-weight: 600; }
+.page-agents .btn-petit { font-size: var(--fs-2); }
+.page-agents .btn-fantome, .page-agents .btn-danger { font-weight: 500; }
+.page-agents .stat-libelle { font-size: var(--fs-1); letter-spacing: 0.1em; }
+.page-agents .admin-nav-groupe { font-size: var(--fs-1); letter-spacing: 0.16em; }
+.page-agents .admin-compte-grade { font-size: var(--fs-1); text-transform: none; letter-spacing: 0; }
+.page-agents .puce { font-size: var(--fs-1); text-transform: none; letter-spacing: 0; }
+.page-agents .champ label { font-size: var(--fs-2); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-muted); }
 
 /* Ventes & statistiques : « Toute l'agence » et « Semaine … » côte à côte quand la place le permet */
 .stats-groupes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 8px 24px; margin-bottom: 8px; }
-.stats-groupe-titre { margin: 0 0 8px; font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
+.stats-groupe-titre { margin: 0 0 8px; font-size: var(--fs-2); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-faint); }
 .admin-stats.stats-paire { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 
@@ -1166,15 +1196,15 @@ main.admin-contenu:focus { outline: none; }
 .accueil-panneaux { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; margin: 6px 0 22px; }
 .accueil-panneau { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; min-width: 0; }
 .accueil-panneau-entete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-.accueil-panneau-entete h2 { margin: 0; font-size: 1.25rem; }
-.accueil-panneau-entete a { display: inline-block; padding: 3px 0; font-size: 0.85rem; color: var(--gold-strong); }   /* 24 px de haut : cible tactile */
+.accueil-panneau-entete h2 { margin: 0; font-size: var(--fs-7); }
+.accueil-panneau-entete a { display: inline-block; padding: 3px 0; font-size: var(--fs-3); color: var(--accent-dark); }   /* 24 px de haut : cible tactile */
 .accueil-liste { list-style: none; margin: 0; padding: 0; }
 .accueil-liste li { display: flex; gap: 12px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--border); min-width: 0; }
 .accueil-liste li:first-child { border-top: none; }
-.accueil-heure { flex-shrink: 0; font-size: 0.82rem; color: var(--gold-strong); font-variant-numeric: tabular-nums; }
+.accueil-heure { flex-shrink: 0; font-size: var(--fs-2); color: var(--accent-dark); font-variant-numeric: tabular-nums; }
 .accueil-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-.accueil-liste .accueil-vide { display: block; color: var(--text-faint); font-size: 0.9rem; }
-.accueil-vide a { color: var(--gold-strong); }
+.accueil-liste .accueil-vide { display: block; color: var(--text-faint); font-size: var(--fs-3); }
+.accueil-vide a { color: var(--accent-dark); }
 
 /* Squelettes : la place d'un contenu qui arrive, à sa taille, pour que rien ne saute à son arrivée. */
 @keyframes squelette { 50% { opacity: 0.55; } }
@@ -1190,30 +1220,30 @@ main.admin-contenu:focus { outline: none; }
 /* Accueil : « À traiter » (actions en attente, selon les droits), cartes cliquables, progression vers le palier
    suivant, panneaux à la hauteur de leur contenu (un panneau vide ne s'étire plus sur celui d'à côté). */
 .accueil-a-traiter { margin: 0 0 20px; }
-.accueil-a-traiter h2 { margin: 0 0 10px; font-size: 1.1rem; }
+.accueil-a-traiter h2 { margin: 0 0 10px; font-size: var(--fs-6); }
 .accueil-a-traiter ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .accueil-tache {
   display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 14px; color: var(--text);
   border: 1px solid rgba({{couleur_rvb}}, 0.45); border-radius: var(--radius-sm); background: rgba({{couleur_rvb}}, 0.08);
-  transition: background var(--d8-t), border-color var(--d8-t);
+  transition: background var(--transition), border-color var(--transition);
 }
-.accueil-tache:hover { background: rgba({{couleur_rvb}}, 0.16); border-color: var(--gold); color: var(--text); }
-.accueil-tache .ico { flex-shrink: 0; width: 18px; height: 18px; margin-left: auto; transform: rotate(-90deg); color: var(--gold-strong); }
+.accueil-tache:hover { background: rgba({{couleur_rvb}}, 0.16); border-color: var(--accent); color: var(--text); }
+.accueil-tache .ico { flex-shrink: 0; width: 18px; height: 18px; margin-left: auto; transform: rotate(-90deg); color: var(--accent-dark); }
 .accueil-tache-nombre {
   flex-shrink: 0; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 999px; display: inline-flex;
-  align-items: center; justify-content: center; background: var(--d8-grad-gold); color: var(--or-contrast); font-weight: 600; font-size: 13px;
+  align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: var(--fs-2);
 }
 .accueil-tache--alerte { border-color: var(--erreur); background: var(--erreur-soft); }
 .accueil-tache--alerte:hover { border-color: var(--erreur); background: var(--erreur-soft); }
 .accueil-tache--alerte .accueil-tache-nombre { background: var(--erreur); color: #fff; }
 .accueil-panneaux { align-items: start; }
-.accueil-sous-titre { margin: 16px 0 2px; font-family: var(--d8-font-ui); font-size: 12px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
+.accueil-sous-titre { margin: 16px 0 2px; font-family: var(--body); font-size: var(--fs-1); font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
 .accueil-panneau .admin-service-liste { padding: 0; overflow: visible; max-height: none; }
 .accueil-panneau .admin-service-liste li { padding: 9px 0; border-radius: 0; gap: 2px; }
 #service-tout { margin-top: 8px; }
 /* sa propre ligne « en service » (panneau du menu, Accueil) */
-.admin-service-moi .admin-service-nom { color: var(--gold-light); }
-.admin-service-vous { margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 12px; background: rgba({{couleur_rvb}}, 0.16); color: var(--gold-light); }
+.admin-service-moi .admin-service-nom { color: var(--accent-dark); }
+.admin-service-vous { margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: var(--fs-1); background: rgba({{couleur_rvb}}, 0.16); color: var(--accent-dark); }
 
 /* cartes de chiffres : autant par rangée que la place le permet (quatre fixes devenaient illisibles vers 1 024 px) */
 .page-agents .admin-stats:not([style*="grid-template-columns"]) { grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
@@ -1222,7 +1252,7 @@ main.admin-contenu:focus { outline: none; }
 /* un montant ou une quantité (colonne alignée à droite) ne se coupe jamais : « 1 240 / 000 » se lit mal ; si la
    colonne n'a plus la place, le tableau passe en cartes */
 .page-agents .table-admin td[style*="text-align:right"], .page-agents .table-admin th[style*="text-align:right"] { white-space: nowrap; }
-.table-admin.en-cartes tr.ligne-total { border-color: var(--d8-gold-400); background: rgba({{couleur_rvb}}, 0.1); }
+.table-admin.en-cartes tr.ligne-total { border-color: var(--accent); background: rgba({{couleur_rvb}}, 0.1); }
 .table-admin.en-cartes tr.ligne-total td { border: none !important; }
 
 /* Cartes de chiffres : quand la carte est trop étroite pour le texte à côté de l'icône (moins de 96 px), le texte
@@ -1236,7 +1266,7 @@ main.admin-contenu:focus { outline: none; }
 
 /* ---------- Mon profil (compte.html) : la prime de la semaine, la fiche et son aperçu, le compte ---------- */
 .page-agents .admin-contenu h2.profil-titre, .profil-semaine h2, .profil-fiche h2 {
-  margin: 0; font-family: var(--d8-font-display); font-weight: 400; font-size: 1.3rem; color: var(--text);
+  margin: 0; font-family: var(--display); font-weight: 400; font-size: var(--fs-7); color: var(--text);
 }
 
 /* la semaine : le total en grand, puis d'où il vient */
@@ -1245,48 +1275,48 @@ main.admin-contenu:focus { outline: none; }
   margin-bottom: 28px; padding: 22px 26px; border: 1px solid var(--border); border-radius: var(--radius);
   background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.1), var(--bg2) 55%);
 }
-.profil-semaine-montant { margin: 6px 0 2px; font-family: var(--d8-font-display); font-size: clamp(2rem, 4vw, 2.6rem); line-height: 1.1; color: var(--gold-light); font-variant-numeric: tabular-nums; }
-.profil-semaine-maj { margin: 0; font-size: 0.82rem; color: var(--text-faint); }
+.profil-semaine-montant { margin: 6px 0 2px; font-family: var(--display); font-size: clamp(2rem, 4vw, 2.6rem); line-height: 1.1; color: var(--accent-dark); font-variant-numeric: tabular-nums; }
+.profil-semaine-maj { margin: 0; font-size: var(--fs-2); color: var(--text-faint); }
 .profil-semaine-detail { margin: 0; display: flex; flex-direction: column; }
 .profil-semaine-detail > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .profil-semaine-detail > div:last-child { border-bottom: 0; }
 .profil-semaine-detail dt { color: var(--text-muted); }
 .profil-semaine-detail dd { margin: 0; display: flex; align-items: baseline; gap: 18px; }
-.profil-semaine-detail dd span { font-size: 0.85rem; color: var(--text-faint); }
+.profil-semaine-detail dd span { font-size: var(--fs-3); color: var(--text-faint); }
 .profil-semaine-detail dd strong { min-width: 96px; text-align: right; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
-.profil-semaine-alerte { grid-column: 1 / -1; margin: 0; padding: 10px 14px; border-radius: var(--radius-sm); background: rgba({{couleur_rvb}}, 0.1); color: var(--gold-light); font-size: 0.85rem; }
+.profil-semaine-alerte { grid-column: 1 / -1; margin: 0; padding: 10px 14px; border-radius: var(--radius-sm); background: rgba({{couleur_rvb}}, 0.1); color: var(--accent-dark); font-size: var(--fs-3); }
 
 /* la fiche à gauche, son aperçu à droite (collant) */
 .profil-fiche { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 28px; align-items: start; margin-bottom: 28px; }
 .profil-fiche-formulaire { padding: 22px 26px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); }
 .profil-fiche-formulaire h2 { margin-bottom: 18px; }
 .profil-fiche-apercu { position: sticky; top: 24px; }
-.profil-fiche-apercu h2 { margin-bottom: 12px; font-size: 1.05rem; color: var(--text-muted); }
+.profil-fiche-apercu h2 { margin-bottom: 12px; font-size: var(--fs-5); color: var(--text-muted); }
 .profil-fiche-apercu .carte-membre { pointer-events: none; }
 .profil-fiche-apercu .carte-membre.profil-apercu-absent { opacity: 0.45; }
-.profil-apercu-note { margin: 10px 0 0; font-size: 0.82rem; color: var(--text-faint); }
+.profil-apercu-note { margin: 10px 0 0; font-size: var(--fs-2); color: var(--text-faint); }
 
 /* éditeur (aussi dans la fenêtre de Comptes) : intitulés en casse normale, photo en ligne */
 .profil-editeur label { font-size: inherit; text-transform: none; letter-spacing: 0; }
-.profil-editeur .champ label { display: block; margin-bottom: 6px; font-size: 0.875rem; font-weight: 500; color: var(--text-muted); }
-.profil-editeur .champ label small { font-size: 0.75rem; font-weight: 400; color: var(--text-faint); }
+.profil-editeur .champ label { display: block; margin-bottom: 6px; font-size: var(--fs-3); font-weight: 500; color: var(--text-muted); }
+.profil-editeur .champ label small { font-size: var(--fs-1); font-weight: 400; color: var(--text-faint); }
 .profil-photo-ligne { display: flex; align-items: center; gap: 18px; margin-bottom: 20px; }
 .profil-editeur .profil-photo-apercu { width: 88px; height: 88px; flex-shrink: 0; }
 .profil-photo-actions { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .profil-photo-actions strong { font-weight: 500; color: var(--text); }
-.profil-photo-actions small { font-size: 0.82rem; color: var(--text-faint); }
+.profil-photo-actions small { font-size: var(--fs-2); color: var(--text-faint); }
 .profil-photo-boutons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .profil-libelle-ligne { display: flex; align-items: baseline; justify-content: space-between; }
-.profil-compteur { font-size: 0.78rem; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.profil-compteur { font-size: var(--fs-1); color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .profil-pied { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 4px; }
 .profil-pied [data-zone-message] { flex: 1; min-width: 0; }
-.profil-pied [data-zone-message] .message { margin: 0; padding: 8px 12px; font-size: 0.88rem; }
+.profil-pied [data-zone-message] .message { margin: 0; padding: 8px 12px; font-size: var(--fs-3); }
 
 /* le compte : une ligne discrète, la suppression dessous, à gauche (à droite, la bulle de messagerie la recouvrait) */
 .profil-compte { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 16px 0 0; border-top: 1px solid var(--border); }
-.profil-compte p { margin: 0; font-size: 0.88rem; color: var(--text-faint); }
+.profil-compte p { margin: 0; font-size: var(--fs-3); color: var(--text-faint); }
 .profil-compte strong { color: var(--text-muted); font-weight: 500; }
-.profil-supprimer { color: var(--danger-strong); border-color: var(--erreur); }
+.profil-supprimer { color: var(--erreur); border-color: var(--erreur); }
 
 @media (max-width: 960px) {
   .profil-fiche { grid-template-columns: minmax(0, 1fr); }
@@ -1307,12 +1337,12 @@ main.admin-contenu:focus { outline: none; }
 /* ---------- Comptes & accès (comptes.html) : demandes à valider, puis membres ---------- */
 .comptes-section { margin-bottom: 34px; }
 .comptes-section-titre { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
-.comptes-section-titre h2 { margin: 0; font-family: var(--d8-font-display); font-weight: 400; font-size: 1.35rem; color: var(--text); }
-.comptes-badge { padding: 2px 10px; border-radius: 999px; background: var(--d8-grad-gold); color: var(--or-contrast); font-size: 0.8rem; font-weight: 600; }
+.comptes-section-titre h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: var(--fs-7); color: var(--text); }
+.comptes-badge { padding: 2px 10px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: var(--fs-2); font-weight: 600; }
 .comptes-badge:empty { display: none; }
-.comptes-aide { margin: 0 0 14px; font-size: 0.85rem; color: var(--text-faint); }
-.comptes-aide a { color: var(--gold-strong); }
-.comptes-discret { margin: 0; font-size: 0.85rem; color: var(--text-faint); }
+.comptes-aide { margin: 0 0 14px; font-size: var(--fs-3); color: var(--text-faint); }
+.comptes-aide a { color: var(--accent-dark); }
+.comptes-discret { margin: 0; font-size: var(--fs-3); color: var(--text-faint); }
 .comptes-note { margin: 14px 0 0; }
 
 /* identité : avatar, nom, étiquettes, @pseudo */
@@ -1320,38 +1350,38 @@ main.admin-contenu:focus { outline: none; }
 .comptes-identite > div { min-width: 0; }
 .comptes-nom { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .comptes-nom strong { font-weight: 500; color: var(--text); }
-.comptes-pseudo { display: block; font-size: 0.82rem; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.comptes-alerte { display: block; font-size: 0.8rem; color: var(--danger-strong); }
+.comptes-pseudo { display: block; font-size: var(--fs-2); color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comptes-alerte { display: block; font-size: var(--fs-2); color: var(--erreur); }
 .comptes-identite .puce { height: 20px; padding: 0 8px; }
 
 /* demandes à valider : des cartes dorées, une action principale chacune */
 .comptes-demandes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; }
 .comptes-demande {
   display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: var(--radius);
-  border: 1px solid var(--d8-gold-400); background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.12), var(--bg2) 60%);
+  border: 1px solid var(--accent); background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.12), var(--bg2) 60%);
 }
 .comptes-demande-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
 .comptes-demande-grade { flex: 1 1 160px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.comptes-demande-grade > span { font-size: 0.82rem; color: var(--text-muted); text-transform: none; letter-spacing: 0; }
+.comptes-demande-grade > span { font-size: var(--fs-2); color: var(--text-muted); text-transform: none; letter-spacing: 0; }
 .comptes-demande .btn { min-height: 44px; }
 
 /* membres : filtres, recherche, liste */
 .comptes-outils { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0 14px; }
 .comptes-filtres { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid rgba({{couleur_rvb}}, 0.25); border-radius: 999px; background: var(--bg2); }
-.comptes-filtre { min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: 0.88rem; cursor: pointer; }
+.comptes-filtre { min-height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-3); cursor: pointer; }
 .comptes-filtre span { margin-left: 4px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
-.comptes-filtre.actif { background: var(--d8-grad-gold); color: var(--or-contrast); font-weight: 600; }
+.comptes-filtre.actif { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .comptes-filtre.actif span { color: inherit; opacity: 0.75; }
-.comptes-filtre:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
+.comptes-filtre:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
 .comptes-recherche { position: relative; flex: 0 1 280px; }
 .comptes-recherche .ico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-faint); }
 .comptes-recherche input {
   width: 100%; min-height: 40px; padding: 8px 12px 8px 36px; border: 1px solid rgba({{couleur_rvb}}, 0.25); border-radius: 999px;
-  background: var(--bg2); color: var(--text); font: inherit; font-size: 0.9rem;
+  background: var(--bg2); color: var(--text); font: inherit; font-size: var(--fs-3);
 }
-.comptes-recherche input:focus { outline: none; border-color: var(--d8-gold-400); }
+.comptes-recherche input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
 
-/* ---------- Factures (factures.html) : semaine affichée (navigation) et filtres (provenance/statut/recherche)
+/* ---------- Factures (facturation.html) : semaine affichée (navigation) et filtres (provenance/statut/recherche)
    sur deux lignes distinctes — l'une ne change pas « quelles données existent », l'autre choisit lesquelles regarder
    dans cette semaine. Chaque ligne prend toute la largeur dont elle a besoin, indépendamment de l'autre : pas de
    justify-content partagé entre des groupes qui n'ont rien à voir (design-critique du 2026-10-21). ---------- */
@@ -1360,10 +1390,10 @@ main.admin-contenu:focus { outline: none; }
 .factures-filtres .d8-select-enveloppe { flex: 1 1 190px; max-width: 260px; }
 .factures-filtres .comptes-recherche { flex: 1 1 220px; max-width: none; }
 .filtres-reinitialiser {
-  border: 0; background: none; padding: 6px 2px; color: var(--text-faint); font: inherit; font-size: 0.84rem;
-  cursor: pointer; text-decoration: underline; text-decoration-color: transparent; transition: color var(--d8-t), text-decoration-color var(--d8-t);
+  border: 0; background: none; padding: 6px 2px; color: var(--text-faint); font: inherit; font-size: var(--fs-2);
+  cursor: pointer; text-decoration: underline; text-decoration-color: transparent; transition: color var(--transition), text-decoration-color var(--transition);
 }
-.filtres-reinitialiser:hover, .filtres-reinitialiser:focus-visible { color: var(--gold-light); text-decoration-color: currentColor; }
+.filtres-reinitialiser:hover, .filtres-reinitialiser:focus-visible { color: var(--accent-dark); text-decoration-color: currentColor; }
 @media (max-width: 760px) {
   /* select de provenance et de statut côte à côte (deux filtres de même nature), recherche sur sa propre ligne —
      comme comptes-recherche déjà plus haut, même règle reprise ici pour rester cohérent */
@@ -1371,38 +1401,115 @@ main.admin-contenu:focus { outline: none; }
   .factures-filtres .comptes-recherche { flex-basis: 100%; }
 }
 
+/* ---------- Aperçu d'une facture (facturation.html) : à l'écran, jamais un fichier téléchargé ni print() (docs/design.md
+   §10) — présenté comme un vrai document (carte « papier » posée sur le fond de la fenêtre) pour qu'une capture
+   d'écran donne un rendu propre, logo de la marque (Paramètres → Apparence) en tête. ---------- */
+.modale.modale-apercu-facture {
+  max-width: 760px; max-height: 90vh; padding: 0; background: var(--bg); display: flex; flex-direction: column; overflow: hidden;
+}
+.modale-apercu-facture > .modale-entete { margin: 0; padding: 18px 24px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+.apercu-facture-entete-actions { display: flex; align-items: center; gap: 14px; }
+#apercu-facture-corps { flex: 1 1 auto; overflow-y: auto; padding: 32px clamp(16px, 5vw, 48px) 44px; }
+#apercu-facture-boite:fullscreen { max-width: none; max-height: none; width: 100vw; height: 100vh; border-radius: 0; }
+#apercu-facture-boite:fullscreen #apercu-facture-corps { display: flex; align-items: center; }
+
+.facture-doc {
+  max-width: 600px; margin: 0 auto; padding: clamp(24px, 5vw, 44px); background: var(--bg2);
+  border: 1px solid var(--border-light); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.facture-doc-entete { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.facture-doc-marque { display: flex; align-items: center; gap: 12px; }
+/* cover, pas contain : le logo réglé est toujours carré (contrat IMAGES_MARQUE, apparence.ts, 512x512) — cover
+   remplit le cadre sans aucun fond à travers l'image, plus net à la capture (html2canvas) que contain + fond */
+.facture-doc-logo { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; flex-shrink: 0; }
+.facture-doc-marque strong { font-family: var(--display); font-size: var(--fs-5); letter-spacing: -0.01em; }
+.facture-doc-ref { text-align: right; display: flex; flex-direction: column; gap: 2px; }
+.facture-doc-ref-libelle { font-size: var(--fs-1); text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); }
+.facture-doc-ref strong { font-family: var(--display); font-size: var(--fs-8); font-weight: 700; line-height: 1.1; }
+.facture-doc-date { font-size: var(--fs-2); color: var(--text-faint); }
+.facture-doc-bandeau { height: 4px; border-radius: 999px; margin: 22px 0 24px; background: linear-gradient(90deg, var(--accent), transparent 85%); }
+/* deux colonnes (client / statut) sans flex ni grid : html2canvas (copie en image) les gère mal, y compris le
+   badge qui, flex-item, se retrouvait lui-même décalé. Deuxième colonne en position absolue (bloc classique en
+   dessous dès que la place manque, §media plus bas), première limitée en largeur pour ne jamais la chevaucher. */
+.facture-doc-infos { position: relative; min-height: 48px; margin-bottom: 24px; }
+.facture-doc-infos > div:first-child { max-width: 65%; overflow-wrap: break-word; }
+.facture-doc-infos > div:last-child { position: absolute; top: 0; right: 0; text-align: right; }
+.facture-doc-petit { display: block; margin-bottom: 8px; font-size: var(--fs-1); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
+.facture-doc-infos strong { font-size: var(--fs-5); }
+/* le badge (image figée, voir imageDepuisApercu) n'a pas l'espace que le texte du nom du client prend au-dessus de
+   lui (sa hauteur de ligne) : un peu plus de marge sous « Statut » donne le même écart visuel que sous « Client ». */
+.facture-doc-infos > div:last-child .facture-doc-petit { margin-bottom: 10px; }
+/* badge de statut de l'aperçu : point en caractère, dans le texte du libellé (badgeStatutDoc, facturation.js), pas un
+   ::before ni un élément séparé positionné à côté (.puce, badgeStatutFacture) — un élément annexe, même bien placé
+   à l'écran, se décale une fois rendu par html2canvas (copie en image) selon l'échelle d'affichage de la personne
+   (devicePixelRatio, souvent 125 % ou 150 % sous Windows) ; un seul passage de texte n'a pas ce défaut. Couleur de
+   fond/texte toujours tirée de puce-ok/puce-off/puce-or (gestion.css), seule la disposition change. */
+.facture-doc-statut {
+  display: inline-block; white-space: nowrap; padding: 3px 10px; border-radius: 999px;
+  font-size: var(--fs-1); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.facture-doc-table { width: 100%; border-collapse: collapse; font-size: var(--fs-3); margin-bottom: 24px; }
+.facture-doc-table th {
+  text-align: left; font-size: var(--fs-1); text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint);
+  padding: 0 6px 8px; border-bottom: 1px solid var(--border);
+}
+.facture-doc-table td { padding: 10px 6px; border-bottom: 1px solid var(--border); }
+.facture-doc-table th:not(:first-child), .facture-doc-table td:not(:first-child) { text-align: right; }
+.facture-doc-totaux { margin-left: auto; width: min(260px, 100%); font-size: var(--fs-4); }
+.facture-doc-totaux > div { display: flex; justify-content: space-between; padding: 4px 0; color: var(--text-faint); }
+.facture-doc-total {
+  display: flex; justify-content: space-between; margin-top: 10px; padding-top: 12px; border-top: 2px solid var(--text);
+  font-family: var(--display); font-size: var(--fs-7); font-weight: 700; color: var(--text);
+}
+.facture-doc-note { margin: 28px 0 0; padding-top: 16px; border-top: 1px dashed var(--border); font-size: var(--fs-2); color: var(--text-faint); }
+@media (max-width: 480px) {
+  .facture-doc-entete { flex-direction: column; }
+  .facture-doc-ref { text-align: left; }
+  .facture-doc-infos { min-height: 0; }
+  .facture-doc-infos > div:first-child { max-width: none; }
+  .facture-doc-infos > div:last-child { position: static; margin-top: 14px; text-align: left; }
+  .facture-doc-table { font-size: var(--fs-2); }
+  .facture-doc-table th, .facture-doc-table td { padding: 8px 4px; }
+}
+
+/* même carte que la liste en grille (.comptes-liste), pour un <table class="table-admin"> : un bord net autour du
+   jeu de données, à la place d'un tableau nu posé sur le fond de page. */
 .comptes-liste { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); }
 .comptes-entete, .comptes-ligne { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(160px, 1fr) minmax(130px, 0.8fr) 44px; align-items: center; gap: 16px; padding: 12px 16px; }
-.comptes-entete { padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); font-size: 0.8rem; color: var(--text-faint); }
+.comptes-entete { padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); font-size: var(--fs-2); color: var(--text-faint); }
 .comptes-ligne { border-bottom: 1px solid var(--border); }
 .comptes-ligne:last-child { border-bottom: 0; }
 .comptes-ligne.refuse .comptes-identite { opacity: 0.7; }
 .comptes-grade select { width: 100%; min-height: 40px; }
-.comptes-grade-fixe { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); }
-.comptes-connexion { font-size: 0.88rem; color: var(--text-muted); }
+.comptes-grade-fixe { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; max-width: 100%; min-width: 0; color: var(--text-muted); }
+.comptes-grade-nom { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.comptes-grade-nom .pastille-grade { flex-shrink: 0; }
+.comptes-grade-source { flex-shrink: 0; white-space: nowrap; display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px; border-radius: 999px; background: var(--bg3); color: var(--text-muted); font-size: var(--fs-1); }
+.comptes-grade-source:hover { color: var(--text); }
+.comptes-connexion { font-size: var(--fs-3); color: var(--text-muted); }
 .comptes-etiquette-mobile { display: none; }
 .comptes-vide { margin: 0; padding: 22px 16px; text-align: center; color: var(--text-faint); }
 
 /* menu « ⋯ » */
 .comptes-menu { position: relative; justify-self: end; }
 .comptes-menu-bouton {
-  width: 36px; height: 36px; border: 1px solid transparent; border-radius: 999px; background: none;
-  color: var(--text-muted); font-size: 1.3rem; line-height: 1; cursor: pointer;
+  width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: 999px; background: none; color: var(--text-muted); cursor: pointer;
 }
 .comptes-menu-bouton:hover, .comptes-menu-bouton[aria-expanded="true"] { border-color: var(--border); background: rgba({{couleur_rvb}}, 0.1); color: var(--text); }
-.comptes-menu-bouton:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
+.comptes-menu-bouton:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
 .comptes-menu-liste {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 260px; padding: 6px;
-  border: 1px solid var(--d8-gold-400); border-radius: var(--radius-sm); background: var(--bg-card); box-shadow: var(--shadow);
+  border: 1px solid var(--accent); border-radius: var(--radius-sm); background: var(--bg-card); box-shadow: var(--shadow);
 }
 .comptes-menu-liste.vers-le-haut { top: auto; bottom: calc(100% + 6px); }
 .comptes-menu-liste [role="menuitem"] {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 6px;
-  background: none; color: var(--text); font: inherit; font-size: 0.9rem; text-align: left; cursor: pointer;
+  background: none; color: var(--text); font: inherit; font-size: var(--fs-3); text-align: left; cursor: pointer;
 }
 .comptes-menu-liste [role="menuitem"] .ico { width: 16px; height: 16px; color: var(--text-faint); }
 .comptes-menu-liste [role="menuitem"]:hover, .comptes-menu-liste [role="menuitem"]:focus-visible { background: rgba({{couleur_rvb}}, 0.12); outline: none; }
-.comptes-menu-liste [role="menuitem"].danger, .comptes-menu-liste [role="menuitem"].danger .ico { color: var(--danger-strong); }
+.comptes-menu-liste [role="menuitem"].danger, .comptes-menu-liste [role="menuitem"].danger .ico { color: var(--erreur); }
 
 /* téléphone : chaque membre sur deux lignes (identité et menu, puis grade et connexion) */
 @media (max-width: 760px) {
@@ -1411,7 +1518,7 @@ main.admin-contenu:focus { outline: none; }
   .comptes-ligne > .comptes-identite { grid-area: id; }
   .comptes-ligne > .comptes-menu, .comptes-ligne > .comptes-menu-vide { grid-area: menu; }
   .comptes-ligne > .comptes-grade { grid-area: grade; }
-  .comptes-ligne > .comptes-connexion { grid-area: co; font-size: 0.82rem; color: var(--text-faint); }
+  .comptes-ligne > .comptes-connexion { grid-area: co; font-size: var(--fs-2); color: var(--text-faint); }
   .comptes-etiquette-mobile { display: inline; }
   .comptes-etiquette-ecran { display: none; }
   .comptes-recherche { flex-basis: 100%; }
@@ -1427,29 +1534,29 @@ main.admin-contenu:focus { outline: none; }
   background: var(--bg2);
 }
 .rh-effectif-chiffre { margin: 0; display: flex; align-items: baseline; gap: 10px; }
-.rh-effectif-chiffre span:first-child { font-family: var(--d8-font-display); font-size: 2.4rem; line-height: 1; color: var(--gold-light); }
+.rh-effectif-chiffre span:first-child { font-family: var(--display); font-size: var(--fs-9); line-height: 1; color: var(--accent-dark); }
 .rh-effectif-chiffre span:last-child { color: var(--text-muted); }
-.rh-effectif-detail { margin: 8px 0 0; font-size: 0.85rem; color: var(--text-faint); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.rh-effectif-detail { margin: 8px 0 0; font-size: var(--fs-3); color: var(--text-faint); display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .rh-anciens:empty { display: none; }
 
 /* ce qui demande une action : doré, cliquable, rien quand tout est en ordre */
-.rh-a-faire { flex: 2 1 420px; padding: 16px 18px; border: 1px solid var(--d8-gold-400); border-radius: var(--radius);
+.rh-a-faire { flex: 2 1 420px; padding: 16px 18px; border: 1px solid var(--accent); border-radius: var(--radius);
   background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.12), var(--bg2) 60%); }
-.rh-a-faire h2 { margin: 0 0 10px; font-family: var(--d8-font-display); font-weight: 400; font-size: 1.15rem; color: var(--text); }
+.rh-a-faire h2 { margin: 0 0 10px; font-family: var(--display); font-weight: 400; font-size: var(--fs-6); color: var(--text); }
 .rh-a-faire-liste { display: flex; flex-wrap: wrap; gap: 10px; }
 .rh-a-faire-item {
   display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: baseline; min-width: 190px; padding: 10px 14px;
   border: 1px solid rgba({{couleur_rvb}}, 0.35); border-radius: var(--radius-sm); background: var(--bg3);
-  color: var(--text); font: inherit; font-size: 0.92rem; text-align: left; cursor: pointer; transition: border-color var(--d8-t), background var(--d8-t);
+  color: var(--text); font: inherit; font-size: var(--fs-4); text-align: left; cursor: pointer; transition: border-color var(--transition), background var(--transition);
 }
 /* police du site, pas Marcellus : son « 1 » se lit comme un « I » */
-.rh-a-faire-item strong { font-family: var(--d8-font-ui); font-size: 1.2rem; font-weight: 600; color: var(--gold-light); font-variant-numeric: tabular-nums; }
-.rh-a-faire-item small { grid-column: 2; font-size: 0.78rem; color: var(--text-faint); }
-.rh-a-faire-item:hover, .rh-a-faire-item:focus-visible { border-color: var(--d8-gold-400); background: rgba({{couleur_rvb}}, 0.12); outline: none; }
+.rh-a-faire-item strong { font-family: var(--body); font-size: var(--fs-6); font-weight: 600; color: var(--accent-dark); font-variant-numeric: tabular-nums; }
+.rh-a-faire-item small { grid-column: 2; font-size: var(--fs-1); color: var(--text-faint); }
+.rh-a-faire-item:hover, .rh-a-faire-item:focus-visible { border-color: var(--accent); background: rgba({{couleur_rvb}}, 0.12); outline: none; }
 
 .rh-section { margin-bottom: 36px; scroll-margin-top: 80px; }
-.rh-titre { margin: 0 0 4px; font-family: var(--d8-font-display); font-weight: 400; font-size: 1.35rem; color: var(--text); }
-.rh-sous-titre { margin: 18px 0 2px; font-size: 1rem; font-weight: 500; color: var(--text); font-family: var(--d8-font-ui); }
+.rh-titre { margin: 0 0 4px; font-family: var(--display); font-weight: 400; font-size: var(--fs-7); color: var(--text); }
+.rh-sous-titre { margin: 18px 0 2px; font-size: var(--fs-5); font-weight: 500; color: var(--text); font-family: var(--body); }
 .rh-outils-droite { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; flex: 0 1 520px; justify-content: flex-end; }
 .rh-outils-droite .d8-select-enveloppe { width: 200px; }
 .rh-outils-droite select { min-height: 40px; }
@@ -1457,33 +1564,44 @@ main.admin-contenu:focus { outline: none; }
 
 /* liste : colonnes triables, nom cliquable (= ouvrir la fiche) */
 .rh-liste .comptes-entete, .rh-liste .comptes-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(110px, 0.8fr) minmax(130px, 1fr) 100px 44px; }
-.rh-entete { padding-top: 4px; padding-bottom: 4px; }
-.rh-tri {
+/* en-tête dont les cellules sont des boutons de tri (.tri-colonne, déjà en hauteur) plutôt que du texte simple :
+   moins de padding que .comptes-entete, sinon la ligne double de hauteur. Partagé par RH et Comptes & accès. */
+.entete-tri { padding-top: 4px; padding-bottom: 4px; }
+/* même rendu qu'un <th> texte (.table-admin th, ci-dessus) : font-weight explicite plutôt que "font: inherit", sinon
+   le bouton reprend la graisse par défaut de son parent — gras dans un <th> (défaut du navigateur), normal dans une
+   cellule de grille (rh.js, comptes.html) — et le même en-tête se retrouve visuellement différent d'une page à l'autre. */
+.tri-colonne {
   display: inline-flex; align-items: center; gap: 6px; justify-self: start; margin-left: -8px; padding: 6px 8px; border: 0; border-radius: 6px;
-  background: none; color: var(--text-faint); font: inherit; font-size: 0.8rem; cursor: pointer;
+  background: none; color: var(--text-faint); font-family: inherit; font-size: var(--fs-1); font-weight: 500; text-transform: uppercase;
+  letter-spacing: 0.5px; cursor: pointer;
 }
-.rh-tri:hover { color: var(--text); background: rgba({{couleur_rvb}}, 0.08); }
-.rh-tri.actif { color: var(--gold-strong); }
-.rh-tri:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
-.rh-tri-fleche { display: inline-flex; opacity: 0.6; }
-.rh-tri-fleche svg.fleche { width: 14px; height: 14px; vertical-align: 0; }
-.rh-tri.actif .rh-tri-fleche { opacity: 1; }
+.tri-colonne:hover { color: var(--text); background: rgba({{couleur_rvb}}, 0.08); }
+.tri-colonne.actif { color: var(--accent-dark); }
+.tri-colonne:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
+.tri-colonne-fleche { display: inline-flex; opacity: 0.6; }
+.tri-colonne-fleche svg.fleche { width: 14px; height: 14px; vertical-align: 0; }
+.tri-colonne.actif .tri-colonne-fleche { opacity: 1; }
+/* même bouton posé dans un <th> de .table-admin plutôt que dans une cellule de grille (rh) : marges négatives pour
+   qu'il recouvre toute la cellule (zone cliquable = tout l'en-tête, pas seulement le texte) sans toucher au
+   padding des <th> non triables. */
+.table-admin th .tri-colonne { display: flex; width: calc(100% + 28px); margin: -12px -14px; padding: 12px 14px; border-radius: 0; justify-content: flex-start; }
+.table-admin th[style*="text-align:right"] .tri-colonne { justify-content: flex-end; }
 .rh-employe {
   display: flex; align-items: center; gap: 12px; min-width: 0; padding: 4px 6px; margin: -4px -6px; border: 0; border-radius: var(--radius-sm);
   background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
-.rh-employe:hover strong { color: var(--gold-light); text-decoration: underline; text-underline-offset: 3px; }
-.rh-employe:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
+.rh-employe:hover strong { color: var(--accent-dark); text-decoration: underline; text-underline-offset: 3px; }
+.rh-employe:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
 .rh-employe-texte { display: flex; flex-direction: column; min-width: 0; }
-.rh-cellule { min-width: 0; font-size: 0.9rem; color: var(--text-muted); overflow-wrap: anywhere; }
-.rh-id-discord { display: block; font-size: 0.75rem; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.rh-cellule { min-width: 0; font-size: var(--fs-3); color: var(--text-muted); overflow-wrap: anywhere; }
+.rh-id-discord { display: block; font-size: var(--fs-1); color: var(--text-faint); font-variant-numeric: tabular-nums; }
 
 /* à rattacher : une petite carte par donnée orpheline */
 .rh-cartes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 10px; }
 .rh-carte { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg2); }
 .rh-carte-texte { display: flex; flex-direction: column; min-width: 0; }
 .rh-carte-texte strong { font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
-.rh-carte-texte small { font-size: 0.82rem; color: var(--text-faint); }
+.rh-carte-texte small { font-size: var(--fs-2); color: var(--text-faint); }
 
 /* ---------- Quota (quota.html) : run (unités vendues) et factures (montant facturé), trois onglets (Quota run /
    Quota facture / Classements). Aucun tableau de recherche : il faudrait soit défiler de côté, soit cacher le nom
@@ -1495,15 +1613,16 @@ main.admin-contenu:focus { outline: none; }
   display: flex; flex-direction: column; gap: 10px; padding: 18px 22px;
   border: 1px solid var(--border); border-radius: var(--radius); background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.08), var(--bg2) 60%);
   box-shadow: var(--shadow);
-  animation: run-stat-entree 420ms var(--d8-ease) both;
+  animation: run-stat-entree 420ms var(--ease) both;
 }
 .run-stats .run-stat:nth-child(2) { animation-delay: 60ms; }
 @keyframes run-stat-entree { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .run-stat { animation: none; } }
-.run-stat-titre { font-size: 0.8rem; color: var(--text-muted); }
+.run-stat-titre { font-size: var(--fs-2); color: var(--text-muted); }
 .run-stat-chiffre { margin: 0; display: flex; align-items: baseline; gap: 10px; }
-.run-stat-chiffre span:first-child { font-family: var(--d8-font-display); font-size: 2.2rem; line-height: 1; color: var(--gold-light); font-variant-numeric: tabular-nums; }
-.run-stat-chiffre span:last-child { color: var(--text-muted); font-size: 0.9rem; }
+#run-stat-total, #facture-stat-total { white-space: nowrap; }   /* « 6 200 $ » ne se coupe pas avant le symbole */
+.run-stat-chiffre span:first-child { font-family: var(--display); font-size: var(--fs-9); line-height: 1; color: var(--accent-dark); font-variant-numeric: tabular-nums; }
+.run-stat-chiffre span:last-child { color: var(--text-muted); font-size: var(--fs-3); }
 .run-stat .run-barre { margin: 0; }
 
 /* sélecteur de semaine : même recette que l'agenda (pilule, flèches, raccourci clavier T), déclinée pour cette page —
@@ -1515,26 +1634,26 @@ main.admin-contenu:focus { outline: none; }
 }
 .run-semaine-bouton, .run-fleche {
   min-height: 36px; border: 0; border-radius: 999px; background: none; color: var(--text-muted);
-  font: inherit; font-size: 0.88rem; cursor: pointer; transition: background var(--d8-t), color var(--d8-t);
+  font: inherit; font-size: var(--fs-3); cursor: pointer; transition: background var(--transition), color var(--transition);
 }
 .run-semaine-bouton:hover, .run-fleche:hover { color: var(--text); background: rgba({{couleur_rvb}}, 0.1); }
 .run-semaine-bouton { padding: 0 12px; min-width: 9.5em; white-space: nowrap; }
-.run-semaine-bouton:not(.sur-semaine-courante) { color: var(--gold-light); }
+.run-semaine-bouton:not(.sur-semaine-courante) { color: var(--accent-dark); }
 .run-fleche { display: inline-flex; align-items: center; justify-content: center; width: 36px; }
 .run-fleche .ico { width: 18px; height: 18px; }
 .run-fleche--avant .ico { transform: rotate(90deg); }
 .run-fleche--apres .ico { transform: rotate(-90deg); }
 .run-fleche:disabled { opacity: 0.35; cursor: default; }
-:is(.run-semaine-bouton, .run-fleche):focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: 1px; }
+:is(.run-semaine-bouton, .run-fleche):focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
 .run-touche {
   position: absolute; top: calc(100% + 6px); left: 50%; transform: translate(-50%, -2px); z-index: 5; pointer-events: none;
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 8px; white-space: nowrap;
-  background: var(--bg2); border: 1px solid rgba({{couleur_rvb}}, 0.3); color: var(--text-muted); font-size: 12px;
+  background: var(--bg2); border: 1px solid rgba({{couleur_rvb}}, 0.3); color: var(--text-muted); font-size: var(--fs-1);
   opacity: 0; transition: opacity 0.15s ease, transform 0.15s ease;
 }
 .run-touche kbd {
-  min-width: 20px; padding: 1px 6px; border-radius: 5px; font: 600 12px/1.4 var(--d8-font-ui); text-align: center;
-  color: var(--gold-light); border: 1px solid rgba({{couleur_rvb}}, 0.55); border-bottom-width: 2px; background: rgba({{couleur_rvb}}, 0.08);
+  min-width: 20px; padding: 1px 6px; border-radius: 5px; font: 600 12px/1.4 var(--body); text-align: center;
+  color: var(--accent-dark); border: 1px solid rgba({{couleur_rvb}}, 0.55); border-bottom-width: 2px; background: rgba({{couleur_rvb}}, 0.08);
 }
 @media (hover: hover) {
   .run-semaine-bouton:hover + .run-touche, .run-semaine-bouton:focus-visible + .run-touche { opacity: 1; transform: translate(-50%, 0); }
@@ -1547,19 +1666,19 @@ main.admin-contenu:focus { outline: none; }
 .run-onglets { display: flex; gap: 8px; margin: 0 0 22px; flex-wrap: wrap; }
 .run-onglet {
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--border);
-  background: var(--bg-elevated); color: var(--text-faint); font-size: 0.86rem; font-weight: 500;
+  background: var(--bg-elevated); color: var(--text-faint); font-size: var(--fs-3); font-weight: 500;
 }
 .run-onglet .ico { width: 16px; height: 16px; }
 .run-onglet:hover { color: var(--text); border-color: var(--border-light); }
-.run-onglet.actif { background: var(--or-grad); color: var(--or-contrast); border-color: transparent; font-weight: 600; }
+.run-onglet.actif { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; }
 
-.run-vide { margin: 0; padding: 14px; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-faint); font-size: 0.88rem; }
+.run-vide { margin: 0; padding: 14px; border: 1px dashed var(--border); border-radius: var(--radius-sm); color: var(--text-faint); font-size: var(--fs-3); }
 
 /* deux classements côte à côte (run, factures) ; l'un sous l'autre si la place manque */
 .run-classements { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
 .run-classements > section { flex: 1 1 320px; min-width: 0; }
-.run-classement-titre { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-family: var(--d8-font-ui); font-size: 0.98rem; font-weight: 500; color: var(--text); }
-.run-classement-titre .ico { width: 17px; height: 17px; color: var(--gold-light); }
+.run-classement-titre { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-family: var(--body); font-size: var(--fs-5); font-weight: 500; color: var(--text); }
+.run-classement-titre .ico { width: 17px; height: 17px; color: var(--accent-dark); }
 
 /* Podium des trois premiers : hauteur des marches selon le rang (la vraie forme d'un podium), le 1er posé en avant
    au centre — même geste qu'un podium physique, pas un simple numéro devant une liste. Ordre visuel 2/1/3 par
@@ -1569,7 +1688,7 @@ main.admin-contenu:focus { outline: none; }
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; width: 112px;
   padding: 20px 10px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2);
   box-shadow: var(--shadow); text-align: center;
-  animation: podium-marche-entree 420ms var(--d8-ease) both;
+  animation: podium-marche-entree 420ms var(--ease) both;
 }
 .podium-marche--1 { order: 2; width: 132px; padding: 26px 12px 20px; z-index: 1; animation-delay: 160ms;
   border-color: rgba({{couleur_rvb}}, 0.45); background: linear-gradient(160deg, rgba({{couleur_rvb}}, 0.16), var(--bg2) 65%);
@@ -1581,20 +1700,20 @@ main.admin-contenu:focus { outline: none; }
 @media (prefers-reduced-motion: reduce) { .podium-marche { animation: none; } }
 .podium-marche-rang {
   position: absolute; top: -11px; left: 50%; transform: translateX(-50%); width: 25px; height: 25px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-family: var(--d8-font-display); font-size: 0.82rem;
+  display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: var(--fs-2);
   font-weight: 600; color: var(--text-muted); background: var(--bg3); border: 1px solid var(--border);
 }
-.podium-marche--1 .podium-marche-rang { width: 29px; height: 29px; font-size: 0.92rem; color: var(--or-contrast); background: var(--d8-grad-gold); border-color: transparent; }
-.podium-marche-couronne { width: 17px; height: 17px; color: var(--gold-light); }
-.podium-marche .admin-avatar { width: 42px; height: 42px; font-size: 0.92rem; }
-.podium-marche--1 .admin-avatar { width: 54px; height: 54px; font-size: 1.05rem; }
+.podium-marche--1 .podium-marche-rang { width: 29px; height: 29px; font-size: var(--fs-4); color: var(--on-accent); background: var(--accent); border-color: transparent; }
+.podium-marche-couronne { width: 17px; height: 17px; color: var(--accent-dark); }
+.podium-marche .admin-avatar { width: 42px; height: 42px; font-size: var(--fs-4); }
+.podium-marche--1 .admin-avatar { width: 54px; height: 54px; font-size: var(--fs-5); }
 /* centrée et autorisée à passer le badge « vous » sur sa propre ligne : sans ça, elle démarre à gauche de la marche
    (le texte centré du parent ne joue pas sur une ligne flex) et le badge, avec sa propre marge, désaxe tout le reste. */
-.podium-marche-nom { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; font-weight: 500; color: var(--text); font-size: 0.86rem; max-width: 100%; overflow-wrap: anywhere; }
+.podium-marche-nom { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 6px; font-weight: 500; color: var(--text); font-size: var(--fs-3); max-width: 100%; overflow-wrap: anywhere; }
 .podium-marche-nom .admin-service-vous { margin-left: 0; }
-.podium-marche-grade { font-size: 0.72rem; color: var(--text-faint); }
-.podium-marche-montant { margin-top: 2px; font-family: var(--d8-font-display); font-size: 1.1rem; color: var(--gold-light); font-variant-numeric: tabular-nums; }
-.podium-marche--1 .podium-marche-montant { font-size: 1.3rem; }
+.podium-marche-grade { font-size: var(--fs-1); color: var(--text-faint); }
+.podium-marche-montant { margin-top: 2px; font-family: var(--display); font-size: var(--fs-6); color: var(--accent-dark); font-variant-numeric: tabular-nums; }
+.podium-marche--1 .podium-marche-montant { font-size: var(--fs-7); }
 
 /* 4e et 5e place : une liste compacte sous le podium, même langage que les lignes de tableau (avatar + nom) */
 .run-podium { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-width: 640px; }
@@ -1602,12 +1721,12 @@ main.admin-contenu:focus { outline: none; }
   display: flex; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2);
 }
 .run-rang {
-  flex-shrink: 0; width: 24px; text-align: center; font-family: var(--d8-font-display); font-size: 0.98rem; color: var(--text-faint);
+  flex-shrink: 0; width: 24px; text-align: center; font-family: var(--display); font-size: var(--fs-5); color: var(--text-faint);
 }
 .run-podium-texte { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 .run-podium-texte strong { display: flex; align-items: center; font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
-.run-podium-texte small { font-size: 0.78rem; color: var(--text-faint); }
-.run-podium-montant { flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--gold-light); font-weight: 600; }
+.run-podium-texte small { font-size: var(--fs-1); color: var(--text-faint); }
+.run-podium-montant { flex-shrink: 0; font-variant-numeric: tabular-nums; color: var(--accent-dark); font-weight: 600; }
 @media (max-width: 400px) { .podium-marche { width: 96px; } .podium-marche--1 { width: 112px; } }
 
 /* Quota : un tableau dense (une entreprise de run peut compter une centaine d'employés — des cartes aérées s'y
@@ -1634,13 +1753,17 @@ main.admin-contenu:focus { outline: none; }
 .run-barre.run-etat-rouge { background: var(--erreur-soft); }
 .run-barre.run-etat-orange { background: rgba(249, 115, 22, 0.18); }
 .run-barre.run-etat-vert { background: var(--ok-soft); }
-.run-barre-remplie { height: 100%; border-radius: inherit; background: var(--border); transition: width var(--d8-t); }
+.run-barre-remplie { height: 100%; border-radius: inherit; background: var(--border); transition: width var(--transition); }
 .run-barre-remplie.run-etat-rouge { background: var(--erreur); }
 .run-barre-remplie.run-etat-orange { background: #f97316; }
 .run-barre-remplie.run-etat-vert { background: var(--ok); }
-.run-progression-texte { font-size: 0.82rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.run-progression-texte { font-size: var(--fs-2); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.run-barre.run-etat-rouge + .run-progression-texte { color: var(--erreur); font-weight: 500; }
 .run-sans-objectif { color: var(--text-faint); }
-@media (max-width: 640px) { .run-cellule-progression { min-width: 0; } }
+/* min-width volontaire : sans elle, la barre+texte se compresserait sans jamais dépasser son conteneur, et
+   tablesAdaptatives (mesure de largeur, pas de point de rupture) ne basculerait jamais en cartes sur téléphone —
+   .table-admin.en-cartes td la ramène déjà à 0 une fois en cartes (règle plus spécifique), donc ici on ne la
+   retire plus par média-requête : ça désamorçait le passage en cartes justement sur les petits écrans. */
 
 /* recrutement : une carte par candidature ; la couleur dit où elle en est */
 .rh-candidatures { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px; margin-bottom: 16px; }
@@ -1649,33 +1772,33 @@ main.admin-contenu:focus { outline: none; }
   border: 1px solid var(--border); border-left: 3px solid var(--etat); background: var(--bg2);
 }
 .rh-etat-ok { --etat: var(--ok); }
-.rh-etat-alerte { --etat: var(--d8-gold-400); border-color: rgba({{couleur_rvb}}, 0.45); background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.1), var(--bg2) 60%); }
+.rh-etat-alerte { --etat: var(--accent); border-color: rgba({{couleur_rvb}}, 0.45); background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.1), var(--bg2) 60%); }
 .rh-candidature-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .rh-candidature-tete strong { font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
-.rh-etat { flex-shrink: 0; font-size: 0.8rem; font-weight: 600; color: var(--etat); }
-.rh-candidature-date { margin: 0; font-size: 0.82rem; color: var(--text-faint); }
-.rh-candidature-motif { margin: 2px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--bg3); font-size: 0.85rem; color: var(--text-muted); }
+.rh-etat { flex-shrink: 0; font-size: var(--fs-2); font-weight: 600; color: var(--etat); }
+.rh-candidature-date { margin: 0; font-size: var(--fs-2); color: var(--text-faint); }
+.rh-candidature-motif { margin: 2px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--bg3); font-size: var(--fs-3); color: var(--text-muted); }
 .rh-candidature-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
 .rh-vide-bot { border: 1px dashed var(--border); border-radius: var(--radius); margin-bottom: 16px; }
 
 /* réglages repliés : deux étapes numérotées (c'est bien un ordre : le grade, puis les questions) */
 .rh-reglages { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg3); }
 .rh-reglages summary { padding: 14px 18px; cursor: pointer; color: var(--text); font-weight: 500; }
-.rh-reglages summary:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: -2px; border-radius: var(--radius); }
+.rh-reglages summary:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: -2px; border-radius: var(--radius); }
 .rh-reglages form { padding: 0 18px 18px; }
 .rh-etapes { margin: 0; padding-left: 1.4em; }
 .rh-etapes li { padding: 6px 0 4px; }
-.rh-etapes li::marker { color: var(--gold-strong); font-weight: 600; }
-.rh-etapes h3 { margin: 0 0 10px; font-family: var(--d8-font-ui); font-size: 0.98rem; font-weight: 500; color: var(--text); }
+.rh-etapes li::marker { color: var(--accent-dark); font-weight: 600; }
+.rh-etapes h3 { margin: 0 0 10px; font-family: var(--body); font-size: var(--fs-5); font-weight: 500; color: var(--text); }
 .rh-reglages label, .modale-fiche-rh label { font-size: inherit; text-transform: none; letter-spacing: 0; }
-.rh-reglages .champ label, .modale-fiche-rh .champ label { display: block; margin-bottom: 6px; font-size: 0.875rem; font-weight: 500; color: var(--text-muted); }
+.rh-reglages .champ label, .modale-fiche-rh .champ label { display: block; margin-bottom: 6px; font-size: var(--fs-3); font-weight: 500; color: var(--text-muted); }
 .rh-reglages .champ label small { font-weight: 400; color: var(--text-faint); }
 .rh-reglages-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
 .rh-reglages-pied .comptes-aide { margin: 0; flex: 1 1 280px; }
 
 /* fiche : l'historique en petit tableau lisible */
 .rh-historique { list-style: none; margin: 4px 0 0; padding: 0; border-top: 1px solid var(--border); }
-.rh-historique li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.86rem; }
+.rh-historique li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: var(--fs-3); }
 .rh-historique span { flex: 1 1 180px; color: var(--text-faint); }
 .rh-historique strong { font-weight: 500; color: var(--text); }
 .rh-historique small { flex-basis: 100%; color: var(--text-faint); }
@@ -1713,7 +1836,7 @@ main.admin-contenu:focus { outline: none; }
   display: flex; flex-direction: column; height: min(90vh, 860px); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow: hidden; padding: 0;
 }
 .modale-import-tablette > .modale-entete { flex: 0 0 auto; margin: 0; padding: 20px 28px 14px; border-bottom: 1px solid var(--border); }
-.modale-import-tablette > .modale-entete h3 { margin: 0; font-size: 1.3rem; }
+.modale-import-tablette > .modale-entete h3 { margin: 0; font-size: var(--fs-7); }
 .modale-import-tablette > #zone-message-modale-import { flex: 0 0 auto; margin: 12px 28px 0; }
 .modale-import-tablette > #zone-message-modale-import:empty { display: none; }
 .import-tablette-corps {
@@ -1734,7 +1857,7 @@ main.admin-contenu:focus { outline: none; }
   .rh-liste .comptes-ligne > .rh-cellule:nth-of-type(2) { grid-area: discord; }
   .rh-liste .comptes-ligne > .rh-cellule:nth-of-type(3) { grid-area: arrivee; }
   .rh-liste .comptes-ligne > .comptes-menu { grid-area: menu; }
-  .rh-cellule::before { content: attr(data-libelle); display: block; font-size: 0.75rem; color: var(--text-faint); }
+  .rh-cellule::before { content: attr(data-libelle); display: block; font-size: var(--fs-1); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); }
   .rh-outils-droite { flex-basis: 100%; justify-content: stretch; }
   .rh-outils-droite .d8-select-enveloppe { width: 100%; }
   .modale-fond#modale-employe, .modale-fond#modale-import-tablette, .modale-fond#modale-profil { padding: 0; }
@@ -1751,71 +1874,183 @@ main.admin-contenu:focus { outline: none; }
 .rh-correspondances { display: flex; flex-direction: column; border-top: 1px solid var(--border); margin-bottom: 8px; }
 .rh-correspondance { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 8px 20px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .rh-correspondance-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.rh-correspondance-texte label { font-size: 0.92rem; font-weight: 500; color: var(--text); text-transform: none; letter-spacing: 0; }
+.rh-correspondance-texte label { font-size: var(--fs-4); font-weight: 500; color: var(--text); text-transform: none; letter-spacing: 0; }
 .rh-correspondance-texte label small { font-weight: 400; color: var(--text-faint); }
-.rh-correspondance-texte > small { font-size: 0.8rem; color: var(--text-faint); }
+.rh-correspondance-texte > small { font-size: var(--fs-2); color: var(--text-faint); }
 .rh-correspondance-choix { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .rh-correspondance-choix input, .rh-correspondance-choix select {
   width: 100%; min-height: 42px; padding: 9px 14px; border: 1px solid rgba({{couleur_rvb}}, 0.28); border-radius: var(--radius-sm);
-  background: var(--bg2); color: var(--text); font: inherit; font-size: 0.92rem;
+  background: var(--bg2); color: var(--text); font: inherit; font-size: var(--fs-4);
 }
 @media (max-width: 640px) { .rh-correspondance { grid-template-columns: minmax(0, 1fr); } }
 /* « Comment la fiche est remplie » : en-tête, lignes automatiques */
 .rh-reglages-intro { margin: 0 0 14px; max-width: 75ch; }
-.rh-correspondance-entete { padding: 8px 0; font-size: 0.8rem; color: var(--text-faint); }
-.rh-correspondance-texte strong { font-size: 0.92rem; font-weight: 500; color: var(--text); }
-.rh-automatique { display: inline-flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--text-muted); }
+.rh-correspondance-entete { padding: 8px 0; font-size: var(--fs-2); color: var(--text-faint); }
+.rh-correspondance-texte strong { font-size: var(--fs-4); font-weight: 500; color: var(--text); }
+.rh-automatique { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-3); color: var(--text-muted); }
 .rh-automatique::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
-.rh-precision { display: block; margin-top: 6px; font-size: 0.8rem; color: var(--text-faint); }
+.rh-precision { display: block; margin-top: 6px; font-size: var(--fs-2); color: var(--text-faint); }
 /* étiquette « Obligatoire » (plutôt qu'un astérisque que rien n'explique) */
-.rh-obligatoire { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba({{couleur_rvb}}, 0.16); color: var(--gold-strong); font-size: 0.75rem; font-weight: 600; vertical-align: 1px; }
+.rh-obligatoire { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba({{couleur_rvb}}, 0.16); color: var(--accent-dark); font-size: var(--fs-1); font-weight: 600; vertical-align: 1px; }
 
 /* notifications (notifier, layout.js ; règles de base dans style.css) : écran large, centrées sur le contenu, pas sur la
    fenêtre (la barre latérale fait 240 px) */
 @media (min-width: 901px) { .page-agents .notifications { left: calc(50% + 120px); max-width: min(calc(100vw - 300px), 560px); } }
 
-/* ---------- DOT (comptabilite.html) : chiffres clés, calcul de la DOT, titres lisibles ---------- */
-.compta-titre, .entete-admin .compta-titre { margin: 0 0 4px; font-family: var(--d8-font-display); font-weight: 400; font-size: 1.35rem; color: var(--text); }
-.compta-sous-titre { margin: 26px 0 6px; font-family: var(--d8-font-ui); font-size: 1rem; font-weight: 500; color: var(--text); }
-.compta-aide { margin: 0; font-size: 0.85rem; color: var(--text-faint); max-width: 80ch; }
-.compta-total-mini { margin-left: 8px; font-size: 0.85rem; font-weight: 500; color: var(--gold-strong); font-variant-numeric: tabular-nums; }
+/* ---------- DOT (dot.html) : chiffres clés, calcul de la DOT, titres lisibles ---------- */
+.compta-titre, .entete-admin .compta-titre { margin: 0 0 4px; font-family: var(--display); font-weight: 400; font-size: var(--fs-7); color: var(--text); }
+.compta-sous-titre { margin: 26px 0 6px; font-family: var(--body); font-size: var(--fs-5); font-weight: 500; color: var(--text); }
+.compta-aide { margin: 0; font-size: var(--fs-3); color: var(--text-faint); max-width: 80ch; }
 #compta-panneau-tablettes > .entete-admin, #compta-panneau-dot > .entete-admin { margin-top: 24px !important; }
 
 /* chiffres clés : trois au plus, le plus important en doré */
 .compta-chiffres { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin: 4px 0 18px; }
 .compta-chiffres:empty { display: none; }
 .compta-chiffre { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); min-width: 0; }
-.compta-chiffre-libelle { font-size: 0.85rem; color: var(--text-muted); }
-.compta-chiffre strong { font-family: var(--d8-font-ui); font-size: 1.6rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.compta-chiffre small { font-size: 0.8rem; color: var(--text-faint); }
-.compta-chiffre.accent { border-color: var(--d8-gold-400); background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.14), var(--bg2) 60%); }
-.compta-chiffre.accent strong { color: var(--gold-light); }
+.compta-chiffre-libelle { font-size: var(--fs-3); color: var(--text-muted); }
+.compta-chiffre strong { font-family: var(--body); font-size: var(--fs-8); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.compta-chiffre small { font-size: var(--fs-2); color: var(--text-faint); }
+.compta-chiffre.accent { border-color: var(--accent); background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.14), var(--bg2) 60%); }
+.compta-chiffre.accent strong { color: var(--accent-dark); }
 /* titre des pages de connexion, d'attente et de refus : un <h1> (titre de la page), à la taille d'un intertitre */
-.connexion-titre { margin: 0 0 14px; text-align: center; font-size: 1.35rem; }
+.connexion-titre { margin: 0 0 14px; text-align: center; font-size: var(--fs-7); }
 .compta-chiffre.squelette > * { width: 60%; border-radius: 4px; background: var(--bg3); color: transparent; }
 .compta-chiffre.squelette > strong { width: 45%; }
 
-/* DOT : semaine, calcul ligne à ligne (signe, libellé, montant ; sous-totaux et total marqués) */
-.dot-semaine { display: flex; align-items: center; gap: 10px; }
-.dot-semaine label { font-size: 0.85rem; color: var(--text-muted); text-transform: none; letter-spacing: 0; margin: 0; }
-.dot-semaine .d8-select-enveloppe { width: 170px; }
-.dot-semaine select { min-height: 40px; }
-.dot-calcul-bloc { padding: 18px 22px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg3); margin-bottom: 8px; }
-.dot-calcul { list-style: none; margin: 0; padding: 0; max-width: 640px; }
-.dot-calcul li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: baseline; gap: 10px; padding: 8px 0; font-size: 0.92rem; color: var(--text-muted); }
-.dot-calcul li strong { font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.dot-calcul li small { color: var(--text-faint); font-size: 0.8rem; }
-.dot-signe { color: var(--text-faint); text-align: center; font-variant-numeric: tabular-nums; }
-.dot-calcul li.sous-total { border-top: 1px solid var(--border); color: var(--text); }
-.dot-calcul li.sous-total strong { font-weight: 600; }
-.dot-calcul li.total { margin-top: 4px; padding: 12px 0 4px; border-top: 2px solid var(--d8-gold-400); color: var(--gold-light); font-size: 1rem; }
-.dot-calcul li.total strong { color: var(--gold-light); font-weight: 700; font-size: 1.1rem; }
+/* DOT, onglet Déclaration : se lit comme un compte de résultat — ce qu'il faut verser, d'où vient le chiffre, les
+   écritures, les salariés, puis les barèmes (repliés). Toutes les largeurs se décident sur la place disponible (flex),
+   pas sur la largeur de l'écran. */
+.dot-entete { margin: 24px 0 14px; }
+.dot-entete .compta-aide { min-height: 1.5em; }
+.dot-entete-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.lien-bouton { padding: 0; border: 0; background: none; font: inherit; color: var(--accent-dark); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+/* bandeau de verrouillage : une seule teinte neutre que la semaine soit déjà figée ou en attente de l'être — ni une
+   erreur ni un avertissement, juste un état de la donnée */
+.dot-bandeau {
+  display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; padding: 12px 16px; border-radius: var(--radius);
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-3); line-height: 1.5;
+}
+.dot-bandeau .ico { flex: none; width: 18px; height: 18px; margin-top: 1px; color: var(--text-faint); }
 
-.dot-ecritures { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 24px; margin-top: 14px; }
-.dot-etapes { margin: 10px 0 0; padding-left: 1.3em; font-size: 0.85rem; color: var(--text-muted); }
+/* chiffres clés : ce qu'il faut verser en premier, plus large */
+.dot-resultats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.dot-resultats > .compta-chiffre { flex: 1 1 170px; }
+.dot-resultats > .compta-chiffre:first-child { flex: 1.5 1 240px; }
+.dot-resultats > .compta-chiffre:first-child strong { font-family: var(--display); font-size: var(--fs-9); line-height: 1.1; }
+.dot-resultats .compta-chiffre strong { white-space: nowrap; overflow-wrap: normal; }
+
+.dot-grille { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; }
+.dot-grille > :first-child { flex: 1.7 1 420px; min-width: 0; }
+.dot-grille > :last-child { flex: 1 1 280px; min-width: 0; }
+.dot-carte { padding: 20px 22px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); }
+.dot-carte-titre { margin: 0 0 6px; font-family: var(--body); font-size: var(--fs-5); font-weight: 600; color: var(--text); }
+.dot-sous-titre { margin: 20px 0 8px; font-family: var(--body); font-size: var(--fs-3); font-weight: 600; color: var(--text); }
+
+/* compte de résultat : libellé et montant, puis une barre fine = part du CA brut */
+.dot-resultat-groupe { margin: 16px 0 2px; font-size: var(--fs-2); font-weight: 500; color: var(--text-faint); }
+.dot-resultat-groupe:first-child { margin-top: 4px; }
+.dot-ligne { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 5px; align-items: baseline; padding: 7px 0; font-size: var(--fs-4); color: var(--text-muted); }
+.dot-ligne-libelle { min-width: 0; }
+.dot-ligne-libelle small { color: var(--text-faint); font-size: var(--fs-2); }
+.dot-signe { display: inline-block; width: 1.1em; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.dot-ligne-valeur { font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dot-ligne-valeur.negatif { color: var(--erreur); }
+.dot-ligne-barre { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--bg3); overflow: hidden; }
+.dot-ligne-barre > span { display: block; height: 100%; border-radius: 2px; background: rgba({{couleur_rvb}}, 0.45); }
+.dot-ligne--charge .dot-ligne-barre > span { background: var(--text-faint); opacity: 0.45; }
+.dot-ligne--sous-total { margin-top: 2px; border-top: 1px solid var(--border); color: var(--text); }
+.dot-ligne--sous-total .dot-ligne-valeur { font-weight: 600; }
+.dot-ligne--total { margin-top: 6px; padding-top: 12px; border-top: 2px solid var(--accent); color: var(--accent-dark); font-size: var(--fs-5); font-weight: 600; }
+.dot-ligne--total .dot-ligne-valeur { color: var(--accent-dark); font-size: var(--fs-7); font-weight: 700; }
+.dot-ligne--total .dot-ligne-barre > span { background: var(--accent); }
+
+/* taux appliqué : bénéfice + richesse = total ; puis le solde qui fixe la richesse et les plafonds de la tranche */
+.dot-taux { margin: 8px 0 0; }
+.dot-taux > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; }
+.dot-taux dt { color: var(--text-muted); font-size: var(--fs-4); }
+.dot-taux dt small { display: block; color: var(--text-faint); font-size: var(--fs-2); }
+.dot-taux dd { margin: 0; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dot-taux .dot-taux-total { margin-top: 2px; border-top: 1px solid var(--border); }
+.dot-taux .dot-taux-total dt, .dot-taux .dot-taux-total dd { color: var(--accent-dark); font-weight: 600; }
+.dot-solde { margin-top: 14px; padding: 14px; border-radius: var(--radius-sm); background: var(--bg3); }
+.dot-solde label { display: block; margin: 0 0 2px; font-size: var(--fs-3); font-weight: 600; color: var(--text); text-transform: none; letter-spacing: 0; }
+.dot-solde .champ-aide { margin: 0 0 10px; }
+.dot-solde-ligne { display: flex; gap: 8px; }
+.dot-solde-ligne input { flex: 1 1 auto; min-width: 0; }
+.dot-plafonds { width: 100%; border-collapse: collapse; font-size: var(--fs-3); }
+.dot-plafonds th, .dot-plafonds td { padding: 6px 0; border-bottom: 1px solid var(--border); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dot-plafonds thead th { font-size: var(--fs-2); font-weight: 500; color: var(--text-faint); }
+.dot-plafonds th[scope="row"] { text-align: left; font-weight: 400; color: var(--text-muted); }
+.dot-plafonds tr:last-child > * { border-bottom: 0; }
+
+/* sections suivantes : écritures, salariés, barèmes */
+.dot-section { margin-top: 36px; }
+.dot-section-entete { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; margin-bottom: 14px; }
+.dot-section-entete > div:first-child { flex: 1 1 320px; min-width: 0; }
+.dot-journal-outils { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.dot-journal-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+/* filtres : passent sur deux lignes plutôt que de déborder sur téléphone */
+.dot-journal-outils .segment-mode { flex-shrink: 1; max-width: 100%; border-radius: var(--radius); }
+.dot-journal-outils .segment-mode-bouton { border-radius: var(--radius-sm); }
+.dot-filtre-total { margin-left: 4px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.dot-montant, .table-admin th.dot-montant, .table-admin td.dot-montant { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.table-admin.en-cartes td.dot-montant { text-align: left; }
+.dot-tag { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--bg3); color: var(--text); font-size: var(--fs-2); white-space: nowrap; }
+.dot-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); }
+.dot-tag--recette { background: var(--ok-soft); }
+.dot-tag--recette::before { background: var(--ok); }
+.dot-tag--retrait { background: var(--alerte-soft); }
+.dot-tag--retrait::before { background: var(--alerte); }
+.dot-prime { width: 110px; text-align: right; }
+/* alerte de plafond (tableau des salariés) : seule la couleur du montant porte l'alerte, jamais un élément ajouté —
+   la colonne garde exactement la même largeur, en alerte ou non. Une bulle d'aide (title) donne le détail au survol. */
+[data-valeur-plafond].dot-plafond-depasse, .dot-prime.dot-plafond-depasse { color: var(--alerte); cursor: help; }
+[data-valeur-plafond].dot-plafond-hors, .dot-prime.dot-plafond-hors { color: var(--erreur); cursor: help; }
+.dot-prime.dot-plafond-depasse, .dot-prime.dot-plafond-hors { border-color: currentColor; }
+
+/* aide et barèmes repliables : chevron dessiné (bordures), jamais le triangle du navigateur */
+.dot-aide-repliable { margin: 0 0 12px; }
+.dot-aide-repliable > summary, .dot-baremes > summary { list-style: none; cursor: pointer; }
+.dot-aide-repliable > summary::-webkit-details-marker, .dot-baremes > summary::-webkit-details-marker { display: none; }
+.dot-aide-repliable > summary { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: var(--fs-3); color: var(--accent-dark); }
+.dot-aide-repliable > summary::before, .dot-baremes > summary .compta-titre::after {
+  content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform var(--transition);
+}
+.dot-aide-repliable[open] > summary::before, .dot-baremes[open] > summary .compta-titre::after { transform: rotate(45deg); }
+.dot-baremes { padding-top: 20px; border-top: 1px solid var(--border); }
+.dot-baremes > summary { display: block; }
+.dot-baremes > summary .compta-titre { display: inline-flex; align-items: center; gap: 12px; }
+.dot-baremes > summary .compta-titre::after { position: relative; top: -2px; color: var(--text-faint); }
+.dot-baremes > summary .compta-aide { display: block; }
+/* l'un sous l'autre : le barème du bénéfice a six colonnes, il lui faut toute la largeur pour rester un tableau */
+.dot-baremes-grille > :last-child { max-width: 520px; }
+.dot-tranche { white-space: nowrap; }
+.table-admin tr.dot-tranche-active > td { background: var(--accent-soft); font-weight: 600; color: var(--text); }
+
+/* fenêtre « Ajouter une écriture » : le type en premier, chacun avec ce qu'il change dans le calcul */
+.dot-types { margin: 0 0 14px; padding: 0; border: 0; }
+.dot-types legend { margin-bottom: 8px; padding: 0; font-size: var(--fs-3); font-weight: 600; color: var(--text); }
+.dot-type { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; text-transform: none; letter-spacing: 0; }
+.dot-type input { margin: 3px 0 0; accent-color: var(--accent); }
+.dot-type strong { display: block; font-size: var(--fs-3); font-weight: 600; color: var(--text); }
+.dot-type small { display: block; font-size: var(--fs-2); color: var(--text-faint); }
+.dot-type input:checked + span strong { color: var(--accent-dark); }
+.dot-type input:focus-visible + span { outline: 2px solid var(--accent-dark); outline-offset: 4px; border-radius: 2px; }
+.dot-champs-ligne { display: flex; flex-wrap: wrap; gap: 0 12px; }
+.dot-champs-ligne > .champ { flex: 1 1 150px; min-width: 0; }
+/* fenêtre : bandeau et pied fixes, seul le contenu défile (même principe que les autres fenêtres longues) */
+.modale.modale-ecriture-dot { display: flex; flex-direction: column; max-width: 480px; padding: 0; overflow: hidden; }
+.modale-ecriture-dot > .modale-entete { flex: 0 0 auto; margin: 0; padding: 20px 24px 14px; border-bottom: 1px solid var(--border); }
+.modale-ecriture-dot > #zone-message-modale-ecriture-dot { flex: 0 0 auto; margin: 12px 24px 0; }
+.modale-ecriture-dot > #zone-message-modale-ecriture-dot:empty { display: none; }
+.modale-ecriture-dot > form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.dot-modale-corps { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px 24px 4px; }
+.dot-modale-pied { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 24px 20px; border-top: 1px solid var(--border); }
+.dot-modale-pied .btn-or { flex: 1 1 auto; }
+.champ-facultatif { font-weight: 400; color: var(--text-faint); text-transform: none; letter-spacing: 0; }
+.dot-etapes { margin: 10px 0 0; padding-left: 1.3em; font-size: var(--fs-3); color: var(--text-muted); }
 .dot-etapes li { padding: 2px 0; }
-.dot-etapes li::marker { color: var(--gold-strong); font-weight: 600; }
-.dot-copie-libelle { text-transform: none !important; letter-spacing: 0 !important; font-size: 0.85rem !important; color: var(--text-muted) !important; }
+.dot-etapes li::marker { color: var(--accent-dark); font-weight: 600; }
 
 /* en-tête de section : le texte d'aide prend la place laissée par les commandes à droite (plafonné à 80 caractères,
    il passait à la ligne alors qu'il restait de la place) */
@@ -1828,28 +2063,38 @@ main.admin-contenu:focus { outline: none; }
 .comptes-demande-boutons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* ---------- Grades (grades.html) : liste ordonnée par glisser-déposer, fenêtre par grade ---------- */
-.grades-poignee-exemple { color: var(--gold-strong); font-weight: 600; }
+.grades-poignee-exemple { color: var(--accent-dark); font-weight: 600; }
 .grades-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.grades-ligne { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); transition: border-color var(--d8-t); }
+.grades-ligne { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); transition: border-color var(--transition); }
 .grades-ligne:not(.verrouille):hover { border-color: rgba({{couleur_rvb}}, 0.5); }
-.grades-poignee { flex: 0 0 40px; display: flex; align-items: center; justify-content: center; border: 0; border-right: 1px solid var(--border); background: none; color: var(--text-faint); font-size: 1.1rem; cursor: grab; border-radius: var(--radius) 0 0 var(--radius); }
-button.grades-poignee:hover { color: var(--gold-strong); background: rgba({{couleur_rvb}}, 0.08); }
-button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: -2px; }
-.grades-principal { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 14px 16px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.grades-poignee { flex: 0 0 40px; display: flex; align-items: center; justify-content: center; border: 0; border-right: 1px solid var(--border); background: none; color: var(--text-faint); font-size: var(--fs-6); cursor: grab; border-radius: var(--radius) 0 0 var(--radius); }
+button.grades-poignee:hover { color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.08); }
+button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: -2px; }
+.grades-principal { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 14px 16px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .grades-principal:disabled { cursor: default; }
-.grades-principal:focus-visible { outline: 2px solid var(--d8-gold-300); outline-offset: -2px; border-radius: var(--radius); }
+.grades-principal:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: -2px; border-radius: var(--radius); }
 .grades-principal .pastille-grade { width: 12px; height: 12px; flex-shrink: 0; margin: 0; }
-.grades-nom { font-family: var(--d8-font-display); font-size: 1.15rem; min-width: 120px; }
+/* dot + nom + étiquettes + effectif dans un seul bloc (flex-wrap) : sur une ligne large, tout coexiste comme avant ;
+   à l'étroit, les étiquettes refluent sous le nom. La flèche reste hors de ce bloc, simple frère dans .grades-principal
+   (align-items:center) — elle se centre donc sur toute la hauteur du bloc, qu'il fasse une ligne ou plusieurs, à
+   n'importe quelle largeur (pas de grille ni de point de rupture propre à la flèche). */
+.grades-info { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.grades-nom { font-family: var(--display); font-size: var(--fs-6); min-width: 120px; }
 .grades-tags { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
-.grades-tag { padding: 2px 10px; border-radius: 999px; background: var(--bg3); color: var(--text-muted); font-size: 0.8rem; white-space: nowrap; }
-.grades-tag.accent { background: rgba({{couleur_rvb}}, 0.16); color: var(--gold-strong); }
+.grades-tag { padding: 2px 10px; border-radius: 999px; background: var(--bg3); color: var(--text-muted); font-size: var(--fs-2); white-space: nowrap; }
+.grades-tag.accent { background: rgba({{couleur_rvb}}, 0.16); color: var(--accent-dark); }
 .grades-tag.discord { background: rgba(114, 137, 218, 0.18); color: var(--ink); }
-.grades-tag.alerte { background: var(--erreur-soft); color: var(--danger-strong); }
-.grades-effectif { font-size: 0.85rem; color: var(--text-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.grades-suite { margin-left: auto; display: inline-flex; color: var(--text-faint); font-size: 1.2rem; }
-.grades-ligne.verrouille .grades-suite { font-size: 0.8rem; }
+.grades-tag.alerte { background: var(--erreur-soft); color: var(--erreur); }
+.grades-effectif { font-size: var(--fs-3); color: var(--text-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.grades-suite { flex-shrink: 0; display: inline-flex; color: var(--text-faint); font-size: var(--fs-6); }
+.grades-ligne.verrouille .grades-suite { font-size: var(--fs-2); }
 .grades-ligne.verrouille .grades-nom { color: var(--text-muted); }
-.grades-fantome { opacity: 0.4; border-style: dashed; }
+/* emplacement vide pendant le glisser (pas un texte fantôme qui se superpose au clone flottant ci-dessous) */
+.grades-fantome { border-style: dashed; background: var(--bg2); }
+.grades-fantome > * { visibility: hidden; }
+/* clone qui suit le curseur (forceFallback) : net, surélevé, détaché visuellement de la liste */
+.grades-traine { opacity: 1; background: var(--bg-elevated); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28); cursor: grabbing; }
+.grades-choisi:not(.grades-traine) { box-shadow: 0 0 0 1px rgba({{couleur_rvb}}, 0.4) inset; }
 .grades-vide { padding: 22px 16px; border: 1px dashed var(--border); border-radius: var(--radius); text-align: center; color: var(--text-faint); }
 .grades-note { margin-top: 14px; }
 
@@ -1876,35 +2121,35 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
 .modale-grade > #form > #zone-message-modale:empty { display: none; }
 .modale-grade > form > .grade-pied { flex: 0 0 auto; margin: 0 32px; padding: 12px 0 20px; background: var(--bg-card); }
 .modale-grade label, .modale-grade legend { text-transform: none; letter-spacing: 0; }
-.modale-grade .champ label { display: block; margin-bottom: 6px; font-size: 0.875rem; font-weight: 500; color: var(--text-muted); }
+.modale-grade .champ label { display: block; margin-bottom: 6px; font-size: var(--fs-3); font-weight: 500; color: var(--text-muted); }
 .modale-grade .champ label small { font-weight: 400; color: var(--text-faint); }
 .grade-identite { display: grid; grid-template-columns: minmax(0, 1fr) 90px; gap: 14px; }
 .grade-couleur input { width: 100%; height: 48px; padding: 4px; }
 .grade-permissions { margin: 4px 0 14px; padding: 0; border: 0; }
 /* float + width 100% : désactive le rendu natif qui pose la légende à cheval sur la bordure (fieldset), pour que
    le trait de séparation reste plein comme devant Run et Factures, légende dessous au lieu de dessus */
-.grade-permissions legend { float: left; width: 100%; margin-bottom: 4px; font-size: 1rem; font-weight: 500; color: var(--text); }
+.grade-permissions legend { float: left; width: 100%; margin-bottom: 4px; font-size: var(--fs-5); font-weight: 500; color: var(--text); }
 /* séparation entre les catégories de la fiche grade (Droits, Run, Factures…) : un même trait pour toutes */
 .grade-separee { padding-top: 10px; border-top: 1px solid var(--border); }
 .grade-domaine { margin-top: 16px; }
-.grade-domaine h3 { margin: 0 0 4px; font-family: var(--d8-font-ui); font-size: 0.8rem; font-weight: 600; letter-spacing: 0.04em; color: var(--gold-strong); }
+.grade-domaine h3 { margin: 0 0 4px; font-family: var(--body); font-size: var(--fs-2); font-weight: 600; letter-spacing: 0.04em; color: var(--accent-dark); }
 .grade-permission { display: flex; align-items: flex-start; gap: 12px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; }
 .grade-permission:hover { background: rgba({{couleur_rvb}}, 0.06); }
-.grade-permission input { width: 18px; height: 18px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--d8-gold-400); }
-.grade-permission strong { display: block; font-weight: 500; color: var(--text); font-size: 0.92rem; }
-.grade-permission small { display: block; font-size: 0.8rem; color: var(--text-faint); }
+.grade-permission input { width: 18px; height: 18px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--accent); }
+.grade-permission strong { display: block; font-weight: 500; color: var(--text); font-size: var(--fs-4); }
+.grade-permission small { display: block; font-size: var(--fs-2); color: var(--text-faint); }
 .grade-permission.interdite { opacity: 0.5; cursor: not-allowed; }
 /* objectif de run (fiche du grade) : un seul champ, aligné comme les autres champs de la fiche */
 .grade-run-reglages, .grade-facture-reglages { margin: 4px 0 14px; }
-.grade-run-reglages h3, .grade-facture-reglages h3 { margin: 0 0 8px; font-family: var(--d8-font-ui); font-size: 0.98rem; font-weight: 500; color: var(--text); }
+.grade-run-reglages h3, .grade-facture-reglages h3 { margin: 0 0 8px; font-family: var(--body); font-size: var(--fs-5); font-weight: 500; color: var(--text); }
 .champ-run-quota-saisie { display: flex; align-items: center; gap: 8px; max-width: 200px; }
 .champ-run-quota-saisie input { flex: 1 1 auto; min-width: 0; }
-.champ-run-quota-saisie span { color: var(--text-faint); font-size: 0.88rem; }
+.champ-run-quota-saisie span { color: var(--text-faint); font-size: var(--fs-3); }
 
 .grade-agenda-reglages { margin: 8px 10px 4px; padding: 10px 0 0; border-top: 1px solid var(--border); }
 .grade-agenda-intro { margin: 0 0 8px; }
 .grade-agenda-partage { margin: 10px 0 12px; }
-.grade-agenda-partage h4 { margin: 0 0 4px; font-family: var(--d8-font-ui); font-size: 0.82rem; font-weight: 600; color: var(--gold-strong); }
+.grade-agenda-partage h4 { margin: 0 0 4px; font-family: var(--body); font-size: var(--fs-2); font-weight: 600; color: var(--accent-dark); }
 .grade-agenda-partage > .champ-aide { margin: 0 0 6px; }
 .grade-agenda-choix { display: grid; grid-template-columns: 1fr; gap: 4px; }
 .grade-agenda-choix .grade-permission { padding: 8px 4px; }
@@ -1913,10 +2158,10 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
 .grade-agenda-entete { background: rgba({{couleur_rvb}}, 0.07); border-bottom: 1px solid var(--border); }
 .grade-agenda-entete > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .grade-agenda-entete > strong { align-self: start; padding-top: 6px; }
-.grade-agenda-entete strong, .grade-agenda-ligne > strong { min-width: 0; overflow-wrap: anywhere; color: var(--text); font-size: 0.82rem; font-weight: 600; }
-.grade-agenda-entete label, .grade-agenda-ligne label { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 6px; padding: 4px; border-radius: var(--radius-sm); color: var(--text-faint); font-size: 0.75rem; text-align: center; cursor: pointer; }
+.grade-agenda-entete strong, .grade-agenda-ligne > strong { min-width: 0; overflow-wrap: anywhere; color: var(--text); font-size: var(--fs-2); font-weight: 600; }
+.grade-agenda-entete label, .grade-agenda-ligne label { display: flex; min-height: 44px; align-items: center; justify-content: center; gap: 6px; padding: 4px; border-radius: var(--radius-sm); color: var(--text-faint); font-size: var(--fs-1); text-align: center; cursor: pointer; }
 .grade-agenda-entete label:hover, .grade-agenda-ligne label:hover { background: rgba({{couleur_rvb}}, 0.07); }
-.grade-agenda-entete input, .grade-agenda-ligne input { width: 18px; height: 18px; margin: 0; flex: 0 0 auto; accent-color: var(--d8-gold-400); }
+.grade-agenda-entete input, .grade-agenda-ligne input { width: 18px; height: 18px; margin: 0; flex: 0 0 auto; accent-color: var(--accent); }
 .grade-agenda-entete label { flex-direction: column; gap: 0; }
 .grade-agenda-ligne label { position: relative; }
 .grade-agenda-ligne label span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -1925,7 +2170,7 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
 .grade-agenda-ligne > strong { font-weight: 500; }
 .grade-agenda-ligne label.is-disabled { opacity: 0.45; cursor: not-allowed; }
 .grade-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
-.grade-pied .grade-supprimer { margin-right: auto; color: var(--danger-strong); border-color: var(--erreur); }
+.grade-pied .grade-supprimer { margin-right: auto; color: var(--erreur); border-color: var(--erreur); }
 @media (max-width: 760px) {
   .modale-fond#modale-grade, .modale-fond#modale-paie-grade { padding: 0; }
   .modale.modale-grade { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
@@ -1934,15 +2179,15 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
   .modale-grade > #form > #zone-message-modale, .modale-grade > form > .grade-zone-message { margin: 0 18px; }
   .modale-grade > form > .grade-pied { gap: 8px; margin: 0 18px; padding: 10px 0 14px; }
   .grade-agenda-entete, .grade-agenda-ligne { grid-template-columns: minmax(75px, 1fr) repeat(3, minmax(68px, 1fr)); gap: 2px; padding: 5px 4px; }
-  .grade-agenda-entete label, .grade-agenda-ligne label { flex-direction: column; gap: 2px; padding: 4px 2px; font-size: 0.75rem; }
-  .grade-agenda-entete strong { font-size: 0.75rem; }
+  .grade-agenda-entete label, .grade-agenda-ligne label { flex-direction: column; gap: 2px; padding: 4px 2px; font-size: var(--fs-1); }
+  .grade-agenda-entete strong { font-size: var(--fs-1); }
   .grade-agenda-ligne label span { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
-  /* téléphone : le nom et la flèche, puis les étiquettes, puis l’effectif */
-  .grades-principal { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 10px; }
-  .grades-nom { min-width: 0; }
-  .grades-tags, .grades-effectif { grid-column: 1 / -1; }
-  .grades-suite { grid-column: 3; grid-row: 1; }
-  .grades-tag { white-space: normal; }
+  .grades-suite { font-size: var(--fs-8); }
+  /* sur une ligne étroite, flex-wrap ne fait reculer les étiquettes à la ligne suivante que si elles ne peuvent
+     plus du tout tenir ; comme elles acceptent de rétrécir (min-width:0), elles restaient sur la ligne du nom en
+     s'écrasant à quelques px de large, chaque étiquette renvoyant alors son texte à la ligne mot par mot — d'où le
+     chevauchement avec l'effectif et la flèche. flex-basis:100% leur réserve toujours leur propre ligne complète. */
+  .grades-tags, .grades-effectif { flex-basis: 100%; }
   .grade-pied .btn-or { flex-basis: 100%; order: -1; }
 }
 
@@ -1952,19 +2197,19 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
 .stats-section > .compta-aide { margin-bottom: 12px; }
 .stats-liste .comptes-entete, .stats-liste .comptes-ligne { grid-template-columns: 36px minmax(0, 1.6fr) 80px 90px minmax(150px, 1fr); }
 .stats-entete span:nth-child(n+3) { text-align: right; }
-.stats-rang { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px; background: var(--bg3); color: var(--text-muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
-.stats-rang.podium { background: var(--d8-grad-gold); color: var(--or-contrast); font-weight: 700; }
+.stats-rang { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px; background: var(--bg3); color: var(--text-muted); font-size: var(--fs-3); font-variant-numeric: tabular-nums; }
+.stats-rang.podium { background: var(--accent); color: var(--on-accent); font-weight: 700; }
 .stats-agent { display: flex; flex-direction: column; min-width: 0; }
-.stats-nombre { text-align: right; font-size: 1rem; color: var(--text); font-variant-numeric: tabular-nums; }
+.stats-nombre { text-align: right; font-size: var(--fs-5); color: var(--text); font-variant-numeric: tabular-nums; }
 .stats-prime { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
-.stats-prime strong { font-weight: 600; color: var(--gold-light); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.stats-prime small { font-size: 0.75rem; color: var(--text-faint); white-space: nowrap; }
+.stats-prime strong { font-weight: 600; color: var(--accent-dark); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stats-prime small { font-size: var(--fs-1); color: var(--text-faint); white-space: nowrap; }
 .stats-synchro { padding: 16px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg3); }
 .stats-synchro-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.stats-erreur { color: var(--danger-strong) !important; }
+.stats-erreur { color: var(--erreur) !important; }
 .stats-explication { margin-top: 12px; }
-.stats-explication summary { cursor: pointer; width: fit-content; font-size: 0.88rem; color: var(--gold-strong); }
-.stats-explication ul { margin: 8px 0 0; padding-left: 1.2em; font-size: 0.85rem; color: var(--text-muted); }
+.stats-explication summary { cursor: pointer; width: fit-content; font-size: var(--fs-3); color: var(--accent-dark); }
+.stats-explication ul { margin: 8px 0 0; padding-left: 1.2em; font-size: var(--fs-3); color: var(--text-muted); }
 .stats-explication li { padding: 2px 0; }
 .stats-bot { margin-top: 12px !important; padding-top: 10px; border-top: 1px solid var(--border); }
 @media (max-width: 760px) {
@@ -1973,34 +2218,34 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--d8-gold-300); out
   .stats-rang { grid-area: rang; } .stats-agent { grid-area: agent; }
   .stats-ventes { grid-area: ventes; } .stats-locations { grid-area: locations; } .stats-prime { grid-area: prime; align-items: flex-start; text-align: left; }
   .stats-nombre { text-align: left; }
-  .stats-nombre::before, .stats-prime::before { content: attr(data-libelle); display: block; font-size: 0.75rem; color: var(--text-faint); }
+  .stats-nombre::before, .stats-prime::before { content: attr(data-libelle); display: block; font-size: var(--fs-1); color: var(--text-faint); }
 }
 #panneau-statistiques .dot-semaine .d8-select-enveloppe { width: 210px; }
 @media (max-width: 760px) {
   /* chiffres clés : deux par rangée, les primes sur toute la largeur */
   #stats-chiffres { grid-template-columns: 1fr 1fr; }
   #stats-chiffres .compta-chiffre.accent { grid-column: 1 / -1; }
-  #stats-chiffres .compta-chiffre strong { font-size: 1.35rem; }
+  #stats-chiffres .compta-chiffre strong { font-size: var(--fs-7); }
 }
 
 /* ---------- Paramètres (parametres.html) : onglets, états, choix Discord par nom, agenda en tableau ---------- */
 .param-etats { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 6px; }
 .param-etats:empty { display: none; }
-.param-etat { margin: 0; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.88rem; border-left: 3px solid; }
+.param-etat { margin: 0; padding: 10px 14px; border-radius: var(--radius-sm); font-size: var(--fs-3); border-left: 3px solid; }
 .param-etat.ok { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
-.param-etat.alerte { background: rgba({{couleur_rvb}}, 0.1); border-color: var(--d8-gold-400); color: var(--gold-light); }
-.param-etat.erreur { background: var(--erreur-soft); border-color: var(--danger-strong); color: var(--erreur); }
+.param-etat.alerte { background: rgba({{couleur_rvb}}, 0.1); border-color: var(--accent); color: var(--accent-dark); }
+.param-etat.erreur { background: var(--erreur-soft); border-color: var(--erreur); color: var(--erreur); }
 .param-etat.neutre { background: var(--bg3); border-color: var(--text-faint); color: var(--text-muted); }
 .param-groupe { padding: 20px 0 6px; border-bottom: 1px solid var(--border); max-width: 880px; }
 .param-groupe:last-child { border-bottom: 0; }
-#panneaux .champ label { display: block; margin-bottom: 6px; font-size: 0.875rem; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-muted); }
+#panneaux .champ label { display: block; margin-bottom: 6px; font-size: var(--fs-3); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-muted); }
 .param-pied { position: sticky; bottom: 16px; z-index: 5; display: flex; align-items: center; justify-content: flex-end; gap: 12px; max-width: 880px; margin-top: 12px; pointer-events: none; }
 .param-pied > * { pointer-events: auto; }
 .param-pied .btn { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
-.param-modifie { padding: 6px 12px; border-radius: 999px; background: var(--bg2); border: 1px solid rgba({{couleur_rvb}}, 0.4); font-size: 0.85rem; color: var(--gold-light); }
+.param-modifie { padding: 6px 12px; border-radius: 999px; background: var(--bg2); border: 1px solid rgba({{couleur_rvb}}, 0.4); font-size: var(--fs-3); color: var(--accent-dark); }
 .choix-discord { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.choix-etiquette { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px 4px 12px; border-radius: 999px; background: rgba(114, 137, 218, 0.18); color: var(--ink); font-size: 0.88rem; }
-.choix-etiquette button { width: 22px; height: 22px; border: 0; border-radius: 999px; background: none; color: inherit; font-size: 1rem; line-height: 1; cursor: pointer; }
+.choix-etiquette { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px 4px 12px; border-radius: 999px; background: rgba(114, 137, 218, 0.18); color: var(--ink); font-size: var(--fs-3); }
+.choix-etiquette button { width: 22px; height: 22px; border: 0; border-radius: 999px; background: none; color: inherit; font-size: var(--fs-5); line-height: 1; cursor: pointer; }
 .choix-etiquette button:hover, .choix-etiquette button:focus-visible { background: var(--bg3); outline: none; }
 .choix-discord .d8-select-enveloppe { flex: 1 1 200px; min-width: 0; }
 .choix-discord select { min-height: 40px; }
@@ -2027,9 +2272,47 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .admin-barre-laterale a.logo.admin-marque { display: flex; width: auto; margin: 4px 0 16px 10px !important; padding: 0; }
 .admin-barre-haut-logo.admin-marque { margin-right: auto; }
 /* pages seules (connexion, attente, refus) : logo et nom centrés au-dessus du titre */
-.logo-connexion { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; font-family: var(--display); font-weight: 700; font-size: 1.1rem; color: var(--text); text-align: center; }
+.logo-connexion { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; font-family: var(--display); font-weight: 700; font-size: var(--fs-6); color: var(--text); text-align: center; }
 .compte-panneau { max-width: 640px; margin-bottom: 24px; }
 .compte-panneau form { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .compte-supprimer { max-width: 640px; }
 /* bouton de connexion : le libellé passe à la ligne plutôt que d'être coupé sur téléphone */
 .btn.bouton-discord { height: auto; min-height: 44px; padding: 10px 20px; white-space: normal; text-align: center; }
+
+/* ---- Une forme par fonction ----
+   Seule une action est une pilule (.btn, sélecteur de période). Un onglet, qui change la vue de la page, est souligné ;
+   un choix entre options (Tous / Validés…) est un bloc à coins carrés, sans l'accent, pour ne pas concurrencer le bouton
+   principal ; un champ, recherche comprise, a les coins de tous les champs. Avant, tout était une pilule bleue : les
+   onglets ressemblaient à des boutons et aux filtres d'à côté. */
+.compta-sous-onglets, .run-onglets { gap: 4px; border-bottom: 1px solid var(--border); }
+.compta-sous-onglet, .run-onglet {
+  margin-bottom: -1px; padding: 10px 12px; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: none; color: var(--text-muted); font-size: var(--fs-3);
+}
+.compta-sous-onglet:hover, .run-onglet:hover { color: var(--text); border-bottom-color: var(--border-light); }
+.compta-sous-onglet.actif, .run-onglet.actif { background: none; color: var(--text); border-bottom-color: var(--accent); }
+.compta-sous-onglet.actif .ico, .run-onglet.actif .ico { color: var(--accent); }
+/* téléphone : sans les icônes, les trois onglets de Quota tiennent sur une ligne à 375 px */
+@media (max-width: 480px) { .compta-sous-onglet .ico, .run-onglet .ico { display: none; } .compta-sous-onglet, .run-onglet { padding: 10px 8px; } }
+
+.comptes-filtres { border: 0; border-radius: var(--radius); background: var(--bg3); }
+.comptes-filtre { border-radius: var(--radius-sm); }
+.comptes-filtre:hover { color: var(--text); }
+.comptes-filtre.actif { background: var(--bg2); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1); }
+.comptes-filtre.actif span { color: var(--text-faint); opacity: 1; }
+.comptes-recherche input { border-radius: var(--radius-sm); }
+
+/* Accueil, « Cette semaine » : un chiffre par ligne, sa barre d'objectif, l'écart avec la semaine d'avant */
+.accueil-chiffres li { display: block; padding: 12px 0; }
+.accueil-chiffre-libelle { display: block; font-size: var(--fs-3); color: var(--text-muted); }
+.accueil-chiffre-valeur { display: block; margin: 2px 0 6px; font-family: var(--display); font-size: var(--fs-8); line-height: 1.2; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.accueil-chiffre-valeur small { font-family: var(--body); font-size: var(--fs-3); color: var(--text-faint); }
+.accueil-ecart { display: block; margin-top: 6px; font-size: var(--fs-2); color: var(--text-faint); }
+.accueil-ecart--hausse { color: var(--ok); }
+.accueil-ecart--baisse { color: var(--erreur); }
+
+/* compte en bas du menu : un lien vers « Mon compte » (qui n'est plus une rubrique), la déconnexion reste à côté */
+.admin-barre-laterale .admin-compte-lien { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; min-height: 44px; padding: 4px 6px; margin-left: -6px; border-radius: var(--radius-sm); color: inherit; }
+.admin-barre-laterale .admin-compte-lien:hover { background: var(--bg3); }
+.admin-barre-laterale .admin-compte-lien.actif { background: var(--accent-soft); }
+.admin-barre-laterale .admin-compte-lien.actif strong { color: var(--accent-dark); }

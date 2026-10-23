@@ -22,13 +22,13 @@
     <div class="entete-admin">
       <div>
         <h1 style="margin-bottom:2px;">Grades</h1>
-        <p style="margin:0;font-size:0.88rem;">Du plus haut au plus bas. Glissez <span class="grades-poignee-exemple" aria-hidden="true">⠿</span> pour changer l’ordre, cliquez sur un grade pour le modifier.</p>
+        <p style="margin:0;font-size:var(--fs-3);">Du plus haut au plus bas. Glissez <span class="grades-poignee-exemple" aria-hidden="true">⠿</span> pour changer l’ordre, cliquez sur un grade pour le modifier.</p>
       </div>
-      <button class="btn btn-or" type="button" id="nouveau">+ Nouveau grade</button>
+      <button class="btn btn-or" type="button" id="nouveau"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouveau grade</button>
     </div>
     <div id="zone-message" role="status"></div>
     <ol class="grades-liste" id="liste-grades" aria-label="Grades, du plus haut au plus bas"><li class="grades-vide">Chargement…</li></ol>
-    <p class="comptes-aide grades-note">Un grade lié à un rôle Discord est donné à la connexion à qui porte ce rôle, et retiré à qui ne le porte plus. Vous ne gérez que les grades sous le vôtre.</p>
+    <p class="comptes-aide grades-note">Un grade lié à un rôle Discord est donné à la connexion à qui porte ce rôle, et retiré à qui ne le porte plus ; le grade d’une fiche active dans Ressources humaines l’emporte. Vous ne gérez que les grades sous le vôtre.</p>
   </main>
 
   <div class="modale-fond cache" id="modale-grade">
@@ -72,7 +72,7 @@
           <div class="champ champ-run-quota">
             <label for="facture-quota">Quota hebdomadaire</label>
             <div class="champ-run-quota-saisie"><input type="number" id="facture-quota" min="0" max="1000000" step="1" value="0"><span aria-hidden="true">$</span></div>
-            <p class="champ-aide">Montant à facturer chaque semaine pour ce grade (suivi : page Quota, onglet Quota facture). 0 = pas de quota. Seules les factures constatées en jeu comptent, crédités à qui les a enregistrés : une commande Discord ou une facture saisie depuis le site (page Factures) ne crédite personne.</p>
+            <p class="champ-aide">Montant à facturer chaque semaine pour ce grade (suivi : page Quota, onglet Quota facture). 0 = pas de quota. Seules les factures constatées en jeu comptent, crédités à qui les a enregistrés : une commande Discord ou une facture saisie depuis le site (page Facturation) ne crédite personne.</p>
           </div>
         </section>
         <template id="agenda-droits-modele">
@@ -152,14 +152,16 @@
         return `<li class="grades-ligne${modifiable ? '' : ' verrouille'}" data-cle="${echapper(g.cle)}">
           ${modifiable ? `<button type="button" class="grades-poignee" aria-label="Déplacer « ${echapper(g.libelle)} » (flèches haut et bas)">⠿</button>` : '<span class="grades-poignee" aria-hidden="true"></span>'}
           <button type="button" class="grades-principal" data-ouvrir ${modifiable ? '' : 'disabled'}>
-            <span class="pastille-grade" style="background:${echapper(g.couleur || '#8a93b8')}"></span>
-            <span class="grades-nom">${echapper(g.libelle)}</span>
-            <span class="grades-tags">${role}${resumeDroits(g)}</span>
-            ${n === null ? '' : `<span class="grades-effectif">${n} membre${n > 1 ? 's' : ''}</span>`}
+            <span class="grades-info">
+              <span class="pastille-grade" style="background:${echapper(g.couleur || '#8a93b8')}"></span>
+              <span class="grades-nom">${echapper(g.libelle)}</span>
+              <span class="grades-tags">${role}${resumeDroits(g)}</span>
+              ${n === null ? '' : `<span class="grades-effectif">${n} membre${n > 1 ? 's' : ''}</span>`}
+            </span>
             <span class="grades-suite" aria-hidden="true">${modifiable ? fleche('suivant') : 'Au-dessus de vous'}</span>
           </button>
         </li>`;
-      }).join('') : '<li class="grades-vide">Aucun grade pour le moment : créez le premier, le plus haut, avec « + Nouveau grade ».</li>';
+      }).join('') : '<li class="grades-vide">Aucun grade pour le moment : créez le premier, le plus haut, avec « Nouveau grade ».</li>';
     }
 
     function afficherQuotaRun(g) {
@@ -287,7 +289,11 @@
       if (focusCle) document.querySelector(`[data-cle="${CSS.escape(focusCle)}"] .grades-poignee`)?.focus();
     }
     new Sortable($('liste-grades'), {
-      handle: '.grades-poignee', draggable: '.grades-ligne:not(.verrouille)', animation: 150, ghostClass: 'grades-fantome',
+      handle: '.grades-poignee', draggable: '.grades-ligne:not(.verrouille)', animation: 150,
+      // forceFallback : abandonne l'image de glissé native du navigateur (floue, non stylable, qui se superposait
+      // au texte du fantôme laissé dans la liste) au profit d'un clone DOM entièrement géré en CSS (grades-traine).
+      forceFallback: true, fallbackClass: 'grades-traine', dragClass: 'grades-traine', chosenClass: 'grades-choisi',
+      ghostClass: 'grades-fantome',
       onEnd: ev => { if (ev.oldIndex !== ev.newIndex) enregistrerOrdre([...$('liste-grades').children].map(li => li.dataset.cle)); },
     });
     $('liste-grades').addEventListener('keydown', e => {

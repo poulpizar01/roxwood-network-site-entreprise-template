@@ -11,6 +11,32 @@ const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 const formaterMontant = n => `${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} $`;
 let EMPLOYES_RUN = [], EMPLOYES_FACTURE = [], MOI_ID_RUN = null;
 
+// ---- tri des deux tableaux (Personne, Grade, Progression = part du quota déjà atteinte) ----
+const comparerNomRun = (a, b) => a.nomComplet.localeCompare(b.nomComplet, 'fr', { sensitivity: 'base' });
+const creerTriQuota = valeurDe => gestion.creerTri({
+  nom: comparerNomRun,
+  grade: (a, b) => a.gradeLibelle.localeCompare(b.gradeLibelle, 'fr', { sensitivity: 'base' }) || comparerNomRun(a, b),
+  progression: (a, b) => {
+    const r = e => (e.quota > 0 ? valeurDe(e) / e.quota : -1);
+    return r(a) - r(b) || comparerNomRun(a, b);
+  },
+});
+const TRI_RUN = creerTriQuota(e => e.unites);
+const TRI_FACTURE = creerTriQuota(e => e.montant);
+function majEnteteQuota(triId, tri) {
+  $run(triId).innerHTML = `<th data-titre>${tri.bouton('nom', 'Personne')}</th><th>${tri.bouton('grade', 'Grade')}</th><th>${tri.bouton('progression', 'Progression')}</th>`;
+}
+function brancherTriQuota(tableId, tri, triId, redessiner) {
+  $run(tableId).addEventListener('click', e => {
+    const bouton = e.target.closest('[data-tri]');
+    if (!bouton) return;
+    tri.cycler(bouton.dataset.tri);
+    redessiner();
+    majEnteteQuota(triId, tri);
+    document.querySelector(`#${triId} [data-tri="${tri.etat?.cle ?? bouton.dataset.tri}"]`)?.focus();
+  });
+}
+
 // ---- semaine affichée : lundi (AAAA-MM-JJ, calendrier Paris) de la semaine en cours par défaut ; navigation vers le
 // passé seulement (le serveur ramène toute semaine future à la semaine en cours, classementRuns/classementFactures). ----
 const jourParisISO = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(d);
@@ -38,7 +64,7 @@ function majNavSemaine() {
   bouton.setAttribute('aria-label', courante ? 'Cette semaine' : `${bouton.textContent} : revenir à cette semaine`);
   bouton.title = courante ? 'Raccourci : touche T' : 'Revenir à cette semaine (touche T)';
   $run('run-semaine-suivante').disabled = courante;
-  $run('run-periode').textContent = `Run et facturation du ${debut.toLocaleDateString('fr-FR', options)} au ${fin.toLocaleDateString('fr-FR', options)}.`;
+  $run('run-periode').textContent = `Run et facturation du ${debut.toLocaleDateString('fr-FR', options)} au ${fin.toLocaleDateString('fr-FR', options)}`;   // pas de point : « oct. » en porte déjà un
 }
 
 // gris : pas d'objectif pour ce grade (quelle que soit l'évolution) ; rouge : pas commencé ; orange : en cours ; vert : atteint
@@ -48,12 +74,11 @@ function etatQuota(valeur, quota) {
   return valeur < quota ? 'orange' : 'vert';
 }
 
-// à 0 (rouge), la barre reste vide (largeur 0 %) : sans elle, la couleur ne se verrait pas du tout — on la remplit
-// entièrement pour qu'elle reste visible ; aria-valuenow (ligneQuota) garde le vrai pourcentage pour les lecteurs d'écran.
+// à 0 (rouge), la barre reste vide : pleine, elle se lirait « 100 % ». Le fond teinté rouge et le texte signalent l'état.
 function etatEtLargeur(valeur, quota) {
   const etat = etatQuota(valeur, quota);
   const pourcentage = quota > 0 ? Math.min(100, Math.round((valeur / quota) * 100)) : 0;
-  return { etat, pourcentage, largeur: etat === 'rouge' ? 100 : pourcentage };
+  return { etat, pourcentage, largeur: pourcentage };
 }
 
 function ligneQuota(e, moiId, valeur, quota, formatValeur, formatSeuil) {
@@ -75,12 +100,12 @@ function ligneQuota(e, moiId, valeur, quota, formatValeur, formatSeuil) {
 // pastilles, jamais une seule qu'il faudrait repousser pour revenir en arrière — on voit toujours quel choix est actif.
 // « Quota non atteint » ne garde que ceux qui ont un objectif pour leur grade ET ne l'ont pas atteint : un grade sans
 // objectif n'a rien à « ne pas atteindre », il reste exclu même avec ce filtre.
-function afficherTableauQuota(corpsId, rechercheId, groupeFiltreId, liste, moiId, valeurDe, formatValeur, formatSeuil, videTexte) {
+function afficherTableauQuota(corpsId, rechercheId, groupeFiltreId, tri, liste, moiId, valeurDe, formatValeur, formatSeuil, videTexte) {
   const recherche = $run(rechercheId).value.trim().toLowerCase();
   const filtreActif = document.querySelector(`[data-run-filtre-groupe="${groupeFiltreId}"] .actif`).dataset.runFiltre === 'non-atteint';
-  const filtree = liste
+  const filtree = tri.appliquer(liste
     .filter(e => !recherche || e.nomComplet.toLowerCase().includes(recherche))
-    .filter(e => !filtreActif || (e.quota > 0 && valeurDe(e) < e.quota));
+    .filter(e => !filtreActif || (e.quota > 0 && valeurDe(e) < e.quota)));
   const corps = $run(corpsId);
   const videMessage = !liste.length ? videTexte
     : recherche ? 'Personne ne correspond à cette recherche.'
@@ -90,12 +115,16 @@ function afficherTableauQuota(corpsId, rechercheId, groupeFiltreId, liste, moiId
     : `<tr><td colspan="3" class="run-vide">${videMessage}</td></tr>`;
 }
 
-const afficherQuotaRun = moiId => afficherTableauQuota('run-quota-corps', 'run-recherche', 'run', EMPLOYES_RUN, moiId,
+const afficherQuotaRun = moiId => afficherTableauQuota('run-quota-corps', 'run-recherche', 'run', TRI_RUN, EMPLOYES_RUN, moiId,
   e => e.unites, n => pluriel(n, 'unité'), String, 'Aucun employé actif pour le moment.');
-const afficherQuotaFacture = moiId => afficherTableauQuota('facture-quota-corps', 'facture-recherche', 'facture', EMPLOYES_FACTURE, moiId,
+const afficherQuotaFacture = moiId => afficherTableauQuota('facture-quota-corps', 'facture-recherche', 'facture', TRI_FACTURE, EMPLOYES_FACTURE, moiId,
   e => e.montant, formaterMontant, formaterMontant, 'Aucun employé actif pour le moment.');
 $run('run-recherche').addEventListener('input', () => afficherQuotaRun(MOI_ID_RUN));
 $run('facture-recherche').addEventListener('input', () => afficherQuotaFacture(MOI_ID_RUN));
+majEnteteQuota('run-entete', TRI_RUN);
+majEnteteQuota('facture-entete', TRI_FACTURE);
+brancherTriQuota('run-table', TRI_RUN, 'run-entete', () => afficherQuotaRun(MOI_ID_RUN));
+brancherTriQuota('facture-table', TRI_FACTURE, 'facture-entete', () => afficherQuotaFacture(MOI_ID_RUN));
 
 document.querySelectorAll('[data-run-filtre-groupe]').forEach(groupe => {
   const actualiser = groupe.dataset.runFiltreGroupe === 'run' ? afficherQuotaRun : afficherQuotaFacture;

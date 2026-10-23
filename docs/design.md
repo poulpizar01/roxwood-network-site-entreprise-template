@@ -55,7 +55,11 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
   Vu : un seuil fixe à 1 200 px ; à 1 280 px avec une barre de défilement visible et un menu élargi, le tableau débordait de 29 px et cachait « Supprimer ».
 - **Ajouter une colonne ou une icône d'action, c'est revérifier la largeur à 1 280 px.** Préférer rendre cliquable un élément existant (le nom d'un bien qui mène à sa page) à une icône de plus.
 - **Le tri se fait sur l'en-tête de colonne** (clic, flèche d'état), pas avec un sélecteur à part.
-- **Un montant ne se coupe pas sur deux lignes.**
+- **En cartes, l'action d'une ligne reste en haut à droite de la carte**, à côté du titre, jamais sur une ligne à elle seule.
+  Vu : le menu « ⋮ » de chaque facture, sous le nom du client, laissait une bande vide de 40 px dans chaque carte sur téléphone.
+- **Un montant ne se coupe pas sur deux lignes**, ni avant son symbole (« 6 200 » puis « $ » seul à la ligne) : espace insécable et `white-space: nowrap` sur un chiffre mis en avant.
+- **Une barre de progression montre la proportion réelle.** À 0, elle reste vide ; l'état (rien de fait, en cours, atteint) passe par la teinte du fond et le texte, jamais par une barre remplie.
+  Vu : une barre de quota pleine et rouge pour « 0 unité sur 100 », qui se lisait « 100 % ».
 
 ## 5. Contrôles : boutons, flèches, sélecteurs, champs
 

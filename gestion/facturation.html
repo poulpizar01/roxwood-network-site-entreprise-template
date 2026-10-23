@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
-  <title>Factures — {{nom}}</title>
+  <title>Facturation — {{nom}}</title>
 </head>
 <body class="page-agents">
   <!-- GESTION — factures (permission « factures ») : toutes les factures (reçues du bot ou saisies à la main), quel
@@ -22,8 +22,8 @@
     <section id="panneau-factures">
       <div class="entete-admin">
         <div>
-          <h1 style="margin-bottom:2px;">Factures</h1>
-          <p style="margin:0;font-size:0.88rem;">Commande Discord et facture constatée en jeu (reçues du bot), et saisie à la main.</p>
+          <h1 style="margin-bottom:2px;">Facturation</h1>
+          <p style="margin:0;font-size:var(--fs-3);">Commande Discord et facture constatée en jeu (reçues du bot), et saisie à la main.</p>
         </div>
         <button type="button" class="btn btn-or" id="bouton-nouvelle-facture"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouvelle facture</button>
       </div>
@@ -68,38 +68,62 @@
       <div id="factures-vide" class="etat-vide cache">
         <p>Aucune facture ne correspond à ce filtre.</p>
       </div>
-      <div id="factures-resultat" class="cache" style="overflow-x:auto;">
-        <table class="table-admin">
-          <thead><tr><th>Date</th><th>Provenance</th><th data-titre>Client</th><th>N°</th><th style="text-align:right;">Total</th><th>Statut</th></tr></thead>
+      <div id="factures-resultat" class="cache carte-table">
+        <table class="table-admin" id="table-factures">
+          <thead><tr id="factures-entete"></tr></thead>
           <tbody id="corps-table-factures"></tbody>
         </table>
       </div>
     </section>
   </main>
 
-<div class="modale-fond cache" id="modale-nouvelle-facture" data-echap>
+<!-- Une seule fenêtre pour créer, consulter et modifier une facture (même panel, comme la fiche employé de
+     Ressources humaines, gestion/rh.js ouvrirFicheEmploye) : FACTURE_COURANTE absente = création ; présente = la
+     facture ouverte. Montants et articles ne sont modifiables que pour une facture saisie à la main (source
+     « manuel ») : une facture reçue du bot (commande Discord ou paiement constaté en jeu) les affiche en lecture
+     seule, le site ne corrige pas ce que Discord a réellement enregistré (server/src/entreprise/routes/compta.ts). -->
+<div class="modale-fond cache" id="modale-facture-form" data-echap>
   <div class="modale modale-facture">
     <div class="modale-entete">
-      <h3 id="titre-modale-nouvelle-facture">Nouvelle facture</h3>
-      <button type="button" id="fermer-modale-nouvelle-facture" aria-label="Fermer">✕</button>
+      <h3 id="titre-modale-facture-form">Nouvelle facture</h3>
+      <button type="button" id="fermer-modale-facture-form" aria-label="Fermer">✕</button>
     </div>
-    <form id="formulaire-nouvelle-facture">
+    <form id="formulaire-facture">
       <div id="zone-message-modale-facture"></div>
       <div class="facture-corps">
-        <p class="champ-aide" style="margin:0 0 18px;">Saisie manuelle : n'affecte pas les commandes Discord ni les factures reçues du bot. Elle est créée « en attente » ; vous la marquerez payée ou annulée depuis son détail.</p>
+        <!-- provenance, détail de la source et statut : seulement pour une facture existante -->
+        <div id="facture-infos" class="facture-detail-entete cache">
+          <span class="champ-aide" id="facture-infos-texte"></span>
+          <span id="facture-infos-statut"></span>
+        </div>
+        <p class="champ-aide facture-detail-note cache" id="facture-note-avoir"></p>
+        <p class="champ-aide" id="facture-aide-saisie" style="margin:0 0 18px;">Saisie manuelle : n'affecte pas les commandes Discord ni les factures reçues du bot. Elle est créée « en attente » ; vous la marquerez payée ou annulée depuis son détail.</p>
 
-        <div class="facture-form-ligne">
+        <!-- client / n° : éditables à la création et sur une facture saisie à la main, en lecture seule sinon -->
+        <div class="facture-form-ligne" id="facture-identite-edition">
           <div class="champ">
             <label for="facture-client">Client</label>
-            <input type="text" id="facture-client" required maxlength="200" autocomplete="off" placeholder="Nom du client">
+            <input type="text" id="facture-client" maxlength="200" autocomplete="off" placeholder="Nom du client">
           </div>
           <div class="champ">
             <label for="facture-numero">N° de facture <small>facultatif</small></label>
             <input type="text" id="facture-numero" maxlength="100" autocomplete="off">
           </div>
         </div>
+        <div class="facture-form-ligne cache" id="facture-identite-lecture">
+          <div class="champ">
+            <label>Client</label>
+            <p class="champ-valeur" id="facture-lecture-client"></p>
+          </div>
+          <div class="champ">
+            <label>N° de facture</label>
+            <p class="champ-valeur" id="facture-lecture-numero"></p>
+          </div>
+        </div>
 
-        <div class="facture-form-ligne">
+        <!-- dates : éditables à la création et sur une facture saisie à la main, en lecture seule sinon (comme
+             client/n° ci-dessus) -->
+        <div class="facture-form-ligne" id="facture-dates-edition">
           <div class="champ">
             <label for="facture-date">Date de la facture</label>
             <input type="text" id="facture-date" autocomplete="off">
@@ -110,18 +134,31 @@
             <input type="text" id="facture-echeance" autocomplete="off">
           </div>
         </div>
+        <div class="facture-form-ligne cache" id="facture-dates-lecture">
+          <div class="champ">
+            <label>Date de la facture</label>
+            <p class="champ-valeur" id="facture-lecture-date"></p>
+          </div>
+          <div class="champ">
+            <label>Date d’échéance</label>
+            <p class="champ-valeur" id="facture-lecture-echeance"></p>
+          </div>
+        </div>
 
         <fieldset class="facture-fieldset">
-          <legend>1. Articles</legend>
-          <div class="facture-articles-entete" aria-hidden="true"><span>Article</span><span>Qté</span><span>Prix unitaire</span></div>
-          <div id="facture-articles"></div>
-          <button type="button" class="btn btn-fantome facture-article-ajouter" id="bouton-ajouter-article">
-            <svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un article
-          </button>
+          <legend>Articles</legend>
+          <div id="facture-articles-edition">
+            <div class="facture-articles-entete" aria-hidden="true"><span>Article</span><span>Qté</span><span>Prix unitaire</span></div>
+            <div id="facture-articles"></div>
+            <button type="button" class="btn btn-fantome facture-article-ajouter" id="bouton-ajouter-article">
+              <svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un article
+            </button>
+          </div>
+          <div id="facture-articles-lecture" class="cache"></div>
         </fieldset>
 
-        <fieldset class="facture-fieldset">
-          <legend>2. Livraison et réduction</legend>
+        <fieldset class="facture-fieldset" id="facture-fieldset-montants">
+          <legend>Livraison et réduction</legend>
           <div class="facture-form-montants">
             <div class="champ">
               <label for="facture-livraison">Livraison</label>
@@ -136,53 +173,38 @@
         </fieldset>
 
         <div class="facture-totaux facture-total-apercu-bloc">
-          <p class="facture-totaux-titre">3. Récapitulatif</p>
-          <div><span>Articles</span><span id="facture-apercu-articles">0 $</span></div>
-          <div><span>Livraison</span><span id="facture-apercu-livraison">0 $</span></div>
+          <p class="facture-totaux-titre">Récapitulatif</p>
+          <div id="facture-apercu-articles-ligne"><span>Articles</span><span id="facture-apercu-articles">0 $</span></div>
+          <div id="facture-apercu-livraison-ligne"><span>Livraison</span><span id="facture-apercu-livraison">0 $</span></div>
           <div class="cache" id="facture-apercu-reduction-ligne"><span id="facture-apercu-reduction-libelle">Réduction</span><span id="facture-apercu-reduction">-0 $</span></div>
           <div class="total"><span>Total</span><span id="facture-total-apercu">0 $</span></div>
         </div>
       </div>
-      <div class="facture-pied">
-        <button type="submit" class="btn btn-or" style="width:100%;">Enregistrer la facture</button>
+      <div class="facture-pied facture-detail-pied" id="facture-pied">
+        <button type="submit" class="btn btn-or" id="bouton-facture-enregistrer">Ajouter la facture</button>
+        <button type="button" class="btn btn-danger cache facture-detail-supprimer" id="bouton-supprimer-facture"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Supprimer</button>
       </div>
     </form>
   </div>
 </div>
 
-<div class="modale-fond cache" id="modale-detail-facture" data-echap>
-  <div class="modale" style="max-width:520px;">
+<!-- Aperçu d'une facture, à l'écran : jamais un fichier téléchargé ni print() (gèlerait le navigateur embarqué de
+     l'ordinateur en jeu, docs/design.md §10) — la personne la capture elle-même avec son outil de capture
+     d'écran habituel. Contenu rempli par rendreDocumentFacture (gestion/facturation.js). -->
+<div class="modale-fond cache" id="modale-apercu-facture" data-echap>
+  <div class="modale modale-apercu-facture" id="apercu-facture-boite">
     <div class="modale-entete">
-      <h3 id="titre-modale-detail-facture">Facture</h3>
-      <button type="button" id="fermer-modale-detail-facture" aria-label="Fermer">✕</button>
-    </div>
-    <div id="corps-detail-facture"></div>
-    <div id="zone-message-facture-dates"></div>
-    <div class="facture-form-ligne" style="margin-top:10px;">
-      <div class="champ">
-        <label for="facture-detail-date">Date de la facture</label>
-        <input type="text" id="facture-detail-date" autocomplete="off">
-      </div>
-      <div class="champ">
-        <label for="facture-detail-echeance">Date d’échéance <small>facultatif</small></label>
-        <input type="text" id="facture-detail-echeance" autocomplete="off">
+      <h3 id="titre-modale-apercu-facture">Aperçu de la facture</h3>
+      <div class="apercu-facture-entete-actions">
+        <button type="button" class="btn btn-fantome btn-petit cache" id="bouton-apercu-copier"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier en image</button>
+        <button type="button" class="btn btn-fantome btn-petit cache" id="bouton-apercu-plein-ecran">Plein écran</button>
+        <button type="button" id="fermer-modale-apercu-facture" aria-label="Fermer">✕</button>
       </div>
     </div>
-    <button type="button" class="btn btn-fantome" id="bouton-facture-dates-enregistrer">Enregistrer les dates</button>
-    <div id="facture-actions-statut" class="cache" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;">
-      <button type="button" class="btn btn-or" id="bouton-facture-payer">Marquer payée</button>
-      <button type="button" class="btn btn-fantome" id="bouton-facture-annuler">Marquer annulée</button>
-    </div>
-    <div id="facture-action-avoir" class="cache" style="margin-top:10px;">
-      <button type="button" class="btn btn-fantome" id="bouton-facture-avoir">Créer un avoir</button>
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;">
-      <button type="button" class="btn btn-fantome" id="bouton-telecharger-facture"><svg class="ico" aria-hidden="true"><use href="#ico-download"></use></svg> Télécharger</button>
-      <button type="button" class="btn btn-fantome cache" id="bouton-supprimer-facture"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Supprimer</button>
-    </div>
+    <div id="apercu-facture-corps"></div>
   </div>
 </div>
 
-  <script src="/gestion/factures.js"></script>
+  <script src="/gestion/facturation.js"></script>
 </body>
 </html>

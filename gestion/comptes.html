@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
-  <title>Comptes & accès — {{nom}}</title>
+  <title>Comptes — {{nom}}</title>
 </head>
 <body class="page-agents">
   <!-- GESTION — comptes et accès (permission « comptes », serveur : socle/routes/comptes.ts). Deux temps : les demandes
@@ -21,8 +21,8 @@
   <main class="admin-contenu">
     <div class="entete-admin">
       <div>
-        <h1 style="margin-bottom:2px;">Comptes &amp; accès</h1>
-        <p style="margin:0;font-size:0.88rem;">Qui accède à l’espace de gestion, et avec quel grade.</p>
+        <h1 style="margin-bottom:2px;">Comptes</h1>
+        <p style="margin:0;font-size:var(--fs-3);">Qui accède à l’espace de gestion, et avec quel grade.</p>
       </div>
     </div>
     <div id="zone-message" role="status"></div>
@@ -52,7 +52,7 @@
         </div>
       </div>
       <div class="comptes-liste" id="liste-membres" aria-live="polite"></div>
-      <p class="comptes-aide comptes-note">Un employé dont le rôle Discord est lié à un grade est validé d’office à sa connexion. <a href="grades.html">Lier les grades aux rôles</a></p>
+      <p class="comptes-aide comptes-note">Un employé dont le rôle Discord est lié à un grade est validé d’office à sa connexion. <a href="grades.html">Lier les grades aux rôles</a><br>Un employé qui a une fiche active dans Ressources humaines a le grade de sa fiche : il se change là-bas.</p>
     </section>
   </main>
   <script>
@@ -61,6 +61,13 @@
     const rang = cle => { const i = grades.findIndex(g => g.cle === cle); return i < 0 ? grades.length : i; };
     const gerable = c => moi.proprietaire || (!!moi.grade && rang(c.grade?.cle) > rang(moi.grade.cle) && c.id !== moi.id && !c.proprietaire);
     const gradesPossibles = () => grades.filter(g => moi.proprietaire || (moi.grade && rang(g.cle) > rang(moi.grade.cle)));
+    // ---- tri de la liste des membres (clic sur l'en-tête, réinitialisable sans recharger : gestion.creerTri) ----
+    const comparerNomCompte = (a, b) => (a.nom || a.pseudo).localeCompare(b.nom || b.pseudo, 'fr', { sensitivity: 'base' });
+    const TRI = gestion.creerTri({
+      nom: comparerNomCompte,
+      grade: (a, b) => rang(a.grade?.cle) - rang(b.grade?.cle) || comparerNomCompte(a, b),
+      connexion: (a, b) => new Date(a.connecteLe || 0) - new Date(b.connecteLe || 0),
+    });
     const PARIS = { timeZone: 'Europe/Paris' };
     const dateHeure = d => new Date(d).toLocaleString('fr-FR', { ...PARIS, dateStyle: 'short', timeStyle: 'short' });
     // dernière activité : « il y a 5 min » dans l'heure, « aujourd'hui à 14:30 », sinon la date (jamais « hier »
@@ -88,6 +95,8 @@
         <span class="comptes-pseudo">@${echapper(c.pseudo)}</span>${quitte}</div></div>`;
     }
     function choixGrade(c, enregistrerAuChangement) {
+      // grade fixé ailleurs (fiche RH active, socle : gradesImposes) : affiché, jamais proposé au choix
+      if (c.gradeImpose) return `<span class="comptes-grade-fixe"><span class="comptes-grade-nom">${c.grade ? `<span class="pastille-grade" style="background:${echapper(c.grade.couleur || '#8a93b8')}"></span>${echapper(c.grade.libelle)}` : 'Sans grade'}</span><a class="comptes-grade-source" href="rh.html">${echapper(c.gradeImpose)}</a></span>`;
       if (!gerable(c)) return c.grade ? `<span class="comptes-grade-fixe"><span class="pastille-grade" style="background:${echapper(c.grade.couleur || '#8a93b8')}"></span>${echapper(c.grade.libelle)}</span>` : '<span class="comptes-grade-fixe comptes-discret">Sans grade</span>';
       return `<select ${enregistrerAuChangement ? 'data-grade' : 'data-grade-demande'} aria-label="Grade de ${echapper(c.nom || c.pseudo)}"><option value="">Sans grade</option>${gradesPossibles().map(g => `<option value="${echapper(g.cle)}"${g.cle === c.grade?.cle ? ' selected' : ''}>${echapper(g.libelle)}</option>`).join('')}</select>`;
     }
@@ -101,7 +110,7 @@
       ].filter(Boolean).join('');
       if (!items) return '<span class="comptes-menu-vide"></span>';
       return `<div class="comptes-menu">
-        <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(c.nom || c.pseudo)}">⋯</button>
+        <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(c.nom || c.pseudo)}">${gestion.ico('points')}</button>
         <div class="comptes-menu-liste cache" role="menu">${items}</div>
       </div>`;
     }
@@ -126,9 +135,9 @@
       const membres = comptes.filter(c => c.statut !== 'attente');
       for (const f of ['tous', 'valide', 'refuse']) document.querySelector(`[data-nb="${f}"]`).textContent = membres.filter(c => f === 'tous' || c.statut === f).length;
       const r = recherche.toLowerCase();
-      const visibles = membres.filter(c => (filtre === 'tous' || c.statut === filtre) && (!r || `${c.nom || ''} ${c.pseudo}`.toLowerCase().includes(r)));
+      const visibles = TRI.appliquer(membres.filter(c => (filtre === 'tous' || c.statut === filtre) && (!r || `${c.nom || ''} ${c.pseudo}`.toLowerCase().includes(r))));
       document.getElementById('liste-membres').innerHTML = visibles.length
-        ? `<div class="comptes-entete" aria-hidden="true"><span>Membre</span><span>Grade</span><span>Dernière connexion</span><span></span></div>` + visibles.map(c => `
+        ? `<div class="comptes-entete entete-tri">${TRI.bouton('nom', 'Membre')}${TRI.bouton('grade', 'Grade')}${TRI.bouton('connexion', 'Dernière connexion')}<span></span></div>` + visibles.map(c => `
           <div class="comptes-ligne${c.statut === 'refuse' ? ' refuse' : ''}" data-id="${c.id}">
             ${identite(c)}
             <div class="comptes-grade">${choixGrade(c, true)}</div>
@@ -175,6 +184,13 @@
     });
 
     document.querySelector('main').addEventListener('click', async e => {
+      const tri = e.target.closest('[data-tri]');
+      if (tri) {
+        TRI.cycler(tri.dataset.tri);
+        afficher();
+        document.querySelector(`[data-tri="${TRI.etat?.cle ?? tri.dataset.tri}"]`)?.focus();
+        return;
+      }
       const ouvreur = e.target.closest('.comptes-menu-bouton');
       if (ouvreur) { const m = ouvreur.closest('.comptes-menu'); return menuOuvert === m ? fermerMenu(true) : ouvrirMenu(m); }
       const b = e.target.closest('[data-action]'), id = e.target.closest('[data-id]')?.dataset.id;

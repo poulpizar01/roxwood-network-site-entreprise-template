@@ -14,6 +14,7 @@ import { prisma } from './db.js';
 import { appelBot, botDiscordConfigure, ErreurDiscord, ID_DISCORD } from './discord.js';
 import { tousLesGrades } from './droits.js';
 import { synchroCompte } from './grade-connexion.js';
+import { gradesImposes } from './grades-imposes.js';
 
 const INTERVALLE_MS = 10 * 60_000, PREMIERE_MS = 2 * 60_000, ESPACEMENT_MS = 250;
 const MEMBRE_INCONNU = 10007;   // code d'erreur Discord : cet utilisateur n'est pas (plus) membre du serveur
@@ -53,6 +54,9 @@ export async function synchroniserComptes(): Promise<{ lus: number; modifies: nu
       const actuel = await prisma.compte.findUnique({ where: { id: c.id }, select: { gradeCle: true, statut: true, rolesDiscord: true, proprietaire: true, quitteLe: true } });
       if (!actuel || actuel.proprietaire || actuel.quitteLe || actuel.statut === 'refuse') continue;
       const d = synchroCompte(tousLesGrades(), actuel, roles);
+      // grade imposé par l'entreprise (fiche RH…) : il l'emporte sur le rôle, comme à la connexion
+      const impose = (await gradesImposes([c.discordId])).get(c.discordId)?.grade;
+      if (impose && !d.parti) { d.gradeCle = impose; d.change = d.change || impose !== actuel.gradeCle; }
       if (d.parti) {
         await prisma.$transaction([
           prisma.compte.update({ where: { id: c.id }, data: { quitteLe: new Date(), gradeCle: d.gradeCle, rolesDiscord: [] } }),
