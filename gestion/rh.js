@@ -194,6 +194,18 @@ document.querySelectorAll('[data-rh-onglet]').forEach(btn => {
 let CACHE_SANCTIONS = [];
 let TYPES_SANCTION = [];   // [{ id, nom, couleur }], réglés dans la modale « Gérer les types »
 let PEUT_SANCTIONNER = false;
+
+// légende : les types et leur couleur ; « Gérer les types » (ou « Créer des types ») pour qui en a le droit
+function dessinerLegendeSanction() {
+  const legende = $rh('sanctions-legende');
+  legende.classList.toggle('cache', !TYPES_SANCTION.length && !PEUT_SANCTIONNER);
+  legende.innerHTML = (TYPES_SANCTION.length
+    ? '<span class="agenda-legende-titre">Types</span>' + TYPES_SANCTION.map(t => `<span class="agenda-pastille" style="--vis:${echapper(t.couleur)}">${echapper(t.nom)}</span>`).join('')
+    : '<span class="agenda-legende-titre">Aucun type de sanction pour l’instant.</span>')
+    + (PEUT_SANCTIONNER ? `<button type="button" class="agenda-legende-gerer" data-gerer-types>${TYPES_SANCTION.length ? 'Gérer les types' : 'Créer des types'}</button>` : '');
+}
+$rh('sanctions-legende').addEventListener('click', e => { if (e.target.closest('[data-gerer-types]')) ouvrirTypesSanction(); });
+
 const ligneSanction = s => `<li><span><strong>${echapper(s.employeNom)}</strong> — ${s.type ? echapper(s.type.nom) : 'Sans type'}, ${dateHeure(s.creeLe)}${s.note ? ` : ${echapper(s.note)}` : ''} — par ${echapper(s.auteurNom) || 'un compte supprimé'}</span>${PEUT_SANCTIONNER ? `<button type="button" class="rh-historique-retirer" data-retirer-sanction="${s.id}" data-employe-sanction="${s.employeId}">Retirer</button>` : ''}</li>`;
 function afficherSanctions() {
   const f = $rh('recherche-sanctions').value.trim().toLowerCase();
@@ -209,7 +221,7 @@ async function chargerSanctions() {
     TYPES_SANCTION = types;
     PEUT_SANCTIONNER = peutSanctionner;
     $rh('bouton-nouvelle-sanction').classList.toggle('cache', !peutSanctionner);
-    $rh('bouton-types-sanction').classList.toggle('cache', !peutSanctionner);
+    dessinerLegendeSanction();
     afficherSanctions();
   } catch (e) { gestion.message('zone-message-sanctions', `Impossible de charger les sanctions : ${e.message}`); }
 }
@@ -290,6 +302,7 @@ async function typesSanctionModifies(promesse, notification) {
     gestion.message('zone-message-types-sanction', '');
     if (notification) gestion.notifier(notification);
     dessinerTypesSanction();
+    dessinerLegendeSanction();
     afficherSanctions();
     return true;
   } catch (e) { gestion.message('zone-message-types-sanction', e.message); }
@@ -303,11 +316,25 @@ function ouvrirTypesSanction() {
   $rh('modale-types-sanction').classList.remove('cache');
   $rh('type-sanction-nom').focus();
 }
-const fermerTypesSanction = () => { $rh('modale-types-sanction').classList.add('cache'); if (OUVREUR_TYPES_SANCTION?.isConnected) OUVREUR_TYPES_SANCTION.focus(); };
-$rh('bouton-types-sanction').addEventListener('click', ouvrirTypesSanction);
+function fermerTypesSanction() {
+  $rh('modale-types-sanction').classList.add('cache');
+  // le bouton de la légende a pu être redessiné : on revient sur le nouveau
+  (OUVREUR_TYPES_SANCTION?.isConnected ? OUVREUR_TYPES_SANCTION : document.querySelector('[data-gerer-types]'))?.focus();
+}
 $rh('fermer-modale-types-sanction').addEventListener('click', fermerTypesSanction);
 $rh('modale-types-sanction').addEventListener('click', e => { if (e.target.id === 'modale-types-sanction') fermerTypesSanction(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$rh('modale-types-sanction').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) fermerTypesSanction(); });
+// fenêtre des types : Échap ferme, Tab reste dedans (sinon le clavier agit sur la page cachée derrière)
+document.addEventListener('keydown', e => {
+  const ouverte = document.querySelector('#modale-types-sanction:not(.cache)');
+  if (!ouverte || document.querySelector('[role=alertdialog]')) return;
+  if (e.key === 'Escape') { e.preventDefault(); fermerTypesSanction(); return; }
+  if (e.key !== 'Tab') return;
+  const focusables = [...ouverte.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(el => !el.disabled && el.offsetParent !== null);
+  if (!focusables.length) return;
+  const premier = focusables[0], dernier = focusables[focusables.length - 1];
+  if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
+  else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
+});
 $rh('form-type-sanction').addEventListener('submit', e => {
   e.preventDefault();
   const nom = $rh('type-sanction-nom').value.trim();

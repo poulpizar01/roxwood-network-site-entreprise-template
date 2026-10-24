@@ -2318,3 +2318,80 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .admin-barre-laterale .admin-compte-lien:hover { background: var(--bg3); }
 .admin-barre-laterale .admin-compte-lien.actif { background: var(--accent-soft); }
 .admin-barre-laterale .admin-compte-lien.actif strong { color: var(--accent-dark); }
+
+/* Classement par types (nom, couleur) : légende et fenêtre de gestion. Partagé par l'agenda (types d'événements) et
+   Ressources humaines (types de sanction) : une seule fois ici plutôt que dupliqué par page. */
+.agenda-legende { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0 0 14px; font-size: var(--fs-2); color: var(--text-faint); flex-shrink: 0; }
+.agenda-pastille { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); }
+.agenda-pastille::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--vis); }
+.agenda-legende-gerer { min-height: 28px; padding: 2px 10px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-2); cursor: pointer; }
+.agenda-legende-gerer:hover, .agenda-legende-gerer:focus-visible { color: var(--text); border-color: rgba({{couleur_rvb}}, 0.5); }
+.modale.modale-types {
+  display: flex; flex-direction: column; max-width: 580px; height: min(84vh, 760px); max-height: calc(100dvh - 40px);
+  overflow: hidden; padding: 0;
+}
+.modale-types > .modale-entete { flex: 0 0 auto; margin: 0; padding: 20px 26px 14px; border-bottom: 1px solid var(--border); }
+.modale-types .modale-entete h2 { margin: 0; font-size: var(--fs-7); }
+.types-corps {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px 26px 12px; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent;
+}
+.types-corps::-webkit-scrollbar { width: 7px; }
+.types-corps::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba({{couleur_rvb}}, 0.36); }
+.types-pied { flex: 0 0 auto; padding: 0 26px 20px; background: var(--bg-card); }
+.modale-types label { font-size: inherit; text-transform: none; letter-spacing: 0; }
+.types-intro { margin: 0 0 22px; color: var(--text-faint); line-height: 1.55; }
+.types-section-entete { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.types-sous-titre { margin: 0; font-family: var(--body); font-size: var(--fs-3); font-weight: 600; color: var(--text); }
+.types-compte { flex: 0 0 auto; padding: 4px 9px; border: 1px solid rgba({{couleur_rvb}}, 0.22); border-radius: 999px; color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.07); font-size: var(--fs-1); }
+.types-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.types-ligne { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid rgba({{couleur_rvb}}, 0.16); border-radius: 12px; background: linear-gradient(110deg, rgba({{couleur_rvb}}, 0.045), var(--bg3) 42%); }
+.types-ligne.en-edition { grid-template-columns: minmax(0, 1fr); border-color: rgba({{couleur_rvb}}, 0.48); background: rgba({{couleur_rvb}}, 0.07); }
+.types-identite { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.types-identite strong { overflow-wrap: anywhere; font-size: var(--fs-4); font-weight: 550; color: var(--text); }
+.types-pastille { width: 14px; height: 14px; flex: 0 0 auto; border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 50%; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.055); }
+.types-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; }
+.types-actions .btn, .types-supprimer { min-height: 38px; padding: 0 11px; font-size: var(--fs-2); }
+.types-supprimer { border: 1px solid var(--erreur); border-radius: var(--radius-sm); background: var(--erreur-soft); color: var(--erreur); cursor: pointer; }
+.types-supprimer:hover, .types-supprimer:focus-visible { background: var(--erreur-soft); border-color: var(--erreur); }
+.types-edition-champs { display: grid; grid-template-columns: minmax(0, 1fr) 88px; align-items: end; gap: 12px; }
+.types-edition-champs input[type="text"] { min-height: 40px; }
+.types-edition-champs .champ label, .types-ajout .champ label { display: block; margin-bottom: 5px; font-size: var(--fs-3); font-weight: 500; color: var(--text-muted); }
+.types-edition-champs .champ, .types-ajout .champ { margin: 0; }
+.types-couleur input[type="color"] { width: 100%; height: 40px; padding: 3px; border: 1px solid var(--border); border-radius: 10px; background: none; cursor: pointer; }
+.types-ligne.en-edition .types-actions { justify-content: flex-end; }
+.types-ajout { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 16px; border: 1px solid rgba({{couleur_rvb}}, 0.28); border-radius: 14px; background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.075), var(--bg3) 55%); }
+.types-ajout-champs { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 12px; align-items: end; }
+.types-ajout .btn { align-self: flex-start; min-height: 42px; }
+.types-vide { padding: 14px 16px; border: 1px dashed rgba({{couleur_rvb}}, 0.24); border-radius: 12px; color: var(--text-faint); font-size: var(--fs-3); line-height: 1.5; }
+#zone-message-types .message, #zone-message-types-sanction .message { margin: 12px 0 0; }
+@media (max-width: 520px) {
+  .modale.modale-types { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
+  .modale-types > .modale-entete { padding: 16px 18px 12px; }
+  .types-corps { padding: 16px 18px 10px; }
+  .types-pied { padding: 0 18px 16px; }
+  .types-ligne { grid-template-columns: minmax(0, 1fr); }
+  .types-actions { justify-content: flex-start; }
+  .types-ligne.en-edition .types-actions { justify-content: flex-end; }
+  .types-actions .btn, .types-supprimer { min-height: 44px; padding: 0 14px; font-size: var(--fs-3); }
+  .types-ajout { padding: 14px; }
+  .types-edition-champs input[type="text"], .types-couleur input[type="color"] { min-height: 44px; height: 44px; }
+  .types-ajout .btn { min-height: 46px; padding: 0 16px; }
+}
+@media (max-width: 760px) {
+  .agenda-legende {
+    align-items: center; gap: 9px 10px; margin-bottom: 18px; padding: 14px;
+    border: 1px solid rgba({{couleur_rvb}}, 0.18); border-radius: 14px;
+    background: linear-gradient(120deg, rgba({{couleur_rvb}}, 0.055), var(--bg2) 48%);
+  }
+  .agenda-legende-titre { flex-basis: 100%; color: var(--text-muted); font-size: var(--fs-3); }
+  .agenda-pastille {
+    min-height: 34px; padding: 5px 10px; border: 1px solid rgba({{couleur_rvb}}, 0.16);
+    border-radius: 999px; background: var(--bg3); color: var(--text);
+    font-size: var(--fs-3);
+  }
+  .agenda-pastille::before { width: 11px; height: 11px; flex: 0 0 auto; }
+  .agenda-legende-gerer { flex: 1 0 100%; min-height: 46px; font-size: var(--fs-3); }
+  .agenda-legende .agenda-pastille { min-height: 38px; }
+  .agenda-legende .agenda-legende-gerer { min-height: 46px; font-size: var(--fs-3); }
+}
