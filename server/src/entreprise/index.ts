@@ -17,6 +17,7 @@ import { agenda } from './routes/agenda.js';
 import { apparence } from './routes/apparence.js';
 import { compte } from './routes/compte.js';
 import { compta } from './routes/compta.js';
+import { contrats } from './routes/contrats.js';
 import { paie } from './routes/paie.js';
 import { rh } from './routes/rh.js';
 import { run } from './routes/run.js';
@@ -34,13 +35,14 @@ export const entreprise: Entreprise = {
     rh: 'rh-voir',
     quota: 'rh-voir',
     dot: 'compta',
+    contrats: 'contrats',
     facturation: 'factures',
     paie: 'paie',
     parametres: 'parametres',
   },
 
   // apparence en premier : elle répond sur les adresses des images de la marque, avant le fichier livré
-  routes: [apparence, agenda, rh, run, compta, paie, services, accueil, compte],
+  routes: [apparence, agenda, rh, run, compta, contrats, paie, services, accueil, compte],
 
   // page Paramètres (socle) : liens et réglages de ce site, déclarés dans parametres.ts
   parametres: PARAMETRES,
@@ -68,6 +70,7 @@ export const entreprise: Entreprise = {
     await tx.ecritureDot.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.apparenceImage.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.sanction.updateMany({ where: { compteId }, data: { compteId: null } });
+    await tx.contrat.updateMany({ where: { compteId }, data: { compteId: null } });
     if (compte) await tx.invitationAgenda.deleteMany({ where: { discordId: compte.discordId } });
     await tx.evenementAgenda.deleteMany({ where: { compteId, destination: 'perso' } });
     await tx.evenementAgenda.updateMany({ where: { compteId }, data: { compteId: null, auteurNom: '' } });

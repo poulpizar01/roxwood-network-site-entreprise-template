@@ -411,3 +411,23 @@ model TypeSanction {
 
   @@map("types_sanction")
 }
+
+// Contrat passé avec une autre entreprise du serveur (réparations, soins…) : registre interne, sans échange avec
+// son site (chaque entreprise a sa propre base, pas d'API commune entre sites). Permission dédiée « contrats ».
+// Cycle : en négociation → actif → terminé (verse une écriture DOT, dot.ts) ou annulé.
+model Contrat {
+  id         Int      @id @default(autoincrement())
+  partenaire String   @db.VarChar(100)
+  objet      String   @db.VarChar(200)
+  sens       String   @db.VarChar(12) // on_paie | on_est_paye
+  montant    Int
+  statut     String   @default("negociation") @db.VarChar(12) // negociation | actif | termine | annule
+  notes      String   @default("") @db.VarChar(500)
+  compteId   Int?     @map("compte_id") // auteur ; null si compte supprimé
+  ecritureId Int?     @map("ecriture_id") // écriture DOT versée à la clôture : jamais recréée si déjà présente
+  creeLe     DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+  majLe      DateTime @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+
+  @@index([statut, creeLe(sort: Desc)])
+  @@map("contrats")
+}

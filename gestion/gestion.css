@@ -1564,6 +1564,7 @@ main.admin-contenu:focus { outline: none; }
 
 /* liste : colonnes triables, nom cliquable (= ouvrir la fiche) */
 .rh-liste .comptes-entete, .rh-liste .comptes-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(110px, 0.8fr) minmax(130px, 1fr) 100px 44px; }
+.contrats-liste .comptes-entete, .contrats-liste .comptes-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(100px, 0.8fr) minmax(100px, 0.9fr) 110px 44px; }
 /* en-tête dont les cellules sont des boutons de tri (.tri-colonne, déjà en hauteur) plutôt que du texte simple :
    moins de padding que .comptes-entete, sinon la ligne double de hauteur. Partagé par RH et Comptes & accès. */
 .entete-tri { padding-top: 4px; padding-bottom: 4px; }
@@ -1860,6 +1861,12 @@ main.admin-contenu:focus { outline: none; }
   .rh-liste .comptes-ligne > .rh-cellule:nth-of-type(3) { grid-area: arrivee; }
   .rh-liste .comptes-ligne > .comptes-menu { grid-area: menu; }
   .rh-cellule::before { content: attr(data-libelle); display: block; font-size: var(--fs-1); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); }
+  .contrats-liste .comptes-ligne { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; grid-template-areas: "id id menu" "sens montant montant" "date date date"; }
+  .contrats-liste .comptes-ligne > .comptes-identite { grid-area: id; }
+  .contrats-liste .comptes-ligne > .rh-cellule:nth-of-type(1) { grid-area: sens; }
+  .contrats-liste .comptes-ligne > .rh-cellule:nth-of-type(2) { grid-area: montant; }
+  .contrats-liste .comptes-ligne > .rh-cellule:nth-of-type(3) { grid-area: date; }
+  .contrats-liste .comptes-ligne > .comptes-menu { grid-area: menu; }
   .rh-outils-droite { flex-basis: 100%; justify-content: stretch; }
   .rh-outils-droite .d8-select-enveloppe { width: 100%; }
   .modale-fond#modale-employe, .modale-fond#modale-import-tablette, .modale-fond#modale-profil { padding: 0; }
