@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Services — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — ressources humaines : anomalies du bot de service à traiter (corriger l'heure de fin, ou ignorer la
+       ligne). Tant qu'une ligne n'est pas traitée, ses heures restent exclues de la paie à l'heure de la DOT.
+       Permission rh-voir pour consulter, rh-modifier pour corriger/ignorer. Serveur : /api/services/anomalies,
+       entreprise/services.ts. -->
+  <main class="admin-contenu">
+    <section id="panneau-services">
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Services à traiter</h1>
+          <p style="margin:0;font-size:var(--fs-3);">Anomalies du bot de service. Tant qu'une ligne n'est pas corrigée ou ignorée, ses heures ne comptent pas dans la paie à l'heure de la DOT.</p>
+        </div>
+      </div>
+      <div id="zone-message-services" role="status"></div>
+      <ul class="rh-historique" id="rh-services-liste" style="margin-top:14px;"></ul>
+    </section>
+  </main>
+
+<!-- Corriger une anomalie de service : nouvelles heures de début et de fin (même jour). -->
+<div class="modale-fond cache" id="modale-service">
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-service-titre">
+    <div class="modale-entete">
+      <h2 id="modale-service-titre" class="modale-titre">Corriger le service</h2>
+      <button type="button" id="fermer-modale-service" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-service"></div>
+    <form id="formulaire-service" autocomplete="off">
+      <div class="champ"><label for="service-jour">Jour</label><input type="date" id="service-jour"></div>
+      <div class="champ-deux">
+        <div class="champ"><label for="service-heure-debut">Début</label><input type="time" id="service-heure-debut" step="300"></div>
+        <div class="champ"><label for="service-heure-fin">Fin</label><input type="time" id="service-heure-fin" step="300"></div>
+      </div>
+      <div class="fiche-rh-pied">
+        <button type="submit" class="btn btn-or">Enregistrer</button>
+        <button type="button" class="btn btn-fantome" id="service-annuler">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <script src="/gestion/services.js"></script>
+</body>
+</html>

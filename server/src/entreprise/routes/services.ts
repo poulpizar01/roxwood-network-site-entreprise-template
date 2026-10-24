@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { config } from '../../socle/config.js';
 import { prisma } from '../../socle/db.js';
+import { peut } from '../../socle/droits.js';
 import { body, intParam, permission, valide } from '../../socle/http.js';
 import { entierRegle } from '../parametres.js';
 import { traiter } from '../refus.js';
@@ -37,8 +38,8 @@ services.get('/api/services/etat', ...permission('parametres'), async (_req, res
 
 // anomalies à traiter (RH, onglet Services) : tant qu'une ligne n'est pas corrigée ou ignorée, ses heures ne comptent
 // pas dans la paie à l'heure de la DOT (services.ts, heuresServiceSemaine).
-services.get('/api/services/anomalies', ...permission('rh-voir'), async (_req, res) => {
-  res.json({ anomalies: await anomaliesATraiter() });
+services.get('/api/services/anomalies', ...permission('rh-voir'), async (req, res) => {
+  res.json({ anomalies: await anomaliesATraiter(), peutCorriger: peut(req.compte, 'rh-modifier') });
 });
 
 services.put('/api/services/:id', ...permission('rh-modifier'), traiter(async (req, res) => {

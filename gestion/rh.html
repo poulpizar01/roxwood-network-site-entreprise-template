@@ -12,29 +12,23 @@
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
-  <title>Ressources humaines — {{nom}}</title>
+  <title>Employés — {{nom}}</title>
 </head>
 <body class="page-agents">
-  <!-- GESTION — ressources humaines (permission rh-voir ; chaque action a sa permission rh-*). Serveur :
+  <!-- GESTION — ressources humaines : employés (permission rh-voir ; chaque action a sa permission rh-*). Sanctions
+       et Services sont des pages à part (sanctions.html, services.html), même catégorie du menu. Serveur :
        entreprise/routes/rh.ts et entreprise/rh.ts. -->
   <main class="admin-contenu">
     <section id="panneau-rh">
       <div class="entete-admin">
         <div>
-          <h1 style="margin-bottom:2px;">Ressources humaines</h1>
+          <h1 style="margin-bottom:2px;">Employés</h1>
           <p style="margin:0;font-size:var(--fs-3);">La fiche de chaque employé : identité, grade, statut. Les ventes et la DOT s’y rattachent.</p>
         </div>
         <button type="button" class="btn btn-or cache" id="bouton-nouvel-employe"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un membre</button>
       </div>
       <div id="zone-message-rh" role="status"></div>
 
-      <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques des ressources humaines">
-        <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="rh-panneau-employes" data-rh-onglet="employes"><svg class="ico" aria-hidden="true"><use href="#ico-users"></use></svg> Employés</button>
-        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="rh-panneau-sanctions" data-rh-onglet="sanctions"><svg class="ico" aria-hidden="true"><use href="#ico-book"></use></svg> Sanctions</button>
-        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="rh-panneau-services" data-rh-onglet="services"><svg class="ico" aria-hidden="true"><use href="#ico-gear"></use></svg> Services</button>
-      </div>
-
-      <div id="rh-panneau-employes">
       <!-- en tête : l'effectif, et ce qui demande une action (masqué quand il n'y a rien à faire) -->
       <div class="rh-synthese">
         <div class="rh-effectif">
@@ -67,7 +61,7 @@
         <div class="comptes-liste rh-liste" id="rh-liste"></div>
       </section>
 
-      <!-- Candidatures acceptées reçues du bot Discord « Roxwood Network Entreprise » (webhook recruitment.updated, reçu par
+      <!-- Candidatures acceptées reçues du bot Discord « Roxwood Network Entreprise » (webhook recruitment.updated, reçu par
            le socle sur /webhooks/bot), et leurs réglages. -->
       <section class="rh-section cache" id="rh-bot" aria-labelledby="titre-recrutement">
         <h2 id="titre-recrutement" class="rh-titre">Recrutement</h2>
@@ -81,7 +75,7 @@
                d'où vient une information de la fiche : automatique, le grade réglé ici, ou la réponse à une question du
                formulaire de candidature du bot. Les questions proposées sont celles reçues avec les candidatures. -->
           <form id="rh-bot-reglages">
-            <p class="comptes-aide rh-reglages-intro">Quand une candidature est acceptée sur Discord, le site crée la fiche de la personne. Voici d’où vient chaque information. Le prénom et le nom sont obligatoires : sans eux, la candidature attend dans « À traiter ». Les questions proposées sont celles de votre formulaire de candidature (panneau « Recrutement » du bot), reçues avec les candidatures précédentes. Ce que le formulaire ne demande pas reste vide : vous le complétez ensuite dans la fiche.</p>
+            <p class="comptes-aide rh-reglages-intro">Quand une candidature est acceptée sur Discord, le site crée la fiche de la personne. Voici d’où vient chaque information. Le prénom et le nom sont obligatoires : sans eux, la candidature attend dans « À traiter ». Les questions proposées sont celles de votre formulaire de candidature (panneau « Recrutement » du bot), reçues avec les candidatures précédentes. Ce que le formulaire ne demande pas reste vide : vous le complétez ensuite dans la fiche.</p>
             <div class="rh-correspondances" role="table" aria-label="D’où vient chaque information de la fiche">
               <div class="rh-correspondance rh-correspondance-entete" role="row"><span role="columnheader">Sur la fiche</span><span role="columnheader">Rempli avec</span></div>
 
@@ -129,40 +123,6 @@
           </form>
         </details>
       </section>
-      </div>
-
-      <!-- Sanctions de tous les employés (lecture et retrait ; l'ajout se fait pour un employé choisi dans la modale
-           ci-dessous). Serveur : /api/rh/sanctions, entreprise/sanctions.ts. -->
-      <div id="rh-panneau-sanctions" class="cache">
-        <div class="entete-admin" style="margin-top:14px;">
-          <div>
-            <h2 id="titre-sanctions" class="rh-titre" style="margin:0;">Sanctions</h2>
-            <p class="comptes-aide" style="margin:4px 0 0;">Historique disciplinaire de tous les employés.</p>
-          </div>
-          <button type="button" class="btn btn-or cache" id="bouton-nouvelle-sanction"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter une sanction</button>
-        </div>
-        <div id="zone-message-sanctions" role="status"></div>
-        <div class="agenda-legende cache" id="sanctions-legende"></div>
-        <div class="comptes-recherche" style="margin-top:14px;max-width:320px;">
-          <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
-          <input type="search" id="recherche-sanctions" aria-label="Filtrer les sanctions par employé" placeholder="Filtrer par employé">
-        </div>
-        <ul class="rh-historique" id="rh-sanctions-liste" style="margin-top:14px;"></ul>
-      </div>
-
-      <!-- Services : anomalies du bot de service à traiter (corriger l'heure de fin, ou ignorer la ligne). Tant
-           qu'une ligne n'est pas traitée, ses heures restent exclues de la paie à l'heure de la DOT. Permission
-           rh-modifier pour corriger/ignorer. Serveur : /api/services/anomalies, entreprise/services.ts. -->
-      <div id="rh-panneau-services" class="cache">
-        <div class="entete-admin" style="margin-top:14px;">
-          <div>
-            <h2 class="rh-titre" style="margin:0;">Services à traiter</h2>
-            <p class="comptes-aide" style="margin:4px 0 0;">Anomalies du bot de service. Tant qu'une ligne n'est pas corrigée ou ignorée, ses heures ne comptent pas dans la paie à l'heure de la DOT.</p>
-          </div>
-        </div>
-        <div id="zone-message-services" role="status"></div>
-        <ul class="rh-historique" id="rh-services-liste" style="margin-top:14px;"></ul>
-      </div>
     </section>
   </main>
 
@@ -184,7 +144,7 @@
           <div class="champ"><label for="employe-grade">Grade</label><select id="employe-grade" aria-describedby="employe-grade-aide"></select><small class="champ-aide" id="employe-grade-aide">Donne aussi les droits sur le site à son compte (même ID Discord).</small></div>
         </div>
         <div class="champ-deux">
-          <div class="champ"><label for="employe-discord-id">ID Discord</label><input type="text" id="employe-discord-id" inputmode="numeric" maxlength="22" placeholder="18 chiffres environ" aria-describedby="aide-discord-id"><p class="champ-aide" id="aide-discord-id">Clic droit sur le membre dans Discord, « Copier l’identifiant ».</p></div>
+          <div class="champ"><label for="employe-discord-id">ID Discord</label><input type="text" id="employe-discord-id" inputmode="numeric" maxlength="22" placeholder="18 chiffres environ" aria-describedby="aide-discord-id"><p class="champ-aide" id="aide-discord-id">Clic droit sur le membre dans Discord, « Copier l’identifiant ».</p></div>
           <div class="champ"><label for="employe-discord-pseudo">Pseudo Discord</label><input type="text" id="employe-discord-pseudo" maxlength="100" placeholder="Ex. lucas_p" aria-describedby="aide-discord-pseudo"><p class="champ-aide" id="aide-discord-pseudo">Celui que le bot envoie avec les ventes.</p></div>
         </div>
         <div class="champ-deux" id="employe-bloc-sensible">
@@ -201,84 +161,6 @@
       <div class="fiche-rh-pied" id="fiche-rh-pied">
         <button type="submit" class="btn btn-or" id="employe-enregistrer">Enregistrer</button>
         <button type="button" class="btn btn-fantome" id="employe-annuler">Annuler</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="modale-fond cache" id="modale-sanction">
-  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-sanction-titre">
-    <div class="modale-entete">
-      <h2 id="modale-sanction-titre" class="modale-titre">Ajouter une sanction</h2>
-      <button type="button" id="fermer-modale-sanction" aria-label="Fermer">✕</button>
-    </div>
-    <div id="zone-message-modale-sanction"></div>
-    <form id="formulaire-sanction" autocomplete="off">
-      <div class="champ"><label for="sanction-employe">Employé</label><select id="sanction-employe" required></select></div>
-      <div class="champ-deux">
-        <div class="champ"><label for="sanction-type">Type</label><select id="sanction-type" required></select></div>
-        <div class="champ"><label for="sanction-note">Note (facultative)</label><input type="text" id="sanction-note" maxlength="500"></div>
-      </div>
-      <div class="fiche-rh-pied">
-        <button type="submit" class="btn btn-or">Ajouter la sanction</button>
-        <button type="button" class="btn btn-fantome" id="sanction-annuler">Annuler</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Types de sanction : classement libre (nom, couleur), comme les types d'agenda. -->
-<div class="modale-fond cache" id="modale-types-sanction">
-  <div class="modale modale-types" role="dialog" aria-modal="true" aria-labelledby="titre-modale-types-sanction">
-    <div class="modale-entete">
-      <h2 id="titre-modale-types-sanction">Types de sanction</h2>
-      <button id="fermer-modale-types-sanction" type="button" aria-label="Fermer">✕</button>
-    </div>
-    <div class="types-corps">
-      <p class="champ-aide types-intro">Les types servent à classer les sanctions par gravité et à les repérer par couleur.</p>
-      <div class="types-section-entete">
-        <h3 class="types-sous-titre">Types existants</h3>
-        <span class="types-compte" id="types-sanction-compte"></span>
-      </div>
-      <ul class="types-liste" id="types-sanction-liste"></ul>
-    </div>
-    <div class="types-pied">
-      <form class="types-ajout" id="form-type-sanction" novalidate>
-        <h3 class="types-sous-titre">Créer un type</h3>
-        <div class="types-ajout-champs">
-          <div class="champ">
-            <label for="type-sanction-nom">Nom</label>
-            <input type="text" id="type-sanction-nom" maxlength="40" placeholder="Ex. Avertissement oral">
-          </div>
-          <div class="champ types-couleur">
-            <label for="type-sanction-couleur">Couleur</label>
-            <input type="color" id="type-sanction-couleur" aria-label="Couleur du nouveau type">
-          </div>
-        </div>
-        <button type="submit" class="btn btn-or">Ajouter le type</button>
-      </form>
-      <div id="zone-message-types-sanction" role="status"></div>
-    </div>
-  </div>
-</div>
-
-<!-- Corriger une anomalie de service : nouvelles heures de début et de fin (même jour). -->
-<div class="modale-fond cache" id="modale-service">
-  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-service-titre">
-    <div class="modale-entete">
-      <h2 id="modale-service-titre" class="modale-titre">Corriger le service</h2>
-      <button type="button" id="fermer-modale-service" aria-label="Fermer">✕</button>
-    </div>
-    <div id="zone-message-modale-service"></div>
-    <form id="formulaire-service" autocomplete="off">
-      <div class="champ"><label for="service-jour">Jour</label><input type="date" id="service-jour"></div>
-      <div class="champ-deux">
-        <div class="champ"><label for="service-heure-debut">Début</label><input type="time" id="service-heure-debut" step="300"></div>
-        <div class="champ"><label for="service-heure-fin">Fin</label><input type="time" id="service-heure-fin" step="300"></div>
-      </div>
-      <div class="fiche-rh-pied">
-        <button type="submit" class="btn btn-or">Enregistrer</button>
-        <button type="button" class="btn btn-fantome" id="service-annuler">Annuler</button>
       </div>
     </form>
   </div>
