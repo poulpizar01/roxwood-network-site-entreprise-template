@@ -89,11 +89,10 @@
       $('infos-telephone').value = fiche.telephone;
       $('infos-rib').value = fiche.rib;
     }
-    const LIBELLES_SANCTION = { avertissement_oral: 'Avertissement oral', avertissement_ecrit: 'Avertissement écrit', mise_a_pied: 'Mise à pied', licenciement: 'Licenciement' };
     function afficherSanctions(sanctions) {
       $('section-sanctions').hidden = !sanctions || !sanctions.length;
       if (!sanctions || !sanctions.length) return;
-      $('mes-sanctions').innerHTML = sanctions.map(s => `<li><span>${echapper(LIBELLES_SANCTION[s.type] || s.type)} — ${new Date(s.creeLe).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}${s.note ? ` : ${echapper(s.note)}` : ''}</span></li>`).join('');
+      $('mes-sanctions').innerHTML = sanctions.map(s => `<li><span>${s.type ? echapper(s.type.nom) : 'Sans type'} — ${new Date(s.creeLe).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}${s.note ? ` : ${echapper(s.note)}` : ''}</span></li>`).join('');
     }
     gestion.coque('compte').then(afficher).catch(e => gestion.message('zone-message', e.message));
     socle.api('/api/moi/fiche').then(({ fiche, quota, sanctions }) => { afficherFiche(fiche); afficherQuota(quota); afficherSanctions(sanctions); })

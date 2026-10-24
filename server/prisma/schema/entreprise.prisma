@@ -381,14 +381,27 @@ model ServiceEtat {
 // Sanction disciplinaire rattachée à une fiche RH (permission rh-sanctionner, en plus de rh-voir). Jamais modifiée :
 // une sanction saisie par erreur se retire, elle ne se corrige pas. Visible par l'employé concerné dans Mon compte.
 model Sanction {
-  id        Int      @id @default(autoincrement())
-  employeId Int      @map("employe_id")
-  type      String   @db.VarChar(24) // avertissement_oral | avertissement_ecrit | mise_a_pied | licenciement
-  note      String   @default("") @db.VarChar(500)
-  compteId  Int?     @map("compte_id") // auteur ; null si compte supprimé
-  auteurNom String   @default("") @map("auteur_nom") @db.VarChar(64)
-  creeLe    DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+  id        Int           @id @default(autoincrement())
+  employeId Int           @map("employe_id")
+  typeId    Int?          @map("type_id") // type supprimé : « Sans type » (onDelete: SetNull), comme les types d'agenda
+  type      TypeSanction? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  note      String        @default("") @db.VarChar(500)
+  compteId  Int?          @map("compte_id") // auteur ; null si compte supprimé
+  auteurNom String        @default("") @map("auteur_nom") @db.VarChar(64)
+  creeLe    DateTime      @default(now()) @map("cree_le") @db.Timestamptz(6)
 
   @@index([employeId, creeLe(sort: Desc)])
   @@map("sanctions")
+}
+
+// Types de sanction : simple classement (nom, couleur), géré avec la permission rh-sanctionner — comme les types
+// d'agenda (agenda-regles.ts).
+model TypeSanction {
+  id        Int        @id @default(autoincrement())
+  nom       String     @unique @db.VarChar(40)
+  couleur   String     @db.VarChar(7)
+  position  Int        @default(0)
+  sanctions Sanction[]
+
+  @@map("types_sanction")
 }

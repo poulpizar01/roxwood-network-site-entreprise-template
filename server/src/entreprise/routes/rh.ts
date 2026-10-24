@@ -5,10 +5,10 @@ import type { Employe } from '../../generated/prisma/client.js';
 import { prisma } from '../../socle/db.js';
 import { auDessusDe, gradeDe, peut } from '../../socle/droits.js';
 import { actualiserGrades } from '../../socle/grades-imposes.js';
-import { body, intParam, permission } from '../../socle/http.js';
+import { body, couleur, entier, intParam, permission, text } from '../../socle/http.js';
 import { arriveesBot, droitsRh, ecarter, fichePublique, gradesEmployes, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
-import { ajouterSanction, retirerSanction, toutesSanctions } from '../sanctions.js';
+import { ajouterSanction, listeTypesSanction, retirerSanction, toutesSanctions } from '../sanctions.js';
 import { traiter } from '../refus.js';
 import { jourValide, versDate } from '../texte.js';
 
@@ -72,19 +72,55 @@ rh.get('/api/rh/employes/:id', ...voir, async (req, res) => {
 
 // sanctions : onglet dédié de Ressources humaines, toutes les fiches confondues
 rh.get('/api/rh/sanctions', ...voir, async (req, res) => {
-  res.json({ sanctions: await toutesSanctions(), peutSanctionner: droitsRh(req.compte).has('sanctionner') });
+  res.json({ sanctions: await toutesSanctions(), types: await listeTypesSanction(), peutSanctionner: droitsRh(req.compte).has('sanctionner') });
 });
 
 rh.post('/api/rh/employes/:id/sanctions', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les sanctions.'), traiter(async (req, res) => {
-  const b = body(req), id = intParam(req, 'id');
+  const b = body(req), id = intParam(req, 'id'), typeId = entier(b.typeId);
+  if (typeId === null) throw new Refus('Type de sanction invalide.');
   const nomActeur = req.compte.nom || req.compte.pseudo;
-  const s = await ajouterSanction(id, String(b.type ?? ''), b.note, req.compte.id, nomActeur);
+  const s = await ajouterSanction(id, typeId, b.note, req.compte.id, nomActeur);
   res.status(201).json(s);
 }));
 
 rh.delete('/api/rh/employes/:id/sanctions/:sid', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les sanctions.'), traiter(async (req, res) => {
   await retirerSanction(intParam(req, 'id'), intParam(req, 'sid'));
   res.json({ ok: true });
+}));
+
+// ---- types de sanction : classement libre (nom, couleur), comme les types d'agenda ----
+function lireTypeSanction(b: Record<string, unknown>) {
+  const nom = text(b.nom, 40), c = couleur(b.couleur);
+  if (!nom) throw new Refus('Donnez un nom au type.');
+  if (!c) throw new Refus('Couleur invalide.');
+  return { nom, couleur: c };
+}
+const nomPris = (e: unknown) => (e as { code?: string }).code === 'P2002';
+
+rh.post('/api/rh/types-sanction', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les types de sanction.'), traiter(async (req, res) => {
+  const t = lireTypeSanction(body(req));
+  if (await prisma.typeSanction.count() >= 30) throw new Refus('30 types au plus : regroupez-en avant d’en créer un autre.');
+  const position = (await prisma.typeSanction.aggregate({ _max: { position: true } }))._max.position ?? -1;
+  try { await prisma.typeSanction.create({ data: { ...t, position: position + 1 } }); }
+  catch (e) { if (nomPris(e)) throw new Refus(`Le type « ${t.nom} » existe déjà.`, 409); throw e; }
+  res.status(201).json({ types: await listeTypesSanction() });
+}));
+
+rh.put('/api/rh/types-sanction/:id', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les types de sanction.'), traiter(async (req, res) => {
+  const t = lireTypeSanction(body(req));
+  try { await prisma.typeSanction.update({ where: { id: intParam(req, 'id') }, data: t }); }
+  catch (e) {
+    if (nomPris(e)) throw new Refus(`Le type « ${t.nom} » existe déjà.`, 409);
+    if ((e as { code?: string }).code === 'P2025') throw new Refus('Type introuvable.', 404);
+    throw e;
+  }
+  res.json({ types: await listeTypesSanction() });
+}));
+
+// ses sanctions restent, « sans type » (onDelete: SetNull)
+rh.delete('/api/rh/types-sanction/:id', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les types de sanction.'), traiter(async (req, res) => {
+  await prisma.typeSanction.deleteMany({ where: { id: intParam(req, 'id') } });
+  res.json({ types: await listeTypesSanction() });
 }));
 
 rh.post('/api/rh/employes', ...voir, exiger('creer', 'Vous n’avez pas le droit d’ajouter un employé.'), traiter(async (req, res) => {

@@ -138,9 +138,16 @@
             <h2 id="titre-sanctions" class="rh-titre" style="margin:0;">Sanctions</h2>
             <p class="comptes-aide" style="margin:4px 0 0;">Historique disciplinaire de tous les employés.</p>
           </div>
-          <button type="button" class="btn btn-or cache" id="bouton-nouvelle-sanction"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter une sanction</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-fantome cache" id="bouton-types-sanction">Gérer les types</button>
+            <button type="button" class="btn btn-or cache" id="bouton-nouvelle-sanction"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter une sanction</button>
+          </div>
         </div>
         <div id="zone-message-sanctions" role="status"></div>
+        <div class="comptes-recherche" style="margin-top:14px;max-width:320px;">
+          <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+          <input type="search" id="recherche-sanctions" aria-label="Filtrer les sanctions par employé" placeholder="Filtrer par employé">
+        </div>
         <ul class="rh-historique" id="rh-sanctions-liste" style="margin-top:14px;"></ul>
       </div>
     </section>
@@ -196,14 +203,7 @@
     <form id="formulaire-sanction" autocomplete="off">
       <div class="champ"><label for="sanction-employe">Employé</label><select id="sanction-employe" required></select></div>
       <div class="champ-deux">
-        <div class="champ"><label for="sanction-type">Type</label>
-          <select id="sanction-type">
-            <option value="avertissement_oral">Avertissement oral</option>
-            <option value="avertissement_ecrit">Avertissement écrit</option>
-            <option value="mise_a_pied">Mise à pied</option>
-            <option value="licenciement">Licenciement</option>
-          </select>
-        </div>
+        <div class="champ"><label for="sanction-type">Type</label><select id="sanction-type" required></select></div>
         <div class="champ"><label for="sanction-note">Note (facultative)</label><input type="text" id="sanction-note" maxlength="500"></div>
       </div>
       <div class="fiche-rh-pied">
@@ -211,6 +211,41 @@
         <button type="button" class="btn btn-fantome" id="sanction-annuler">Annuler</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Types de sanction : classement libre (nom, couleur), comme les types d'agenda. -->
+<div class="modale-fond cache" id="modale-types-sanction">
+  <div class="modale modale-types" role="dialog" aria-modal="true" aria-labelledby="titre-modale-types-sanction">
+    <div class="modale-entete">
+      <h2 id="titre-modale-types-sanction">Types de sanction</h2>
+      <button id="fermer-modale-types-sanction" type="button" aria-label="Fermer">✕</button>
+    </div>
+    <div class="types-corps">
+      <p class="champ-aide types-intro">Les types servent à classer les sanctions par gravité et à les repérer par couleur.</p>
+      <div class="types-section-entete">
+        <h3 class="types-sous-titre">Types existants</h3>
+        <span class="types-compte" id="types-sanction-compte"></span>
+      </div>
+      <ul class="types-liste" id="types-sanction-liste"></ul>
+    </div>
+    <div class="types-pied">
+      <form class="types-ajout" id="form-type-sanction" novalidate>
+        <h3 class="types-sous-titre">Créer un type</h3>
+        <div class="types-ajout-champs">
+          <div class="champ">
+            <label for="type-sanction-nom">Nom</label>
+            <input type="text" id="type-sanction-nom" maxlength="40" placeholder="Ex. Avertissement oral">
+          </div>
+          <div class="champ types-couleur">
+            <label for="type-sanction-couleur">Couleur</label>
+            <input type="color" id="type-sanction-couleur" aria-label="Couleur du nouveau type">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-or">Ajouter le type</button>
+      </form>
+      <div id="zone-message-types-sanction" role="status"></div>
+    </div>
   </div>
 </div>
 
