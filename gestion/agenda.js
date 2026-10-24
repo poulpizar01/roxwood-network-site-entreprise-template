@@ -990,16 +990,52 @@ function ligneParticipant(e) {
     <td>${e.invitations}</td>
     <td>${e.presences}</td>
     <td>${taux === null ? "—" : `${taux} %`}</td>
+    <td>${e.invitations ? `<button type="button" class="btn btn-fantome" data-detail-participant="${e.id}">Détail</button>` : ""}</td>
   </tr>`;
 }
 function afficherParticipants() {
   const terme = document.getElementById("participants-recherche").value.trim().toLocaleLowerCase("fr");
   const filtres = terme ? EMPLOYES_PARTICIPANTS.filter(e => e.nomComplet.toLocaleLowerCase("fr").includes(terme)) : EMPLOYES_PARTICIPANTS;
-  document.getElementById("participants-entete").innerHTML = "<th>Personne</th><th>Grade</th><th>Invitations</th><th>Présences</th><th>Taux</th>";
+  document.getElementById("participants-entete").innerHTML = "<th>Personne</th><th>Grade</th><th>Invitations</th><th>Présences</th><th>Taux</th><th></th>";
   document.getElementById("participants-corps").innerHTML = filtres.length
     ? filtres.map(ligneParticipant).join("")
-    : `<tr><td colspan="5" class="run-vide">${terme ? "Aucune personne pour cette recherche." : "Aucun employé actif."}</td></tr>`;
+    : `<tr><td colspan="6" class="run-vide">${terme ? "Aucune personne pour cette recherche." : "Aucun employé actif."}</td></tr>`;
 }
+
+// ---- détail : les événements où cette personne a été invitée cette semaine-là ----
+let OUVREUR_PARTICIPANT = null;
+function ouvrirDetailParticipant(id) {
+  const p = EMPLOYES_PARTICIPANTS.find(e => e.id === Number(id));
+  if (!p) return;
+  OUVREUR_PARTICIPANT = document.activeElement;
+  document.getElementById("modale-participant-titre").textContent = `Participation de ${p.nomComplet}`;
+  document.getElementById("liste-participant-evenements").innerHTML = p.evenements.length
+    ? p.evenements.map(ev => `<li>
+        <span><strong>${echapper(ev.titre)}</strong> — ${new Date(`${ev.jour}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "short" })}${ev.heureDebut ? `, ${ev.heureDebut}` : ""} — ${ev.present ? "présent" : "absent"}</span>
+        <button type="button" class="btn btn-fantome" data-voir-evenement="${ev.id}" data-jour-evenement="${ev.jour}">Voir</button>
+      </li>`).join("")
+    : "<li><span>Aucun événement cette semaine-là.</span></li>";
+  document.getElementById("modale-participant").classList.remove("cache");
+  document.getElementById("fermer-modale-participant").focus();
+}
+const fermerModaleParticipant = () => { document.getElementById("modale-participant").classList.add("cache"); if (OUVREUR_PARTICIPANT?.isConnected) OUVREUR_PARTICIPANT.focus(); };
+document.getElementById("participants-corps").addEventListener("click", e => {
+  const b = e.target.closest("[data-detail-participant]");
+  if (b) ouvrirDetailParticipant(b.dataset.detailParticipant);
+});
+document.getElementById("fermer-modale-participant").addEventListener("click", fermerModaleParticipant);
+document.getElementById("modale-participant").addEventListener("click", e => { if (e.target.id === "modale-participant") fermerModaleParticipant(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !document.getElementById("modale-participant").classList.contains("cache") && !document.querySelector("[role=alertdialog]")) fermerModaleParticipant(); });
+document.getElementById("liste-participant-evenements").addEventListener("click", async e => {
+  const b = e.target.closest("[data-voir-evenement]");
+  if (!b) return;
+  fermerModaleParticipant();
+  document.querySelector('[data-agenda-onglet="calendrier"]').click();
+  AGENDA_REF = new Date(`${b.dataset.jourEvenement}T00:00`);
+  AGENDA_VUE_CHOISIE = "jour";
+  await chargerAgenda(true);
+  ouvrirEvenementExistant(b.dataset.voirEvenement);
+});
 async function chargerParticipants() {
   gestion.message("zone-message-participants", "");
   try {

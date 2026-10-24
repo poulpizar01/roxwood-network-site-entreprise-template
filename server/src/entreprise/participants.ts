@@ -22,18 +22,25 @@ export async function classementParticipants(semaineDemandee?: string) {
 
   const [employes, invitations] = await Promise.all([
     prisma.employe.findMany({ where: { statut: 'actif' } }),
-    prisma.invitationAgenda.findMany({ where: { evenement: { jour: { gte: debut, lte: fin } } }, select: { discordId: true, present: true } }),
+    prisma.invitationAgenda.findMany({
+      where: { evenement: { jour: { gte: debut, lte: fin } } },
+      select: { discordId: true, present: true, evenement: { select: { id: true, titre: true, jour: true, heureDebut: true, heureFin: true } } },
+      orderBy: { evenement: { jour: 'asc' } },
+    }),
   ]);
-  const parDiscord = new Map<string, { invitations: number; presences: number }>();
+  type Detail = { id: number; titre: string; jour: string; heureDebut: string | null; heureFin: string | null; present: boolean };
+  const parDiscord = new Map<string, { invitations: number; presences: number; evenements: Detail[] }>();
   for (const inv of invitations) {
-    const c = parDiscord.get(inv.discordId) ?? { invitations: 0, presences: 0 };
+    const c = parDiscord.get(inv.discordId) ?? { invitations: 0, presences: 0, evenements: [] };
     c.invitations++;
     if (inv.present) c.presences++;
+    c.evenements.push({ id: inv.evenement.id, titre: inv.evenement.titre, jour: versJour(inv.evenement.jour), heureDebut: inv.evenement.heureDebut, heureFin: inv.evenement.heureFin, present: inv.present });
     parDiscord.set(inv.discordId, c);
   }
+  const vide = { invitations: 0, presences: 0, evenements: [] as Detail[] };
   const lignes = employes
     .map(e => {
-      const c = (e.discordId && parDiscord.get(e.discordId)) || { invitations: 0, presences: 0 };
+      const c = (e.discordId && parDiscord.get(e.discordId)) || vide;
       const g = gradeDe(e.gradeCle);
       return { id: e.id, nomComplet: nomComplet(e), grade: e.gradeCle, gradeLibelle: g?.libelle ?? e.gradeCle, position: g?.position ?? Number.MAX_SAFE_INTEGER, ...c };
     })

@@ -205,6 +205,18 @@
   </div>
 </div>
 
+<!-- Détail de la participation d'une personne (onglet Participants) : les événements où elle a été invitée cette
+     semaine-là, et si elle y était présente. « Voir » ouvre l'événement sur l'agenda. -->
+<div class="modale-fond cache" id="modale-participant">
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-participant-titre">
+    <div class="modale-entete">
+      <h2 id="modale-participant-titre" class="modale-titre">Participation</h2>
+      <button type="button" id="fermer-modale-participant" aria-label="Fermer">✕</button>
+    </div>
+    <ul class="rh-historique" id="liste-participant-evenements" style="margin:0 24px 24px;"></ul>
+  </div>
+</div>
+
   <script src="/gestion/agenda.js"></script>
 </body>
 </html>
