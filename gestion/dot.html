@@ -36,7 +36,7 @@
         <div class="entete-admin" style="margin-top:20px;">
           <div>
             <h2 class="compta-titre">Relevé Tablettes</h2>
-            <p class="compta-aide">Le relevé de la semaine (runs, factures, ventes, heures), collé depuis un outil externe. Son total donne le CA brut de la déclaration DOT.</p>
+            <p class="compta-aide">Le relevé de la semaine (ventes, total entreprise), collé depuis un outil externe. Son total donne le CA brut de la déclaration DOT. Les heures de service viennent du bot (tableau des salariés, onglet Déclaration DOT).</p>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;">
             <button type="button" class="btn btn-or" id="bouton-importer-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-upload"></use></svg> Importer</button>
@@ -55,18 +55,6 @@
           <p class="compta-aide" id="compta-tablette-info" style="margin:0 0 10px;"></p>
           <div class="carte-table" style="overflow-x:auto;">
             <table class="table-admin" id="table-tablette"></table>
-          </div>
-          <!-- Paie à l'heure (stagiaires) : heures de service du relevé × taux horaire du grade (table remunerations_grades),
-               avec le détail du calcul. Rempli à partir de GET /api/compta/tablettes (paie_horaire). -->
-          <div id="compta-paie-horaire" class="cache">
-            <h3 class="compta-sous-titre">Paie à l’heure</h3>
-            <p class="champ-aide" id="compta-paie-horaire-aide" style="margin:0 0 10px;"></p>
-            <div class="carte-table" style="overflow-x:auto;">
-              <table class="table-admin">
-                <thead><tr><th>Nom</th><th>Grade</th><th style="text-align:right;">Heures de service</th><th style="text-align:right;">Taux horaire</th><th>Détail</th><th style="text-align:right;">Montant</th></tr></thead>
-                <tbody id="corps-table-paie-horaire"></tbody>
-              </table>
-            </div>
           </div>
         </div>
       </div>
@@ -162,7 +150,7 @@
           <div class="dot-section-entete">
             <div>
               <h3 class="compta-titre" id="dot-titre-salaries">Tableau des salariés</h3>
-              <p class="compta-aide" id="dot-salaries-resume">Run et facture : quotas réels de la semaine. Vente et CA total réalisé : relevé Tablettes. Salaire : fixe du grade et palier atteint. Prime : à saisir ici.</p>
+              <p class="compta-aide" id="dot-salaries-resume">Run et facture : quotas réels de la semaine. Vente et CA total réalisé : relevé Tablettes. Heures : service du bot, sans anomalie (RH → Services). Salaire : fixe du grade, palier atteint et paie à l'heure. Prime : à saisir ici.</p>
             </div>
             <button type="button" class="btn btn-or" id="bouton-copier-salaries"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
           </div>
@@ -176,7 +164,7 @@
           <div class="carte-table">
             <table class="table-admin dot-salaries">
               <thead>
-                <tr><th data-titre>Nom du salarié</th><th>Grade</th><th class="dot-montant">Run</th><th class="dot-montant">Facture</th><th class="dot-montant">Vente</th><th class="dot-montant">CA total réalisé</th><th class="dot-montant">Salaire</th><th class="dot-montant">Prime</th></tr>
+                <tr><th data-titre>Nom du salarié</th><th>Grade</th><th class="dot-montant">Run</th><th class="dot-montant">Facture</th><th class="dot-montant">Vente</th><th class="dot-montant">CA total réalisé</th><th class="dot-montant">Heures</th><th class="dot-montant">Salaire</th><th class="dot-montant">Prime</th></tr>
               </thead>
               <tbody id="corps-table-dot-salaries"></tbody>
             </table>

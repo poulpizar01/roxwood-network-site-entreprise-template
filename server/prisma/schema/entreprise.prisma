@@ -365,12 +365,13 @@ model Service {
   causeFin     String    @default("") @map("cause_fin") @db.VarChar(120)
   finSource    String    @default("") @map("fin_source") @db.VarChar(8) // bot | auto | doublon
   anomalie     String    @default("") @db.VarChar(20) // fin_sans_debut | debut_en_double | cloture_auto
+  traite       Boolean   @default(false) // anomalie ignorée (RH/Services) : ses heures restent exclues, mais plus à traiter
   majLe        DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@index([fin, debut])
   @@index([discordId, debut]) // chaque prise ou fin de service cherche les services de la personne
   @@index([employeId])
-  @@index([anomalie, majLe])
+  @@index([anomalie, traite, majLe])
   @@map("services")
 }
 

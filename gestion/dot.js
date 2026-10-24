@@ -273,17 +273,18 @@ async function chargerDotSalaries() {
             <td class="dot-montant">${formaterArgentStats(a.facture)}</td>
             <td class="dot-montant">${formaterArgentStats(a.vente)}</td>
             <td class="dot-montant"><strong>${formaterArgentStats(a.caTotalRealise)}</strong></td>
+            <td class="dot-montant">${a.heuresServiceMinutes ? `${Math.floor(a.heuresServiceMinutes / 60)}h${String(a.heuresServiceMinutes % 60).padStart(2, "0")}` : "—"}</td>
             <td class="dot-montant" data-plafond="salaire"><strong data-valeur-plafond>${formaterArgentStats(a.salaireTotal)}</strong><span class="visuellement-cache" data-texte-plafond></span></td>
             <td class="dot-montant" data-plafond="prime">${verrouillee
               ? `<strong>${formaterArgentStats(a.prime)}</strong>`
               : `<input type="number" class="table-input dot-prime" min="0" step="1" inputmode="numeric" value="${a.prime}" data-prime-employe="${a.employeId}" aria-label="Prime de ${echapper(a.nom)}">`}<span class="visuellement-cache" data-texte-plafond></span></td>
           </tr>`).join("")
-      : `<tr><td colspan="8" class="champ-aide">Aucun employé actif : les fiches se créent dans Ressources humaines.</td></tr>`;
+      : `<tr><td colspan="9" class="champ-aide">Aucun employé actif : les fiches se créent dans Ressources humaines.</td></tr>`;
     corps.querySelectorAll("[data-prime-employe]").forEach(input => input.addEventListener("change", () => enregistrerPrimeSalarie(input)));
     majResumeSalaries(verrouillee);
     majAlertesPlafonds();
   } catch (e) {
-    corps.innerHTML = `<tr><td colspan="8" class="champ-aide">Le tableau des salariés n’a pas pu se charger (${echapper(e.message)}). Rechargez la page.</td></tr>`;
+    corps.innerHTML = `<tr><td colspan="9" class="champ-aide">Le tableau des salariés n’a pas pu se charger (${echapper(e.message)}). Rechargez la page.</td></tr>`;
   }
 }
 
@@ -596,36 +597,15 @@ function formaterDateHeureCompta(brut) {
   );
 }
 
-// Paie à l'heure (server/src/entreprise/stats/paie-horaire.ts) : une ligne par membre d'un grade payé à l'heure, avec
-// le calcul écrit en toutes lettres.
-function afficherPaieHoraire(p) {
-  const bloc = document.getElementById("compta-paie-horaire");
-  if (!p || !p.lignes || !p.lignes.length) { bloc.classList.add("cache"); return; }
-  bloc.classList.remove("cache");
-  document.getElementById("compta-paie-horaire-aide").textContent = p.colonneHeures
-    ? `Heures lues dans la colonne « ${p.colonneHeures} » du relevé, payées au taux horaire du grade (Comptabilité → table remunerations_grades).`
-    : "Le relevé n'a pas de colonne « Heures de service » : impossible de calculer la paie à l'heure.";
-  const heures = (min) => `${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}`;
-  document.getElementById("corps-table-paie-horaire").innerHTML = p.lignes.map((l) => `<tr>
-      <td>${echapper(l.nom)}</td>
-      <td>${echapper(l.grade)}${l.gradeSource === "releve" ? ' <span class="champ-aide" title="Sans fiche RH à ce nom : grade lu dans la colonne Rang du relevé">*</span>' : ""}</td>
-      <td style="text-align:right;">${l.lisible ? heures(l.minutes) : `<span class="puce puce-or" title="Durée illisible : comptée 0 $">${echapper(l.heures || "vide")}</span>`}</td>
-      <td style="text-align:right;">${formaterArgentStats(l.taux)} / h</td>
-      <td class="champ-aide">${l.lisible ? `${l.minutes} min ÷ 60 × ${formaterArgentStats(l.taux)}` : "durée illisible"}</td>
-      <td style="text-align:right;"><strong>${formaterArgentStats(l.montant)}</strong></td>
-    </tr>`).join("") + `<tr class="ligne-total"><td colspan="5">Total paie à l'heure</td><td style="text-align:right;"><strong>${formaterArgentStats(p.total)}</strong></td></tr>`;
-}
-
-// Chiffres clés du relevé : le total « entreprise » (CA brut de la DOT), le nombre de membres, la paie à l'heure.
-// CA brut calculé par le serveur (somme des membres) : la ligne TOTAL de la tablette est fausse dès qu'un membre est
-// retiré, et une autre colonne « total » peut précéder « Total entreprise ».
+// Chiffres clés du relevé : le total « entreprise » (CA brut de la DOT), le nombre de membres. La paie à l'heure ne
+// vient plus du relevé : heures réellement mesurées par le bot (services.ts), affichées dans le tableau des
+// salariés de l'onglet Déclaration DOT (chargerDotSalaries).
 let RELEVE_TABLETTE = null;
-function afficherSyntheseTablette(releve, caBrut, paie) {
+function afficherSyntheseTablette(releve, caBrut) {
   const membres = releve.lignes.filter(l => !comptaLigneEstTotal(l)).length;
   document.getElementById("compta-tablette-synthese").innerHTML = [
     carteChiffre("CA brut", caBrut == null ? "—" : formaterArgentStats(caBrut), caBrut == null ? "colonne « Total entreprise » introuvable" : "repris dans la déclaration DOT", true),
     carteChiffre("Membres du relevé", String(membres), ""),
-    paie && paie.lignes && paie.lignes.length ? carteChiffre("Paie à l’heure", formaterArgentStats(paie.total), "comprise dans les salaires") : "",
   ].join("");
 }
 document.getElementById("bouton-copier-tablette").addEventListener("click", async e => {
@@ -646,7 +626,6 @@ async function chargerTablette() {
       resultat.classList.add("cache");
       boutonReset.classList.add("cache");
       document.getElementById("bouton-copier-tablette").classList.add("cache");
-      afficherPaieHoraire(null);
       return;
     }
     vide.classList.add("cache");
@@ -656,13 +635,12 @@ async function chargerTablette() {
       `Importé par ${reponse.import.importe_par || "un membre"} le ${formaterDateHeureCompta(reponse.import.importe_le)}.`;
     RELEVE_TABLETTE = reponse.import;
     document.getElementById("bouton-copier-tablette").classList.remove("cache");
-    afficherSyntheseTablette(reponse.import, reponse.ca_brut, reponse.paie_horaire);
+    afficherSyntheseTablette(reponse.import, reponse.ca_brut);
     const table = document.getElementById("table-tablette");
     table.innerHTML = rendreTableCompta(reponse.import.colonnes, reponse.import.lignes, true);
     table.querySelectorAll("[data-index]").forEach((btn) => {
       btn.addEventListener("click", () => supprimerLigneTablette(Number(btn.dataset.index), btn.dataset.nom));
     });
-    afficherPaieHoraire(reponse.paie_horaire);
   } catch (e) {
     gestion.message("zone-message-tablette", "Impossible de charger les données : " + e.message);
   }

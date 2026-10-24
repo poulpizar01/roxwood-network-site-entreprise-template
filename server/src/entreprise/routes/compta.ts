@@ -10,7 +10,7 @@ import { body, intParam, permission } from '../../socle/http.js';
 import { definirReglage } from '../../socle/reglages.js';
 import {
   CLE_SOLDE_BANCAIRE, TYPES_ECRITURE, construireEtVerrouiller, corrigerLigneTotale, dernierReleve, ecrituresBrutes,
-  enregistrerReleve, estVerrouillee, paieHoraire, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
+  enregistrerReleve, estVerrouillee, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
 } from '../dot.js';
 import { classementFactures, definirQuotaFacture, quotasFacture } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
@@ -35,8 +35,6 @@ compta.get('/api/compta/tablettes', ...gerer, async (_req, res) => {
     // CA brut repris par la DOT, calculé ici (même fonction que le résumé) : la ligne TOTAL de la tablette est fausse
     // dès qu'un membre est retiré du relevé
     ca_brut: r ? caBrutReleve(r.colonnes, r.lignes) : null,
-    // grades payés à l'heure (stagiaires) : heures de service × taux, ligne par ligne
-    paie_horaire: r ? await paieHoraire(r.colonnes, r.lignes) : null,
   });
 });
 

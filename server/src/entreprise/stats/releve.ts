@@ -1,6 +1,9 @@
 // ENTREPRISE — lecture du relevé Tablettes collé dans Comptabilité : montants, ligne récap « TOTAL », CA brut de la DOT.
 // Fonctions pures, testées par test/releve.test.ts : une erreur ici change l'impôt déclaré sans rien d'anormal à l'écran.
-import { normaliserNom } from './paie-horaire.js';
+
+// nom comparé sans casse, accents, ni tirets/espaces multiples (« Rossi-Delacroix » = « rossi delacroix »)
+export const normaliserNom = (v: unknown): string =>
+  String(v ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[-\s]+/g, ' ');
 
 // Montant écrit tel que la tablette ou un tableur l'affiche : « 12 500 $ », « 12,500 », « 1.234.567 », « 12 500,50 »,
 // « 1,234.56 ». Le dernier séparateur n'est décimal que s'il est le seul de son genre et suivi de 1 ou 2 chiffres ;

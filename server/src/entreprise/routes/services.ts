@@ -3,9 +3,11 @@
 import { Router } from 'express';
 import { config } from '../../socle/config.js';
 import { prisma } from '../../socle/db.js';
-import { permission, valide } from '../../socle/http.js';
+import { body, intParam, permission, valide } from '../../socle/http.js';
 import { entierRegle } from '../parametres.js';
+import { traiter } from '../refus.js';
 import { nomComplet } from '../rh.js';
+import { anomaliesATraiter, corrigerService, ignorerAnomalie } from '../services.js';
 
 export const services = Router();
 
@@ -32,3 +34,20 @@ services.get('/api/services/etat', ...permission('parametres'), async (_req, res
     dernierRecu: etat?.derniereLecture ?? null, recus: etat?.nbReconnus ?? 0, enService, anomalies,
   });
 });
+
+// anomalies à traiter (RH, onglet Services) : tant qu'une ligne n'est pas corrigée ou ignorée, ses heures ne comptent
+// pas dans la paie à l'heure de la DOT (services.ts, heuresServiceSemaine).
+services.get('/api/services/anomalies', ...permission('rh-voir'), async (_req, res) => {
+  res.json({ anomalies: await anomaliesATraiter() });
+});
+
+services.put('/api/services/:id', ...permission('rh-modifier'), traiter(async (req, res) => {
+  const b = body(req);
+  await corrigerService(intParam(req, 'id'), String(b.jour ?? ''), String(b.heure_debut ?? ''), String(b.heure_fin ?? ''));
+  res.json({ ok: true });
+}));
+
+services.post('/api/services/:id/ignorer', ...permission('rh-modifier'), traiter(async (req, res) => {
+  await ignorerAnomalie(intParam(req, 'id'));
+  res.json({ ok: true });
+}));

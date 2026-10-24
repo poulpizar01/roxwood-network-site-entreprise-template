@@ -11,8 +11,12 @@
 // Seuls les événements signés du bot arrivent ici (socle/routes/webhooks.ts) ; leur contenu est revérifié (services-duty.ts).
 import type { EvenementBot } from '../socle/contrat.js';
 import { prisma } from '../socle/db.js';
+import { parisVersDate } from './agenda-regles.js';
 import { entierRegle } from './parametres.js';
+import { Refus } from './refus.js';
+import { nomComplet } from './rh.js';
 import { lireDuty, normaliser, type EvenementDuty } from './services-duty.js';
+import { debutSemaineParis } from './texte.js';
 
 type Fiche = { id: number; prenom: string; nom: string; discordId: string | null };
 // fiche RH de la personne : par identifiant Discord, sinon par « Prénom Nom »
@@ -100,4 +104,57 @@ export function planifierServices(): void {
   const run = () => cloturerServicesOublies(entierRegle('services_cloture_heures')).catch(e => console.error('[services]', e));
   setTimeout(run, 30_000).unref();
   setInterval(run, 60_000).unref();
+}
+
+// ---------- heures de la semaine, pour la paie à l'heure (DOT, dot.ts) ----------
+// Seuls les services sans anomalie comptent : une anomalie non traitée (RH/Services) exclut ses heures tant qu'elle
+// n'a pas été corrigée (l'anomalie disparaît alors) ou ignorée (traite = true : ses heures restent exclues).
+export async function heuresServiceSemaine(iso?: string): Promise<Map<number, number>> {
+  const debut = debutSemaineParis(iso);
+  const fin = new Date(debut);
+  fin.setUTCDate(fin.getUTCDate() + 7);
+  const lignes = await prisma.service.findMany({
+    where: { employeId: { not: null }, anomalie: '', fin: { not: null }, debut: { gte: debut, lt: fin } },
+    select: { employeId: true, debut: true, fin: true },
+  });
+  const minutes = new Map<number, number>();
+  for (const l of lignes) {
+    const id = l.employeId as number;
+    minutes.set(id, (minutes.get(id) ?? 0) + Math.round((l.fin!.getTime() - l.debut.getTime()) / 60000));
+  }
+  return minutes;
+}
+
+// ---------- anomalies à traiter (RH/Services) ----------
+export async function anomaliesATraiter() {
+  const lignes = await prisma.service.findMany({ where: { anomalie: { not: '' }, traite: false }, orderBy: { debut: 'desc' }, take: 200 });
+  const fiches = new Map((await prisma.employe.findMany({
+    where: { id: { in: lignes.map(l => l.employeId).filter((x): x is number => x !== null) } },
+  })).map(e => [e.id, e]));
+  return lignes.map(l => ({
+    id: l.id,
+    employeNom: l.employeId && fiches.get(l.employeId) ? nomComplet(fiches.get(l.employeId)!) : l.employeNom,
+    debut: l.debut, fin: l.fin, causeFin: l.causeFin, anomalie: l.anomalie,
+  }));
+}
+
+const RE_JOUR = /^\d{4}-\d{2}-\d{2}$/, RE_HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+// corriger : nouvelles heures de début et de fin (même jour, heure de Paris), l'anomalie disparaît (comptée dans la
+// paie dès la semaine suivante)
+export async function corrigerService(id: number, jour: string, heureDebut: string, heureFin: string): Promise<void> {
+  if (!RE_JOUR.test(jour)) throw new Refus('Date invalide.');
+  if (!RE_HEURE.test(heureDebut) || !RE_HEURE.test(heureFin)) throw new Refus('Heure invalide : attendue au format 14:30.');
+  const debut = parisVersDate(jour, heureDebut), fin = parisVersDate(jour, heureFin);
+  if (fin <= debut) throw new Refus('La fin doit être après le début.');
+  const { count } = await prisma.service.updateMany({
+    where: { id }, data: { debut, fin, anomalie: '', causeFin: 'Corrigé dans Ressources humaines', finSource: 'bot' },
+  });
+  if (!count) throw new Refus('Service introuvable.', 404);
+}
+
+// ignorer : l'anomalie ne remonte plus dans la liste à traiter, mais ses heures restent exclues de la paie
+export async function ignorerAnomalie(id: number): Promise<void> {
+  const { count } = await prisma.service.updateMany({ where: { id, anomalie: { not: '' } }, data: { traite: true } });
+  if (!count) throw new Refus('Anomalie introuvable ou déjà traitée.', 404);
 }

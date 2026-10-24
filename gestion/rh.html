@@ -31,6 +31,7 @@
       <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques des ressources humaines">
         <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="rh-panneau-employes" data-rh-onglet="employes"><svg class="ico" aria-hidden="true"><use href="#ico-users"></use></svg> Employés</button>
         <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="rh-panneau-sanctions" data-rh-onglet="sanctions"><svg class="ico" aria-hidden="true"><use href="#ico-book"></use></svg> Sanctions</button>
+        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="rh-panneau-services" data-rh-onglet="services"><svg class="ico" aria-hidden="true"><use href="#ico-gear"></use></svg> Services</button>
       </div>
 
       <div id="rh-panneau-employes">
@@ -148,6 +149,20 @@
         </div>
         <ul class="rh-historique" id="rh-sanctions-liste" style="margin-top:14px;"></ul>
       </div>
+
+      <!-- Services : anomalies du bot de service à traiter (corriger l'heure de fin, ou ignorer la ligne). Tant
+           qu'une ligne n'est pas traitée, ses heures restent exclues de la paie à l'heure de la DOT. Permission
+           rh-modifier pour corriger/ignorer. Serveur : /api/services/anomalies, entreprise/services.ts. -->
+      <div id="rh-panneau-services" class="cache">
+        <div class="entete-admin" style="margin-top:14px;">
+          <div>
+            <h2 class="rh-titre" style="margin:0;">Services à traiter</h2>
+            <p class="comptes-aide" style="margin:4px 0 0;">Anomalies du bot de service. Tant qu'une ligne n'est pas corrigée ou ignorée, ses heures ne comptent pas dans la paie à l'heure de la DOT.</p>
+          </div>
+        </div>
+        <div id="zone-message-services" role="status"></div>
+        <ul class="rh-historique" id="rh-services-liste" style="margin-top:14px;"></ul>
+      </div>
     </section>
   </main>
 
@@ -244,6 +259,28 @@
       </form>
       <div id="zone-message-types-sanction" role="status"></div>
     </div>
+  </div>
+</div>
+
+<!-- Corriger une anomalie de service : nouvelles heures de début et de fin (même jour). -->
+<div class="modale-fond cache" id="modale-service">
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-service-titre">
+    <div class="modale-entete">
+      <h2 id="modale-service-titre" class="modale-titre">Corriger le service</h2>
+      <button type="button" id="fermer-modale-service" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-service"></div>
+    <form id="formulaire-service" autocomplete="off">
+      <div class="champ"><label for="service-jour">Jour</label><input type="date" id="service-jour"></div>
+      <div class="champ-deux">
+        <div class="champ"><label for="service-heure-debut">Début</label><input type="time" id="service-heure-debut" step="300"></div>
+        <div class="champ"><label for="service-heure-fin">Fin</label><input type="time" id="service-heure-fin" step="300"></div>
+      </div>
+      <div class="fiche-rh-pied">
+        <button type="submit" class="btn btn-or">Enregistrer</button>
+        <button type="button" class="btn btn-fantome" id="service-annuler">Annuler</button>
+      </div>
+    </form>
   </div>
 </div>
 

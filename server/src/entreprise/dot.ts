@@ -4,13 +4,13 @@
 // mouvements ne sont plus recalculés, même si le barème, le relevé Tablettes ou le solde bancaire changent ensuite.
 import { Prisma } from '../generated/prisma/client.js';
 import { prisma } from '../socle/db.js';
-import { gradeDe, tousLesGrades } from '../socle/droits.js';
+import { gradeDe } from '../socle/droits.js';
 import { reglage } from '../socle/reglages.js';
 import { calculerPaie, paieGrades } from './paie.js';
 import { Refus } from './refus.js';
 import { nomComplet } from './rh.js';
-import { calculerPaieHoraire, normaliserNom, type GradeHoraire } from './stats/paie-horaire.js';
-import { caBrutReleve, estLigneTotal as estTotal, impotDot, indexColonne, minuscules, montantReleve } from './stats/releve.js';
+import { heuresServiceSemaine } from './services.js';
+import { caBrutReleve, estLigneTotal as estTotal, impotDot, indexColonne, minuscules, montantReleve, normaliserNom } from './stats/releve.js';
 import { debutSemaineParis, jourDeSemaineParis, jourValide, versDate } from './texte.js';
 
 export const PLAFOND_DEPENSE_DEDUCTIBLE = 2_000_000;
@@ -62,20 +62,6 @@ export async function dernierReleve() {
 export const enregistrerReleve = (colonnes: string[], lignes: string[][], compteId: number) =>
   prisma.importCompta.create({ data: { type: 'tablettes', colonnes, lignes, compteId } });
 
-// Paie à l'heure du relevé (stats/paie-horaire.ts) : taux horaire de chaque grade du site (Rémunération), retrouvé par sa
-// clé (fiche RH) comme par son libellé (colonne Rang du relevé), et grade lu dans les fiches RH.
-export async function paieHoraire(colonnes: string[], lignes: string[][]) {
-  const [remu, employes] = await Promise.all([prisma.remunerationGrade.findMany(), prisma.employe.findMany({ select: { prenom: true, nom: true, gradeCle: true } })]);
-  const parCle = new Map(remu.map(r => [r.gradeCle, r.tauxHoraire]));
-  const taux = new Map<string, GradeHoraire>();
-  for (const g of tousLesGrades()) {
-    const t: GradeHoraire = { libelle: g.libelle, taux: parCle.get(g.cle) ?? 0 };
-    taux.set(g.cle, t);
-    taux.set(g.libelle, t);
-  }
-  return calculerPaieHoraire({ colonnes, lignes, taux, employes: employes.map(e => ({ prenom: e.prenom, nom: e.nom, grade: e.gradeCle })) });
-}
-
 // ---------- mouvements (recette | depense | retrait) d'une semaine, bruts (table) ----------
 export async function ecrituresBrutes(iso: string) {
   const e = await prisma.ecritureDot.findMany({ where: { semaine: semaineDate(iso) }, orderBy: { id: 'desc' } });
@@ -87,9 +73,10 @@ export async function ecrituresBrutes(iso: string) {
 // sont les quotas réels de la semaine demandée (tables runs/factures, mêmes chiffres que les pages Paie et Quota) :
 // deux pipelines différentes pour la même activité, le relevé Tablettes n'est pas la source qui fait foi ailleurs sur
 // le site. VENTE et CA TOTAL RÉALISÉ restent lus dans le relevé Tablettes (colonnes « Ventes » et « Total
-// entreprise », retrouvées par nom comme la paie à l'heure) : 0 si l'employé n'y figure pas. Salaire = calculerPaie
-// (fixe du grade + palier run/facture le plus haut atteint, jamais cumulé) + paie à l'heure ; la Prime est saisie
-// pour cette semaine (tableau des salariés).
+// entreprise », retrouvées par nom) : 0 si l'employé n'y figure pas. Salaire = calculerPaie (fixe du grade + palier
+// run/facture le plus haut atteint, jamais cumulé) + paie à l'heure (services.ts, heuresServiceSemaine — plus le
+// relevé Tablettes : rattachée par employeId, jamais par nom) ; la Prime est saisie pour cette semaine (tableau des
+// salariés).
 const ALIAS_NOM_SALARIES = ['nom', "nom de l'employé", 'nom du salarié', 'employé', 'employe'];
 export async function salariesDot(iso: string) {
   const releve = await dernierReleve();
@@ -100,17 +87,18 @@ export async function salariesDot(iso: string) {
   const iTotalEntreprise = indexColonne(colonnesMin, ['total entreprise', 'total']);
   const ligneParNom = new Map<string, string[]>(iNomReleve === -1 ? [] : lignes.map((l): [string, string[]] => [normaliserNom(l[iNomReleve]), l]).filter(([n]) => n));
 
-  const [employes, config, paieH, primes] = await Promise.all([
+  const [employes, config, heuresParEmploye, remuGrades, primes] = await Promise.all([
     prisma.employe.findMany({ where: { statut: 'actif' }, select: { id: true, prenom: true, nom: true, discordPseudo: true, idUnique: true, gradeCle: true } }),
     paieGrades(),
-    releve ? paieHoraire(releve.colonnes, releve.lignes) : null,
+    heuresServiceSemaine(iso),
+    prisma.remunerationGrade.findMany(),
     prisma.primeEmployeSemaine.findMany({ where: { semaine: semaineDate(iso) } }),
   ]);
   const configParGrade = new Map(config.map(c => [c.cle, c]));
-  const paieHoraireParNom = new Map((paieH?.lignes ?? []).map(p => [normaliserNom(p.nom), p.montant]));
+  const tauxHoraireParGrade = new Map(remuGrades.map(r => [r.gradeCle, r.tauxHoraire]));
   const primeParEmploye = new Map(primes.map(p => [p.employeId, p.montant]));
-  // deux fiches actives avec le même nom normalisé liraient sinon silencieusement la même ligne du relevé (vente, paie
-  // à l'heure) : on compte les occurrences pour les signaler plutôt que de deviner à qui elle appartient.
+  // deux fiches actives avec le même nom normalisé liraient sinon silencieusement la même ligne du relevé (vente) :
+  // on compte les occurrences pour les signaler plutôt que de deviner à qui elle appartient.
   const comptesParNom = new Map<string, number>();
   for (const e of employes) { const cle = normaliserNom(nomComplet(e)); comptesParNom.set(cle, (comptesParNom.get(cle) ?? 0) + 1); }
 
@@ -132,7 +120,12 @@ export async function salariesDot(iso: string) {
     const caTotalRealise = ligne && iTotalEntreprise !== -1 ? Math.round(montantReleve(ligne[iTotalEntreprise])) : 0;
     const c = configParGrade.get(e.gradeCle);
     const salaire = c ? calculerPaie({ salaireFixe: c.salaireFixe, salaireActif: c.salaireActif, paliersRun: c.paliersRun, runs: run, paliersFacture: c.paliersFacture, factures: facture }).total : 0;
-    return { employeId: e.id, nom, grade: gradeDe(e.gradeCle)?.libelle ?? e.gradeCle, run, facture, vente, caTotalRealise, salaireTotal: salaire + (ambigu ? 0 : paieHoraireParNom.get(cle) ?? 0), prime: primeParEmploye.get(e.id) ?? 0, ambigu };
+    const heuresServiceMinutes = heuresParEmploye.get(e.id) ?? 0;
+    const montantHoraire = Math.round((heuresServiceMinutes * (tauxHoraireParGrade.get(e.gradeCle) ?? 0)) / 60);
+    return {
+      employeId: e.id, nom, grade: gradeDe(e.gradeCle)?.libelle ?? e.gradeCle, run, facture, vente, caTotalRealise,
+      heuresServiceMinutes, salaireTotal: salaire + montantHoraire, prime: primeParEmploye.get(e.id) ?? 0, ambigu,
+    };
   });
   return { agents, tabletteTrouvee: !!releve };
 }
