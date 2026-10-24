@@ -14,7 +14,7 @@ import { appelBot, ErreurDiscord, posterMessage } from '../../socle/discord.js';
 import { auDessusDe, gradeDe, tousLesGrades } from '../../socle/droits.js';
 import { body, couleur, entier, intParam, permission, text, valide } from '../../socle/http.js';
 import { site } from '../../socle/site.js';
-import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, voit, type Destination, type DroitsAgenda } from '../agenda-regles.js';
+import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutValiderAbsences, voit, type Destination, type DroitsAgenda } from '../agenda-regles.js';
 import { idsRegles } from '../parametres.js';
 import { Refus, traiter } from '../refus.js';
 import { nomComplet } from '../rh.js';
@@ -52,6 +52,8 @@ const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAge
     nom, prevenu,
   })),
   modifiable: modifiable(e, lecteur(req), droits, clesGrades()),
+  absence: !!e.statutAbsence, statut_absence: e.statutAbsence,
+  peut_valider: e.statutAbsence === 'en_attente' && e.compteId !== req.compte.id && peutValiderAbsences(droits),
 });
 
 type Champs = { titre: string; jour: Date; jourFin: Date; heureDebut: string | null; heureFin: string | null; notes: string; typeId: number | null };
@@ -303,7 +305,11 @@ agenda.get('/api/agenda', ...valide, async (req, res) => {
     where: {
       jour: { lte: versDate(fin) },
       jourFin: { gte: versDate(debut) },
-      OR: [{ compteId: req.compte.id }, { invitations: { some: { discordId: req.compte.discordId ?? '' } } }, { destination: { in: ['tous', 'grade'] } }],
+      OR: [
+        { compteId: req.compte.id }, { invitations: { some: { discordId: req.compte.discordId ?? '' } } }, { destination: { in: ['tous', 'grade'] } },
+        // les absences (même « perso ») se voient par qui peut les valider, sans quoi rien ne les lui montrerait
+        ...(peutValiderAbsences(droits) ? [{ statutAbsence: { not: null } }] : []),
+      ],
     },
     orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
     take: 2000,
@@ -332,6 +338,8 @@ agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
   const b = body(req), d = await lire(b), dest = lireDestination(b);
   const droits = await droitsDe(req), grades = clesGrades();
   if (!peutCreer(droits, dest.destination, dest.destinationGrade, grades)) throw refusDestination(dest);
+  const estAbsence = !!b.absence;
+  if (estAbsence && dest.destination !== 'perso') throw new Refus('Une absence est toujours personnelle : choisissez « Personnel ».');
   const auteur = req.compte.nom || req.compte.pseudo;
 
   const valeurs = b.invites_employe_ids;
@@ -363,6 +371,7 @@ agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
   const e = await prisma.evenementAgenda.create({
     data: {
       ...d, ...dest, compteId: req.compte.id, auteurNom: auteur.slice(0, 64),
+      statutAbsence: estAbsence ? 'en_attente' : null,
       invitations: { create: personnes.map(p => ({ ...p })) },
     },
     include: { invitations: true },
@@ -463,4 +472,18 @@ agenda.delete('/api/agenda/:id', ...valide, traiter(async (req, res) => {
   const { e } = await modifiableOuRefus(req);
   await prisma.evenementAgenda.delete({ where: { id: e.id } });
   res.json({ ok: true });
+}));
+
+// Valider une absence : réservé à qui gère l'agenda de toute l'équipe (peutValiderAbsences), jamais son auteur. Un
+// refus retire l'événement (son auteur ne le voit plus sur Discord : il n'y a jamais été prévenu, c'était « perso »).
+agenda.post('/api/agenda/:id/absence', ...valide, traiter(async (req, res) => {
+  const e = await prisma.evenementAgenda.findUnique({ where: { id: intParam(req, 'id') } });
+  if (!e || e.statutAbsence !== 'en_attente') throw new Refus('Absence introuvable ou déjà traitée.', 404);
+  if (e.compteId === req.compte.id) throw new Refus('Vous ne pouvez pas valider votre propre absence.', 403);
+  const droits = await droitsDe(req);
+  if (!peutValiderAbsences(droits)) throw new Refus('Vous n’avez pas le droit de valider les absences.', 403);
+  const approuve = !!body(req).approuve;
+  if (approuve) await prisma.evenementAgenda.update({ where: { id: e.id }, data: { statutAbsence: 'approuve' } });
+  else await prisma.evenementAgenda.delete({ where: { id: e.id } });
+  res.json({ ok: true, approuve });
 }));

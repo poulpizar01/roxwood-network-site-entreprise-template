@@ -100,6 +100,11 @@
             <p class="champ-aide">« Personnel » le réserve à vous et aux personnes invitées ; les autres choix dépendent des droits définis dans Grades.</p>
           </div>
         </div>
+        <div class="champ cache" id="champ-evenement-absence">
+          <label><input type="checkbox" id="evenement-absence"> C’est une absence</label>
+          <p class="champ-aide">Congé, maladie… précisez dans le titre ou les notes. Reste « en attente » jusqu’à validation ; ne se change plus après coup.</p>
+        </div>
+        <p class="champ-aide cache" id="evenement-absence-statut"></p>
         <fieldset class="champ agenda-invitations cache" id="champ-evenement-invites">
           <legend>Inviter des personnes <small>facultatif</small></legend>
           <p class="champ-aide" id="aide-evenement-invites">Les personnes invitées verront l’événement dans leur agenda et seront prévenues sur Discord. Si vous les retirez, l’événement disparaît de leur agenda et une annulation leur est envoyée si le bot est disponible. Elles ne peuvent pas répondre depuis le site.</p>
@@ -117,6 +122,8 @@
       </div>
       <div id="zone-message-modale-evenement" role="status"></div>
       <div class="evenement-pied">
+        <button type="button" class="btn btn-danger cache" id="bouton-refuser-absence">Refuser l’absence</button>
+        <button type="button" class="btn btn-or cache" id="bouton-approuver-absence">Approuver l’absence</button>
         <button type="button" class="btn btn-fantome evenement-supprimer cache" id="bouton-supprimer-evenement">Supprimer</button>
         <button type="button" class="btn btn-fantome" id="bouton-annuler-evenement">Annuler</button>
         <button type="submit" class="btn btn-or" id="bouton-enregistrer-evenement">Enregistrer</button>

@@ -2,11 +2,11 @@
 // Une erreur ici ouvrirait un événement de direction à tout le monde sans rien d'anormal à l'écran.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, voit } from '../src/entreprise/agenda-regles.js';
+import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutValiderAbsences, voit } from '../src/entreprise/agenda-regles.js';
 
 const GRADES = ['patron', 'directeur', 'manager', 'agent'];   // du sommet à la base
-const ev = (destination: string, destinationGrade: string | null = null, compteId: number | null = 99, invitesDiscordIds: string[] = []) =>
-  ({ compteId, destination, destinationGrade, invitesDiscordIds });
+const ev = (destination: string, destinationGrade: string | null = null, compteId: number | null = 99, invitesDiscordIds: string[] = [], statutAbsence: string | null = null) =>
+  ({ compteId, destination, destinationGrade, invitesDiscordIds, statutAbsence });
 const MOI = { id: 1, discordId: '411111111111111111' };
 
 test('les nouvelles règles n’accordent aucun droit de grade par défaut', () => {
@@ -77,6 +77,17 @@ test('événement personnel, sans grade, grade disparu, propriétaire', () => {
   const proprio = droitsAgenda(GRADES, null, true, null);
   assert.equal(voit(ev('grade', 'patron'), MOI, proprio, GRADES), true);
   assert.equal(peutInviter(proprio, 'patron', GRADES), true);
+});
+
+test('absence : visible par qui peut la valider même sans invitation, jamais par les autres', () => {
+  const gere = droitsAgenda(GRADES, 'manager', false, { consulter: [], creer: [], modifier: [], consulterTous: true, gererTous: true });
+  const simple = droitsAgenda(GRADES, 'manager', false, null);
+  const absence = ev('perso', null, 99, [], 'en_attente');
+  assert.equal(voit(absence, MOI, gere, GRADES), true, 'qui gère toute l’équipe voit une absence même « perso »');
+  assert.equal(voit(absence, MOI, simple, GRADES), false, 'sans ce droit, une absence des autres reste invisible');
+  assert.equal(peutValiderAbsences(gere), true);
+  assert.equal(peutValiderAbsences(simple), false);
+  assert.equal(peutValiderAbsences(droitsAgenda(GRADES, null, true, null)), true, 'le propriétaire valide toujours');
 });
 
 test('inviter une personne : son grade exact doit être autorisé à la création', () => {

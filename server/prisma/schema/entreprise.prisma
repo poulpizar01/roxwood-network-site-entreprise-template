@@ -22,12 +22,16 @@ model EvenementAgenda {
   // destiné à : « perso » (l'auteur et ses invités), « tous », ou « grade » (selon les droits exacts réglés par grade, agenda-regles.ts)
   destination      String   @default("perso") @db.VarChar(10)
   destinationGrade String?  @map("destination_grade") @db.VarChar(20)
+  // absence (congé, maladie…) : null = événement normal ; sinon « en_attente » ou « approuve », jamais changée après
+  // la création (le détail va dans le titre ou les notes) ; un refus retire l'événement (routes/agenda.ts)
+  statutAbsence    String?  @map("statut_absence") @db.VarChar(10)
   invitations      InvitationAgenda[]
   creeLe           DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
   majLe            DateTime @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@index([compteId, jour])
   @@index([destination, jour])
+  @@index([statutAbsence])
   @@map("evenements_agenda")
 }
 

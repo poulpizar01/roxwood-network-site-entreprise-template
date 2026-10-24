@@ -158,7 +158,7 @@ function disposerEvenements(evts) {
   return places;
 }
 
-const descriptionEvenement = e => `${e.titre}, ${texteHoraire(e)}${typeDe(e) ? `, ${typeDe(e).nom}` : ""}, pour ${e.destinataire || "moi"}`;
+const descriptionEvenement = e => `${e.titre}, ${texteHoraire(e)}${typeDe(e) ? `, ${typeDe(e).nom}` : ""}, pour ${e.destinataire || "moi"}${e.absence ? `, ${e.statut_absence === "approuve" ? "absence approuvée" : "absence en attente de validation"}` : ""}`;
 
 // Événements sans horaire (sur un ou plusieurs jours) : une bande par événement, étirée sur les jours qu'il couvre
 // (comme dans un agenda courant), plutôt qu'un bloc plein écran répété dans chaque colonne horaire.
@@ -284,7 +284,7 @@ function rendreListeAgenda() {
     ? `<ul class="agenda-liste-evenements">${evs.map(e => `
         <li><div class="agenda-carte" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
           <span class="agenda-carte-heures">${e.heure_debut ? `${e.heure_debut}<small>${e.heure_fin}</small>` : "<small>Toute la journée</small>"}</span>
-          <span class="agenda-carte-texte"><strong>${echapper(e.titre)}</strong><small>${typeDe(e) ? `${echapper(typeDe(e).nom)} · ` : ""}${echapper(e.destinataire || "Moi")}${e.auteur && !e.mien ? ` · ajouté par ${echapper(e.auteur)}` : ""}</small></span>
+          <span class="agenda-carte-texte"><strong>${echapper(e.titre)}</strong><small>${typeDe(e) ? `${echapper(typeDe(e).nom)} · ` : ""}${echapper(e.destinataire || "Moi")}${e.auteur && !e.mien ? ` · ajouté par ${echapper(e.auteur)}` : ""}${e.absence ? ` · ${e.statut_absence === "approuve" ? "absence approuvée" : "absence en attente"}` : ""}</small></span>
         </div></li>`).join("")}</ul>`
     : `<p class="agenda-vide">Rien de prévu ce jour-là.</p>`;
   grille.className = "agenda-grille agenda-liste";
@@ -506,6 +506,13 @@ function majChampInvites() {
   }
 }
 
+// une absence est toujours personnelle : la case disparaît (et se décoche) pour les autres partages
+function majChampAbsence() {
+  const perso = document.getElementById("evenement-destination").value === "perso";
+  document.getElementById("champ-evenement-absence").classList.toggle("cache", !perso);
+  if (!perso) document.getElementById("evenement-absence").checked = false;
+}
+
 let OUVREUR_EVENEMENT = null;
 let AGENDA_EVENEMENT_MODIFIABLE = true;
 function ouvrirModaleEvenement(options) {
@@ -552,6 +559,13 @@ function ouvrirModaleEvenement(options) {
   dessinerInvitesSelectionnes();
   majChampInvites();
 
+  // absence : case à part, ne se change plus après la création ; statut et validation lus sur l'événement
+  document.getElementById("evenement-absence").checked = !!(e && e.absence);
+  majChampAbsence();
+  const statutAbsence = document.getElementById("evenement-absence-statut");
+  statutAbsence.textContent = e && e.absence ? (e.statut_absence === "approuve" ? "Absence approuvée." : "Absence en attente de validation.") : "";
+  statutAbsence.classList.toggle("cache", !(e && e.absence));
+
   // origine : qui l'a ajouté, qui a été invité et comment les personnes ont été prévenues
   const origine = document.getElementById("evenement-origine");
   const lignes = [];
@@ -567,9 +581,12 @@ function ouvrirModaleEvenement(options) {
   document.querySelectorAll("#formulaire-evenement input, #formulaire-evenement textarea, #formulaire-evenement select")
     .forEach(c => { c.disabled = !modifiable; });
   if (destinationFigee) selectDest.disabled = true;
+  document.getElementById("evenement-absence").disabled = estEdition || !modifiable;   // ne se change plus après coup
   document.getElementById("bouton-enregistrer-evenement").classList.toggle("cache", !modifiable);
   document.getElementById("bouton-annuler-evenement").textContent = modifiable ? "Annuler" : "Fermer";
   document.getElementById("bouton-supprimer-evenement").classList.toggle("cache", !estEdition || !modifiable);
+  document.getElementById("bouton-approuver-absence").classList.toggle("cache", !(e && e.peut_valider));
+  document.getElementById("bouton-refuser-absence").classList.toggle("cache", !(e && e.peut_valider));
   document.querySelectorAll("#formulaire-evenement .champ-erreur").forEach(p => p.classList.add("cache"));
   gestion.message("zone-message-modale-evenement", "");
   document.getElementById("modale-evenement").classList.remove("cache");
@@ -588,7 +605,7 @@ function majChampHeures() {
 }
 document.getElementById("evenement-jour").addEventListener("input", majChampHeures);
 document.getElementById("evenement-jour-fin").addEventListener("input", majChampHeures);
-document.getElementById("evenement-destination").addEventListener("change", majChampInvites);
+document.getElementById("evenement-destination").addEventListener("change", () => { majChampInvites(); majChampAbsence(); });
 const rechercheInvites = document.getElementById("recherche-evenement-invites");
 rechercheInvites.addEventListener("focus", () => {
   if (AGENDA_DROITS.peut_inviter && !AGENDA_ERREUR_PERSONNES) afficherSuggestionsInvites();
@@ -705,6 +722,8 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
     notes: document.getElementById("evenement-notes").value.trim(),
     type_id: document.getElementById("evenement-type").value || null,
   };
+  // l'absence ne se décide qu'à la création : en édition, la case est désactivée, jamais envoyée
+  if (!id) payload.absence = document.getElementById("evenement-absence").checked;
   const dest = document.getElementById("evenement-destination").value || "perso";
   payload.destination = dest.startsWith("grade:") ? "grade" : dest;
   if (dest.startsWith("grade:")) payload.destination_grade = dest.slice(6);
@@ -761,6 +780,22 @@ document.getElementById("bouton-supprimer-evenement").addEventListener("click", 
     gestion.message("zone-message-modale-evenement", e.message);
   }
 });
+
+async function validerAbsence(approuve) {
+  const id = document.getElementById("evenement-id").value;
+  if (!id) return;
+  if (!approuve && !await gestion.confirmer("L’absence est retirée de l’agenda ; son auteur n’en est pas averti sur Discord.", "Refuser cette absence ?", "Refuser l’absence", { danger: true })) return;
+  try {
+    await socle.api(`/api/agenda/${id}/absence`, { method: "POST", body: { approuve } });
+    fermerModaleEvenement();
+    gestion.notifier(approuve ? "Absence approuvée ✓" : "Absence refusée ✓");
+    chargerAgenda(false);
+  } catch (e) {
+    gestion.message("zone-message-modale-evenement", e.message);
+  }
+}
+document.getElementById("bouton-approuver-absence").addEventListener("click", () => validerAbsence(true));
+document.getElementById("bouton-refuser-absence").addEventListener("click", () => validerAbsence(false));
 
 // ---- types d'événements (permission « agenda-types ») ----
 // palette proposée pour un nouveau type : lisible sur le fond sombre, distincte de l'or « sans type »

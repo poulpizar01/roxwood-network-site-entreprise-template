@@ -3,8 +3,9 @@
 // traite, rien d'autre ; une liste vide masque le bloc.
 import { Router } from 'express';
 import { prisma } from '../../socle/db.js';
-import { peut } from '../../socle/droits.js';
+import { peut, tousLesGrades } from '../../socle/droits.js';
 import { valide } from '../../socle/http.js';
+import { droitsAgenda, peutValiderAbsences } from '../agenda-regles.js';
 import { EN_SUSPENS } from '../rh.js';
 import { debutSemaineParis } from '../texte.js';
 
@@ -28,6 +29,13 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
     // mêmes statuts que la catégorie « En attente » de Facturation (facturation.js, CATEGORIES_STATUT)
     const n = await prisma.facture.count({ where: { statutPaiement: { in: ['EN_ATTENTE', 'UNPAID'] }, dateFacture: { gte: debutSemaineParis() } } });
     if (n) taches.push({ cle: 'factures', nombre: n, texte: `${pluriel(n, 'facture')} en attente de paiement cette semaine`, lien: 'facturation.html?statut=attente' });
+  }
+  // valider une absence : réservé à qui gère déjà l'agenda de toute l'équipe (peutValiderAbsences, agenda-regles.ts)
+  const grades = tousLesGrades().map(g => g.cle);
+  const droitsAgendaGrade = c.gradeCle ? await prisma.agendaDroitsGrade.findUnique({ where: { gradeCle: c.gradeCle } }) : null;
+  if (peutValiderAbsences(droitsAgenda(grades, c.gradeCle, c.proprietaire, droitsAgendaGrade))) {
+    const n = await prisma.evenementAgenda.count({ where: { statutAbsence: 'en_attente' } });
+    if (n) taches.push({ cle: 'absences', nombre: n, texte: `${pluriel(n, 'absence')} à valider`, lien: 'agenda.html' });
   }
   res.json({ taches });
 });
