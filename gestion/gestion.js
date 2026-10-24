@@ -15,9 +15,9 @@ const GESTION_NAV = [
   { cle: 'services', href: 'services.html', label: 'Prises de service', icone: 'clock', permission: 'rh-voir' },
   { groupe: 'Comptabilité' },
   { cle: 'facturation', href: 'facturation.html', label: 'Facturation', icone: 'receipt', permission: 'factures' },
+  { cle: 'contrats', href: 'contrats.html', label: 'Contrats', icone: 'archive', permission: 'contrats' },
   { cle: 'paie', href: 'paie.html', label: 'Paie', icone: 'coins', permission: 'paie' },
   { cle: 'dot', href: 'dot.html', label: 'DOT', icone: 'calc', permission: 'compta' },
-  { cle: 'contrats', href: 'contrats.html', label: 'Contrats', icone: 'archive', permission: 'contrats' },
   // réglages, en dernier : on y vient rarement, ils ne passent pas avant le travail de tous les jours
   { groupe: 'Administration' },
   { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'grade', permission: 'grades' },
