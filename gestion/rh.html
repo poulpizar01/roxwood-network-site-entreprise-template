@@ -28,6 +28,12 @@
       </div>
       <div id="zone-message-rh" role="status"></div>
 
+      <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques des ressources humaines">
+        <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="rh-panneau-employes" data-rh-onglet="employes"><svg class="ico" aria-hidden="true"><use href="#ico-users"></use></svg> Employés</button>
+        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="rh-panneau-sanctions" data-rh-onglet="sanctions"><svg class="ico" aria-hidden="true"><use href="#ico-book"></use></svg> Sanctions</button>
+      </div>
+
+      <div id="rh-panneau-employes">
       <!-- en tête : l'effectif, et ce qui demande une action (masqué quand il n'y a rien à faire) -->
       <div class="rh-synthese">
         <div class="rh-effectif">
@@ -122,6 +128,21 @@
           </form>
         </details>
       </section>
+      </div>
+
+      <!-- Sanctions de tous les employés (lecture et retrait ; l'ajout se fait pour un employé choisi dans la modale
+           ci-dessous). Serveur : /api/rh/sanctions, entreprise/sanctions.ts. -->
+      <div id="rh-panneau-sanctions" class="cache">
+        <div class="entete-admin" style="margin-top:14px;">
+          <div>
+            <h2 id="titre-sanctions" class="rh-titre" style="margin:0;">Sanctions</h2>
+            <p class="comptes-aide" style="margin:4px 0 0;">Historique disciplinaire de tous les employés.</p>
+          </div>
+          <button type="button" class="btn btn-or cache" id="bouton-nouvelle-sanction"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter une sanction</button>
+        </div>
+        <div id="zone-message-sanctions" role="status"></div>
+        <ul class="rh-historique" id="rh-sanctions-liste" style="margin-top:14px;"></ul>
+      </div>
     </section>
   </main>
 
@@ -156,30 +177,38 @@
         </div>
         <p class="champ-aide" id="employe-statut" style="margin:6px 0 0;"></p>
         <div class="champ-aide" id="employe-historique" style="margin-top:10px;"></div>
-
-        <div class="rh-sanctions cache" id="employe-sanctions-bloc">
-          <h3 class="champ-aide" style="margin:14px 0 6px;font-weight:600;">Sanctions</h3>
-          <ul class="rh-historique" id="employe-sanctions-liste"></ul>
-          <!-- pas un <form> : imbriqué dans le formulaire de la fiche, un <form> y serait invalide -->
-          <div id="bloc-sanction-ajout" class="cache">
-            <div class="champ-deux">
-              <div class="champ"><label for="sanction-type">Type</label>
-                <select id="sanction-type">
-                  <option value="avertissement_oral">Avertissement oral</option>
-                  <option value="avertissement_ecrit">Avertissement écrit</option>
-                  <option value="mise_a_pied">Mise à pied</option>
-                  <option value="licenciement">Licenciement</option>
-                </select>
-              </div>
-              <div class="champ"><label for="sanction-note">Note (facultative)</label><input type="text" id="sanction-note" maxlength="500"></div>
-            </div>
-            <button type="button" id="bouton-ajouter-sanction" class="btn btn-fantome" style="margin-top:6px;">Ajouter une sanction</button>
-          </div>
-        </div>
       </div>
       <div class="fiche-rh-pied" id="fiche-rh-pied">
         <button type="submit" class="btn btn-or" id="employe-enregistrer">Enregistrer</button>
         <button type="button" class="btn btn-fantome" id="employe-annuler">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modale-fond cache" id="modale-sanction">
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-sanction-titre">
+    <div class="modale-entete">
+      <h2 id="modale-sanction-titre" class="modale-titre">Ajouter une sanction</h2>
+      <button type="button" id="fermer-modale-sanction" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-sanction"></div>
+    <form id="formulaire-sanction" autocomplete="off">
+      <div class="champ"><label for="sanction-employe">Employé</label><select id="sanction-employe" required></select></div>
+      <div class="champ-deux">
+        <div class="champ"><label for="sanction-type">Type</label>
+          <select id="sanction-type">
+            <option value="avertissement_oral">Avertissement oral</option>
+            <option value="avertissement_ecrit">Avertissement écrit</option>
+            <option value="mise_a_pied">Mise à pied</option>
+            <option value="licenciement">Licenciement</option>
+          </select>
+        </div>
+        <div class="champ"><label for="sanction-note">Note (facultative)</label><input type="text" id="sanction-note" maxlength="500"></div>
+      </div>
+      <div class="fiche-rh-pied">
+        <button type="submit" class="btn btn-or">Ajouter la sanction</button>
+        <button type="button" class="btn btn-fantome" id="sanction-annuler">Annuler</button>
       </div>
     </form>
   </div>

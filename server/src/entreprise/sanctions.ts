@@ -1,6 +1,7 @@
 // ENTREPRISE — sanctions disciplinaires rattachées à une fiche RH (table sanctions). Permission rh-sanctionner (en
 // plus de rh-voir, comme les autres droits RH). Une sanction ne se modifie pas : elle se retire si saisie par erreur.
 import { prisma } from '../socle/db.js';
+import { nomComplet } from './rh.js';
 import { Refus } from './refus.js';
 
 export const TYPES_SANCTION = ['avertissement_oral', 'avertissement_ecrit', 'mise_a_pied', 'licenciement'] as const;
@@ -12,6 +13,16 @@ function publique(s: { id: number; type: string; note: string; auteurNom: string
 
 export async function sanctionsDe(employeId: number) {
   return (await prisma.sanction.findMany({ where: { employeId }, orderBy: { creeLe: 'desc' } })).map(publique);
+}
+
+// toutes les sanctions, de tous les employés (onglet « Sanctions » de Ressources humaines)
+export async function toutesSanctions() {
+  const lignes = await prisma.sanction.findMany({ orderBy: { creeLe: 'desc' }, take: 300 });
+  const employes = new Map((await prisma.employe.findMany({ where: { id: { in: [...new Set(lignes.map(l => l.employeId))] } } })).map(e => [e.id, e]));
+  return lignes.map(s => {
+    const e = employes.get(s.employeId);
+    return { ...publique(s), employeId: s.employeId, employeNom: e ? nomComplet(e) : 'Employé supprimé' };
+  });
 }
 
 export async function ajouterSanction(employeId: number, type: string, note: unknown, compteId: number, auteurNom: string) {

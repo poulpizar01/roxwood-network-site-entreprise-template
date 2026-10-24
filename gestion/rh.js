@@ -179,36 +179,69 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ---- sanctions d'une fiche (onglet de la fiche employé) ----
-const LIBELLES_SANCTION = { avertissement_oral: 'Avertissement oral', avertissement_ecrit: 'Avertissement écrit', mise_a_pied: 'Mise à pied', licenciement: 'Licenciement' };
-function afficherSanctions(id, sanctions, peutSanctionner) {
-  $rh('employe-sanctions-bloc').classList.toggle('cache', !id);
-  if (!id) return;
-  $rh('employe-sanctions-liste').innerHTML = sanctions.length
-    ? sanctions.map(s => `<li><span>${echapper(LIBELLES_SANCTION[s.type] || s.type)} — ${dateHeure(s.creeLe)}${s.note ? ` : ${echapper(s.note)}` : ''} (${echapper(s.auteurNom) || 'Compte supprimé'})</span>${peutSanctionner ? `<button type="button" class="rh-historique-retirer" data-retirer-sanction="${s.id}">Retirer</button>` : ''}</li>`).join('')
-    : '<li><span>Aucune sanction.</span></li>';
-  $rh('bloc-sanction-ajout').classList.toggle('cache', !peutSanctionner);
-}
-$rh('bouton-ajouter-sanction').addEventListener('click', async () => {
-  if (!FICHE_OUVERTE) return;
-  try {
-    await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/sanctions`, { method: 'POST', body: { type: $rh('sanction-type').value, note: $rh('sanction-note').value.trim() } });
-    $rh('sanction-note').value = '';
-    gestion.notifier('Sanction ajoutée ✓');
-    ouvrirFicheEmploye(FICHE_OUVERTE);
-  } catch (err) { gestion.message('zone-message-modale-employe', err.message); }
+// ---- onglets Employés / Sanctions ----
+document.querySelectorAll('[data-rh-onglet]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-rh-onglet]').forEach(b => { b.classList.toggle('actif', b === btn); b.setAttribute('aria-selected', String(b === btn)); });
+    const nom = btn.dataset.rhOnglet;
+    $rh('rh-panneau-employes').classList.toggle('cache', nom !== 'employes');
+    $rh('rh-panneau-sanctions').classList.toggle('cache', nom !== 'sanctions');
+    if (nom === 'sanctions') chargerSanctions();
+  });
 });
-// Entrée dans la note ajoute la sanction plutôt que d'enregistrer la fiche (même formulaire HTML, voir rh.html)
-$rh('sanction-note').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); $rh('bouton-ajouter-sanction').click(); } });
-$rh('employe-sanctions-liste').addEventListener('click', async e => {
+
+// ---- sanctions : onglet dédié, toutes les fiches confondues ----
+const LIBELLES_SANCTION = { avertissement_oral: 'Avertissement oral', avertissement_ecrit: 'Avertissement écrit', mise_a_pied: 'Mise à pied', licenciement: 'Licenciement' };
+async function chargerSanctions() {
+  gestion.message('zone-message-sanctions', '');
+  try {
+    const { sanctions, peutSanctionner } = await socle.api('/api/rh/sanctions');
+    $rh('bouton-nouvelle-sanction').classList.toggle('cache', !peutSanctionner);
+    $rh('rh-sanctions-liste').innerHTML = sanctions.length
+      ? sanctions.map(s => `<li><span><strong>${echapper(s.employeNom)}</strong> — ${echapper(LIBELLES_SANCTION[s.type] || s.type)}, ${dateHeure(s.creeLe)}${s.note ? ` : ${echapper(s.note)}` : ''} — par ${echapper(s.auteurNom) || 'un compte supprimé'}</span>${peutSanctionner ? `<button type="button" class="rh-historique-retirer" data-retirer-sanction="${s.id}" data-employe-sanction="${s.employeId}">Retirer</button>` : ''}</li>`).join('')
+      : '<li><span>Aucune sanction enregistrée.</span></li>';
+  } catch (e) { gestion.message('zone-message-sanctions', `Impossible de charger les sanctions : ${e.message}`); }
+}
+$rh('rh-sanctions-liste').addEventListener('click', async e => {
   const b = e.target.closest('[data-retirer-sanction]');
-  if (!b || !FICHE_OUVERTE) return;
+  if (!b) return;
   if (!await gestion.confirmer('Cette sanction sera définitivement supprimée de l’historique.', 'Retirer cette sanction ?', 'Retirer la sanction', { danger: true })) return;
   try {
-    await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/sanctions/${b.dataset.retirerSanction}`, { method: 'DELETE' });
+    await socle.api(`/api/rh/employes/${b.dataset.employeSanction}/sanctions/${b.dataset.retirerSanction}`, { method: 'DELETE' });
     gestion.notifier('Sanction retirée ✓');
-    ouvrirFicheEmploye(FICHE_OUVERTE);
-  } catch (err) { gestion.message('zone-message-modale-employe', err.message); }
+    chargerSanctions();
+  } catch (err) { gestion.message('zone-message-sanctions', err.message); }
+});
+
+// ---- ajout d'une sanction (modale, employé choisi dans une liste) ----
+let OUVREUR_MODALE_SANCTION = null;
+function ouvrirModaleSanction() {
+  gestion.message('zone-message-modale-sanction', '');
+  const actifs = CACHE_EMPLOYES.filter(e => e.statut === 'actif');
+  $rh('sanction-employe').innerHTML = actifs.map(e => `<option value="${e.id}">${echapper(e.nomComplet)}</option>`).join('') || '<option value="">Aucun employé actif</option>';
+  $rh('sanction-type').value = 'avertissement_oral';
+  $rh('sanction-note').value = '';
+  OUVREUR_MODALE_SANCTION = document.activeElement;
+  $rh('modale-sanction').classList.remove('cache');
+  $rh('sanction-employe').focus();
+}
+const fermerModaleSanction = () => { $rh('modale-sanction').classList.add('cache'); if (OUVREUR_MODALE_SANCTION?.isConnected) OUVREUR_MODALE_SANCTION.focus(); };
+$rh('bouton-nouvelle-sanction').addEventListener('click', ouvrirModaleSanction);
+$rh('fermer-modale-sanction').addEventListener('click', fermerModaleSanction);
+$rh('sanction-annuler').addEventListener('click', fermerModaleSanction);
+$rh('modale-sanction').addEventListener('click', e => { if (e.target.id === 'modale-sanction') fermerModaleSanction(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$rh('modale-sanction').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) fermerModaleSanction(); });
+$rh('formulaire-sanction').addEventListener('submit', async e => {
+  e.preventDefault();
+  gestion.message('zone-message-modale-sanction', '');
+  const employeId = $rh('sanction-employe').value;
+  if (!employeId) { gestion.message('zone-message-modale-sanction', 'Aucun employé actif à sanctionner.'); return; }
+  try {
+    await socle.api(`/api/rh/employes/${employeId}/sanctions`, { method: 'POST', body: { type: $rh('sanction-type').value, note: $rh('sanction-note').value.trim() } });
+    fermerModaleSanction();
+    gestion.notifier('Sanction ajoutée ✓');
+    chargerSanctions();
+  } catch (err) { gestion.message('zone-message-modale-sanction', err.message); }
 });
 
 // ---- fiche : consultation, modification, ou création (id absent, avec un pré-remplissage éventuel) ----
@@ -253,7 +286,6 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   $rh('employe-historique').innerHTML = id ? `<ul class="rh-historique">
     <li><span>Compte du site</span><strong>${f.compteDuSite ? `${echapper(f.compteDuSite.nom)}${f.compteDuSite.grade ? ` (${echapper(f.compteDuSite.grade)})` : ''}` : 'Aucun (même ID Discord)'}</strong></li>
   </ul>` : '';
-  afficherSanctions(id, f.sanctions || [], !!f.peutSanctionner);
   $rh('modale-employe').classList.remove('cache');
   (peutEcrire ? $rh('employe-prenom') : $rh('fermer-modale-employe')).focus();
 }
