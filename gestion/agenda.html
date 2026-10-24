@@ -42,11 +42,49 @@
           <button type="button" class="btn btn-or agenda-ajouter" id="agenda-nouvel-evenement" aria-label="Nouvel événement"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg><span>Nouvel événement</span></button>
         </div>
       </header>
-      <!-- la couleur d’un événement dit son type (types de la Direction, agenda.js) -->
-      <div class="agenda-legende cache" id="agenda-legende"></div>
-      <div id="zone-message-agenda"></div>
-      <div class="agenda-grille-conteneur" id="agenda-grille-conteneur">
-        <div class="agenda-grille" id="agenda-grille"></div>
+
+      <div class="compta-sous-onglets cache" role="tablist" aria-label="Rubriques de l’agenda" id="agenda-onglets">
+        <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="panneau-agenda-calendrier" data-agenda-onglet="calendrier"><svg class="ico" aria-hidden="true"><use href="#ico-calendar"></use></svg> Agenda</button>
+        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="panneau-agenda-participants" data-agenda-onglet="participants"><svg class="ico" aria-hidden="true"><use href="#ico-users"></use></svg> Participants</button>
+      </div>
+
+      <div id="panneau-agenda-calendrier" class="agenda-sous-panneau">
+        <!-- la couleur d’un événement dit son type (types de la Direction, agenda.js) -->
+        <div class="agenda-legende cache" id="agenda-legende"></div>
+        <div id="zone-message-agenda"></div>
+        <div class="agenda-grille-conteneur" id="agenda-grille-conteneur">
+          <div class="agenda-grille" id="agenda-grille"></div>
+        </div>
+      </div>
+
+      <!-- Participants aux événements personnels (réunions, formations…) : qui a été invité, qui était présent
+           (corrigé après coup dans la fiche de l'événement). Permission rh-voir, comme Quota. Serveur :
+           /api/agenda/participants, entreprise/participants.ts. -->
+      <div id="panneau-agenda-participants" class="cache agenda-sous-panneau">
+        <div class="entete-admin" style="margin-top:0;">
+          <div>
+            <h2 style="margin:0;" id="participants-periode">Participation, cumulée depuis lundi.</h2>
+          </div>
+          <div class="run-semaine-nav" role="group" aria-label="Semaine affichée">
+            <button type="button" class="run-fleche run-fleche--avant" id="participants-semaine-precedente" aria-label="Semaine précédente"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+            <button type="button" class="run-semaine-bouton" id="participants-aujourdhui" aria-keyshortcuts="T">Cette semaine</button>
+            <span class="run-touche" aria-hidden="true"><kbd>T</kbd> cette semaine</span>
+            <button type="button" class="run-fleche run-fleche--apres" id="participants-semaine-suivante" aria-label="Semaine suivante"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
+          </div>
+        </div>
+        <div id="zone-message-participants" role="status"></div>
+        <div class="run-filtres">
+          <div class="comptes-recherche run-recherche">
+            <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+            <input type="search" id="participants-recherche" aria-label="Rechercher une personne par son nom ou prénom" placeholder="Nom ou prénom">
+          </div>
+        </div>
+        <div class="carte-table">
+          <table class="table-admin" id="participants-table">
+            <thead><tr id="participants-entete"></tr></thead>
+            <tbody id="participants-corps"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>

@@ -432,7 +432,8 @@ async function remplirChoixInvites() {
 function dessinerInvitesSelectionnes() {
   const liste = document.getElementById("liste-evenement-invites");
   liste.innerHTML = AGENDA_INVITES_SELECTIONNES.map(p => `
-    <li class="agenda-invite-puce">
+    <li class="agenda-invite-puce${p.present === false ? " agenda-invite-absent" : ""}">
+      ${p.source === "invitation" ? `<button type="button" class="agenda-invite-presence" data-presence-invite="${Number(p.invitation_id)}" aria-pressed="${p.present !== false}">${p.present === false ? "Absent" : "Présent"}</button>` : ""}
       <span>${echapper(p.nom)}</span>
       <button type="button" data-retirer-invite="${p.source === "invitation" ? `invitation:${Number(p.invitation_id)}` : `employe:${Number(p.id)}`}" aria-label="Retirer ${echapper(p.nom)} des invités">
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8"></path></svg>
@@ -549,7 +550,7 @@ function ouvrirModaleEvenement(options) {
   // Une liste d'invités ne peut coexister qu'avec un événement personnel.
   const destinationFigee = !!(e && e.invites?.length);
   ameliorerSelect(selectDest);
-  AGENDA_INVITES_SELECTIONNES = (e?.invites || []).map(i => ({ source: "invitation", invitation_id: Number(i.invitation_id), nom: i.nom }));
+  AGENDA_INVITES_SELECTIONNES = (e?.invites || []).map(i => ({ source: "invitation", invitation_id: Number(i.invitation_id), nom: i.nom, present: i.present !== false }));
   document.getElementById("recherche-evenement-invites").value = "";
   document.getElementById("suggestions-evenement-invites").classList.add("cache");
   document.getElementById("recherche-evenement-invites").setAttribute("aria-expanded", "false");
@@ -650,6 +651,15 @@ document.getElementById("suggestions-evenement-invites").addEventListener("click
   if (option) choisirInvite(option.dataset.inviteId);
 });
 document.getElementById("liste-evenement-invites").addEventListener("click", e => {
+  const presence = e.target.closest("[data-presence-invite]");
+  if (presence) {
+    const id = Number(presence.dataset.presenceInvite);
+    const p = AGENDA_INVITES_SELECTIONNES.find(x => x.source === "invitation" && Number(x.invitation_id) === id);
+    if (p) p.present = p.present === false;   // bascule présent/absent
+    dessinerInvitesSelectionnes();
+    document.querySelector(`[data-presence-invite="${id}"]`)?.focus();
+    return;
+  }
   const bouton = e.target.closest("[data-retirer-invite]");
   if (!bouton) return;
   const [source, id] = bouton.dataset.retirerInvite.split(":");
@@ -731,7 +741,10 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
   const invitationsExistantes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation").map(p => Number(p.invitation_id));
   if (dest === "perso") {
     payload.invites_employe_ids = invitesEmployes;
-    if (id) payload.invitation_ids = invitationsExistantes;
+    if (id) {
+      payload.invitation_ids = invitationsExistantes;
+      payload.absents_invitation_ids = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation" && p.present === false).map(p => Number(p.invitation_id));
+    }
   }
   const bouton = document.getElementById("bouton-enregistrer-evenement");
   const texteInitial = bouton.textContent;
@@ -918,8 +931,93 @@ document.addEventListener("keydown", ev => {
 // le paramètre est retiré de l'adresse pour qu'un rechargement ne la rouvre pas
 gestion.coque("agenda").then(async moi => {
   AGENDA_MOI = moi;
+  document.getElementById("agenda-onglets").classList.toggle("cache", !socle.peut(moi, "rh-voir"));
   await chargerAgenda(true);
   if (new URLSearchParams(location.search).get("nouveau") !== "1") return;
   history.replaceState(null, "", location.pathname);
   ouvrirModaleEvenement({ jour: formaterDateISO(aujourdhuiParis()) });
+});
+
+// ---------------------------------------------------------------------------
+// ---- onglets Agenda / Participants (permission rh-voir, comme Quota) ----
+document.querySelectorAll("[data-agenda-onglet]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-agenda-onglet]").forEach(b => { b.classList.toggle("actif", b === btn); b.setAttribute("aria-selected", String(b === btn)); });
+    const nom = btn.dataset.agendaOnglet;
+    document.getElementById("panneau-agenda-calendrier").classList.toggle("cache", nom !== "calendrier");
+    document.getElementById("panneau-agenda-participants").classList.toggle("cache", nom !== "participants");
+    if (nom === "participants") chargerParticipants();
+  });
+});
+
+// ---- participants : qui a été invité à un événement personnel, qui était présent, par semaine (même recette que
+// Quota, gestion/quota.js : navigation vers le passé seulement, le serveur ramène une semaine future à la semaine
+// en cours) ----
+const jourParisISOParticipants = d => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(d);
+function lundiDeParticipants(iso) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+function decalerSemaineParticipants(iso, sens) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 7 * sens);
+  return d.toISOString().slice(0, 10);
+}
+const SEMAINE_COURANTE_PARTICIPANTS = lundiDeParticipants(jourParisISOParticipants(new Date()));
+let PARTICIPANTS_SEMAINE = SEMAINE_COURANTE_PARTICIPANTS, EMPLOYES_PARTICIPANTS = [];
+
+function majNavSemaineParticipants() {
+  const courante = PARTICIPANTS_SEMAINE === SEMAINE_COURANTE_PARTICIPANTS;
+  const debut = new Date(`${PARTICIPANTS_SEMAINE}T00:00:00Z`);
+  const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 6);
+  const options = { day: "numeric", month: "short", timeZone: "UTC" };
+  const bouton = document.getElementById("participants-aujourdhui");
+  bouton.textContent = courante ? "Cette semaine" : `Sem. du ${debut.toLocaleDateString("fr-FR", options)}`;
+  bouton.title = courante ? "Raccourci : touche T" : "Revenir à cette semaine (touche T)";
+  document.getElementById("participants-semaine-suivante").disabled = courante;
+  document.getElementById("participants-periode").textContent = `Participation du ${debut.toLocaleDateString("fr-FR", options)} au ${fin.toLocaleDateString("fr-FR", options)}`;
+}
+
+function ligneParticipant(e) {
+  const taux = e.invitations > 0 ? Math.round((e.presences / e.invitations) * 100) : null;
+  return `<tr>
+    <td><span class="run-personne">
+      <span class="admin-avatar" aria-hidden="true">${echapper(initiales(e.nomComplet))}</span>
+      <span class="run-nom">${echapper(e.nomComplet)}</span>
+    </span></td>
+    <td>${echapper(e.gradeLibelle)}</td>
+    <td>${e.invitations}</td>
+    <td>${e.presences}</td>
+    <td>${taux === null ? "—" : `${taux} %`}</td>
+  </tr>`;
+}
+function afficherParticipants() {
+  const terme = document.getElementById("participants-recherche").value.trim().toLocaleLowerCase("fr");
+  const filtres = terme ? EMPLOYES_PARTICIPANTS.filter(e => e.nomComplet.toLocaleLowerCase("fr").includes(terme)) : EMPLOYES_PARTICIPANTS;
+  document.getElementById("participants-entete").innerHTML = "<th>Personne</th><th>Grade</th><th>Invitations</th><th>Présences</th><th>Taux</th>";
+  document.getElementById("participants-corps").innerHTML = filtres.length
+    ? filtres.map(ligneParticipant).join("")
+    : `<tr><td colspan="5" class="run-vide">${terme ? "Aucune personne pour cette recherche." : "Aucun employé actif."}</td></tr>`;
+}
+async function chargerParticipants() {
+  gestion.message("zone-message-participants", "");
+  try {
+    const r = await socle.api(`/api/agenda/participants?semaine=${PARTICIPANTS_SEMAINE}`);
+    PARTICIPANTS_SEMAINE = r.debutSemaine; // le serveur ramène une semaine future demandée à la semaine en cours
+    EMPLOYES_PARTICIPANTS = r.employes;
+    majNavSemaineParticipants();
+    afficherParticipants();
+  } catch (e) { gestion.message("zone-message-participants", `Impossible de charger les participants : ${e.message}`); }
+}
+function allerSemaineParticipants(iso) { PARTICIPANTS_SEMAINE = iso; chargerParticipants(); }
+document.getElementById("participants-semaine-precedente").addEventListener("click", () => allerSemaineParticipants(decalerSemaineParticipants(PARTICIPANTS_SEMAINE, -1)));
+document.getElementById("participants-semaine-suivante").addEventListener("click", () => allerSemaineParticipants(decalerSemaineParticipants(PARTICIPANTS_SEMAINE, 1)));
+document.getElementById("participants-aujourdhui").addEventListener("click", () => allerSemaineParticipants(SEMAINE_COURANTE_PARTICIPANTS));
+document.getElementById("participants-recherche").addEventListener("input", afficherParticipants);
+document.addEventListener("keydown", e => {
+  if (document.getElementById("panneau-agenda-participants").classList.contains("cache")) return;
+  if (e.repeat || e.ctrlKey || e.altKey || e.metaKey || e.key.length !== 1 || e.key.toLowerCase() !== "t") return;
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
+  allerSemaineParticipants(SEMAINE_COURANTE_PARTICIPANTS);
 });

@@ -44,6 +44,7 @@ model InvitationAgenda {
   discordSalonId   String?         @map("discord_salon_id") @db.VarChar(22)
   discordMessageId String?         @map("discord_message_id") @db.VarChar(22)
   prevenu          String          @default("") @db.VarChar(10) // ticket | prive | '' (non prévenu)
+  present          Boolean         @default(true) // présent par défaut (invité) ; corrigé après coup par l'auteur
 
   @@unique([evenementId, discordId])
   @@index([discordId, evenementId])

@@ -7,6 +7,12 @@
 }
 /* fonds teintés calculés d’avance (pas de color-mix : le navigateur de l’ordinateur en jeu est ancien) */
 
+/* onglets Agenda / Participants : chacun prend le reste de la hauteur (le calendrier garde son propre défilement
+   interne, agenda-grille-conteneur ; Participants défile normalement, comme un tableau de la page Quota) */
+#agenda-onglets { flex-shrink: 0; margin-bottom: 10px; }
+.agenda-sous-panneau { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+#panneau-agenda-participants { overflow-y: auto; }
+
 /* ---- en-tête : titre et période à gauche, commandes à droite ---- */
 .agenda-entete { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 14px 20px; margin-bottom: 10px; flex-shrink: 0; }
 .agenda-titre h1 { margin: 0; }
@@ -243,6 +249,13 @@
 .agenda-invite-puce button:hover { background: rgba({{couleur_rvb}}, 0.14); color: var(--text); }
 .agenda-invite-puce button:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
 .agenda-invite-puce svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+/* présence (corrigée après coup) : un bouton texte, pas le rond d'icône générique ci-dessus */
+.agenda-invite-puce .agenda-invite-presence {
+  width: auto; height: 26px; padding: 0 9px; border-radius: 999px; font-size: var(--fs-1); font-weight: 600;
+  background: rgba({{couleur_rvb}}, 0.12); color: var(--accent-dark);
+}
+.agenda-invite-absent .agenda-invite-presence { background: var(--erreur-soft); color: var(--erreur); }
+.agenda-invite-absent { opacity: 0.75; }
 .agenda-invites-etat { margin: 7px 0 0; }
 .evenement-erreur-heures { margin: -8px 0 14px; }
 .evenement-quand { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

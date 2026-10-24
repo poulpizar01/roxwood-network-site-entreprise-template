@@ -16,6 +16,7 @@ import { body, couleur, entier, intParam, permission, text, valide } from '../..
 import { site } from '../../socle/site.js';
 import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutValiderAbsences, voit, type Destination, type DroitsAgenda } from '../agenda-regles.js';
 import { idsRegles } from '../parametres.js';
+import { classementParticipants } from '../participants.js';
 import { Refus, traiter } from '../refus.js';
 import { nomComplet } from '../rh.js';
 
@@ -47,9 +48,9 @@ const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAge
   heure_debut: e.heureDebut, heure_fin: e.heureFin, notes: e.notes,
   type_id: e.typeId, destination: e.destination, destination_grade: e.destinationGrade, destinataire: libelleDestination(e, e.invitations),
   auteur: e.auteurNom, mien: e.compteId === req.compte.id,
-  invites: e.invitations.map(({ id, nom, prevenu }) => ({
+  invites: e.invitations.map(({ id, nom, prevenu, present }) => ({
     ...(e.compteId === req.compte.id ? { invitation_id: id } : {}),
-    nom, prevenu,
+    nom, prevenu, present,
   })),
   modifiable: modifiable(e, lecteur(req), droits, clesGrades()),
   absence: !!e.statutAbsence, statut_absence: e.statutAbsence,
@@ -448,10 +449,25 @@ agenda.put('/api/agenda/:id', ...valide, traiter(async (req, res) => {
   if ((invitationIds.length || nouvellesPersonnes.length) && dest.destination !== 'perso') {
     throw new Refus('Les personnes ne peuvent être invitées que pour un événement personnel.');
   }
+  // présence des invités déjà là (corrigée après coup) : liste de ceux marqués absents, parmi ceux conservés ;
+  // absente du corps = rien à changer (une modification qui ne touche pas aux invités ne doit pas tout remettre « présent »)
+  const absentsBrut = b.absents_invitation_ids;
+  let absents: Set<number> | null = null;
+  if (absentsBrut !== undefined) {
+    if (!Array.isArray(absentsBrut) || absentsBrut.length > 100) throw new Refus('La liste des absences est invalide.');
+    absents = new Set<number>();
+    for (const valeur of absentsBrut) {
+      const id = entier(valeur);
+      if (id === null || !invitationIds.includes(id)) throw new Refus('La liste des absences est invalide.');
+      absents.add(id);
+    }
+  }
+
   const retires = e.invitations.filter(i => !invitationIds.includes(i.id));
   const ajoutes = await prisma.$transaction(async tx => {
     await tx.evenementAgenda.update({ where: { id: e.id }, data: { ...d, ...dest } });
     if (retires.length) await tx.invitationAgenda.deleteMany({ where: { id: { in: retires.map(i => i.id) } } });
+    if (absents) await Promise.all(invitationIds.map(id => tx.invitationAgenda.update({ where: { id }, data: { present: !absents!.has(id) } } )));
     return nouvellesPersonnes.length
       ? Promise.all(nouvellesPersonnes.map(p => tx.invitationAgenda.create({ data: { evenementId: e.id, ...p } })))
       : [];
@@ -487,3 +503,10 @@ agenda.post('/api/agenda/:id/absence', ...valide, traiter(async (req, res) => {
   else await prisma.evenementAgenda.delete({ where: { id: e.id } });
   res.json({ ok: true, approuve });
 }));
+
+// Participation aux événements personnels (réunions, formations…) : qui a été invité, qui était présent. Page
+// Agenda, onglet Participants ; même permission que Quota (rh-voir).
+agenda.get('/api/agenda/participants', ...permission('rh-voir'), async (req, res) => {
+  const semaine = typeof req.query.semaine === 'string' && dateValide(req.query.semaine) ? req.query.semaine : undefined;
+  res.json(await classementParticipants(semaine));
+});
