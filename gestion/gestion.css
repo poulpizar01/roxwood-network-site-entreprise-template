@@ -1802,6 +1802,8 @@ main.admin-contenu:focus { outline: none; }
 .rh-historique span { flex: 1 1 180px; color: var(--text-faint); }
 .rh-historique strong { font-weight: 500; color: var(--text); }
 .rh-historique small { flex-basis: 100%; color: var(--text-faint); }
+.rh-historique-retirer { background: none; border: none; color: var(--erreur); font-size: var(--fs-3); cursor: pointer; padding: 6px 4px; }
+.rh-historique-retirer:hover, .rh-historique-retirer:focus-visible { text-decoration: underline; }
 
 .modale.modale-fiche-rh {
   display: flex; flex-direction: column; height: min(88vh, 760px); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); overflow: hidden; padding: 0;

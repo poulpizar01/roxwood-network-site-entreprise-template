@@ -47,6 +47,10 @@
         <button type="submit" class="btn btn-or">Enregistrer mes informations</button>
       </form>
     </section>
+    <section class="accueil-panneau compte-panneau" aria-labelledby="titre-sanctions" id="section-sanctions" hidden>
+      <h2 class="compta-titre" id="titre-sanctions">Mes sanctions</h2>
+      <ul class="rh-historique" id="mes-sanctions"></ul>
+    </section>
     <section class="compte-supprimer" aria-labelledby="titre-supprimer">
       <h2 class="compta-titre" id="titre-supprimer">Supprimer mon compte</h2>
       <p class="champ-aide">Votre compte est effacé du site. Vous pourrez vous reconnecter plus tard, mais il faudra une nouvelle validation.</p>
@@ -85,8 +89,14 @@
       $('infos-telephone').value = fiche.telephone;
       $('infos-rib').value = fiche.rib;
     }
+    const LIBELLES_SANCTION = { avertissement_oral: 'Avertissement oral', avertissement_ecrit: 'Avertissement écrit', mise_a_pied: 'Mise à pied', licenciement: 'Licenciement' };
+    function afficherSanctions(sanctions) {
+      $('section-sanctions').hidden = !sanctions || !sanctions.length;
+      if (!sanctions || !sanctions.length) return;
+      $('mes-sanctions').innerHTML = sanctions.map(s => `<li><span>${echapper(LIBELLES_SANCTION[s.type] || s.type)} — ${new Date(s.creeLe).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}${s.note ? ` : ${echapper(s.note)}` : ''}</span></li>`).join('');
+    }
     gestion.coque('compte').then(afficher).catch(e => gestion.message('zone-message', e.message));
-    socle.api('/api/moi/fiche').then(({ fiche, quota }) => { afficherFiche(fiche); afficherQuota(quota); })
+    socle.api('/api/moi/fiche').then(({ fiche, quota, sanctions }) => { afficherFiche(fiche); afficherQuota(quota); afficherSanctions(sanctions); })
       .catch(e => gestion.message('zone-message', e.message));
     $('form-infos').addEventListener('submit', async e => {
       e.preventDefault();

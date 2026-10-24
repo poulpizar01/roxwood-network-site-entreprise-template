@@ -377,3 +377,18 @@ model ServiceEtat {
 
   @@map("services_etat")
 }
+
+// Sanction disciplinaire rattachée à une fiche RH (permission rh-sanctionner, en plus de rh-voir). Jamais modifiée :
+// une sanction saisie par erreur se retire, elle ne se corrige pas. Visible par l'employé concerné dans Mon compte.
+model Sanction {
+  id        Int      @id @default(autoincrement())
+  employeId Int      @map("employe_id")
+  type      String   @db.VarChar(24) // avertissement_oral | avertissement_ecrit | mise_a_pied | licenciement
+  note      String   @default("") @db.VarChar(500)
+  compteId  Int?     @map("compte_id") // auteur ; null si compte supprimé
+  auteurNom String   @default("") @map("auteur_nom") @db.VarChar(64)
+  creeLe    DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  @@index([employeId, creeLe(sort: Desc)])
+  @@map("sanctions")
+}

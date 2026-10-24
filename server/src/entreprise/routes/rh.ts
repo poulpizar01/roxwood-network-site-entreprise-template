@@ -8,6 +8,7 @@ import { actualiserGrades } from '../../socle/grades-imposes.js';
 import { body, intParam, permission } from '../../socle/http.js';
 import { arriveesBot, droitsRh, ecarter, fichePublique, gradesEmployes, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
+import { ajouterSanction, retirerSanction, sanctionsDe } from '../sanctions.js';
 import { traiter } from '../refus.js';
 import { jourValide, versDate } from '../texte.js';
 
@@ -66,8 +67,22 @@ rh.get('/api/rh/employes/:id', ...voir, async (req, res) => {
     ...fichePublique(e, droitsRh(req.compte)),
     modifiable: (() => { try { verifierHierarchie(req.compte, e); return true; } catch { return false; } })(),
     compteDuSite: compte ? { nom: compte.nom ?? compte.pseudo, grade: gradeDe(compte.gradeCle)?.libelle ?? null, statut: compte.statut } : null,
+    sanctions: await sanctionsDe(e.id),
+    peutSanctionner: droitsRh(req.compte).has('sanctionner'),
   });
 });
+
+rh.post('/api/rh/employes/:id/sanctions', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les sanctions.'), traiter(async (req, res) => {
+  const b = body(req), id = intParam(req, 'id');
+  const nomActeur = req.compte.nom || req.compte.pseudo;
+  const s = await ajouterSanction(id, String(b.type ?? ''), b.note, req.compte.id, nomActeur);
+  res.status(201).json(s);
+}));
+
+rh.delete('/api/rh/employes/:id/sanctions/:sid', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les sanctions.'), traiter(async (req, res) => {
+  await retirerSanction(intParam(req, 'id'), intParam(req, 'sid'));
+  res.json({ ok: true });
+}));
 
 rh.post('/api/rh/employes', ...voir, exiger('creer', 'Vous n’avez pas le droit d’ajouter un employé.'), traiter(async (req, res) => {
   const b = body(req);

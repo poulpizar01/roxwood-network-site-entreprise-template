@@ -12,7 +12,7 @@ import { definirReglage, reglage } from '../socle/reglages.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { jourParis, jourValide, normaliserPseudo, normaliserTexte, versDate, versJour } from './texte.js';
 
-export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'sensible', 'parametrer'] as const;
+export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'sensible', 'parametrer', 'sanctionner'] as const;
 export type DroitRh = typeof DROITS_RH[number];
 // droits RH d'un compte ; rien sans rh-voir (toute action suppose de pouvoir consulter les fiches)
 export const droitsRh = (c: Compte): Set<DroitRh> =>
