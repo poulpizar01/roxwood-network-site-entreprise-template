@@ -5,10 +5,9 @@ import { config } from '../../socle/config.js';
 import { prisma } from '../../socle/db.js';
 import { peut } from '../../socle/droits.js';
 import { body, intParam, permission, valide } from '../../socle/http.js';
-import { entierRegle } from '../parametres.js';
 import { traiter } from '../refus.js';
 import { nomComplet } from '../rh.js';
-import { anomaliesATraiter, corrigerService, ignorerAnomalie } from '../services.js';
+import { anomaliesATraiter, corrigerService, ignorerAnomalie, terminerMonService } from '../services.js';
 
 export const services = Router();
 
@@ -31,10 +30,17 @@ services.get('/api/services/etat', ...permission('parametres'), async (_req, res
     prisma.service.count({ where: { fin: null } }),
   ]);
   res.json({
-    abonnementPossible: config.webhookSecrets.length > 0, clotureHeures: entierRegle('services_cloture_heures'),
+    abonnementPossible: config.webhookSecrets.length > 0,
     dernierRecu: etat?.derniereLecture ?? null, recus: etat?.nbReconnus ?? 0, enService, anomalies,
   });
 });
+
+// terminer son propre service en cours, depuis son profil (Mon compte) : utile quand le bot ne l'annonce pas (déco,
+// changement de job…) sans attendre la clôture automatique de 16 h.
+services.post('/api/services/terminer', ...valide, traiter(async (req, res) => {
+  await terminerMonService(req.compte.discordId);
+  res.json({ ok: true });
+}));
 
 // anomalies à traiter (RH, onglet Services) : tant qu'une ligne n'est pas corrigée ou ignorée, ses heures ne comptent
 // pas dans la paie à l'heure de la DOT (services.ts, heuresServiceSemaine).

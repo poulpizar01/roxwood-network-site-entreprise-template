@@ -2,6 +2,8 @@
 // forme reprise de son code (src/services/monitoringService.ts). Rien n'est deviné : une forme inattendue est ignorée.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { parisVersDate } from '../src/entreprise/agenda-regles.js';
+import { limiteCloture16h } from '../src/entreprise/services.js';
 import { lireDuty } from '../src/entreprise/services-duty.js';
 
 const SENT = '2026-10-12T18:04:00.000Z';
@@ -34,4 +36,13 @@ test('forme inattendue : ignorée', () => {
 
 test('nom nettoyé : ni mise en forme ni mention', () => {
   assert.equal(lireDuty(charge('in', { playerName: '**@everyone** <Grey>' }), SENT)?.nom, 'everyone Grey');
+});
+
+test('clôture quotidienne à 16 h, heure de Paris', () => {
+  // avant 16 h : l'échéance est celle de la veille
+  assert.equal(limiteCloture16h(parisVersDate('2026-10-12', '14:00')).toISOString(), parisVersDate('2026-10-11', '16:00').toISOString());
+  // après 16 h : celle du jour même
+  assert.equal(limiteCloture16h(parisVersDate('2026-10-12', '17:00')).toISOString(), parisVersDate('2026-10-12', '16:00').toISOString());
+  // exactement à 16 h : déjà sonné
+  assert.equal(limiteCloture16h(parisVersDate('2026-10-12', '16:00')).toISOString(), parisVersDate('2026-10-12', '16:00').toISOString());
 });

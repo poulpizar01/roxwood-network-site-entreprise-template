@@ -9,6 +9,7 @@ import { body, couleur, entier, intParam, permission, text } from '../../socle/h
 import { arriveesBot, droitsRh, ecarter, fichePublique, gradesEmployes, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
 import { ajouterSanction, listeTypesSanction, retirerSanction, toutesSanctions } from '../sanctions.js';
+import { terminerServiceDe } from '../services.js';
 import { traiter } from '../refus.js';
 import { jourValide, versDate } from '../texte.js';
 
@@ -58,17 +59,28 @@ rh.get('/api/rh/employes', ...voir, async (req, res) => {
   });
 });
 
-// fiche détaillée : identité + compte du site relié (même ID Discord)
+// fiche détaillée : identité + compte du site relié (même ID Discord) + service en cours (bouton « Terminer »)
 rh.get('/api/rh/employes/:id', ...voir, async (req, res) => {
   const e = await prisma.employe.findUnique({ where: { id: intParam(req, 'id') } });
   if (!e) { res.status(404).json({ error: 'Employé introuvable.' }); return; }
-  const compte = e.discordId ? await prisma.compte.findUnique({ where: { discordId: e.discordId }, select: { nom: true, pseudo: true, gradeCle: true, statut: true } }) : null;
+  const [compte, service] = await Promise.all([
+    e.discordId ? prisma.compte.findUnique({ where: { discordId: e.discordId }, select: { nom: true, pseudo: true, gradeCle: true, statut: true } }) : null,
+    prisma.service.findFirst({ where: { employeId: e.id, fin: null }, select: { debut: true } }),
+  ]);
   res.json({
     ...fichePublique(e, droitsRh(req.compte)),
     modifiable: (() => { try { verifierHierarchie(req.compte, e); return true; } catch { return false; } })(),
     compteDuSite: compte ? { nom: compte.nom ?? compte.pseudo, grade: gradeDe(compte.gradeCle)?.libelle ?? null, statut: compte.statut } : null,
+    enServiceDepuis: service?.debut ?? null,
   });
 });
+
+// terminer le service en cours de cette fiche (bouton RH) : utile quand le bot ne l'a pas annoncé, sans attendre la
+// clôture automatique de 16 h
+rh.post('/api/rh/employes/:id/service/terminer', ...voir, exiger('modifier', 'Vous n’avez pas le droit de modifier un employé.'), traiter(async (req, res) => {
+  await terminerServiceDe(intParam(req, 'id'));
+  res.json({ ok: true });
+}));
 
 // sanctions : onglet dédié de Ressources humaines, toutes les fiches confondues
 rh.get('/api/rh/sanctions', ...voir, async (req, res) => {

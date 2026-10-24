@@ -222,10 +222,20 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   $rh('employe-historique').innerHTML = id ? `<ul class="rh-historique">
     <li><span>Compte du site</span><strong>${f.compteDuSite ? `${echapper(f.compteDuSite.nom)}${f.compteDuSite.grade ? ` (${echapper(f.compteDuSite.grade)})` : ''}` : 'Aucun (même ID Discord)'}</strong></li>
   </ul>` : '';
+  const enService = id && f.enServiceDepuis;
+  $rh('employe-service').classList.toggle('cache', !enService);
+  if (enService) $rh('employe-service').textContent = `En service depuis le ${new Date(f.enServiceDepuis).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' })}.`;
+  $rh('employe-terminer-service').classList.toggle('cache', !enService || !peutEcrire);
   $rh('modale-employe').classList.remove('cache');
   (peutEcrire ? $rh('employe-prenom') : $rh('fermer-modale-employe')).focus();
 }
 const fermerModaleEmploye = () => { $rh('modale-employe').classList.add('cache'); if (OUVREUR_FICHE?.isConnected) OUVREUR_FICHE.focus(); };
+$rh('employe-terminer-service').addEventListener('click', async () => {
+  if (!FICHE_OUVERTE) return;
+  if (!await gestion.confirmer('Son service s’arrête à l’instant, même s’il ou elle est toujours en jeu.', 'Terminer ce service ?', 'Terminer le service')) return;
+  try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/service/terminer`, { method: 'POST', body: {} }); gestion.notifier('Service terminé ✓'); ouvrirFicheEmploye(FICHE_OUVERTE); }
+  catch (e) { gestion.message('zone-message-modale-employe', e.message); }
+});
 $rh('bouton-nouvel-employe').addEventListener('click', () => ouvrirFicheEmploye(null));
 $rh('fermer-modale-employe').addEventListener('click', fermerModaleEmploye);
 $rh('employe-annuler').addEventListener('click', fermerModaleEmploye);

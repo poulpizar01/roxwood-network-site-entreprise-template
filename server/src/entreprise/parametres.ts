@@ -11,11 +11,8 @@ export const PARAMETRES: GroupeParametres[] = [
   { onglet: 'Discord', titre: 'Site public', intro: 'Un lien vide masque son bouton.', reglages: [
     { cle: 'discord_entreprise', type: 'lien', public: true, libelle: 'Discord de l’entreprise', aide: 'Bouton « Rejoindre le Discord » de la page d’accueil et lien de la page Confidentialité.' },
   ] },
-  // les prises et fins de service arrivent du bot (événement monitoring.duty, services.ts) : seule la clôture se règle
-  { onglet: 'Discord', titre: 'Membres en service', intro: 'Le bot Discord de l’entreprise envoie au site chaque prise et fin de service lue en jeu : rien d’autre à régler que la clôture automatique.', reglages: [
-    { cle: 'services_cloture_heures', type: 'entier', min: 1, max: 72, defaut: 12, libelle: 'Clôture automatique, en heures',
-      aide: 'Un service resté ouvert (fin jamais annoncée) est fermé après ce délai ; une vraie fin annoncée plus tard la remplace.' },
-  ] },
+  // les prises et fins de service arrivent du bot (événement monitoring.duty, services.ts) ; rien à régler ici — l'état
+  // de l'abonnement s'affiche plus bas (afficherEtats, gestion/parametres.html)
   // Agenda : qui voit, crée et modifie quoi se règle par grade (page Grades) ; ici, seulement où trouver les tickets
   { onglet: 'Discord', titre: 'Agenda : prévenir sur Discord', intro: 'Un événement créé pour quelqu’un d’autre lui est posté sur Discord : dans son ticket s’il en a un, sinon en message privé. Qui voit, crée et modifie les événements se règle dans la fiche de chaque grade.', reglages: [
     { cle: 'agenda_categories_tickets', type: 'ids-discord', discord: 'categorie', libelle: 'Catégories des tickets',

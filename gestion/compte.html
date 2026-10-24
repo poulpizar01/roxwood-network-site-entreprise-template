@@ -27,6 +27,11 @@
       </div>
     </div>
     <div id="zone-message" role="status"></div>
+    <section class="accueil-panneau compte-panneau" aria-labelledby="titre-service" id="section-service" hidden>
+      <h2 class="compta-titre" id="titre-service">Mon service</h2>
+      <p class="champ-aide" id="service-depuis"></p>
+      <button type="button" class="btn btn-fantome" id="terminer-service">Terminer mon service</button>
+    </section>
     <section class="accueil-panneau compte-panneau" aria-labelledby="titre-run" id="section-run" hidden>
       <h2 class="compta-titre" id="titre-run">Mon quota de run</h2>
       <p class="champ-aide" id="run-periode">Unités vendues en jeu cette semaine.</p>
@@ -97,6 +102,20 @@
     gestion.coque('compte').then(afficher).catch(e => gestion.message('zone-message', e.message));
     socle.api('/api/moi/fiche').then(({ fiche, quota, sanctions }) => { afficherFiche(fiche); afficherQuota(quota); afficherSanctions(sanctions); })
       .catch(e => gestion.message('zone-message', e.message));
+    async function chargerMonService() {
+      try {
+        const { enService } = await socle.api('/api/services/en-cours');
+        const moi = enService.find(s => s.moi);
+        $('section-service').hidden = !moi;
+        if (moi) $('service-depuis').textContent = `En service depuis le ${new Date(moi.depuis).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' })}.`;
+      } catch {}
+    }
+    chargerMonService();
+    $('terminer-service').addEventListener('click', async () => {
+      if (!await gestion.confirmer('Votre service s’arrête à l’instant, même si vous êtes toujours en jeu.', 'Terminer votre service ?', 'Terminer mon service')) return;
+      try { await socle.api('/api/services/terminer', { method: 'POST', body: {} }); gestion.notifier('Service terminé ✓'); chargerMonService(); }
+      catch (e) { gestion.message('zone-message', e.message); }
+    });
     $('form-infos').addEventListener('submit', async e => {
       e.preventDefault();
       try {
