@@ -16,8 +16,10 @@
 </head>
 <body class="page-agents">
   <!-- GESTION — contrats passés avec d'autres entreprises du serveur (registre interne, permission « contrats »).
-       Cycle : en négociation → actif → terminé (verse une écriture DOT) ou annulé. Serveur :
-       entreprise/routes/contrats.ts et entreprise/contrats.ts. -->
+       Montant par période (jour, semaine, mois) ; sans date de fin, reconduit tacitement ; terminé le lendemain de sa
+       date de fin. Deux onglets selon la partie (client : il nous paie ; fournisseur : nous le payons), types non
+       partagés entre les deux. Une ligne ouvre la fiche (tiroir) : échéances, facturation par période, bénéficiaires et
+       accès client. Serveur : entreprise/routes/contrats.ts, entreprise/contrats.ts, contrats-periodes.ts. -->
   <main class="admin-contenu">
     <section id="panneau-contrats">
       <div class="entete-admin">
@@ -25,53 +27,166 @@
           <h1 style="margin-bottom:2px;">Contrats</h1>
           <p style="margin:0;font-size:var(--fs-3);">Contrats passés avec d’autres entreprises : réparations, soins, prestations…</p>
         </div>
-        <button type="button" class="btn btn-or" id="bouton-nouveau-contrat"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouveau contrat</button>
+        <div class="contrats-entete-actions">
+          <button type="button" class="btn btn-fantome" id="bouton-types-contrat">Types de contrat</button>
+          <button type="button" class="btn btn-or" id="bouton-nouveau-contrat"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouveau contrat</button>
+        </div>
       </div>
       <div id="zone-message-contrats" role="status"></div>
 
-      <div class="comptes-outils">
+      <div class="compta-sous-onglets" role="tablist" aria-label="Clients ou fournisseurs">
+        <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" data-contrat-partie="client">Clients <span class="contrats-onglet-compte" id="compte-client"></span></button>
+        <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" data-contrat-partie="fournisseur">Fournisseurs <span class="contrats-onglet-compte" id="compte-fournisseur"></span></button>
+      </div>
+
+      <!-- chiffres de l'onglet : place réservée (« — ») avant la réponse, rien ne saute à l'arrivée -->
+      <div class="run-stats contrats-stats">
+        <div class="run-stat">
+          <span class="run-stat-titre">En cours</span>
+          <p class="run-stat-chiffre"><span id="stat-en-cours">—</span><span id="stat-en-cours-libelle">contrats</span></p>
+        </div>
+        <div class="run-stat" id="carte-stat-facturer">
+          <span class="run-stat-titre">À facturer</span>
+          <p class="run-stat-chiffre"><span id="stat-facturer">—</span><span id="stat-facturer-libelle">périodes commencées, pas encore facturées</span></p>
+        </div>
+        <div class="run-stat">
+          <span class="run-stat-titre">Se terminent bientôt</span>
+          <p class="run-stat-chiffre"><span id="stat-fin">—</span><span id="stat-fin-libelle">dans les 7 jours</span></p>
+        </div>
+      </div>
+
+      <div class="comptes-outils contrats-outils">
         <div class="comptes-filtres" role="group" aria-label="Afficher">
-          <button type="button" class="comptes-filtre actif" data-statut-contrat="" aria-pressed="true">Tous</button>
-          <button type="button" class="comptes-filtre" data-statut-contrat="negociation" aria-pressed="false">En négociation</button>
-          <button type="button" class="comptes-filtre" data-statut-contrat="actif" aria-pressed="false">Actifs</button>
+          <button type="button" class="comptes-filtre actif" data-statut-contrat="actif" aria-pressed="true">En cours</button>
           <button type="button" class="comptes-filtre" data-statut-contrat="termine" aria-pressed="false">Terminés</button>
-          <button type="button" class="comptes-filtre" data-statut-contrat="annule" aria-pressed="false">Annulés</button>
+          <button type="button" class="comptes-filtre" data-statut-contrat="" aria-pressed="false">Tous</button>
         </div>
         <div class="comptes-recherche">
           <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
-          <input type="search" id="recherche-contrats" aria-label="Rechercher un contrat par partenaire ou objet" placeholder="Partenaire, objet">
+          <input type="search" id="recherche-contrats" aria-label="Rechercher un contrat par partenaire" placeholder="Partenaire">
         </div>
       </div>
-      <div class="comptes-liste contrats-liste" id="contrats-liste"></div>
+      <div class="agenda-legende cache" id="contrats-legende"></div>
+      <div class="contrats-liste-v2" id="contrats-liste"></div>
     </section>
   </main>
 
-<div class="modale-fond cache" id="modale-contrat">
-  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-contrat-titre">
+<!-- Fiche d'un contrat : tiroir à droite (plein écran sur téléphone). Bandeau et pied fixes, seul le corps défile. -->
+<div class="modale-fond tiroir-fond cache" id="tiroir-contrat" data-echap>
+  <div class="tiroir" role="dialog" aria-modal="true" aria-labelledby="tiroir-contrat-titre">
+    <div class="tiroir-entete">
+      <span class="admin-avatar" id="tiroir-contrat-avatar" aria-hidden="true"></span>
+      <div class="tiroir-identite">
+        <h2 id="tiroir-contrat-titre"></h2>
+        <p class="tiroir-sous-titre" id="tiroir-contrat-sous-titre"></p>
+      </div>
+      <button type="button" id="fermer-tiroir-contrat" aria-label="Fermer">✕</button>
+    </div>
+    <div class="tiroir-corps" id="tiroir-contrat-corps"></div>
+    <div class="tiroir-pied" id="tiroir-contrat-pied"></div>
+  </div>
+</div>
+
+<div class="modale-fond cache modale-pleine" id="modale-contrat" data-echap>
+  <div class="modale modale-pleine modale-contrat" role="dialog" aria-modal="true" aria-labelledby="modale-contrat-titre">
     <div class="modale-entete">
       <h2 id="modale-contrat-titre" class="modale-titre">Nouveau contrat</h2>
       <button type="button" id="fermer-modale-contrat" aria-label="Fermer">✕</button>
     </div>
     <div id="zone-message-modale-contrat"></div>
-    <form id="formulaire-contrat" autocomplete="off">
-      <div class="champ"><label for="contrat-partenaire">Partenaire</label><input type="text" id="contrat-partenaire" maxlength="100" placeholder="Nom de l’autre entreprise" required></div>
-      <div class="champ"><label for="contrat-objet">Objet</label><input type="text" id="contrat-objet" maxlength="200" placeholder="Ex. Réparation du véhicule de service" required></div>
-      <div class="champ-deux">
-        <div class="champ">
-          <label for="contrat-sens">Sens</label>
-          <select id="contrat-sens">
-            <option value="on_paie">On paie (dépense)</option>
-            <option value="on_est_paye">On est payé (recette)</option>
-          </select>
+    <form id="formulaire-contrat" autocomplete="off" novalidate>
+      <fieldset class="contrat-choix">
+        <legend>Avec qui ?</legend>
+        <div class="contrat-choix-options" id="contrat-partie">
+          <label class="contrat-option"><input type="radio" name="contrat-partie" value="client"><span><strong>Un client</strong><small>il nous paie</small></span></label>
+          <label class="contrat-option"><input type="radio" name="contrat-partie" value="fournisseur"><span><strong>Un fournisseur</strong><small>nous le payons</small></span></label>
         </div>
-        <div class="champ"><label for="contrat-montant">Montant</label><div class="champ-dollar"><input type="number" id="contrat-montant" min="1" max="2147483647" step="1" required></div></div>
+      </fieldset>
+      <div class="champ-deux">
+        <div class="champ"><label for="contrat-partenaire">Entreprise</label><input type="text" id="contrat-partenaire" maxlength="100" placeholder="Nom de l’autre entreprise" required></div>
+        <div class="champ"><label for="contrat-type">Type <small>facultatif</small></label><select id="contrat-type"></select></div>
       </div>
+      <fieldset class="contrat-choix">
+        <legend>Rythme de paiement</legend>
+        <div class="contrat-choix-options contrat-choix-options--trois" id="contrat-periodicite">
+          <label class="contrat-option"><input type="radio" name="contrat-periodicite" value="journalier"><span><strong>Par jour</strong></span></label>
+          <label class="contrat-option"><input type="radio" name="contrat-periodicite" value="hebdomadaire"><span><strong>Par semaine</strong></span></label>
+          <label class="contrat-option"><input type="radio" name="contrat-periodicite" value="mensuel"><span><strong>Par mois</strong></span></label>
+        </div>
+        <p class="champ-aide cache" id="contrat-periodicite-verrou">Ce contrat a déjà des factures : son rythme et sa date de début ne changent plus.</p>
+      </fieldset>
+      <div class="champ"><label for="contrat-montant" id="contrat-montant-libelle">Montant par semaine</label><div class="champ-dollar"><input type="number" id="contrat-montant" min="1" max="2147483647" step="1" inputmode="numeric" required></div></div>
+      <div class="champ-deux">
+        <div class="champ"><label for="contrat-debut">Début</label><input type="date" id="contrat-debut" required></div>
+        <div class="champ"><label for="contrat-fin">Fin <small>facultatif</small></label><input type="date" id="contrat-fin"></div>
+      </div>
+      <p class="champ-aide" id="contrat-fin-aide">Sans date de fin, le contrat est reconduit chaque semaine jusqu’à ce que vous y mettiez fin.</p>
       <div class="champ"><label for="contrat-notes">Notes <small>facultatif</small></label><textarea id="contrat-notes" maxlength="500" rows="3"></textarea></div>
-      <div class="fiche-rh-pied">
-        <button type="submit" class="btn btn-or">Enregistrer</button>
-        <button type="button" class="btn btn-fantome" id="contrat-annuler">Annuler</button>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or" id="bouton-enregistrer-contrat">Créer le contrat</button>
+        <button type="button" class="btn btn-fantome" id="annuler-modale-contrat">Annuler</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Mettre fin à un contrat : à la fin de la période en cours (le préavis habituel) ou maintenant -->
+<div class="modale-fond cache" id="modale-fin-contrat" data-echap>
+  <div class="modale" style="max-width:480px;" role="dialog" aria-modal="true" aria-labelledby="modale-fin-contrat-titre">
+    <div class="modale-entete">
+      <h2 id="modale-fin-contrat-titre" class="modale-titre">Mettre fin au contrat</h2>
+      <button type="button" id="fermer-modale-fin-contrat" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-fin-contrat"></div>
+    <form id="formulaire-fin-contrat" novalidate>
+      <fieldset class="contrat-choix">
+        <legend class="visuellement-cache">Quand le contrat prend-il fin ?</legend>
+        <div class="contrat-choix-options contrat-choix-options--colonne">
+          <label class="contrat-option"><input type="radio" name="fin-contrat" value="fin-periode" checked><span><strong id="fin-contrat-periode-titre">À la fin de la période en cours</strong><small id="fin-contrat-periode-aide"></small></span></label>
+          <label class="contrat-option"><input type="radio" name="fin-contrat" value="maintenant"><span><strong>Aujourd’hui</strong><small>La liste du client est figée tout de suite et disparaît de la page Bénéficiaires.</small></span></label>
+        </div>
+      </fieldset>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or">Mettre fin au contrat</button>
+        <button type="button" class="btn btn-fantome" id="annuler-modale-fin-contrat">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Types de contrat : classement libre (nom, couleur), comme les types d'agenda ou de sanction. Non partagés entre
+     clients et fournisseurs : la modale s'ouvre toujours pour l'onglet actif (titre et types affichés ajustés en JS). -->
+<div class="modale-fond cache" id="modale-types-contrat">
+  <div class="modale modale-types" role="dialog" aria-modal="true" aria-labelledby="titre-modale-types-contrat">
+    <div class="modale-entete">
+      <h2 id="titre-modale-types-contrat">Types de contrat</h2>
+      <button id="fermer-modale-types-contrat" type="button" aria-label="Fermer">✕</button>
+    </div>
+    <div class="types-corps">
+      <p class="champ-aide types-intro" id="types-contrat-intro">Les types servent à classer les contrats et à les repérer par couleur.</p>
+      <div class="types-section-entete">
+        <h3 class="types-sous-titre">Types existants</h3>
+        <span class="types-compte" id="types-contrat-compte"></span>
+      </div>
+      <ul class="types-liste" id="types-contrat-liste"></ul>
+    </div>
+    <div class="types-pied">
+      <form class="types-ajout" id="form-type-contrat" novalidate>
+        <h3 class="types-sous-titre">Créer un type</h3>
+        <div class="types-ajout-champs">
+          <div class="champ">
+            <label for="type-contrat-nom">Nom</label>
+            <input type="text" id="type-contrat-nom" maxlength="40" placeholder="Ex. Réparation">
+          </div>
+          <div class="champ types-couleur">
+            <label for="type-contrat-couleur">Couleur</label>
+            <input type="color" id="type-contrat-couleur" aria-label="Couleur du nouveau type">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-or">Ajouter le type</button>
+      </form>
+      <div id="zone-message-types-contrat" role="status"></div>
+    </div>
   </div>
 </div>
 
