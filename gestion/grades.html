@@ -111,7 +111,6 @@
         <div id="zone-message-modale" role="status"></div>
         <div class="grade-pied">
           <button type="button" class="btn btn-fantome grade-supprimer cache" id="supprimer">Supprimer le grade</button>
-          <button type="button" class="btn btn-fantome" id="annuler">Annuler</button>
           <button type="submit" class="btn btn-or" id="enregistrer">Créer le grade</button>
         </div>
       </form>
@@ -387,7 +386,6 @@
 
     $('nouveau').addEventListener('click', () => ouvrir(null));
     $('fermer').addEventListener('click', fermer);
-    $('annuler').addEventListener('click', fermer);
     $('modale-grade').addEventListener('click', e => { if (e.target.id === 'modale-grade') fermer(); });
     document.addEventListener('keydown', e => {
       const modale = $('modale-grade');

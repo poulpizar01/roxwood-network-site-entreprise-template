@@ -9,7 +9,7 @@ const GESTION_NAV = [
   { cle: 'agenda', href: 'agenda.html', label: 'Agenda', icone: 'calendar' },
   { groupe: 'Équipe' },
   { cle: 'quota', href: 'quota.html', label: 'Quota', icone: 'chart', permission: 'rh-voir' },
-  { cle: 'beneficiaires', href: 'beneficiaires.html', label: 'Bénéficiaires', icone: 'carte', permission: 'contrats-beneficiaires' },
+  { cle: 'beneficiaires', href: 'beneficiaires.html', label: 'Clients', icone: 'carte', permission: 'contrats-beneficiaires' },
   { groupe: 'Ressources humaines' },
   { cle: 'rh', href: 'rh.html', label: 'Employés', icone: 'users', permission: 'rh-voir' },
   { cle: 'sanctions', href: 'sanctions.html', label: 'Sanctions', icone: 'alerte', permission: 'rh-voir' },

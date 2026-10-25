@@ -2148,11 +2148,11 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 }
 /* fiche plus courte que la fiche grade (pas de permissions, pas de droits d'agenda) : hauteur au contenu, sinon le peu
    de champs flotte dans un grand vide à l'écran large (reste plein écran sur téléphone, comme toute .modale-grade) ;
-   plus étroite aussi (deux colonnes de paliers, pas la grille de droits d'agenda) ; un seul bouton au pied (pas
-   d'Annuler, la fenêtre se ferme déjà par la croix/le fond/Échap) : il prend toute la largeur plutôt que de flotter
-   à droite comme un groupe de boutons. */
+   plus étroite aussi (deux colonnes de paliers, pas la grille de droits d'agenda). */
 .modale.modale-paie { height: auto; max-width: 760px; }
-.modale-paie .grade-pied .btn-or { flex: 1 1 auto; }
+/* pas d'Annuler au pied d'une fiche, la fenêtre se ferme déjà par la croix/le fond/Échap : Enregistrer prend toute la
+   largeur plutôt que de flotter à droite comme un groupe de boutons (Supprimer, lui, reste épinglé à gauche). */
+.grade-pied .btn-or { flex: 1 1 auto; }
 .modale-grade > .modale-entete { flex: 0 0 auto; margin: 0; padding: 22px 32px 14px; border-bottom: 1px solid var(--border); }
 .modale-grade > form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; }
 .grade-corps {
@@ -2214,7 +2214,9 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 .grade-agenda-ligne > strong { font-weight: 500; }
 .grade-agenda-ligne label.is-disabled { opacity: 0.45; cursor: not-allowed; }
 .grade-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
-.grade-pied .grade-supprimer { margin-right: auto; color: var(--erreur); border-color: var(--erreur); }
+/* action destructive d'un pied de fiche ou de tiroir : ghost rouge, épinglée à gauche quand ses voisins sont à droite */
+.grade-supprimer { color: var(--erreur); border-color: var(--erreur); }
+.grade-pied .grade-supprimer { margin-right: auto; }
 @media (max-width: 760px) {
   .modale-fond#modale-grade, .modale-fond#modale-paie-grade { padding: 0; }
   .modale.modale-grade { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
@@ -2437,7 +2439,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .client-bandeau { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg3); }
 .client-bandeau .ico { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px; fill: none; stroke: currentColor; stroke-width: 1.8; color: var(--text-muted); }
 .client-bandeau p { margin: 0; font-size: var(--fs-3); color: var(--text-muted); }
-.client-bandeau strong { color: var(--text); }
+.client-bandeau strong { display: block; margin-bottom: 2px; color: var(--text); }
 .client-bandeau--proche { border-color: var(--alerte); background: var(--alerte-soft); }
 .client-bandeau--proche .ico { color: var(--alerte); }
 
@@ -2446,7 +2448,16 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .client-modes { display: flex; gap: 2px; padding: 3px; margin: 0 0 14px; border: 1px solid rgba({{couleur_rvb}}, 0.25); border-radius: 999px; background: var(--bg-card); }
 .client-mode { flex: 1 1 0; min-height: 38px; padding: 0 12px; border: 0; border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-3); cursor: pointer; }
 .client-mode.actif { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-.client-etapes { margin: 0 0 12px; padding-left: 20px; font-size: var(--fs-3); color: var(--text-muted); line-height: 1.6; }
+/* trois étapes numérotées (pastille + texte) plutôt qu'une liste à puces : on repère tout de suite qu'il y en a
+   trois et où on en est, la tablette copiée collée ligne par ligne. */
+.client-etapes { list-style: none; counter-reset: client-etape; margin: 0 0 14px; padding: 0; display: grid; gap: 10px; }
+.client-etapes li { counter-increment: client-etape; display: grid; grid-template-columns: 24px 1fr; column-gap: 10px; align-items: baseline; }
+.client-etapes li::before {
+  content: counter(client-etape); grid-row: 1 / 3; width: 24px; height: 24px; border-radius: 999px;
+  background: rgba({{couleur_rvb}}, 0.18); color: var(--accent); font-size: var(--fs-2); font-weight: 700; text-align: center; line-height: 24px;
+}
+.client-etapes strong { font-size: var(--fs-3); color: var(--text); }
+.client-etapes span { grid-column: 2; font-size: var(--fs-2); color: var(--text-muted); line-height: 1.5; }
 .client-etapes kbd { padding: 0 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--bg-card); font: inherit; font-size: var(--fs-2); color: var(--text); white-space: nowrap; }
 .client-ajout textarea { width: 100%; min-height: 96px; resize: vertical; font-family: inherit; }
 .client-ajout .champ { margin-bottom: 10px; }
@@ -2468,6 +2479,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .client-apercu-actions .btn-or { flex: 1 1 200px; min-height: 44px; }
 .client-une { display: flex; align-items: flex-end; gap: 10px; }
 .client-une .champ { flex: 1; margin: 0; }
+.client-une-id { flex: 0 1 130px; }
 .client-une .btn { min-height: 44px; }
 
 .client-liste-entete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
@@ -2623,10 +2635,6 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .tiroir-section h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: var(--fs-4); }
 .tiroir-compte { min-width: 24px; padding: 1px 8px; border-radius: 999px; background: var(--bg3); color: var(--text-muted); font-size: var(--fs-2); font-weight: 500; text-align: center; font-variant-numeric: tabular-nums; }
 .tiroir-section .champ-aide { margin: 10px 0 0; }
-/* bouton texte rouge (Supprimer, Révoquer) : discret, rouge parce qu'il détruit */
-.btn-lien-danger { min-height: 36px; padding: 0 4px; border: 0; background: none; color: var(--erreur); font: inherit; font-size: var(--fs-3); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.btn-lien-danger:hover, .btn-lien-danger:focus-visible { text-decoration-thickness: 2px; }
-
 /* bandeau d'état durable : terminé (neutre, une fin normale n'est pas une erreur) ou fin proche (ambre) */
 .contrat-bandeau { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg3); }
 .contrat-bandeau .ico { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px; color: var(--text-muted); }
@@ -2658,7 +2666,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .contrat-personnes li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); break-inside: avoid; font-size: var(--fs-3); }
 .contrat-personnes small { color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .contrat-acces-etat { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: var(--fs-3); color: var(--text-muted); }
-.contrat-acces-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.contrat-acces-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 10px; }
 .contrat-notes { margin: 0; white-space: pre-line; overflow-wrap: anywhere; color: var(--text-muted); font-size: var(--fs-3); }
 
 /* formulaire : choix en cartes (partie, rythme, fin), le bouton radio aligné sur la première ligne de son libellé */
@@ -2711,10 +2719,13 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .verif-oui p, .verif-non p { margin: 0; color: var(--text); }
 .verif-oui ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; color: var(--text); }
 .verif-oui small { color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.beneficiaires-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: start; }
-.beneficiaires-grille > .comptes-vide { grid-column: 1 / -1; margin: 0; }
-.beneficiaires-squelette { height: 220px; border-radius: var(--radius); background: var(--bg3); }
-.beneficiaires-carte { padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); }
+/* colonnes façon « mur de cartes » plutôt qu'une grille : une carte a autant de lignes que la liste du client (1 à
+   plusieurs dizaines de personnes), une grille classique aurait aligné le haut de chaque rangée sur sa carte la plus
+   haute et laissé un vide sous chaque carte plus courte. */
+.beneficiaires-grille { columns: 340px; column-gap: 14px; }
+.beneficiaires-grille > .comptes-vide { column-span: all; margin: 0; }
+.beneficiaires-squelette { height: 220px; margin: 0 0 14px; border-radius: var(--radius); background: var(--bg3); break-inside: avoid; }
+.beneficiaires-carte { margin: 0 0 14px; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); break-inside: avoid; }
 .beneficiaires-carte-entete { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .beneficiaires-carte-titre { min-width: 0; }
 .beneficiaires-carte-titre h2 { margin: 0; font-size: var(--fs-5); overflow-wrap: anywhere; }

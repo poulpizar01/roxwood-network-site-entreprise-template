@@ -171,7 +171,6 @@ function ouvrirModaleSanction() {
 const fermerModaleSanction = () => { $s('modale-sanction').classList.add('cache'); if (OUVREUR_MODALE_SANCTION?.isConnected) OUVREUR_MODALE_SANCTION.focus(); };
 $s('bouton-nouvelle-sanction').addEventListener('click', ouvrirModaleSanction);
 $s('fermer-modale-sanction').addEventListener('click', fermerModaleSanction);
-$s('annuler-modale-sanction').addEventListener('click', fermerModaleSanction);
 $s('modale-sanction').addEventListener('click', e => { if (e.target.id === 'modale-sanction') fermerModaleSanction(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$s('modale-sanction').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) fermerModaleSanction(); });
 $s('formulaire-sanction').addEventListener('submit', async e => {

@@ -457,7 +457,6 @@ function fermerModaleEcritureDot() {
 }
 document.getElementById("bouton-nouvelle-ecriture").addEventListener("click", ouvrirModaleEcritureDot);
 document.getElementById("fermer-modale-ecriture-dot").addEventListener("click", fermerModaleEcritureDot);
-document.getElementById("annuler-modale-ecriture-dot").addEventListener("click", fermerModaleEcritureDot);
 document.getElementById("modale-ecriture-dot").addEventListener("click", ev => { if (ev.target.id === "modale-ecriture-dot") fermerModaleEcritureDot(); });
 
 document.getElementById("formulaire-ecriture-dot").addEventListener("submit", async ev => {
@@ -675,7 +674,6 @@ function fermerModaleImportTablette() {
 
 document.getElementById("bouton-importer-tablette").addEventListener("click", ouvrirModaleImportTablette);
 document.getElementById("fermer-modale-import-tablette").addEventListener("click", fermerModaleImportTablette);
-document.getElementById("bouton-annuler-import-tablette").addEventListener("click", fermerModaleImportTablette);
 document.getElementById("import-tablette-texte").addEventListener("input", majApercuImportTablette);
 
 document.getElementById("bouton-enregistrer-import-tablette").addEventListener("click", async () => {
