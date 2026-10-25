@@ -360,8 +360,8 @@ window.gestion = {
     return new Promise(resolve => {
       const avant = document.activeElement;
       const fond = document.createElement('div');
-      fond.className = 'modale-fond';
-      fond.innerHTML = `<div class="modale" style="max-width:420px;" role="alertdialog" aria-modal="true" aria-labelledby="confirmer-titre" aria-describedby="confirmer-texte">
+      fond.className = 'modale-fond modale-compacte';
+      fond.innerHTML = `<div class="modale modale-compacte" style="max-width:420px;" role="alertdialog" aria-modal="true" aria-labelledby="confirmer-titre" aria-describedby="confirmer-texte">
         <div class="modale-entete"><h2 class="modale-titre" id="confirmer-titre"></h2></div>
         <p style="margin-bottom:26px;" id="confirmer-texte"></p>
         <div style="display:flex;gap:12px;flex-wrap:wrap;">

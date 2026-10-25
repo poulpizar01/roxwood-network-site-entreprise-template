@@ -372,6 +372,18 @@ label, .eyebrow-label {
   width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; background: var(--bg-card);
   border: 1px solid var(--border-light); border-radius: var(--radius); padding: 30px 32px; box-shadow: var(--shadow);
 }
+/* Plein écran sur téléphone, par défaut pour tout panel : seule source de ce comportement, pour qu'un panel ne
+   puisse plus l'oublier (c'est arrivé : modale-ecriture-dot, modale-fin-contrat, sans aucun traitement mobile).
+   !important : une largeur ou une hauteur posées par un panel précis — classe de variante ou style en ligne — ne
+   doivent jamais passer devant ce composant, quel que soit leur ordre dans le fichier. Un dialogue vraiment
+   compact (confirmation, gestion.confirmer) s'en exempte avec .modale-compacte. */
+@media (max-width: 760px) {
+  .modale-fond:not(.modale-compacte) { padding: 0 !important; }
+  .modale:not(.modale-compacte) {
+    height: 100vh !important; height: 100dvh !important; max-height: none !important; max-width: none !important;
+    border: 0 !important; border-radius: 0 !important;
+  }
+}
 .modale-entete { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 /* actions d'une fenêtre : l'action principale prend la place, « Annuler » à côté ; passent l'une sous l'autre faute de place */
 .modale-boutons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
