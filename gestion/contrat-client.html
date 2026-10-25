@@ -16,7 +16,7 @@
 <body class="page-agents">
   <!-- GESTION — espace public du client (page déclarée 'public' dans entreprise/index.ts) : accès par lien à jeton
        dans l'URL (?jeton=…), sans compte ni session. Le client colle la liste des membres de sa tablette (entreprise
-       ou illégale : aperçu avant ajout, analysé par le serveur) ou ajoute une personne à la fois, retire qui il veut,
+       ou famille : aperçu avant ajout, analysé par le serveur) ou ajoute une personne à la fois, retire qui il veut,
        puis enregistre — seulement les jours réglés dans Paramètres → Contrats, et tant que le contrat est en cours.
        Serveur : entreprise/routes/contrats.ts, entreprise/contrats.ts, contrats-beneficiaires.ts. -->
   <div class="ecran-connexion espace-client">
@@ -44,20 +44,20 @@
           <h2 id="titre-ajout" class="client-sous-titre">Ajouter des personnes</h2>
           <div class="client-modes" role="tablist" aria-label="Façon d’ajouter">
             <button type="button" class="client-mode actif" role="tab" aria-selected="true" aria-controls="mode-coller" id="onglet-coller" data-mode="coller">Depuis la tablette</button>
-            <button type="button" class="client-mode" role="tab" aria-selected="false" aria-controls="mode-une" id="onglet-une" data-mode="une">Une personne</button>
+            <button type="button" class="client-mode" role="tab" aria-selected="false" aria-controls="mode-une" id="onglet-une" data-mode="une">Manuellement</button>
           </div>
 
           <div id="mode-coller" role="tabpanel" aria-labelledby="onglet-coller">
             <ol class="client-etapes">
-              <li>Ouvrez la liste des membres : tablette entreprise <kbd>F6</kbd> → Gestion des employés, ou tablette illégale <kbd>F7</kbd> → Membres.</li>
-              <li>Sélectionnez tout (<kbd>Ctrl</kbd> + <kbd>A</kbd>), copiez (<kbd>Ctrl</kbd> + <kbd>C</kbd>).</li>
-              <li>Collez ici (<kbd>Ctrl</kbd> + <kbd>V</kbd>) : les noms sont repérés tout seuls.</li>
+              <li><strong>Ouvrez la liste des membres</strong><span>Tablette entreprise <kbd>F6</kbd> → Gestion des employés, ou tablette famille <kbd>F7</kbd> → Membres.</span></li>
+              <li><strong>Copiez-la</strong><span>Sélectionnez tout (<kbd>Ctrl</kbd> + <kbd>A</kbd>), puis copiez (<kbd>Ctrl</kbd> + <kbd>C</kbd>).</span></li>
+              <li><strong>Collez-la ici</strong><span>(<kbd>Ctrl</kbd> + <kbd>V</kbd>) : les noms sont repérés tout seuls.</span></li>
             </ol>
             <div class="champ">
               <label for="client-collage" class="visuellement-cache">Liste copiée depuis la tablette</label>
               <textarea id="client-collage" rows="4" placeholder="Collez ici la liste copiée depuis la tablette"></textarea>
             </div>
-            <button type="button" class="btn btn-fantome client-analyser" id="bouton-analyser">Repérer les noms</button>
+            <button type="button" class="btn btn-fantome client-analyser" id="bouton-analyser">Ajouter</button>
 
             <!-- aperçu : rien n'est ajouté avant validation -->
             <div class="client-apercu cache" id="client-apercu" aria-labelledby="client-apercu-titre">
@@ -77,6 +77,10 @@
               <div class="champ">
                 <label for="client-nom">Prénom et nom</label>
                 <input type="text" id="client-nom" maxlength="80" autocomplete="off" placeholder="Ex. Jean Dupont">
+              </div>
+              <div class="champ client-une-id">
+                <label for="client-id">ID Unique <small>facultatif</small></label>
+                <input type="text" id="client-id" maxlength="12" inputmode="numeric" autocomplete="off" placeholder="Ex. 42">
               </div>
               <button type="submit" class="btn btn-or">Ajouter</button>
             </div>

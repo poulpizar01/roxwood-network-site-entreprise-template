@@ -104,17 +104,21 @@ $c('mode-une').addEventListener('submit', e => {
   e.preventDefault();
   gestion.message('zone-message-une', '');
   const nom = $c('client-nom').value.replace(/\s+/g, ' ').trim();
+  const idUnique = $c('client-id').value.trim() || null;
   if (!nom) { gestion.message('zone-message-une', 'Écrivez le prénom et le nom de la personne.'); $c('client-nom').focus(); return; }
   if (!/^[\p{L}][\p{L}\p{M} .'’-]*$/u.test(nom)) { gestion.message('zone-message-une', 'Seuls les lettres, espaces, tirets et apostrophes sont acceptés.'); $c('client-nom').focus(); return; }
+  if (idUnique && !/^\d{1,12}$/.test(idUnique)) { gestion.message('zone-message-une', 'L’ID Unique ne contient que des chiffres, par exemple 42.'); $c('client-id').focus(); return; }
   if (LISTE.length >= MAX) { gestion.message('zone-message-une', `La liste compte déjà ${MAX} personnes : retirez-en une pour en ajouter une autre.`); return; }
-  if (ajouter({ nom, idUnique: null }) === 'deja') { gestion.message('zone-message-une', `${nom} est déjà dans la liste.`); $c('client-nom').select(); return; }
+  const etat = ajouter({ nom, idUnique });
+  if (etat === 'deja') { gestion.message('zone-message-une', `${nom} est déjà dans la liste.`); $c('client-nom').select(); return; }
   $c('client-nom').value = '';
+  $c('client-id').value = '';
   $c('client-nom').focus();
   dessinerListe();
 });
 
 // ---- ajout : collage d'une tablette, aperçu avant ajout ----
-const FORMATS = { entreprise: 'tablette entreprise', illegale: 'tablette illégale', liste: 'liste de noms' };
+const FORMATS = { entreprise: 'tablette entreprise', illegale: 'tablette famille', liste: 'liste de noms' };
 async function analyser() {
   const texte = $c('client-collage').value;
   gestion.message('zone-message-apercu', '');
