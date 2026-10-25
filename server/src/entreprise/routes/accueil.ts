@@ -6,6 +6,7 @@ import { prisma } from '../../socle/db.js';
 import { peut, tousLesGrades } from '../../socle/droits.js';
 import { valide } from '../../socle/http.js';
 import { droitsAgenda, peutValiderAbsences } from '../agenda-regles.js';
+import { nombreContratsAFacturer } from '../contrats.js';
 import { EN_SUSPENS } from '../rh.js';
 import { debutSemaineParis } from '../texte.js';
 
@@ -29,6 +30,11 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
     // mêmes statuts que la catégorie « En attente » de Facturation (facturation.js, CATEGORIES_STATUT)
     const n = await prisma.facture.count({ where: { statutPaiement: { in: ['EN_ATTENTE', 'UNPAID'] }, dateFacture: { gte: debutSemaineParis() } } });
     if (n) taches.push({ cle: 'factures', nombre: n, texte: `${pluriel(n, 'facture')} en attente de paiement cette semaine`, lien: 'facturation.html?statut=attente' });
+  }
+  // facturer un contrat : il faut gérer les contrats (la fiche porte le bouton) et les factures
+  if (peut(c, 'contrats') && peut(c, 'factures')) {
+    const n = await nombreContratsAFacturer();
+    if (n) taches.push({ cle: 'contrats', nombre: n, texte: `${pluriel(n, 'contrat')} à facturer`, lien: 'contrats.html?a-facturer=1' });
   }
   // valider une absence : réservé à qui gère déjà l'agenda de toute l'équipe (peutValiderAbsences, agenda-regles.ts)
   const grades = tousLesGrades().map(g => g.cle);

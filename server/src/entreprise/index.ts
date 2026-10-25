@@ -7,6 +7,7 @@ import { simulerBotsDiscord } from './discord-simulation.js';
 import { planifierNettoyageImages } from './images-retirees.js';
 import { PARAMETRES } from './parametres.js';
 import { planifierPurge } from './purge.js';
+import { planifierFinContrats } from './contrats.js';
 import { recevoirFactureCommande, recevoirFactureMonitoring } from './facture.js';
 import { recevoirCandidature } from './rh.js';
 import { recevoirRun } from './run.js';
@@ -38,6 +39,8 @@ export const entreprise: Entreprise = {
     quota: 'rh-voir',
     dot: 'compta',
     contrats: 'contrats',
+    beneficiaires: 'contrats-beneficiaires',
+    'contrat-client': 'public',   // espace du client lui-même, par lien à jeton (sans compte) — routes/contrats.ts
     facturation: 'factures',
     paie: 'paie',
     parametres: 'parametres',
@@ -119,6 +122,7 @@ export const entreprise: Entreprise = {
     planifierPurge();
     planifierServices();
     planifierVerrouillageDot();
+    planifierFinContrats();
     simulerBotsDiscord();   // développement seulement (DISCORD_BOT_TOKEN=simulation)
   },
 };

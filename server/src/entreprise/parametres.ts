@@ -4,6 +4,7 @@
 //   - publics : liens des pages publiques (GET /api/liens, data-lien) ; un lien vide masque son bouton.
 import type { GroupeParametres } from '../socle/contrat.js';
 import { entierParametre, idsParametre, lienParametre, parametre } from '../socle/parametres.js';
+import { JOURS_SEMAINE } from './texte.js';
 
 // Onglets de la page Paramètres : Discord (Apparence : propre à la page). Les aides parlent à la direction, pas à un
 // administrateur : ni .env ni jargon ; un réglage Discord se choisit par son nom (discord).
@@ -28,7 +29,23 @@ export const PARAMETRES: GroupeParametres[] = [
     { cle: 'facture_objectif_hebdo', type: 'entier', min: 0, max: 1000000, defaut: 0, libelle: 'Objectif hebdomadaire ($)',
       aide: 'Montant que toute l’équipe vise à facturer chaque semaine. 0 = pas d’objectif affiché.' },
   ] },
+  // accès client aux contrats (lien à jeton, gestion/contrat-client.html) : jours où le client peut modifier sa
+  // liste de bénéficiaires (entreprise/contrats.ts, joursAccesContrats)
+  { onglet: 'Contrats', titre: 'Accès client', intro: 'Jours où un client peut modifier la liste des bénéficiaires de son contrat, depuis son lien d’accès.', reglages: [
+    { cle: 'contrats_jours_acces', type: 'texte', libelle: 'Jours autorisés', aide: 'Aucun jour coché : la liste n’est jamais modifiable par le client.',
+      lire: (v) => {
+        const jours = v.split(/[,;]+/).map(j => j.trim().toLowerCase()).filter(Boolean);
+        const invalide = jours.find(j => !(JOURS_SEMAINE as readonly string[]).includes(j));
+        if (invalide) return { erreur: `« ${invalide} » n’est pas un jour de la semaine.` };
+        return [...new Set(jours)].sort((a, b) => JOURS_SEMAINE.indexOf(a as typeof JOURS_SEMAINE[number]) - JOURS_SEMAINE.indexOf(b as typeof JOURS_SEMAINE[number])).join(',');
+      },
+      afficher: (v) => v.split(',').filter(Boolean).map(j => j[0].toUpperCase() + j.slice(1)).join(', '),
+    },
+  ] },
 ];
+
+// jours (minuscules) où un client peut modifier sa liste de bénéficiaires ; vide = jamais
+export const joursAccesContrats = (): string[] => parametre('contrats_jours_acces').split(',').filter(Boolean);
 
 // ---- lecture typée, pour le reste du site ----
 export { parametre };

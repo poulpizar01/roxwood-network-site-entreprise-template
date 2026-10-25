@@ -12,6 +12,7 @@ import {
   CLE_SOLDE_BANCAIRE, TYPES_ECRITURE, construireEtVerrouiller, corrigerLigneTotale, dernierReleve, ecrituresBrutes,
   enregistrerReleve, estVerrouillee, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
 } from '../dot.js';
+import { verifierFacturationContrat } from '../contrats.js';
 import { classementFactures, definirQuotaFacture, quotasFacture } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
 import { caBrutReleve } from '../stats/releve.js';
@@ -212,13 +213,21 @@ compta.post('/api/compta/factures', ...gererFactures, traiter(async (req, res) =
   if (!jourValide(dateFacture)) throw new Refus('La date de la facture est obligatoire.');
   const dateEcheance = String(b.dateEcheance ?? '').trim();
   if (dateEcheance && !jourValide(dateEcheance)) throw new Refus('La date d’échéance est invalide.');
-  const f = await prisma.facture.create({
-    data: {
-      ...ligne, source: 'manuel', statutPaiement: 'EN_ATTENTE', compteId: req.compte.id,
-      dateFacture: versDate(dateFacture),
-      dateEcheance: dateEcheance ? versDate(dateEcheance) : null,
-    },
-  });
+  const data = {
+    ...ligne, source: 'manuel', statutPaiement: 'EN_ATTENTE', compteId: req.compte.id,
+    dateFacture: versDate(dateFacture),
+    dateEcheance: dateEcheance ? versDate(dateEcheance) : null,
+  };
+  // facture d'un contrat client (depuis sa fiche) : les périodes couvertes sont revérifiées, contrat verrouillé, dans
+  // la même transaction que la création (jamais deux factures pour une même période)
+  const contratId = b.contratId === undefined || b.contratId === null ? null : Number(b.contratId);
+  if (contratId !== null && !Number.isInteger(contratId)) throw new Refus('Contrat invalide.');
+  const f = contratId === null
+    ? await prisma.facture.create({ data })
+    : await prisma.$transaction(async tx => {
+      const p = await verifierFacturationContrat(tx, contratId, b.periodeDebut, b.periodeFin);
+      return tx.facture.create({ data: { ...data, contratId, periodeDebut: p.debut, periodeFin: p.fin } });
+    });
   res.status(201).json({ id: f.id });
 }));
 

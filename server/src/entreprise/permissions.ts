@@ -20,6 +20,8 @@ export const permissions: Permission[] = [
   { cle: 'factures', domaine: 'Comptabilité', libelle: 'Gérer les factures', description: 'Consulter et saisir les factures, quelle que soit leur provenance' },
   { cle: 'paie', domaine: 'Comptabilité', libelle: 'Gérer la paie', description: 'Salaire de base et primes par palier de quota (run, facture) par grade, et le simulateur' },
   { cle: 'compta', domaine: 'Comptabilité', libelle: 'Gérer la DOT', description: 'Relevé Tablettes et résumé de la déclaration DOT' },
-  { cle: 'contrats', domaine: 'Comptabilité', libelle: 'Gérer les contrats', description: 'Suivre les contrats passés avec d’autres entreprises, de la négociation à la clôture' },
+  { cle: 'contrats', domaine: 'Comptabilité', libelle: 'Gérer les contrats', description: 'Créer, modifier, facturer et terminer les contrats passés avec d’autres entreprises' },
+  // indépendante de « contrats » : la Direction coche les deux pour voir aussi la page Bénéficiaires
+  { cle: 'contrats-beneficiaires', domaine: 'Comptabilité', libelle: 'Consulter les bénéficiaires', description: 'Vérifier qui est couvert par un contrat client en cours, sans voir les montants ni gérer les contrats' },
   { cle: 'agenda-types', domaine: 'Agenda', libelle: 'Gérer les types d’événements', description: 'Créer, renommer, colorer et supprimer les types qui classent les événements de l’agenda' },
 ];
