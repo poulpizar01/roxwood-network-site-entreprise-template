@@ -28,13 +28,19 @@
         </div>
       </div>
       <div id="zone-message-services" role="status"></div>
-      <ul class="rh-historique" id="rh-services-liste" style="margin-top:14px;"></ul>
+      <div class="comptes-outils">
+        <div class="comptes-recherche">
+          <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+          <input type="search" id="recherche-services" aria-label="Filtrer les prises de service par employé" placeholder="Nom ou prénom">
+        </div>
+      </div>
+      <div class="comptes-liste services-liste" id="rh-services-liste"></div>
     </section>
   </main>
 
 <!-- Corriger une anomalie de service : nouvelles heures de début et de fin (même jour). -->
-<div class="modale-fond cache" id="modale-service">
-  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-service-titre">
+<div class="modale-fond cache modale-pleine" id="modale-service">
+  <div class="modale modale-pleine" role="dialog" aria-modal="true" aria-labelledby="modale-service-titre">
     <div class="modale-entete">
       <h2 id="modale-service-titre" class="modale-titre">Corriger le service</h2>
       <button type="button" id="fermer-modale-service" aria-label="Fermer">✕</button>
@@ -46,9 +52,9 @@
         <div class="champ"><label for="service-heure-debut">Début</label><input type="time" id="service-heure-debut" step="300"></div>
         <div class="champ"><label for="service-heure-fin">Fin</label><input type="time" id="service-heure-fin" step="300"></div>
       </div>
-      <div class="fiche-rh-pied">
-        <button type="submit" class="btn btn-or">Enregistrer</button>
-        <button type="button" class="btn btn-fantome" id="service-annuler">Annuler</button>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or">Enregistrer la correction</button>
+        <button type="button" class="btn btn-fantome" id="annuler-modale-service">Annuler</button>
       </div>
     </form>
   </div>
