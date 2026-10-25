@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Bénéficiaires du contrat — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — espace public du client (page déclarée 'public' dans entreprise/index.ts) : accès par lien à jeton
+       dans l'URL (?jeton=…), sans compte ni session. Le client colle la liste des membres de sa tablette (entreprise
+       ou illégale : aperçu avant ajout, analysé par le serveur) ou ajoute une personne à la fois, retire qui il veut,
+       puis enregistre — seulement les jours réglés dans Paramètres → Contrats, et tant que le contrat est en cours.
+       Serveur : entreprise/routes/contrats.ts, entreprise/contrats.ts, contrats-beneficiaires.ts. -->
+  <div class="ecran-connexion espace-client">
+    <main class="carte-connexion carte-client">
+      <div class="logo-connexion"><img src="/assets/logo.png" alt="" width="64" height="64"><span>{{nom}}</span></div>
+      <h1 class="connexion-titre" id="titre">Bénéficiaires du contrat</h1>
+      <p class="client-contrat" id="client-contrat">Chargement…</p>
+
+      <!-- état durable du contrat ou de la liste (terminé, fin proche, fermée aujourd'hui) -->
+      <div class="client-bandeau cache" id="client-bandeau" role="note">
+        <svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>
+        <p><strong id="client-bandeau-titre"></strong><span id="client-bandeau-texte"></span></p>
+      </div>
+      <!-- textes qui nomment l'entreprise : écrits ici (remplacés par le serveur), jamais dans une chaîne du script -->
+      <template id="texte-contact">Pour renouveler le contrat, contactez {{nom}}.</template>
+      <template id="texte-nouveau-lien">Demandez un nouveau lien à {{nom}}.</template>
+
+      <div id="zone-message"></div>
+
+      <div class="cache" id="zone-contenu">
+        <p class="client-explication" id="client-explication">Les personnes de cette liste sont couvertes par le contrat : nos employés la consultent pour vérifier qui en bénéficie.</p>
+
+        <!-- ajout : collage d'une tablette (aperçu avant ajout) ou une personne à la fois -->
+        <section class="client-ajout cache" id="client-ajout" aria-labelledby="titre-ajout">
+          <h2 id="titre-ajout" class="client-sous-titre">Ajouter des personnes</h2>
+          <div class="client-modes" role="tablist" aria-label="Façon d’ajouter">
+            <button type="button" class="client-mode actif" role="tab" aria-selected="true" aria-controls="mode-coller" id="onglet-coller" data-mode="coller">Depuis la tablette</button>
+            <button type="button" class="client-mode" role="tab" aria-selected="false" aria-controls="mode-une" id="onglet-une" data-mode="une">Une personne</button>
+          </div>
+
+          <div id="mode-coller" role="tabpanel" aria-labelledby="onglet-coller">
+            <ol class="client-etapes">
+              <li>Ouvrez la liste des membres : tablette entreprise <kbd>F6</kbd> → Gestion des employés, ou tablette illégale <kbd>F7</kbd> → Membres.</li>
+              <li>Sélectionnez tout (<kbd>Ctrl</kbd> + <kbd>A</kbd>), copiez (<kbd>Ctrl</kbd> + <kbd>C</kbd>).</li>
+              <li>Collez ici (<kbd>Ctrl</kbd> + <kbd>V</kbd>) : les noms sont repérés tout seuls.</li>
+            </ol>
+            <div class="champ">
+              <label for="client-collage" class="visuellement-cache">Liste copiée depuis la tablette</label>
+              <textarea id="client-collage" rows="4" placeholder="Collez ici la liste copiée depuis la tablette"></textarea>
+            </div>
+            <button type="button" class="btn btn-fantome client-analyser" id="bouton-analyser">Repérer les noms</button>
+
+            <!-- aperçu : rien n'est ajouté avant validation -->
+            <div class="client-apercu cache" id="client-apercu" aria-labelledby="client-apercu-titre">
+              <p class="client-apercu-titre" id="client-apercu-titre"></p>
+              <p class="champ-aide" id="client-apercu-aide"></p>
+              <ul class="client-apercu-liste" id="client-apercu-liste"></ul>
+              <div id="zone-message-apercu"></div>
+              <div class="client-apercu-actions">
+                <button type="button" class="btn btn-or" id="bouton-ajouter-apercu">Ajouter</button>
+                <button type="button" class="btn btn-fantome" id="bouton-annuler-apercu">Annuler</button>
+              </div>
+            </div>
+          </div>
+
+          <form class="cache" id="mode-une" role="tabpanel" aria-labelledby="onglet-une" novalidate>
+            <div class="client-une">
+              <div class="champ">
+                <label for="client-nom">Prénom et nom</label>
+                <input type="text" id="client-nom" maxlength="80" autocomplete="off" placeholder="Ex. Jean Dupont">
+              </div>
+              <button type="submit" class="btn btn-or">Ajouter</button>
+            </div>
+            <div id="zone-message-une"></div>
+          </form>
+        </section>
+
+        <section class="client-liste-section" aria-labelledby="titre-liste">
+          <div class="client-liste-entete">
+            <h2 id="titre-liste" class="client-sous-titre">Liste</h2>
+            <span class="client-compteur" id="client-compteur"></span>
+          </div>
+          <div class="comptes-recherche client-recherche cache" id="client-recherche-zone">
+            <svg class="ico" aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+            <input type="search" id="client-recherche" aria-label="Chercher dans la liste" placeholder="Chercher dans la liste">
+          </div>
+          <ul class="client-liste" id="liste-beneficiaires"></ul>
+        </section>
+
+        <!-- enregistrement : collé en bas pendant qu'on fait défiler, sans bandeau derrière ; visible dès qu'il y a
+             des modifications (on ne peut pas prévenir avant de quitter la page : beforeunload gèle le jeu) -->
+        <div class="client-enregistrer cache" id="client-enregistrer">
+          <span class="client-etat" id="client-etat"></span>
+          <button type="button" class="btn btn-fantome" id="bouton-annuler-modifs">Annuler les modifications</button>
+          <button type="button" class="btn btn-or" id="bouton-enregistrer">Enregistrer la liste</button>
+        </div>
+        <p class="client-enregistree" id="client-enregistree"></p>
+      </div>
+    </main>
+  </div>
+  <script src="/gestion/contrat-client.js"></script>
+</body>
+</html>
