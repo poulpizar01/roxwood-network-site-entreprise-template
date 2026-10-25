@@ -54,6 +54,16 @@ function periodeAgenda() {
   return { debut, fin };
 }
 
+// Période réellement choisie, sans les jours des mois voisins ajoutés à la grille du mois pour la compléter
+// (periodeAgenda() les inclut pour l'affichage du calendrier ; les statistiques des participants ne doivent
+// compter qu'un mois entier, pas deux mois et demi).
+function periodeParticipants() {
+  const vue = agendaVue();
+  if (vue !== "mois") return periodeAgenda();
+  const ref = new Date(AGENDA_REF); ref.setHours(0, 0, 0, 0);
+  return { debut: new Date(ref.getFullYear(), ref.getMonth(), 1), fin: new Date(ref.getFullYear(), ref.getMonth() + 1, 0) };
+}
+
 function joursDeLaPeriode() {
   const { debut, fin } = periodeAgenda();
   const jours = []; const d = new Date(debut);
@@ -590,7 +600,6 @@ function ouvrirModaleEvenement(options) {
   if (destinationFigee) selectDest.disabled = true;
   document.getElementById("evenement-absence").disabled = estEdition || !modifiable;   // ne se change plus après coup
   document.getElementById("bouton-enregistrer-evenement").classList.toggle("cache", !modifiable);
-  document.getElementById("bouton-annuler-evenement").textContent = modifiable ? "Annuler" : "Fermer";
   document.getElementById("bouton-supprimer-evenement").classList.toggle("cache", !estEdition || !modifiable);
   document.getElementById("bouton-approuver-absence").classList.toggle("cache", !(e && e.peut_valider));
   document.getElementById("bouton-refuser-absence").classList.toggle("cache", !(e && e.peut_valider));
@@ -600,7 +609,7 @@ function ouvrirModaleEvenement(options) {
   const premierChamp = document.getElementById("champ-evenement-type").classList.contains("cache")
     ? document.getElementById("evenement-titre")
     : selectType;
-  (modifiable ? premierChamp : document.getElementById("bouton-annuler-evenement")).focus();
+  (modifiable ? premierChamp : document.getElementById("fermer-modale-evenement")).focus();
 }
 
 // sur plusieurs jours, pas d'horaire : l'événement occupe chaque journée entière (voir segmentJour)
@@ -689,7 +698,6 @@ function fermerModaleEvenement() {
 }
 
 document.getElementById("fermer-modale-evenement").addEventListener("click", fermerModaleEvenement);
-document.getElementById("bouton-annuler-evenement").addEventListener("click", fermerModaleEvenement);
 document.getElementById("modale-evenement").addEventListener("click", ev => { if (ev.target.id === "modale-evenement") fermerModaleEvenement(); });
 document.addEventListener("keydown", ev => {
   if (ev.key === "Escape" && !document.getElementById("modale-evenement").classList.contains("cache") && !document.querySelector("[role=alertdialog]")) {
@@ -1029,7 +1037,7 @@ function afficherSyntheseParticipants(s) {
 }
 // « Participation du 20 au 26 oct. » : la période se nomme par ses dates
 function titreParticipants() {
-  const { debut, fin } = periodeAgenda();
+  const { debut, fin } = periodeParticipants();
   const court = d => d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
   document.getElementById("participants-titre").textContent = formaterDateISO(debut) === formaterDateISO(fin)
     ? `Participation du ${court(debut)}` : `Participation du ${court(debut)} au ${court(fin)}`;
@@ -1099,7 +1107,7 @@ document.getElementById("liste-participant-evenements").addEventListener("click"
 async function chargerParticipants() {
   gestion.message("zone-message-participants", "");
   titreParticipants();
-  const { debut, fin } = periodeAgenda();
+  const { debut, fin } = periodeParticipants();
   try {
     const r = await socle.api(`/api/agenda/participants?debut=${formaterDateISO(debut)}&fin=${formaterDateISO(fin)}`);
     EMPLOYES_PARTICIPANTS = r.employes;

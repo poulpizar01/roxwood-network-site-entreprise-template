@@ -89,9 +89,9 @@
             <input type="search" id="participants-recherche" aria-label="Rechercher une personne par son nom ou prénom" placeholder="Nom ou prénom">
           </div>
           <div class="comptes-filtres" role="group" aria-label="Afficher" id="participants-filtres">
-            <button type="button" class="comptes-filtre actif" data-participants-filtre="invites" aria-pressed="true">Invités</button>
-            <button type="button" class="comptes-filtre" data-participants-filtre="absents" aria-pressed="false">Au moins une absence</button>
-            <button type="button" class="comptes-filtre" data-participants-filtre="tous" aria-pressed="false">Tous</button>
+            <button type="button" class="comptes-filtre actif" data-participants-filtre="invites" aria-pressed="true" title="Employés invités à au moins un événement sur cette période, passé ou à venir.">Invités sur la période</button>
+            <button type="button" class="comptes-filtre" data-participants-filtre="absents" aria-pressed="false" title="Parmi les employés invités, ceux qui ont manqué au moins un événement terminé.">Avec une absence</button>
+            <button type="button" class="comptes-filtre" data-participants-filtre="tous" aria-pressed="false" title="Tous les employés actifs, même sans aucune invitation sur cette période.">Tous les employés</button>
           </div>
         </div>
         <div class="carte-table">
@@ -178,7 +178,6 @@
         <button type="button" class="btn btn-danger cache" id="bouton-refuser-absence">Refuser l’absence</button>
         <button type="button" class="btn btn-or cache" id="bouton-approuver-absence">Approuver l’absence</button>
         <button type="button" class="btn btn-fantome evenement-supprimer cache" id="bouton-supprimer-evenement">Supprimer</button>
-        <button type="button" class="btn btn-fantome" id="bouton-annuler-evenement">Annuler</button>
         <button type="submit" class="btn btn-or" id="bouton-enregistrer-evenement">Enregistrer</button>
       </div>
     </form>
