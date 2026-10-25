@@ -30,30 +30,31 @@
       </div>
       <div id="zone-message-sanctions" role="status"></div>
       <div class="agenda-legende cache" id="sanctions-legende"></div>
-      <div class="comptes-recherche" style="margin-top:14px;max-width:320px;">
-        <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
-        <input type="search" id="recherche-sanctions" aria-label="Filtrer les sanctions par employé" placeholder="Filtrer par employé">
+      <div class="comptes-outils">
+        <div class="comptes-recherche">
+          <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+          <input type="search" id="recherche-sanctions" aria-label="Filtrer les sanctions par employé" placeholder="Nom ou prénom">
+        </div>
       </div>
-      <ul class="rh-historique" id="rh-sanctions-liste" style="margin-top:14px;"></ul>
+      <div class="comptes-liste sanctions-liste" id="rh-sanctions-liste"></div>
     </section>
   </main>
 
-<div class="modale-fond cache" id="modale-sanction">
-  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-sanction-titre">
+<div class="modale-fond cache modale-pleine" id="modale-sanction">
+  <div class="modale modale-pleine" role="dialog" aria-modal="true" aria-labelledby="modale-sanction-titre">
     <div class="modale-entete">
       <h2 id="modale-sanction-titre" class="modale-titre">Ajouter une sanction</h2>
       <button type="button" id="fermer-modale-sanction" aria-label="Fermer">✕</button>
     </div>
     <div id="zone-message-modale-sanction"></div>
-    <form id="formulaire-sanction" autocomplete="off">
+    <form id="formulaire-sanction" autocomplete="off" novalidate>
       <div class="champ"><label for="sanction-employe">Employé</label><select id="sanction-employe" required></select></div>
-      <div class="champ-deux">
-        <div class="champ"><label for="sanction-type">Type</label><select id="sanction-type" required></select></div>
-        <div class="champ"><label for="sanction-note">Note (facultative)</label><input type="text" id="sanction-note" maxlength="500"></div>
-      </div>
-      <div class="fiche-rh-pied">
+      <div class="champ"><label for="sanction-type">Type</label><select id="sanction-type" required></select></div>
+      <div class="champ"><label for="sanction-note">Note <small>facultatif</small></label><textarea id="sanction-note" maxlength="500" rows="3" placeholder="Ce qui s’est passé, en une ou deux phrases"></textarea></div>
+      <p class="champ-aide">L’employé verra cette sanction, son type et la note dans Mon compte.</p>
+      <div class="modale-boutons">
         <button type="submit" class="btn btn-or">Ajouter la sanction</button>
-        <button type="button" class="btn btn-fantome" id="sanction-annuler">Annuler</button>
+        <button type="button" class="btn btn-fantome" id="annuler-modale-sanction">Annuler</button>
       </div>
     </form>
   </div>

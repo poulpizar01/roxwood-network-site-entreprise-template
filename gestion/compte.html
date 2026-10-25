@@ -97,7 +97,11 @@
     function afficherSanctions(sanctions) {
       $('section-sanctions').hidden = !sanctions || !sanctions.length;
       if (!sanctions || !sanctions.length) return;
-      $('mes-sanctions').innerHTML = sanctions.map(s => `<li><span>${s.type ? echapper(s.type.nom) : 'Sans type'} — ${new Date(s.creeLe).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' })}${s.note ? ` : ${echapper(s.note)}` : ''}</span></li>`).join('');
+      // même pastille que la page Sanctions : le type et sa couleur, puis la date et la note
+      $('mes-sanctions').innerHTML = sanctions.map(s => `<li>
+        ${s.type ? `<span class="sanction-type" style="--vis:${echapper(s.type.couleur)}">${echapper(s.type.nom)}</span>` : '<span class="sanction-type sanction-type--aucun">Sans type</span>'}
+        <span><strong>${new Date(s.creeLe).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long', year: 'numeric' })}</strong>${s.note ? ` · ${echapper(s.note)}` : ''}</span>
+      </li>`).join('');
     }
     gestion.coque('compte').then(afficher).catch(e => gestion.message('zone-message', e.message));
     socle.api('/api/moi/fiche').then(({ fiche, quota, sanctions }) => { afficherFiche(fiche); afficherQuota(quota); afficherSanctions(sanctions); })
