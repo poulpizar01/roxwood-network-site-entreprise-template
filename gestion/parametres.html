@@ -52,6 +52,17 @@
     const ATTRIBUTS = { lien: 'type="url" placeholder="https://…"', origine: 'type="url" placeholder="https://…"', 'id-discord': 'type="text" inputmode="numeric"', 'ids-discord': 'type="text"' };
     const APPARENCE = 'Images';
     let groupes = [], discord = { configure: false, roles: [], salons: [], categories: [] }, modifie = false;
+    // jours d'accès des contrats (contrats_jours_acces) : sept cases à cocher plutôt qu'un texte « lundi, mercredi »
+    // à taper à la main (même recette que les filtres de statut : groupe de puces, .comptes-filtre/.comptes-filtres)
+    const JOURS_SEMAINE = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+    const JOUR_COURT = { lundi: 'Lun', mardi: 'Mar', mercredi: 'Mer', jeudi: 'Jeu', vendredi: 'Ven', samedi: 'Sam', dimanche: 'Dim' };
+    function joursWidget(r, etiquette) {
+      const actifs = new Set(String(r.valeur || '').toLowerCase().split(/[,;]+/).map(j => j.trim()).filter(Boolean));
+      return `<div class="comptes-filtres jours-semaine" data-jours="${echapper(r.cle)}" role="group" aria-label="${echapper(etiquette || r.libelle)}">
+        <input type="hidden" data-cle="${echapper(r.cle)}" value="${echapper(JOURS_SEMAINE.filter(j => actifs.has(j)).join(','))}">
+        ${JOURS_SEMAINE.map(j => `<button type="button" class="comptes-filtre${actifs.has(j) ? ' actif' : ''}" data-jour="${j}" aria-pressed="${actifs.has(j)}">${JOUR_COURT[j]}</button>`).join('')}
+      </div>`;
+    }
     // onglet demandé par l'adresse (?onglet=Discord, depuis l'Accueil), sinon le premier
     let onglet = new URLSearchParams(location.search).get('onglet');
     const LISTES = { role: () => discord.roles, salon: () => discord.salons, categorie: () => discord.categories };
@@ -73,6 +84,7 @@
     }
     const avecListe = r => r.discord && discord.configure && LISTES[r.discord]().length > 0;
     function saisie(r, etiquette) {
+      if (r.cle === 'contrats_jours_acces') return joursWidget(r, etiquette);
       if (avecListe(r)) return choixDiscord(r, etiquette);
       const attributs = r.type === 'entier' ? `type="number" min="${Number(r.min)}" max="${Number(r.max)}" placeholder="${Number(r.defaut)}"`
         : ATTRIBUTS[r.type] || 'type="text"';
@@ -150,6 +162,16 @@
       redessiner(bloc, r);
     });
     $('panneaux').addEventListener('click', e => {
+      const jour = e.target.closest('[data-jour]');
+      if (jour) {
+        const groupe = jour.closest('[data-jours]'), cache = groupe.querySelector('[data-cle]');
+        const actif = jour.getAttribute('aria-pressed') === 'true';
+        jour.setAttribute('aria-pressed', String(!actif));
+        jour.classList.toggle('actif', !actif);
+        cache.value = JOURS_SEMAINE.filter(j => groupe.querySelector(`[data-jour="${j}"]`).classList.contains('actif')).join(',');
+        marquer(true);
+        return;
+      }
       const b = e.target.closest('[data-retirer]');
       if (!b) return;
       const bloc = b.closest('[data-choix]'), cache = bloc.querySelector('[data-cle]');

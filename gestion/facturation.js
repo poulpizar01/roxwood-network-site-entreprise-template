@@ -600,6 +600,8 @@ async function ouvrirFactureForm(id) {
     catch (e) { gestion.message("zone-message-factures", "Impossible d'ouvrir cette facture : " + e.message); return; }
   }
   FACTURE_COURANTE = f;
+  FACTURE_CONTRAT = null;   // rattachement à un contrat : posé après l'ouverture, seulement depuis la fiche d'un contrat
+  noteContratFacture(f?.contratId ? { debut: f.periodeDebut?.slice(0, 10), fin: f.periodeFin?.slice(0, 10) } : null);
   // un avoir n'est pas modifiable : il reprend tels quels les montants qu'il annule (server/src/entreprise/routes/compta.ts)
   const editable = !f || (f.source === "manuel" && !f.avoirDeId);
 
@@ -683,6 +685,7 @@ document.getElementById("formulaire-facture").addEventListener("submit", async (
     return;
   }
   const corps = {
+    ...(FACTURE_CONTRAT && !FACTURE_COURANTE ? { contratId: FACTURE_CONTRAT.id, periodeDebut: FACTURE_CONTRAT.debut, periodeFin: FACTURE_CONTRAT.fin } : {}),
     dateFacture,
     dateEcheance: document.getElementById("facture-echeance").value,
     numeroFacture: document.getElementById("facture-numero").value.trim(),
@@ -707,4 +710,36 @@ document.getElementById("formulaire-facture").addEventListener("submit", async (
   }
 });
 
-gestion.coque('facturation').then(() => chargerFactures());
+// facture d'un contrat : la note dit quelles périodes elle couvre (le serveur refuse une période déjà facturée)
+let FACTURE_CONTRAT = null;
+const jourCourtFacture = iso => new Date(`${iso}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" });
+function noteContratFacture(p) {
+  const note = document.getElementById("facture-note-contrat");
+  note.textContent = p?.debut ? `Facture de contrat : périodes du ${jourCourtFacture(p.debut)} au ${jourCourtFacture(p.fin)}.` : "";
+  note.classList.toggle("cache", !p?.debut);
+}
+
+// « Facturer » depuis la fiche d'un contrat client (gestion/contrats.js) :
+// ?depuisContrat=<id>&client=…&montant=…&nombre=…&unite=…&debut=AAAA-MM-JJ&fin=AAAA-MM-JJ
+// ouvre directement le formulaire de nouvelle facture, pré-rempli (une ligne : le nombre de périodes au montant du
+// contrat) ; l'utilisateur vérifie et valide. L'URL est nettoyée pour qu'un rechargement ne rouvre pas le formulaire.
+const PARAMS_CONTRAT = new URLSearchParams(location.search);
+const ID_CONTRAT = Number(PARAMS_CONTRAT.get("depuisContrat"));
+if (Number.isInteger(ID_CONTRAT) && ID_CONTRAT > 0) {
+  const client = PARAMS_CONTRAT.get("client") || "", montant = Math.round(Number(PARAMS_CONTRAT.get("montant"))) || 0;
+  const nombre = Math.max(1, Math.round(Number(PARAMS_CONTRAT.get("nombre"))) || 1), unite = PARAMS_CONTRAT.get("unite") || "période";
+  const debut = PARAMS_CONTRAT.get("debut") || "", fin = PARAMS_CONTRAT.get("fin") || "";
+  history.replaceState(null, "", location.pathname);
+  gestion.coque('facturation').then(async () => {
+    await chargerFactures();
+    await ouvrirFactureForm(null);
+    FACTURE_CONTRAT = { id: ID_CONTRAT, debut, fin };
+    noteContratFacture({ debut, fin });
+    document.getElementById("facture-client").value = client;
+    const libelle = `Contrat : ${nombre} ${unite}${nombre > 1 && !unite.endsWith("s") ? "s" : ""}, du ${jourCourtFacture(debut)} au ${jourCourtFacture(fin)}`;
+    remplirArticlesFacture([{ name: libelle.slice(0, 100), unitPrice: montant, quantity: nombre }]);
+    majApercuTotalFacture();
+  });
+} else {
+  gestion.coque('facturation').then(() => chargerFactures());
+}
