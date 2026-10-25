@@ -662,7 +662,7 @@ async function ouvrirFactureForm(id) {
   // rien à enregistrer sur une facture non modifiable (commande Discord, facture en jeu, avoir) : le panel ne sert
   // plus qu'à consulter, pas de bouton Enregistrer
   document.getElementById("bouton-facture-enregistrer").classList.toggle("cache", !editable);
-  document.getElementById("bouton-facture-enregistrer").textContent = !f ? "Ajouter la facture" : "Enregistrer les modifications";
+  document.getElementById("bouton-facture-enregistrer").textContent = !f ? "Ajouter" : "Enregistrer";
   document.getElementById("facture-pied").classList.toggle("cache", !editable && !afficheSupprimer);
 
   document.getElementById("modale-facture-form").classList.remove("cache");

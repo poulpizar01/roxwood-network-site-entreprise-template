@@ -174,11 +174,13 @@
         <p class="champ-aide cache" id="evenement-origine"></p>
       </div>
       <div id="zone-message-modale-evenement" role="status"></div>
-      <div class="evenement-pied">
-        <button type="button" class="btn btn-danger cache" id="bouton-refuser-absence">Refuser l’absence</button>
-        <button type="button" class="btn btn-or cache" id="bouton-approuver-absence">Approuver l’absence</button>
-        <button type="button" class="btn btn-fantome evenement-supprimer cache" id="bouton-supprimer-evenement">Supprimer</button>
-        <button type="submit" class="btn btn-or" id="bouton-enregistrer-evenement">Enregistrer</button>
+      <div class="evenement-pied pied-centre">
+        <button type="button" class="btn btn-fantome evenement-supprimer pied-secondaire cache" id="bouton-supprimer-evenement">Supprimer</button>
+        <div class="pied-principal">
+          <button type="button" class="btn btn-danger cache" id="bouton-refuser-absence">Refuser l’absence</button>
+          <button type="button" class="btn btn-or cache" id="bouton-approuver-absence">Approuver l’absence</button>
+          <button type="submit" class="btn btn-or" id="bouton-enregistrer-evenement">Ajouter</button>
+        </div>
       </div>
     </form>
   </div>
@@ -212,7 +214,7 @@
             <input type="color" id="type-couleur" aria-label="Couleur du nouveau type">
           </div>
         </div>
-        <button type="submit" class="btn btn-or">Ajouter le type</button>
+        <button type="submit" class="btn btn-or">Ajouter</button>
       </form>
       <div id="zone-message-types" role="status"></div>
     </div>

@@ -109,9 +109,9 @@
         </template>
         </div>
         <div id="zone-message-modale" role="status"></div>
-        <div class="grade-pied">
-          <button type="button" class="btn btn-fantome grade-supprimer cache" id="supprimer">Supprimer le grade</button>
-          <button type="submit" class="btn btn-or" id="enregistrer">Créer le grade</button>
+        <div class="grade-pied pied-centre">
+          <button type="button" class="btn btn-fantome grade-supprimer pied-secondaire cache" id="supprimer">Supprimer le grade</button>
+          <button type="submit" class="btn btn-or pied-principal" id="enregistrer">Ajouter</button>
         </div>
       </form>
     </div>
@@ -315,7 +315,7 @@
       nouveauCleMatrice = null;
       gradeCreeEnCours = false;
       $('titre-modale').textContent = g ? g.libelle : 'Nouveau grade';
-      $('enregistrer').textContent = g ? 'Enregistrer' : 'Créer le grade';
+      $('enregistrer').textContent = g ? 'Enregistrer' : 'Ajouter';
       $('supprimer').classList.toggle('cache', !g);
       $('libelle').value = g?.libelle ?? '';
       $('couleur').value = g?.couleur ?? '#c9a55c';

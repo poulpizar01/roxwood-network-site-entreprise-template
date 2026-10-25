@@ -263,8 +263,9 @@
 #evenement-origine { margin: -4px 0 14px; }
 .modale-evenement > form > #zone-message-modale-evenement { flex: 0 0 auto; margin: 0 28px; }
 .modale-evenement > form > #zone-message-modale-evenement:empty { display: none; }
-.evenement-pied { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin: 0 28px; padding: 12px 0 20px; border-top: 1px solid var(--border); background: var(--bg-card); }
-.evenement-pied .evenement-supprimer { margin-right: auto; color: var(--erreur); border-color: var(--erreur); }
+/* centrage de l'action principale (et Approuver/Refuser l'absence) et Supprimer épinglé à gauche : .pied-centre */
+.evenement-pied { flex: 0 0 auto; margin: 0 28px; padding: 12px 0 20px; border-top: 1px solid var(--border); background: var(--bg-card); }
+.evenement-pied .evenement-supprimer { color: var(--erreur); border-color: var(--erreur); }
 #zone-message-modale-evenement .message { margin: 0 0 12px; }
 @media (prefers-reduced-motion: reduce) {
   .agenda-evenement, .agenda-vue-bouton, .agenda-mois-ajouter { transition: none; }
@@ -297,8 +298,7 @@
   .modale-evenement > .modale-entete { padding: 16px 18px 12px; }
   .evenement-corps { padding: 14px 18px 8px; }
   .modale-evenement > form > #zone-message-modale-evenement { margin: 0 18px; }
-  .evenement-pied { flex-wrap: wrap; gap: 8px; margin: 0 18px; padding: 10px 0 14px; }
-  .evenement-pied .btn-or { order: -1; flex-basis: 100%; min-height: 44px; }
+  .evenement-pied { gap: 8px; margin: 0 18px; padding: 10px 0 14px; }
   .evenement-pied .btn { min-height: 44px; }
 }
 

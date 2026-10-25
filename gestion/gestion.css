@@ -379,6 +379,17 @@ label, .eyebrow-label {
 .modale-boutons .btn-or { flex: 1 1 200px; }
 .modale-entete button { background: none; border: none; color: var(--text-faint); font-size: var(--fs-7); line-height: 1; }
 
+/* pied d'un panel avec une action secondaire (destructrice) : épinglée à gauche, à sa largeur naturelle ; l'action
+   principale — et celles qui l'accompagnent, ex. Approuver/Refuser une absence — prend tout le reste et y centre
+   son contenu, donc toute la largeur quand l'action secondaire est absente ou masquée. */
+.pied-centre { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.pied-centre .pied-secondaire { flex: 0 0 auto; }
+.pied-centre .pied-principal { flex: 1 1 200px; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+@media (max-width: 480px) {
+  .pied-centre .pied-secondaire { order: 2; flex-basis: 100%; }
+  .pied-centre .pied-principal { order: 1; flex-basis: 100%; }
+}
+
 .puce {
   display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
   font-size: var(--fs-1); font-weight: 600; text-transform: uppercase;
@@ -734,12 +745,8 @@ label, .eyebrow-label {
    d'un champ (docs/design.md §5) — texte simple à la place d'un input désactivé */
 .champ-valeur { min-height: 48px; display: flex; align-items: center; font-size: var(--fs-4); color: var(--text); }
 /* pied de fenêtre à plusieurs actions (statut, avoir, téléchargement, suppression) : sur une ligne tant que la place
-   le permet (docs/design.md §5) */
-.facture-pied.facture-detail-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+   le permet (docs/design.md §5) ; centrage de l'action principale et Supprimer à gauche : .pied-centre */
 .facture-detail-actions-statut { display: flex; gap: 10px; flex-wrap: wrap; }
-/* l'action qui détruit (Supprimer) reste à l'écart des autres, jamais adjacente à un bouton cliqué par réflexe */
-.facture-detail-supprimer { margin-left: auto; }
-@media (max-width: 480px) { .facture-detail-supprimer { margin-left: 0; } }
 
 /* Factures : nom du client dans le tableau, bouton qui ouvre le détail (plutôt qu'une icône de plus) */
 .table-lien { display: block; width: 100%; padding: 6px 0; margin: -6px 0; border: 0; background: none; color: var(--accent-dark); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
@@ -2150,9 +2157,8 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
    de champs flotte dans un grand vide à l'écran large (reste plein écran sur téléphone, comme toute .modale-grade) ;
    plus étroite aussi (deux colonnes de paliers, pas la grille de droits d'agenda). */
 .modale.modale-paie { height: auto; max-width: 760px; }
-/* pas d'Annuler au pied d'une fiche, la fenêtre se ferme déjà par la croix/le fond/Échap : Enregistrer prend toute la
-   largeur plutôt que de flotter à droite comme un groupe de boutons (Supprimer, lui, reste épinglé à gauche). */
-.grade-pied .btn-or { flex: 1 1 auto; }
+/* pas d'Annuler au pied d'une fiche, la fenêtre se ferme déjà par la croix/le fond/Échap : centrage et Supprimer
+   épinglé à gauche via .pied-centre */
 .modale-grade > .modale-entete { flex: 0 0 auto; margin: 0; padding: 22px 32px 14px; border-bottom: 1px solid var(--border); }
 .modale-grade > form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; }
 .grade-corps {
@@ -2213,10 +2219,9 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 .grade-agenda-ligne:last-child { border-bottom: 0; }
 .grade-agenda-ligne > strong { font-weight: 500; }
 .grade-agenda-ligne label.is-disabled { opacity: 0.45; cursor: not-allowed; }
-.grade-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
-/* action destructive d'un pied de fiche ou de tiroir : ghost rouge, épinglée à gauche quand ses voisins sont à droite */
+.grade-pied { padding-top: 14px; border-top: 1px solid var(--border); }
+/* action destructive d'un pied de fiche ou de tiroir : ghost rouge, épinglée à gauche (.pied-centre) */
 .grade-supprimer { color: var(--erreur); border-color: var(--erreur); }
-.grade-pied .grade-supprimer { margin-right: auto; }
 @media (max-width: 760px) {
   .modale-fond#modale-grade, .modale-fond#modale-paie-grade { padding: 0; }
   .modale.modale-grade { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
@@ -2234,7 +2239,6 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
      s'écrasant à quelques px de large, chaque étiquette renvoyant alors son texte à la ligne mot par mot — d'où le
      chevauchement avec l'effectif et la flèche. flex-basis:100% leur réserve toujours leur propre ligne complète. */
   .grades-tags, .grades-effectif { flex-basis: 100%; }
-  .grade-pied .btn-or { flex-basis: 100%; order: -1; }
 }
 
 /* ---------- Ventes & statistiques (statistiques.html) : chiffres clés, classement de la semaine, lecture du Sheets ---------- */
@@ -2425,7 +2429,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .types-ligne.en-edition .types-actions { justify-content: flex-end; }
 .types-ajout { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 16px; border: 1px solid rgba({{couleur_rvb}}, 0.28); border-radius: 14px; background: linear-gradient(135deg, rgba({{couleur_rvb}}, 0.075), var(--bg3) 55%); }
 .types-ajout-champs { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 12px; align-items: end; }
-.types-ajout .btn { align-self: flex-start; min-height: 42px; }
+.types-ajout .btn { min-height: 42px; }
 .types-vide { padding: 14px 16px; border: 1px dashed rgba({{couleur_rvb}}, 0.24); border-radius: 12px; color: var(--text-faint); font-size: var(--fs-3); line-height: 1.5; }
 #zone-message-types .message, #zone-message-types-sanction .message { margin: 12px 0 0; }
 /* espace client des contrats (gestion/contrat-client.html) : carte large, état du contrat, ajout par collage de

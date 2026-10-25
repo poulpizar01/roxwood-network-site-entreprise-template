@@ -383,7 +383,7 @@ function ouvrirModaleContrat(id) {
   CONTRAT_EN_EDITION = id || null;
   const c = id ? CACHE_CONTRATS.find(x => x.id === id) : null;
   $c('modale-contrat-titre').textContent = c ? `Modifier le contrat avec ${c.partenaire}` : 'Nouveau contrat';
-  $c('bouton-enregistrer-contrat').textContent = c ? 'Enregistrer les modifications' : 'Créer le contrat';
+  $c('bouton-enregistrer-contrat').textContent = c ? 'Enregistrer' : 'Ajouter';
   choisirRadio('contrat-partie', c ? c.partie : FILTRE_PARTIE);
   choisirRadio('contrat-periodicite', c ? c.periodicite : 'hebdomadaire');
   $c('contrat-partenaire').value = c ? c.partenaire : '';

@@ -600,6 +600,7 @@ function ouvrirModaleEvenement(options) {
   if (destinationFigee) selectDest.disabled = true;
   document.getElementById("evenement-absence").disabled = estEdition || !modifiable;   // ne se change plus après coup
   document.getElementById("bouton-enregistrer-evenement").classList.toggle("cache", !modifiable);
+  document.getElementById("bouton-enregistrer-evenement").textContent = estEdition ? "Enregistrer" : "Ajouter";
   document.getElementById("bouton-supprimer-evenement").classList.toggle("cache", !estEdition || !modifiable);
   document.getElementById("bouton-approuver-absence").classList.toggle("cache", !(e && e.peut_valider));
   document.getElementById("bouton-refuser-absence").classList.toggle("cache", !(e && e.peut_valider));
