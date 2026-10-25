@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Bénéficiaires — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — bénéficiaires des contrats clients en cours, en lecture seule (permission « contrats-beneficiaires »,
+       indépendante de « contrats ») : vérifier au comptoir qu'une personne est couverte. Ni montant, ni notes, ni
+       lien d'accès. Un contrat terminé n'y figure plus. Serveur : /api/beneficiaires (entreprise/routes/contrats.ts). -->
+  <main class="admin-contenu">
+    <section>
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Bénéficiaires</h1>
+          <p style="margin:0;font-size:var(--fs-3);">Personnes couvertes par un contrat client en cours.</p>
+        </div>
+      </div>
+      <div id="zone-message-beneficiaires" role="status"></div>
+
+      <div class="verif-personne">
+        <label for="verif-recherche" class="verif-libelle">Vérifier une personne</label>
+        <div class="comptes-recherche verif-champ">
+          <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+          <input type="search" id="verif-recherche" placeholder="Prénom, nom ou ID unique" autocomplete="off" aria-describedby="verif-resultat">
+        </div>
+        <!-- réponse à la saisie de la personne qui cherche (pas une relecture automatique) : annoncée une fois -->
+        <div class="verif-resultat" id="verif-resultat" aria-live="polite"></div>
+      </div>
+
+      <div class="beneficiaires-grille" id="beneficiaires-grille">
+        <div class="squelette beneficiaires-squelette"></div>
+        <div class="squelette beneficiaires-squelette"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/gestion/beneficiaires.js"></script>
+</body>
+</html>
