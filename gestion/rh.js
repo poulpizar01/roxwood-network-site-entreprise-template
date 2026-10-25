@@ -104,6 +104,7 @@ function afficherEmployes() {
     ].join('');
     const actions = [
       `<button type="button" role="menuitem" data-rh-fiche="${e.id}">${gestion.ico('user')} Ouvrir la fiche</button>`,
+      e.enService && aDroitRh('modifier') ? `<button type="button" role="menuitem" data-rh-terminer-service="${e.id}">${gestion.ico('clock')} Terminer son service</button>` : '',
       e.statut === 'actif' && aDroitRh('desactiver') ? `<button type="button" role="menuitem" data-rh-desactiver="${e.id}">${gestion.ico('lock')} Désactiver (départ)</button>` : '',
       e.statut !== 'actif' && aDroitRh('reactiver') ? `<button type="button" role="menuitem" data-rh-reactiver="${e.id}">${gestion.ico('sync')} Réactiver</button>` : '',
     ].join('');
@@ -162,10 +163,11 @@ $rh('rh-liste').addEventListener('click', e => {
     MENU_OUVERT = menu;
     return;
   }
-  const b = e.target.closest('[data-rh-fiche], [data-rh-desactiver], [data-rh-reactiver]');
+  const b = e.target.closest('[data-rh-fiche], [data-rh-terminer-service], [data-rh-desactiver], [data-rh-reactiver]');
   if (!b) return;
   fermerMenuRh(false);
   if (b.dataset.rhFiche) ouvrirFicheEmploye(Number(b.dataset.rhFiche));
+  else if (b.dataset.rhTerminerService) terminerServiceEmploye(Number(b.dataset.rhTerminerService));
   else if (b.dataset.rhDesactiver) changerStatutEmploye(Number(b.dataset.rhDesactiver), 'desactiver');
   else changerStatutEmploye(Number(b.dataset.rhReactiver), 'reactiver');
 });
@@ -225,20 +227,21 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   const enService = id && f.enServiceDepuis;
   $rh('employe-service').classList.toggle('cache', !enService);
   if (enService) $rh('employe-service').textContent = `En service depuis le ${new Date(f.enServiceDepuis).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' })}.`;
-  $rh('employe-terminer-service').classList.toggle('cache', !enService || !peutEcrire);
   $rh('modale-employe').classList.remove('cache');
   (peutEcrire ? $rh('employe-prenom') : $rh('fermer-modale-employe')).focus();
 }
 const fermerModaleEmploye = () => { $rh('modale-employe').classList.add('cache'); if (OUVREUR_FICHE?.isConnected) OUVREUR_FICHE.focus(); };
-$rh('employe-terminer-service').addEventListener('click', async () => {
-  if (!FICHE_OUVERTE) return;
+async function terminerServiceEmploye(id) {
   if (!await gestion.confirmer('Son service s’arrête à l’instant, même s’il ou elle est toujours en jeu.', 'Terminer ce service ?', 'Terminer le service')) return;
-  try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/service/terminer`, { method: 'POST', body: {} }); gestion.notifier('Service terminé ✓'); ouvrirFicheEmploye(FICHE_OUVERTE); }
-  catch (e) { gestion.message('zone-message-modale-employe', e.message); }
-});
+  try {
+    await socle.api(`/api/rh/employes/${id}/service/terminer`, { method: 'POST', body: {} });
+    gestion.notifier('Service terminé ✓');
+    chargerRh();
+    if (FICHE_OUVERTE === id) ouvrirFicheEmploye(id);
+  } catch (e) { gestion.message('zone-message-rh', e.message); }
+}
 $rh('bouton-nouvel-employe').addEventListener('click', () => ouvrirFicheEmploye(null));
 $rh('fermer-modale-employe').addEventListener('click', fermerModaleEmploye);
-$rh('employe-annuler').addEventListener('click', fermerModaleEmploye);
 $rh('modale-employe').addEventListener('click', e => { if (e.target.id === 'modale-employe') fermerModaleEmploye(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$rh('modale-employe').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) fermerModaleEmploye(); });
 

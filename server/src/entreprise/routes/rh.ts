@@ -42,7 +42,9 @@ async function verifierDroitsDuCompte(req: Request, discordId: string | null | u
 
 rh.get('/api/rh/employes', ...voir, async (req, res) => {
   const droits = droitsRh(req.compte);
-  const employes = trierEmployes((await prisma.employe.findMany()).map(e => fichePublique(e, droits)));
+  // en service : pour l'action « Terminer son service » directement depuis la liste, sans ouvrir la fiche
+  const enService = new Set((await prisma.service.findMany({ where: { fin: null }, select: { employeId: true } })).map(s => s.employeId));
+  const employes = trierEmployes((await prisma.employe.findMany()).map(e => ({ ...fichePublique(e, droits), enService: enService.has(e.id) })));
   const actifs = employes.filter(e => e.statut === 'actif');
   const parGrade = new Map<string, number>();
   for (const e of actifs) parGrade.set(e.grade, (parGrade.get(e.grade) ?? 0) + 1);
