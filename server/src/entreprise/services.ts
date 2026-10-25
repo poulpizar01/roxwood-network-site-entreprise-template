@@ -147,6 +147,25 @@ export async function heuresServiceSemaine(iso?: string): Promise<Map<number, nu
   return minutes;
 }
 
+// ---------- temps en service d'une semaine, pour la page Quota ----------
+// minutes : celles de la paie (heuresServiceSemaine, mêmes règles) ; aTraiter : anomalies non traitées de la semaine,
+// dont les heures manquent encore au total ; enService : service ouvert en ce moment (quelle que soit la semaine vue).
+export async function tempsServiceSemaine(iso?: string) {
+  const debut = debutSemaineParis(iso);
+  const fin = new Date(debut);
+  fin.setUTCDate(fin.getUTCDate() + 7);
+  const [minutes, anomalies, ouverts] = await Promise.all([
+    heuresServiceSemaine(iso),
+    prisma.service.groupBy({ by: ['employeId'], where: { employeId: { not: null }, anomalie: { not: '' }, traite: false, debut: { gte: debut, lt: fin } }, _count: { _all: true } }),
+    prisma.service.findMany({ where: { employeId: { not: null }, fin: null }, select: { employeId: true } }),
+  ]);
+  return {
+    minutes,
+    aTraiter: new Map(anomalies.map(a => [a.employeId as number, a._count._all])),
+    enService: new Set(ouverts.map(o => o.employeId as number)),
+  };
+}
+
 // ---------- anomalies à traiter (RH/Services) ----------
 export async function anomaliesATraiter() {
   const lignes = await prisma.service.findMany({ where: { anomalie: { not: '' }, traite: false }, orderBy: { debut: 'desc' }, take: 200 });

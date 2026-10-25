@@ -20,11 +20,12 @@ const creerTriQuota = valeurDe => gestion.creerTri({
     const r = e => (e.quota > 0 ? valeurDe(e) / e.quota : -1);
     return r(a) - r(b) || comparerNomRun(a, b);
   },
+  service: (a, b) => (a.minutesService ?? 0) - (b.minutesService ?? 0) || comparerNomRun(a, b),
 });
 const TRI_RUN = creerTriQuota(e => e.unites);
 const TRI_FACTURE = creerTriQuota(e => e.montant);
 function majEnteteQuota(triId, tri) {
-  $run(triId).innerHTML = `<th data-titre>${tri.bouton('nom', 'Personne')}</th><th>${tri.bouton('grade', 'Grade')}</th><th>${tri.bouton('progression', 'Progression')}</th>`;
+  $run(triId).innerHTML = `<th data-titre>${tri.bouton('nom', 'Personne')}</th><th>${tri.bouton('grade', 'Grade')}</th><th>${tri.bouton('service', 'En service')}</th><th>${tri.bouton('progression', 'Progression')}</th>`;
 }
 function brancherTriQuota(tableId, tri, triId, redessiner) {
   $run(tableId).addEventListener('click', e => {
@@ -81,6 +82,16 @@ function etatEtLargeur(valeur, quota) {
   return { etat, pourcentage, largeur: pourcentage };
 }
 
+// temps en service de la semaine (heures comptées en paie, comme la DOT) : « 12 h 05 », « 45 min »
+const formaterDuree = min => (min >= 60 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}` : `${min} min`);
+// point vert « en service » en ce moment ; anomalies de la semaine à traiter : leurs heures manquent encore au total
+function celluleService(e) {
+  const temps = e.minutesService ? formaterDuree(e.minutesService) : '—';
+  return `<span class="quota-service">
+      ${e.enService ? '<span class="quota-service-point" title="En service en ce moment"><span class="visuellement-cache">En service en ce moment, </span></span>' : ''}<span class="quota-service-temps">${temps}</span>
+    </span>${e.servicesATraiter ? `<a class="quota-service-a-traiter" href="services.html">${e.servicesATraiter} à traiter</a>` : ''}`;
+}
+
 function ligneQuota(e, moiId, valeur, quota, formatValeur, formatSeuil) {
   const { etat, pourcentage, largeur } = etatEtLargeur(valeur, quota);
   const progression = quota > 0
@@ -92,6 +103,7 @@ function ligneQuota(e, moiId, valeur, quota, formatValeur, formatSeuil) {
       <span class="run-nom">${echapper(e.nomComplet)}${e.id === moiId ? '<span class="admin-service-vous">vous</span>' : ''}</span>
     </span></td>
     <td>${echapper(e.gradeLibelle)}</td>
+    <td class="quota-cellule-service">${celluleService(e)}</td>
     <td class="run-cellule-progression">${progression}</td>
   </tr>`;
 }
@@ -112,7 +124,7 @@ function afficherTableauQuota(corpsId, rechercheId, groupeFiltreId, tri, liste, 
     : 'Tout le monde a atteint son quota (ou n’en a pas).';
   corps.innerHTML = filtree.length
     ? filtree.map(e => ligneQuota(e, moiId, valeurDe(e), e.quota, formatValeur, formatSeuil)).join('')
-    : `<tr><td colspan="3" class="run-vide">${videMessage}</td></tr>`;
+    : `<tr><td colspan="4" class="run-vide">${videMessage}</td></tr>`;
 }
 
 const afficherQuotaRun = moiId => afficherTableauQuota('run-quota-corps', 'run-recherche', 'run', TRI_RUN, EMPLOYES_RUN, moiId,
@@ -191,7 +203,15 @@ async function chargerRun() {
     majNavSemaine();
     MOI_ID_RUN = run.moiId;
     EMPLOYES_RUN = run.employes || [];
-    EMPLOYES_FACTURE = factures.employes || [];
+    // le temps en service vient avec le run (/api/run) : on le reporte sur les lignes de facturation, même personne
+    const serviceDe = new Map(EMPLOYES_RUN.map(e => [e.id, e]));
+    EMPLOYES_FACTURE = (factures.employes || []).map(e => {
+      const s = serviceDe.get(e.id);
+      return { ...e, minutesService: s?.minutesService ?? 0, servicesATraiter: s?.servicesATraiter ?? 0, enService: !!s?.enService };
+    });
+    $run('service-stat-total').textContent = run.minutesServiceEquipe ? formaterDuree(run.minutesServiceEquipe) : '0 h';
+    const enService = EMPLOYES_RUN.filter(e => e.enService).length;
+    $run('service-stat-libelle').textContent = `en service cette semaine${enService ? `, ${enService} en ce moment` : ''}`;
     $run('run-stat-total').textContent = String(run.uniteSemaine);
     $run('run-stat-libelle').textContent = run.objectifEquipe > 0
       ? `/ ${run.objectifEquipe} unités visées cette semaine`
