@@ -373,6 +373,10 @@ label, .eyebrow-label {
   border: 1px solid var(--border-light); border-radius: var(--radius); padding: 30px 32px; box-shadow: var(--shadow);
 }
 .modale-entete { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+/* actions d'une fenêtre : l'action principale prend la place, « Annuler » à côté ; passent l'une sous l'autre faute de place */
+.modale-boutons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.modale-boutons .btn { min-height: 44px; }
+.modale-boutons .btn-or { flex: 1 1 200px; }
 .modale-entete button { background: none; border: none; color: var(--text-faint); font-size: var(--fs-7); line-height: 1; }
 
 .puce {
@@ -458,16 +462,13 @@ label, .eyebrow-label {
 .d8-select-enveloppe select {
   appearance: none; -webkit-appearance: none; -moz-appearance: none;
   padding-right: 34px; cursor: pointer;
-  /* Habillage de base (fond sombre, bordure dorée) pour tout <select> passé à
-     ameliorerSelect() : les selects déjà placés dans un .champ récupèrent leur
-     propre style plus précis (déclaré plus haut dans ce fichier, donc écrasé
-     ici à égalité de spécificité) — mais un select "tout seul" comme #select-semaine-dot
-     n'avait autrement AUCUN habillage de couleur : seule la petite flèche
-     native disparaissait (appearance: none), le reste restait blanc/natif. */
-  width: 100%; min-height: 44px; padding-left: 14px;
-  border-radius: var(--radius-sm); border: 1px solid rgba({{couleur_rvb}}, 0.28);
+  /* Même habillage que .champ input/textarea (composant commun à tous les champs du projet) : un select amélioré par
+     ameliorerSelect() ne doit pas se distinguer visuellement d'un champ texte voisin. Reprend ici (et pas l'inverse)
+     car cette règle gagne à égalité de spécificité sur .champ select, déclarée plus haut dans ce fichier. */
+  width: 100%; min-height: 48px; padding-left: 14px;
+  border-radius: var(--radius-sm); border: 1px solid var(--contour-champ);
   background: var(--bg2); color: var(--text);
-  font-size: var(--fs-3); font-family: inherit;
+  font-size: var(--fs-4); font-family: inherit;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 .d8-select-enveloppe select:focus {
@@ -488,7 +489,7 @@ label, .eyebrow-label {
 .d8-select-recherche-champ:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
 .d8-select-options { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: 6px; }
 .d8-select-option {
-  padding: 9px 12px; border-radius: 6px; font-size: var(--fs-3); cursor: pointer; color: var(--text);
+  padding: 6px 12px; border-radius: 6px; font-size: var(--fs-3); cursor: pointer; color: var(--text);
   display: flex; align-items: center; gap: 9px; white-space: normal; transition: background var(--transition);
 }
 .d8-select-option:hover { background: rgba({{couleur_rvb}}, 0.16); }
@@ -1564,7 +1565,28 @@ main.admin-contenu:focus { outline: none; }
 
 /* liste : colonnes triables, nom cliquable (= ouvrir la fiche) */
 .rh-liste .comptes-entete, .rh-liste .comptes-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(110px, 0.8fr) minmax(130px, 1fr) 100px 44px; }
-.contrats-liste .comptes-entete, .contrats-liste .comptes-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(100px, 0.8fr) minmax(100px, 0.9fr) 110px 44px; }
+.contrats-liste .comptes-entete, .contrats-liste .comptes-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(130px, 0.9fr) minmax(130px, 0.9fr) 44px; }
+.sanctions-liste .comptes-entete, .sanctions-liste .comptes-ligne { grid-template-columns: minmax(0, 1.4fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(0, 1.2fr) minmax(110px, 0.8fr) 44px; }
+/* Sanctions : type en pastille teintée de sa couleur (bordure et point : pas de color-mix, navigateur en jeu ancien),
+   rang dans l'historique de l'employé sous son nom, rouge dès la 3e */
+.sanction-type {
+  display: inline-flex; align-items: center; gap: 7px; max-width: 100%; min-height: 26px; padding: 2px 10px 2px 8px;
+  border: 1px solid var(--vis); border-radius: 999px; color: var(--text); font-size: var(--fs-2); font-weight: 500; line-height: 1.2;
+}
+.sanction-type::before { content: ""; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--vis); }
+.sanction-type--aucun { --vis: var(--border); color: var(--text-faint); font-weight: 400; }
+.rh-historique .sanction-type { flex: 0 0 auto; color: var(--text); }   /* Mon compte : la pastille garde sa taille dans la liste */
+.rh-historique .sanction-type--aucun { color: var(--text-faint); }
+.sanction-rang { display: block; margin-top: 2px; font-size: var(--fs-2); color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.sanction-rang--alerte { color: var(--erreur); font-weight: 500; }
+.sanction-filtre {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 10px; border: 1px solid transparent; border-radius: 999px;
+  background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-2); cursor: pointer;
+}
+.sanction-filtre::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--vis); }
+.sanction-filtre:hover, .sanction-filtre:focus-visible { color: var(--text); border-color: var(--border); }
+.sanction-filtre.actif { color: var(--text); border-color: var(--vis); font-weight: 500; }
+.services-liste .comptes-entete, .services-liste .comptes-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(130px, 0.9fr) minmax(130px, 0.9fr) minmax(0, 1.1fr) 44px; }
 /* en-tête dont les cellules sont des boutons de tri (.tri-colonne, déjà en hauteur) plutôt que du texte simple :
    moins de padding que .comptes-entete, sinon la ligne double de hauteur. Partagé par RH et Comptes & accès. */
 .entete-tri { padding-top: 4px; padding-bottom: 4px; }
@@ -1623,6 +1645,7 @@ main.admin-contenu:focus { outline: none; }
 .run-stat-chiffre { margin: 0; display: flex; align-items: baseline; gap: 10px; }
 #run-stat-total, #facture-stat-total { white-space: nowrap; }   /* « 6 200 $ » ne se coupe pas avant le symbole */
 .run-stat-chiffre span:first-child { font-family: var(--display); font-size: var(--fs-9); line-height: 1; color: var(--accent-dark); font-variant-numeric: tabular-nums; }
+.run-stat-chiffre span:first-child { white-space: nowrap; }   /* un montant ne se coupe jamais (« 29 000 $ ») */
 .run-stat-chiffre span:last-child { color: var(--text-muted); font-size: var(--fs-3); }
 .run-stat .run-barre { margin: 0; }
 
@@ -1861,12 +1884,24 @@ main.admin-contenu:focus { outline: none; }
   .rh-liste .comptes-ligne > .rh-cellule:nth-of-type(3) { grid-area: arrivee; }
   .rh-liste .comptes-ligne > .comptes-menu { grid-area: menu; }
   .rh-cellule::before { content: attr(data-libelle); display: block; font-size: var(--fs-1); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); }
-  .contrats-liste .comptes-ligne { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; grid-template-areas: "id id menu" "sens montant montant" "date date date"; }
+  .contrats-liste .comptes-ligne { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; grid-template-areas: "id id menu" "montant montant montant" "date date date"; }
   .contrats-liste .comptes-ligne > .comptes-identite { grid-area: id; }
-  .contrats-liste .comptes-ligne > .rh-cellule:nth-of-type(1) { grid-area: sens; }
-  .contrats-liste .comptes-ligne > .rh-cellule:nth-of-type(2) { grid-area: montant; }
-  .contrats-liste .comptes-ligne > .rh-cellule:nth-of-type(3) { grid-area: date; }
+  .contrats-liste .comptes-ligne > .rh-cellule:nth-of-type(1) { grid-area: montant; }
+  .contrats-liste .comptes-ligne > .rh-cellule:nth-of-type(2) { grid-area: date; }
   .contrats-liste .comptes-ligne > .comptes-menu { grid-area: menu; }
+  .sanctions-liste .comptes-ligne { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; grid-template-areas: "id id menu" "type date date" "note note note" "auteur auteur auteur"; }
+  .sanctions-liste .comptes-ligne > .comptes-identite { grid-area: id; }
+  .sanctions-liste .comptes-ligne > .rh-cellule:nth-of-type(1) { grid-area: type; }
+  .sanctions-liste .comptes-ligne > .rh-cellule:nth-of-type(2) { grid-area: date; }
+  .sanctions-liste .comptes-ligne > .rh-cellule:nth-of-type(3) { grid-area: note; }
+  .sanctions-liste .comptes-ligne > .rh-cellule:nth-of-type(4) { grid-area: auteur; }
+  .sanctions-liste .comptes-ligne > .comptes-menu { grid-area: menu; }
+  .services-liste .comptes-ligne { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; grid-template-areas: "id id menu" "debut fin fin" "cause cause cause"; }
+  .services-liste .comptes-ligne > .comptes-identite { grid-area: id; }
+  .services-liste .comptes-ligne > .rh-cellule:nth-of-type(1) { grid-area: debut; }
+  .services-liste .comptes-ligne > .rh-cellule:nth-of-type(2) { grid-area: fin; }
+  .services-liste .comptes-ligne > .rh-cellule:nth-of-type(3) { grid-area: cause; }
+  .services-liste .comptes-ligne > .comptes-menu { grid-area: menu; }
   .rh-outils-droite { flex-basis: 100%; justify-content: stretch; }
   .rh-outils-droite .d8-select-enveloppe { width: 100%; }
   .modale-fond#modale-employe, .modale-fond#modale-import-tablette, .modale-fond#modale-profil { padding: 0; }
@@ -2326,6 +2361,25 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .admin-barre-laterale .admin-compte-lien.actif { background: var(--accent-soft); }
 .admin-barre-laterale .admin-compte-lien.actif strong { color: var(--accent-dark); }
 
+/* Fenêtre à un seul formulaire (Sanctions, Prises de service, Contrats, Accès client…) : composant partagé — bandeau
+   fixe, corps défilant, pleine largeur de l'écran sur téléphone (comme les fenêtres plus longues : modale-grade,
+   modale-fiche-rh…) — pour qu'une nouvelle fenêtre de ce type obtienne la règle sans la redéfinir. Sélecteurs
+   structurels (.modale-entete, form ou .modale-corps), jamais un identifiant par page : ajouter la classe suffit.
+   Vu : modale-sanction, modale-service, modale-contrat et modale-acces-contrat sans ce traitement — sur téléphone,
+   un formulaire un peu long faisait défiler la croix de fermeture hors de l'écran avec les champs. */
+.modale.modale-pleine { display: flex; flex-direction: column; max-width: 480px; max-height: 88vh; padding: 0; overflow: hidden; }
+.modale-pleine > .modale-entete { flex: 0 0 auto; margin: 0; padding: 20px 26px 14px; border-bottom: 1px solid var(--border); }
+.modale-pleine > .modale-entete + div { flex: 0 0 auto; margin: 12px 26px 0; }
+.modale-pleine > .modale-entete + div:empty { display: none; }
+.modale-pleine > form, .modale-pleine > .modale-corps { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px 26px 24px; }
+@media (max-width: 760px) {
+  .modale-fond.modale-pleine { padding: 0; }
+  .modale.modale-pleine { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
+  .modale-pleine > .modale-entete { padding: 16px 18px 12px; }
+  .modale-pleine > .modale-entete + div { margin: 12px 18px 0; }
+  .modale-pleine > form, .modale-pleine > .modale-corps { padding: 14px 18px 20px; }
+}
+
 /* Classement par types (nom, couleur) : légende et fenêtre de gestion. Partagé par l'agenda (types d'événements) et
    Ressources humaines (types de sanction) : une seule fois ici plutôt que dupliqué par page. */
 .agenda-legende { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin: 0 0 14px; font-size: var(--fs-2); color: var(--text-faint); flex-shrink: 0; }
@@ -2372,6 +2426,78 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .types-ajout .btn { align-self: flex-start; min-height: 42px; }
 .types-vide { padding: 14px 16px; border: 1px dashed rgba({{couleur_rvb}}, 0.24); border-radius: 12px; color: var(--text-faint); font-size: var(--fs-3); line-height: 1.5; }
 #zone-message-types .message, #zone-message-types-sanction .message { margin: 12px 0 0; }
+/* espace client des contrats (gestion/contrat-client.html) : carte large, état du contrat, ajout par collage de
+   tablette (aperçu avant ajout) ou une personne à la fois, liste, enregistrement collé en bas */
+.espace-client { align-items: flex-start; padding-top: 48px; padding-bottom: 48px; }
+.carte-client { max-width: 620px; padding: 32px 32px 28px; }
+.client-contrat { margin: 0 0 18px; text-align: center; color: var(--text-muted); }
+.client-contrat strong { color: var(--text); }
+.client-explication { margin: 0 0 20px; font-size: var(--fs-3); color: var(--text-muted); text-align: center; }
+.client-sous-titre { margin: 0; font-size: var(--fs-5); }
+.client-bandeau { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg3); }
+.client-bandeau .ico { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px; fill: none; stroke: currentColor; stroke-width: 1.8; color: var(--text-muted); }
+.client-bandeau p { margin: 0; font-size: var(--fs-3); color: var(--text-muted); }
+.client-bandeau strong { color: var(--text); }
+.client-bandeau--proche { border-color: var(--alerte); background: var(--alerte-soft); }
+.client-bandeau--proche .ico { color: var(--alerte); }
+
+.client-ajout { margin: 0 0 24px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); }
+.client-ajout .client-sous-titre { margin-bottom: 12px; }
+.client-modes { display: flex; gap: 2px; padding: 3px; margin: 0 0 14px; border: 1px solid rgba({{couleur_rvb}}, 0.25); border-radius: 999px; background: var(--bg-card); }
+.client-mode { flex: 1 1 0; min-height: 38px; padding: 0 12px; border: 0; border-radius: 999px; background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-3); cursor: pointer; }
+.client-mode.actif { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.client-etapes { margin: 0 0 12px; padding-left: 20px; font-size: var(--fs-3); color: var(--text-muted); line-height: 1.6; }
+.client-etapes kbd { padding: 0 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--bg-card); font: inherit; font-size: var(--fs-2); color: var(--text); white-space: nowrap; }
+.client-ajout textarea { width: 100%; min-height: 96px; resize: vertical; font-family: inherit; }
+.client-ajout .champ { margin-bottom: 10px; }
+.client-analyser { min-height: 40px; }
+.client-apercu { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.client-apercu-titre { margin: 0; font-weight: 600; color: var(--text); }
+.client-apercu-titre::first-letter { text-transform: uppercase; }
+.client-apercu .champ-aide { margin: 4px 0 10px; }
+.client-apercu-liste { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 2px 14px; }
+.client-apercu-ligne { display: flex; align-items: flex-start; gap: 10px; min-height: 36px; padding: 6px 4px; border-radius: 6px; cursor: pointer; font-size: var(--fs-3); }
+.client-apercu-ligne:hover { background: var(--bg3); }
+.client-apercu-ligne input { flex: 0 0 auto; margin: 3px 0 0; accent-color: var(--accent); }
+.client-apercu-ligne span { flex: 1; min-width: 0; color: var(--text); }
+.client-apercu-ligne small { color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.client-apercu-ligne em { font-style: normal; font-size: var(--fs-2); color: var(--text-faint); white-space: nowrap; }
+.client-apercu-ligne--deja { cursor: default; }
+.client-apercu-ligne--deja span { color: var(--text-faint); }
+.client-apercu-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.client-apercu-actions .btn-or { flex: 1 1 200px; min-height: 44px; }
+.client-une { display: flex; align-items: flex-end; gap: 10px; }
+.client-une .champ { flex: 1; margin: 0; }
+.client-une .btn { min-height: 44px; }
+
+.client-liste-entete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.client-compteur { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: var(--fs-3); }
+.client-compteur--plein { color: var(--erreur); font-weight: 600; }
+.client-recherche { max-width: none; margin: 0 0 10px; }
+.client-liste { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+.client-personne { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 2px 4px 4px; border-bottom: 1px solid var(--border); }
+.client-personne-nom { flex: 1; min-width: 0; color: var(--text); overflow-wrap: anywhere; }
+.client-personne .puce { margin-left: 6px; height: 20px; }
+.client-personne small { color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.client-retirer { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 0; border-radius: 8px; background: none; color: var(--text-faint); cursor: pointer; }
+.client-retirer .ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.client-retirer:hover, .client-retirer:focus-visible { color: var(--erreur); background: var(--erreur-soft); }
+.client-vide { padding: 16px 4px; color: var(--text-faint); font-size: var(--fs-3); }
+/* enregistrement collé en bas de l'écran, sans bandeau : seuls l'état et les boutons ont un fond */
+.client-enregistrer { position: sticky; bottom: 16px; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 18px; pointer-events: none; }
+.client-enregistrer > * { pointer-events: auto; }
+.client-etat { flex: 1 1 120px; padding: 8px 12px; border-radius: 999px; background: var(--alerte-soft); color: var(--alerte); font-size: var(--fs-3); font-weight: 500; box-shadow: 0 0 0 4px var(--bg-card); }
+.client-enregistrer .btn { min-height: 44px; box-shadow: var(--shadow); }
+.client-enregistrer .btn-fantome { background: var(--bg-card); }
+.client-enregistree:empty { display: none; }
+.client-enregistree { margin: 14px 0 0; font-size: var(--fs-3); color: var(--ok); }
+@media (max-width: 520px) {
+  .espace-client { padding: 0; }
+  .carte-client { max-width: none; min-height: 100vh; border: 0; border-radius: 0; padding: 24px 16px; }
+  .client-une { flex-direction: column; align-items: stretch; }
+  .client-enregistrer .btn { flex: 1 1 auto; }
+}
+
 @media (max-width: 520px) {
   .modale.modale-types { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
   .modale-types > .modale-entete { padding: 16px 18px 12px; }
@@ -2402,3 +2528,196 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
   .agenda-legende .agenda-pastille { min-height: 38px; }
   .agenda-legende .agenda-legende-gerer { min-height: 46px; font-size: var(--fs-3); }
 }
+
+/* ---------- Quota : temps en service de la semaine (heures comptées en paie), colonne des deux tableaux ---------- */
+.run-stats .run-stat:nth-child(3) { animation-delay: 120ms; }
+.quota-cellule-service { white-space: nowrap; }
+.quota-service { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; color: var(--text); }
+/* en service en ce moment : point vert qui pulse doucement (rien pour prefers-reduced-motion) */
+.quota-service-point { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+@media (prefers-reduced-motion: no-preference) { .quota-service-point { animation: quota-pouls 2.4s ease-in-out infinite backwards; } }
+@keyframes quota-pouls { 50% { box-shadow: 0 0 0 5px var(--ok-soft); } }
+.quota-service-a-traiter { display: block; margin-top: 2px; font-size: var(--fs-2); color: var(--erreur); text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- Contrats (contrats.html) : liste cliquable, fiche en tiroir, formulaire ---------- */
+.contrats-entete-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.contrats-onglet-compte { margin-left: 4px; font-variant-numeric: tabular-nums; opacity: 0.75; }
+.contrats-onglet-compte:empty { display: none; }
+.contrats-stats { margin: 16px 0 6px; }
+.contrats-outils { margin-top: 18px; }
+/* filtre par type (Contrats, Sanctions) : pastille de couleur, contour à la couleur du type une fois choisi */
+.filtre-type {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 10px; border: 1px solid transparent; border-radius: 999px;
+  background: none; color: var(--text-muted); font: inherit; font-size: var(--fs-2); cursor: pointer;
+}
+.filtre-type::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--vis); }
+.filtre-type:hover, .filtre-type:focus-visible { color: var(--text); border-color: var(--border); }
+.filtre-type.actif { color: var(--text); border-color: var(--vis); font-weight: 500; }
+
+/* liste : chaque contrat est un bouton qui ouvre sa fiche. Colonnes : partenaire, montant, échéance, facturation (clients) */
+.contrats-liste-v2 { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); overflow: hidden; }
+.contrats-liste-v2 > .comptes-vide { margin: 0; padding: 22px 18px; }
+.contrat-entete, .contrat-ligne {
+  display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(130px, 0.8fr) minmax(150px, 1fr) minmax(130px, 0.8fr) 20px;
+  align-items: center; gap: 16px; padding: 12px 18px;
+}
+.contrats-liste-v2--fournisseurs .contrat-entete, .contrats-liste-v2--fournisseurs .contrat-ligne { grid-template-columns: minmax(0, 1.5fr) minmax(130px, 0.8fr) minmax(150px, 1fr) 20px; }
+.contrat-entete { padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); font-size: var(--fs-2); color: var(--text-faint); }
+.contrat-ligne {
+  width: 100%; border: 0; border-bottom: 1px solid var(--border); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  transition: background var(--transition);
+}
+.contrat-ligne:last-child { border-bottom: 0; }
+.contrat-ligne:hover, .contrat-ligne:focus-visible { background: rgba({{couleur_rvb}}, 0.07); outline: none; }
+.contrat-ligne:focus-visible { box-shadow: inset 3px 0 0 var(--accent); }
+.contrat-ligne--terminee .contrat-ligne-identite, .contrat-ligne--terminee .contrat-montant { opacity: 0.6; }
+.contrat-ligne-identite { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.contrat-ligne-nom { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.contrat-ligne-nom strong { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.contrat-ligne-nom .sanction-type { min-height: 22px; padding: 0 8px 0 6px; }
+.contrat-ligne-cellule { min-width: 0; font-size: var(--fs-3); color: var(--text-muted); }
+.contrat-montant { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.contrat-ligne-cellule small { color: var(--text-faint); white-space: nowrap; }
+.contrat-echeance--proche { color: var(--alerte); font-weight: 500; }
+.contrat-echeance--terminee { color: var(--text-faint); }
+.contrat-facturation { color: var(--text-faint); }
+.contrat-facturation--a-faire { color: var(--erreur); font-weight: 500; }
+.contrat-facturation--ok { color: var(--ok); }
+.contrat-ligne-chevron { display: flex; justify-content: flex-end; color: var(--text-faint); }
+.contrat-ligne:hover .contrat-ligne-chevron { color: var(--accent-dark); }
+/* place mesurée trop étroite (contrats.js) : une carte par contrat, l'identité en tête, les cellules dessous */
+.contrats-liste-v2--etroite .contrat-entete { display: none; }
+.contrats-liste-v2--etroite .contrat-ligne, .contrats-liste-v2--etroite.contrats-liste-v2--fournisseurs .contrat-ligne {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 20px; grid-template-areas: "id id chevron" "montant echeance echeance" "facturation facturation facturation"; gap: 10px 14px;
+}
+.contrats-liste-v2--etroite .contrat-ligne-identite { grid-area: id; }
+.contrats-liste-v2--etroite .contrat-ligne-chevron { grid-area: chevron; }
+.contrats-liste-v2--etroite .contrat-ligne-cellule:nth-of-type(2) { grid-area: montant; }
+.contrats-liste-v2--etroite .contrat-ligne-cellule:nth-of-type(3) { grid-area: echeance; }
+.contrats-liste-v2--etroite .contrat-ligne-cellule:nth-of-type(4) { grid-area: facturation; }
+.contrats-liste-v2--etroite .contrat-ligne-cellule::before { content: attr(data-libelle); display: block; font-size: var(--fs-1); color: var(--text-faint); }
+
+/* ---- tiroir (fiche d'un contrat) : à droite, toute la hauteur ; bandeau et pied fixes, seul le corps défile ---- */
+.tiroir-fond { justify-content: flex-end; align-items: stretch; padding: 0; }
+.tiroir {
+  display: flex; flex-direction: column; width: min(560px, 100%); height: 100%; max-height: 100vh; background: var(--bg-card);
+  border-left: 1px solid var(--border-light); box-shadow: var(--shadow);
+}
+@media (prefers-reduced-motion: no-preference) { .tiroir { animation: tiroir-entree 220ms ease-out backwards; } }
+@keyframes tiroir-entree { from { transform: translateX(40px); opacity: 0; } }
+.tiroir-entete { flex: 0 0 auto; display: flex; align-items: flex-start; gap: 14px; padding: 22px 24px 16px; border-bottom: 1px solid var(--border); }
+.tiroir-entete .admin-avatar { flex: 0 0 auto; width: 44px; height: 44px; font-size: var(--fs-4); }
+.tiroir-identite { flex: 1; min-width: 0; }
+.tiroir-identite h2 { margin: 0; font-size: var(--fs-7); overflow-wrap: anywhere; }
+.tiroir-sous-titre { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 8px 0 0; font-size: var(--fs-2); color: var(--text-muted); }
+.tiroir-entete > button { flex: 0 0 auto; min-width: 36px; min-height: 36px; border: 0; background: none; color: var(--text-faint); font-size: var(--fs-7); line-height: 1; cursor: pointer; }
+.tiroir-entete > button:hover, .tiroir-entete > button:focus-visible { color: var(--text); }
+.tiroir-corps {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 18px 24px 24px; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent;
+}
+.tiroir-pied { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 24px 18px; border-top: 1px solid var(--border); background: var(--bg-card); }
+.tiroir-pied .btn { min-height: 44px; }
+.tiroir-pied-espace { flex: 1 1 0; }
+.tiroir-section { padding: 18px 0 0; margin-top: 18px; border-top: 1px solid var(--border); }
+.tiroir-section h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: var(--fs-4); }
+.tiroir-compte { min-width: 24px; padding: 1px 8px; border-radius: 999px; background: var(--bg3); color: var(--text-muted); font-size: var(--fs-2); font-weight: 500; text-align: center; font-variant-numeric: tabular-nums; }
+.tiroir-section .champ-aide { margin: 10px 0 0; }
+/* bouton texte rouge (Supprimer, Révoquer) : discret, rouge parce qu'il détruit */
+.btn-lien-danger { min-height: 36px; padding: 0 4px; border: 0; background: none; color: var(--erreur); font: inherit; font-size: var(--fs-3); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.btn-lien-danger:hover, .btn-lien-danger:focus-visible { text-decoration-thickness: 2px; }
+
+/* bandeau d'état durable : terminé (neutre, une fin normale n'est pas une erreur) ou fin proche (ambre) */
+.contrat-bandeau { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg3); }
+.contrat-bandeau .ico { flex: 0 0 auto; width: 20px; height: 20px; margin-top: 1px; color: var(--text-muted); }
+.contrat-bandeau p { margin: 0; font-size: var(--fs-3); color: var(--text-muted); }
+.contrat-bandeau strong { display: block; color: var(--text); }
+.contrat-bandeau--proche { border-color: var(--alerte); background: var(--alerte-soft); }
+.contrat-bandeau--proche .ico { color: var(--alerte); }
+
+.contrat-resume { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 20px; margin: 16px 0 0; }
+.contrat-resume dt { font-size: var(--fs-2); color: var(--text-faint); }
+.contrat-resume dd { margin: 2px 0 0; color: var(--text); }
+.contrat-resume .contrat-montant { font-family: var(--display); font-size: var(--fs-6); color: var(--accent-dark); }
+
+/* frise de facturation : une pastille par période, de la plus ancienne à la prochaine ; l'état se lit au texte et à la teinte */
+.contrat-frise { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.contrat-periode { display: flex; flex-direction: column; gap: 2px; padding: 7px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border); font-size: var(--fs-2); }
+.contrat-periode-dates { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.contrat-periode-etat { color: var(--text-muted); }
+.contrat-periode--payee { border-color: transparent; background: var(--ok-soft); }
+.contrat-periode--payee .contrat-periode-etat { color: var(--ok); }
+.contrat-periode--facturee { border-color: transparent; background: var(--alerte-soft); }
+.contrat-periode--facturee .contrat-periode-etat { color: var(--alerte); }
+.contrat-periode--a-facturer { border-color: var(--erreur); border-style: dashed; }
+.contrat-periode--a-facturer .contrat-periode-etat { color: var(--erreur); font-weight: 500; }
+.contrat-periode--a-venir { opacity: 0.65; border-style: dashed; }
+.contrat-facturer { width: 100%; min-height: 44px; margin-top: 14px; }
+
+.contrat-personnes { list-style: none; margin: 0; padding: 0; columns: 2 200px; column-gap: 20px; }
+.contrat-personnes li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); break-inside: avoid; font-size: var(--fs-3); }
+.contrat-personnes small { color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.contrat-acces-etat { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: var(--fs-3); color: var(--text-muted); }
+.contrat-acces-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.contrat-notes { margin: 0; white-space: pre-line; overflow-wrap: anywhere; color: var(--text-muted); font-size: var(--fs-3); }
+
+/* formulaire : choix en cartes (partie, rythme, fin), le bouton radio aligné sur la première ligne de son libellé */
+.modale.modale-contrat { max-width: 620px; }
+/* fenêtre longue : les boutons restent au bas de la fenêtre pendant que les champs défilent */
+.modale-contrat .modale-boutons { position: sticky; bottom: -24px; z-index: 1; margin: 18px -26px -24px; padding: 14px 26px 20px; border-top: 1px solid var(--border); background: var(--bg-card); }
+.contrat-choix { margin: 0 0 16px; padding: 0; border: 0; min-width: 0; }
+.contrat-choix legend { margin-bottom: 8px; padding: 0; font-size: var(--fs-3); font-weight: 500; color: var(--text); }
+.contrat-choix-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.contrat-choix-options--trois { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.contrat-choix-options--colonne { grid-template-columns: minmax(0, 1fr); }
+.contrat-option, .client-apercu-ligne { text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--text); }   /* label : pas le style des étiquettes de champ */
+.contrat-option { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+.contrat-option input { flex: 0 0 auto; margin: 3px 0 0; accent-color: var(--accent); }
+.contrat-option span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.contrat-option strong { font-weight: 500; color: var(--text); font-size: var(--fs-3); }
+.contrat-option small { color: var(--text-muted); font-size: var(--fs-2); }
+.contrat-option:hover { border-color: rgba({{couleur_rvb}}, 0.5); }
+.contrat-option input:checked + span strong { color: var(--accent-dark); font-weight: 600; }
+.contrat-option input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.contrat-option input:disabled + span { opacity: 0.55; }
+.contrat-option input:disabled { cursor: not-allowed; }
+
+@media (max-width: 760px) {
+  .tiroir { width: 100%; border-left: 0; }
+  .tiroir-entete, .tiroir-corps, .tiroir-pied { padding-left: 16px; padding-right: 16px; }
+  .tiroir-pied .btn { flex: 1 1 auto; }   /* les deux actions se partagent la ligne, Supprimer reste au-dessus à gauche */
+  .tiroir-pied-espace { flex-basis: 100%; height: 0; }
+  .contrat-choix-options--trois { grid-template-columns: minmax(0, 1fr); }
+  .modale-contrat .modale-boutons { bottom: -20px; margin: 18px -18px -20px; padding: 12px 18px 16px; }
+}
+@media (max-width: 480px) {
+  .contrat-choix-options { grid-template-columns: minmax(0, 1fr); }
+  .modale-contrat .champ-deux { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- Bénéficiaires (beneficiaires.html) : vérifier une personne, puis une carte par entreprise cliente ---------- */
+.verif-personne { margin: 0 0 22px; padding: 18px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); }
+.verif-libelle { display: block; margin-bottom: 8px; text-transform: none; letter-spacing: 0; font-weight: 500; font-family: var(--display); font-size: var(--fs-5); color: var(--text); }
+.verif-champ { max-width: none; margin: 0; }
+.verif-champ input { min-height: 48px; font-size: var(--fs-4); }
+.verif-resultat:empty { display: none; }
+.verif-resultat { margin-top: 14px; }
+.verif-oui, .verif-non { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius-sm); font-size: var(--fs-3); }
+.verif-oui { background: var(--ok-soft); }
+.verif-non { background: var(--erreur-soft); }
+.verif-oui > .ico, .verif-non > .ico { flex: 0 0 auto; width: 22px; height: 22px; }
+.verif-oui > .ico { color: var(--ok); }
+.verif-non > .ico { color: var(--erreur); }
+.verif-oui p, .verif-non p { margin: 0; color: var(--text); }
+.verif-oui ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; color: var(--text); }
+.verif-oui small { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.beneficiaires-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: start; }
+.beneficiaires-grille > .comptes-vide { grid-column: 1 / -1; margin: 0; }
+.beneficiaires-squelette { height: 220px; border-radius: var(--radius); background: var(--bg3); }
+.beneficiaires-carte { padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); }
+.beneficiaires-carte-entete { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.beneficiaires-carte-titre { min-width: 0; }
+.beneficiaires-carte-titre h2 { margin: 0; font-size: var(--fs-5); overflow-wrap: anywhere; }
+.beneficiaires-carte-titre p { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 4px 0 0; font-size: var(--fs-2); color: var(--text-muted); }
+.beneficiaires-carte .contrat-personnes { columns: 2 210px; }
+.contrat-personnes li.beneficiaire-trouve { margin: 0 -6px; padding-left: 6px; padding-right: 6px; border-radius: 4px; background: rgba({{couleur_rvb}}, 0.16); font-weight: 600; }

@@ -9,9 +9,10 @@ const GESTION_NAV = [
   { cle: 'agenda', href: 'agenda.html', label: 'Agenda', icone: 'calendar' },
   { groupe: 'Équipe' },
   { cle: 'quota', href: 'quota.html', label: 'Quota', icone: 'chart', permission: 'rh-voir' },
+  { cle: 'beneficiaires', href: 'beneficiaires.html', label: 'Bénéficiaires', icone: 'carte', permission: 'contrats-beneficiaires' },
   { groupe: 'Ressources humaines' },
   { cle: 'rh', href: 'rh.html', label: 'Employés', icone: 'users', permission: 'rh-voir' },
-  { cle: 'sanctions', href: 'sanctions.html', label: 'Sanctions', icone: 'hammer', permission: 'rh-voir' },
+  { cle: 'sanctions', href: 'sanctions.html', label: 'Sanctions', icone: 'alerte', permission: 'rh-voir' },
   { cle: 'services', href: 'services.html', label: 'Prises de service', icone: 'clock', permission: 'rh-voir' },
   { groupe: 'Comptabilité' },
   { cle: 'facturation', href: 'facturation.html', label: 'Facturation', icone: 'receipt', permission: 'factures' },
@@ -39,8 +40,11 @@ const GESTION_ICONES = {
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
-  hammer: '<rect x="12.5" y="2.5" width="7" height="5" rx="1.2" transform="rotate(45 16 5)"/><path d="M13 8L3 18"/>',
+  // avertissement (Sanctions) : triangle sur toute la hauteur de la grille, lisible à 18 px
+  alerte: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',
+  // carte de membre (Bénéficiaires) : qui est couvert par un contrat
+  carte: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 16.5c.6-1.6 2-2.5 3.5-2.5s2.9.9 3.5 2.5M15 10h3M15 13.5h3"/>',
   sheet: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 9h16M4 15h16M10 9v12"/>',
   sync: '<path d="M21 12a9 9 0 0 1-15.5 6.3M3 12a9 9 0 0 1 15.5-6.3"/><path d="M18 2v4h-4M6 22v-4h4"/>',
   map: '<path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
@@ -631,8 +635,10 @@ function ameliorerSelect(select, pastille, portee, rechercher) {
   }
   function positionner() {
     const r = select.getBoundingClientRect();
-    const hauteurEstimee = Math.min(select.options.length * 38 + 12 + (rechercher ? 50 : 0), 260);
-    const largeur = Math.max(Math.round(r.width), 230);
+    const hauteurEstimee = Math.min(select.options.length * 30 + 12 + (rechercher ? 50 : 0), 260);
+    // toujours la largeur exacte du champ : jamais plus large (la liste débordait visiblement de son déclencheur
+    // sur un select resserré, ex. « Partie » dans une grille à deux colonnes)
+    const largeur = Math.round(r.width);
     // jamais de débordement à droite : sinon la liste s'aligne sur le bord droit du champ (largeur sans la barre de
     // défilement : innerWidth la compte, et la liste passait dessous)
     const visible = document.documentElement.clientWidth;
