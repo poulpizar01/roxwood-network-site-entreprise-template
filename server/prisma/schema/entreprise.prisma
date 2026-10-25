@@ -150,12 +150,19 @@ model Facture {
   avoirDeId      Int?     @unique @map("avoir_de_id") // renseigné seulement sur l'avoir : facture d'origine qu'il annule (montants négatifs) ; unique pour empêcher deux avoirs sur la même facture en cas de double requête simultanée
   dateFacture    DateTime  @default(now()) @map("date_facture") @db.Timestamptz(6) // date de la facture : reçue du bot, prise à défaut sur l'instant de réception ; saisie à la main sinon ; modifiable ensuite dans les deux cas (routes/compta.ts) — jamais réécrite par un renvoi du bot (changement de statut)
   dateEcheance   DateTime? @map("date_echeance") @db.Timestamptz(6) // date d'échéance de paiement, facultative : jamais fournie par le bot, saisie et modifiée depuis la gestion
+  // facture d'un contrat client (saisie depuis sa fiche) : périodes entières couvertes, bornes incluses
+  // (contrats-periodes.ts) ; contrat supprimé : la facture reste, détachée
+  contratId      Int?      @map("contrat_id")
+  contrat        Contrat?  @relation(fields: [contratId], references: [id], onDelete: SetNull)
+  periodeDebut   DateTime? @map("periode_debut") @db.Date
+  periodeFin     DateTime? @map("periode_fin") @db.Date
   majLe          DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@index([source, dateFacture(sort: Desc)])
   @@index([dateFacture(sort: Desc)])
   @@index([compteId])
   @@index([employeId])
+  @@index([contratId])
   @@map("factures")
 }
 
@@ -413,21 +420,61 @@ model TypeSanction {
 }
 
 // Contrat passé avec une autre entreprise du serveur (réparations, soins…) : registre interne, sans échange avec
-// son site (chaque entreprise a sa propre base, pas d'API commune entre sites). Permission dédiée « contrats ».
-// Cycle : en négociation → actif → terminé (verse une écriture DOT, dot.ts) ou annulé.
+// son site (chaque entreprise a sa propre base, pas d'API commune entre sites), et sans lien avec la DOT. Permission
+// dédiée « contrats ». Montant par période (periodicite) ; sans date de fin, reconduit tacitement à chaque période ;
+// avec une date de fin (incluse), terminé seul le lendemain (contrats.ts, termineAujourdhui et la tâche quotidienne).
 model Contrat {
-  id         Int      @id @default(autoincrement())
-  partenaire String   @db.VarChar(100)
-  objet      String   @db.VarChar(200)
-  sens       String   @db.VarChar(12) // on_paie | on_est_paye
-  montant    Int
-  statut     String   @default("negociation") @db.VarChar(12) // negociation | actif | termine | annule
-  notes      String   @default("") @db.VarChar(500)
-  compteId   Int?     @map("compte_id") // auteur ; null si compte supprimé
-  ecritureId Int?     @map("ecriture_id") // écriture DOT versée à la clôture : jamais recréée si déjà présente
-  creeLe     DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
-  majLe      DateTime @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+  id         Int          @id @default(autoincrement())
+  partenaire String       @db.VarChar(100)
+  partie     String       @db.VarChar(12) // client | fournisseur — même vocabulaire que TypeContrat.partie
+  montant    Int          // par période
+  periodicite String      @default("hebdomadaire") @db.VarChar(12) // journalier | hebdomadaire | mensuel
+  dateDebut  DateTime     @map("date_debut") @db.Date // les périodes se calent dessus (facturation, contrats-periodes.ts)
+  dateFin    DateTime?    @map("date_fin") @db.Date // dernier jour couvert ; null = reconduction tacite
+  statut     String       @default("actif") @db.VarChar(12) // actif | termine (posé par la tâche quotidienne, revérifié à chaque lecture)
+  typeId     Int?         @map("type_id") // type supprimé : « Sans type » (onDelete: SetNull), comme les types d'agenda
+  type       TypeContrat? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  notes      String       @default("") @db.VarChar(500)
+  // accès client (lien à jeton, sans compte) : remplit ses bénéficiaires lui-même, seulement les jours réglés dans
+  // Paramètres (parametres.ts, contrats_jours_acces). null = accès non donné. jamais renvoyé en liste (routes/contrats.ts).
+  jeton         String?  @unique @db.VarChar(64)
+  beneficiaires ContratBeneficiaire[]
+  beneficiairesMajLe DateTime? @map("beneficiaires_maj_le") @db.Timestamptz(6) // dernière liste enregistrée
+  factures   Facture[]
+  compteId   Int?         @map("compte_id") // auteur ; null si compte supprimé
+  creeLe     DateTime     @default(now()) @map("cree_le") @db.Timestamptz(6)
+  majLe      DateTime     @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@index([statut, creeLe(sort: Desc)])
   @@map("contrats")
+}
+
+// Personne couverte par un contrat client (page Bénéficiaires, espace client). idUnique : l'« ID unique » du jeu, lu
+// sur un collage de tablette (contrats-tablette.ts) ; vide pour une saisie à la main. Deux homonymes se distinguent
+// par lui ; sans lui, un même nom n'apparaît qu'une fois.
+model ContratBeneficiaire {
+  id        Int     @id @default(autoincrement())
+  contratId Int     @map("contrat_id")
+  contrat   Contrat @relation(fields: [contratId], references: [id], onDelete: Cascade)
+  nom       String  @db.VarChar(80)
+  idUnique  String? @map("id_unique") @db.VarChar(12)
+
+  @@unique([contratId, idUnique])
+  @@index([contratId])
+  @@map("contrat_beneficiaires")
+}
+
+// Types de contrat : simple classement (nom, couleur), géré avec la permission « contrats » — comme les types
+// d'agenda (agenda-regles.ts) ou de sanction (sanctions.ts). Non partagés entre clients et fournisseurs (champ
+// « partie », logiquement différents) : un nom peut se répéter d'une partie à l'autre, pas au sein de la même.
+model TypeContrat {
+  id       Int        @id @default(autoincrement())
+  nom      String     @db.VarChar(40)
+  couleur  String     @db.VarChar(7)
+  partie   String     @db.VarChar(12) // client | fournisseur — qui est l'autre partie du contrat
+  position Int        @default(0)
+  contrats Contrat[]
+
+  @@unique([nom, partie])
+  @@map("types_contrat")
 }
