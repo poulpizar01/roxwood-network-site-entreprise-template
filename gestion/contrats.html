@@ -124,7 +124,6 @@
       <div class="champ"><label for="contrat-notes">Notes <small>facultatif</small></label><textarea id="contrat-notes" maxlength="500" rows="3"></textarea></div>
       <div class="modale-boutons">
         <button type="submit" class="btn btn-or" id="bouton-enregistrer-contrat">Créer le contrat</button>
-        <button type="button" class="btn btn-fantome" id="annuler-modale-contrat">Annuler</button>
       </div>
     </form>
   </div>
@@ -143,12 +142,11 @@
         <legend class="visuellement-cache">Quand le contrat prend-il fin ?</legend>
         <div class="contrat-choix-options contrat-choix-options--colonne">
           <label class="contrat-option"><input type="radio" name="fin-contrat" value="fin-periode" checked><span><strong id="fin-contrat-periode-titre">À la fin de la période en cours</strong><small id="fin-contrat-periode-aide"></small></span></label>
-          <label class="contrat-option"><input type="radio" name="fin-contrat" value="maintenant"><span><strong>Aujourd’hui</strong><small>La liste du client est figée tout de suite et disparaît de la page Bénéficiaires.</small></span></label>
+          <label class="contrat-option"><input type="radio" name="fin-contrat" value="maintenant"><span><strong>Aujourd’hui</strong><small>La liste du client est figée tout de suite et disparaît de la page Clients.</small></span></label>
         </div>
       </fieldset>
       <div class="modale-boutons">
         <button type="submit" class="btn btn-or">Mettre fin au contrat</button>
-        <button type="button" class="btn btn-fantome" id="annuler-modale-fin-contrat">Annuler</button>
       </div>
     </form>
   </div>

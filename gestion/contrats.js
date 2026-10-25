@@ -171,7 +171,7 @@ const contratOuvert = () => CACHE_CONTRATS.find(c => c.id === CONTRAT_OUVERT);
 function bandeauEtat(c) {
   if (c.statut === 'termine') return `<div class="contrat-bandeau contrat-bandeau--termine" role="note">
     <svg class="ico" aria-hidden="true"><use href="#ico-clock"></use></svg>
-    <p><strong>${c.dateFin ? `Terminé le ${jourFr(c.dateFin)}` : 'Contrat terminé'}</strong>${c.partie === 'client' ? 'La liste du client est figée et n’apparaît plus dans Bénéficiaires.' : ''}</p></div>`;
+    <p><strong>${c.dateFin ? `Terminé le ${jourFr(c.dateFin)}` : 'Contrat terminé'}</strong>${c.partie === 'client' ? 'La liste du client est figée et n’apparaît plus dans Clients.' : ''}</p></div>`;
   if (c.finProche) return `<div class="contrat-bandeau contrat-bandeau--proche" role="note">
     <svg class="ico" aria-hidden="true"><use href="#ico-alerte"></use></svg>
     <p><strong>Se termine le ${jourFr(c.dateFin)}</strong>Pour le prolonger, modifiez sa date de fin ou retirez-la.</p></div>`;
@@ -227,10 +227,12 @@ function sectionAcces(c) {
       ? `<p class="contrat-acces-etat"><span class="puce puce-ok">Lien actif</span>${c.statut === 'termine' ? ' en lecture seule pour le client' : ''}</p>
          <div class="contrat-acces-actions">
            <button type="button" class="btn btn-fantome" data-copier-acces><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le lien</button>
-           <button type="button" class="btn-lien-danger" data-revoquer-acces>Révoquer le lien</button>
+           <button type="button" class="btn btn-fantome grade-supprimer" data-revoquer-acces>Révoquer le lien</button>
          </div>`
       : `<p class="champ-aide">Un lien personnel, sans compte, pour que le client remplisse sa liste de bénéficiaires.</p>
-         <button type="button" class="btn btn-fantome" data-donner-acces><svg class="ico" aria-hidden="true"><use href="#ico-key"></use></svg> Créer et copier le lien</button>`}
+         <div class="contrat-acces-actions">
+           <button type="button" class="btn btn-fantome" data-donner-acces><svg class="ico" aria-hidden="true"><use href="#ico-key"></use></svg> Créer et copier le lien</button>
+         </div>`}
     <p class="champ-aide">${jours}${lienParametres}</p>
   </section>`;
 }
@@ -248,7 +250,7 @@ function dessinerTiroir() {
     + (c.notes ? `<section class="tiroir-section" aria-labelledby="titre-notes-contrat"><h3 id="titre-notes-contrat">Notes</h3><p class="contrat-notes">${echapper(c.notes)}</p></section>` : '');
   // l'action destructive à gauche, loin de la bulle flottante ; les autres à droite
   $c('tiroir-contrat-pied').innerHTML = `
-    <button type="button" class="btn-lien-danger" data-supprimer-contrat>Supprimer</button>
+    <button type="button" class="btn btn-fantome grade-supprimer" data-supprimer-contrat>Supprimer</button>
     <span class="tiroir-pied-espace"></span>
     ${c.statut === 'termine'
       ? '<button type="button" class="btn btn-fantome" data-reprendre-contrat>Reprendre le contrat</button>'
@@ -339,7 +341,6 @@ function ouvrirFinContrat(c) {
 }
 const fermerFinContrat = () => { $c('modale-fin-contrat').classList.add('cache'); if (OUVREUR_FIN?.isConnected) OUVREUR_FIN.focus(); };
 $c('fermer-modale-fin-contrat').addEventListener('click', fermerFinContrat);
-$c('annuler-modale-fin-contrat').addEventListener('click', fermerFinContrat);
 $c('modale-fin-contrat').addEventListener('click', e => { if (e.target.id === 'modale-fin-contrat') fermerFinContrat(); });
 $c('formulaire-fin-contrat').addEventListener('submit', async e => {
   e.preventDefault();
@@ -404,7 +405,6 @@ function ouvrirModaleContrat(id) {
 const fermerModaleContrat = () => { $c('modale-contrat').classList.add('cache'); if (OUVREUR_MODALE_CONTRAT?.isConnected) OUVREUR_MODALE_CONTRAT.focus(); };
 $c('bouton-nouveau-contrat').addEventListener('click', () => ouvrirModaleContrat(null));
 $c('fermer-modale-contrat').addEventListener('click', fermerModaleContrat);
-$c('annuler-modale-contrat').addEventListener('click', fermerModaleContrat);
 $c('modale-contrat').addEventListener('click', e => { if (e.target.id === 'modale-contrat') fermerModaleContrat(); });
 $c('formulaire-contrat').addEventListener('submit', async e => {
   e.preventDefault();
