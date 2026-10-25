@@ -504,9 +504,11 @@ agenda.post('/api/agenda/:id/absence', ...valide, traiter(async (req, res) => {
   res.json({ ok: true, approuve });
 }));
 
-// Participation aux événements personnels (réunions, formations…) : qui a été invité, qui était présent. Page
-// Agenda, onglet Participants ; même permission que Quota (rh-voir).
-agenda.get('/api/agenda/participants', ...permission('rh-voir'), async (req, res) => {
-  const semaine = typeof req.query.semaine === 'string' && dateValide(req.query.semaine) ? req.query.semaine : undefined;
-  res.json(await classementParticipants(semaine));
-});
+// Participation aux événements personnels (réunions, formations…) : qui a été invité, qui était présent, sur la
+// période affichée par le sélecteur partagé de l'agenda (jour, semaine ou mois). Page Agenda, onglet Participants ;
+// même permission que Quota (rh-voir).
+agenda.get('/api/agenda/participants', ...permission('rh-voir'), traiter(async (req, res) => {
+  const { debut, fin } = req.query;
+  if (typeof debut !== 'string' || typeof fin !== 'string' || !dateValide(debut) || !dateValide(fin)) throw new Refus('Période invalide.', 400);
+  res.json(await classementParticipants(debut, fin));
+}));

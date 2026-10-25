@@ -1,43 +1,43 @@
 // ENTREPRISE — participation aux événements personnels de l'agenda (réunions, formations…) : qui a été invité, qui
 // était présent (InvitationAgenda.present, corrigée après coup par l'auteur de l'événement, routes/agenda.ts).
-// Même recette que le quota de run (entreprise/run.ts) : semaine passée ou en cours, jamais future.
+// La période (jour, semaine ou mois) vient du sélecteur partagé de la page Agenda (gestion/agenda.js).
 import { prisma } from '../socle/db.js';
 import { gradeDe } from '../socle/droits.js';
+import { parisVersDate } from './agenda-regles.js';
 import { nomComplet } from './rh.js';
-import { jourParis, versDate, versJour } from './texte.js';
+import { versDate, versJour } from './texte.js';
 
-const lundiDe = (jour: string): string => {
-  const d = versDate(jour);
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-  return versJour(d);
-};
+// fini quand sa fin est passée (heure de Paris) ; sans horaire, à la fin de son dernier jour. Un événement à venir ne
+// compte ni comme présence ni comme absence : present vaut true par défaut, il gonflerait sinon le taux.
+export const evenementPasse = (jourFin: string, heureFin: string | null, maintenant = new Date()): boolean =>
+  parisVersDate(jourFin, heureFin ?? '23:59').getTime() <= maintenant.getTime();
 
-// participation de chaque employé actif pour une semaine (la semaine en cours par défaut, ou une semaine passée
-// choisie par son lundi — jamais future : on reste sur la semaine en cours)
-export async function classementParticipants(semaineDemandee?: string) {
-  const semaineCourante = lundiDe(jourParis());
-  const semaine = semaineDemandee && lundiDe(semaineDemandee) < semaineCourante ? lundiDe(semaineDemandee) : semaineCourante;
-  const debut = versDate(semaine), fin = versDate(semaine);
-  fin.setUTCDate(fin.getUTCDate() + 6);
+// participation de chaque employé actif sur une période (bornes incluses, données par le sélecteur de l'agenda)
+export async function classementParticipants(debutJour: string, finJour: string) {
+  const debut = versDate(debutJour), fin = versDate(finJour);
 
   const [employes, invitations] = await Promise.all([
     prisma.employe.findMany({ where: { statut: 'actif' } }),
     prisma.invitationAgenda.findMany({
       where: { evenement: { jour: { gte: debut, lte: fin } } },
-      select: { discordId: true, present: true, evenement: { select: { id: true, titre: true, jour: true, heureDebut: true, heureFin: true } } },
-      orderBy: { evenement: { jour: 'asc' } },
+      select: { discordId: true, present: true, evenement: { select: { id: true, titre: true, jour: true, jourFin: true, heureDebut: true, heureFin: true, type: { select: { nom: true, couleur: true } } } } },
+      orderBy: [{ evenement: { jour: 'asc' } }, { evenement: { heureDebut: 'asc' } }],
     }),
   ]);
-  type Detail = { id: number; titre: string; jour: string; heureDebut: string | null; heureFin: string | null; present: boolean };
-  const parDiscord = new Map<string, { invitations: number; presences: number; evenements: Detail[] }>();
+  type Detail = { id: number; titre: string; jour: string; heureDebut: string | null; heureFin: string | null; type: { nom: string; couleur: string } | null; etat: 'present' | 'absent' | 'a-venir' };
+  type Compte = { invitations: number; presences: number; aVenir: number; evenements: Detail[] };
+  const parDiscord = new Map<string, Compte>();
+  const evenementsPasses = new Set<number>(), evenementsAVenir = new Set<number>();
   for (const inv of invitations) {
-    const c = parDiscord.get(inv.discordId) ?? { invitations: 0, presences: 0, evenements: [] };
-    c.invitations++;
-    if (inv.present) c.presences++;
-    c.evenements.push({ id: inv.evenement.id, titre: inv.evenement.titre, jour: versJour(inv.evenement.jour), heureDebut: inv.evenement.heureDebut, heureFin: inv.evenement.heureFin, present: inv.present });
+    const ev = inv.evenement;
+    const c = parDiscord.get(inv.discordId) ?? { invitations: 0, presences: 0, aVenir: 0, evenements: [] };
+    const passe = evenementPasse(versJour(ev.jourFin), ev.heureFin);
+    (passe ? evenementsPasses : evenementsAVenir).add(ev.id);
+    if (passe) { c.invitations++; if (inv.present) c.presences++; } else c.aVenir++;
+    c.evenements.push({ id: ev.id, titre: ev.titre, jour: versJour(ev.jour), heureDebut: ev.heureDebut, heureFin: ev.heureFin, type: ev.type, etat: !passe ? 'a-venir' : inv.present ? 'present' : 'absent' });
     parDiscord.set(inv.discordId, c);
   }
-  const vide = { invitations: 0, presences: 0, evenements: [] as Detail[] };
+  const vide: Compte = { invitations: 0, presences: 0, aVenir: 0, evenements: [] };
   const lignes = employes
     .map(e => {
       const c = (e.discordId && parDiscord.get(e.discordId)) || vide;
@@ -45,9 +45,10 @@ export async function classementParticipants(semaineDemandee?: string) {
       return { id: e.id, nomComplet: nomComplet(e), grade: e.gradeCle, gradeLibelle: g?.libelle ?? e.gradeCle, position: g?.position ?? Number.MAX_SAFE_INTEGER, ...c };
     })
     .sort((a, b) => a.position - b.position || a.nomComplet.localeCompare(b.nomComplet, 'fr'));
+  // synthèse de l'équipe : seulement les employés actifs (un invité parti n'est plus dans le tableau)
+  const invites = lignes.reduce((s, l) => s + l.invitations, 0), presents = lignes.reduce((s, l) => s + l.presences, 0);
   return {
-    debutSemaine: semaine,
-    semaineCourante,
     employes: lignes.map(({ position, ...l }) => l),
+    synthese: { evenementsPasses: evenementsPasses.size, evenementsAVenir: evenementsAVenir.size, invitations: invites, presences: presents, absences: invites - presents },
   };
 }

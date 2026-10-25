@@ -301,3 +301,40 @@
   .evenement-pied .btn-or { order: -1; flex-basis: 100%; min-height: 44px; }
   .evenement-pied .btn { min-height: 44px; }
 }
+
+/* ---- onglet Participants : titre de la période, chiffres de l'équipe, tableau (même recette que Quota) ---- */
+.participants-entete { margin: 4px 0 0; }
+.participants-titre { margin: 0; font-family: var(--display); font-size: var(--fs-6); color: var(--accent-dark); }
+.participants-aide { margin: 2px 0 0; font-size: var(--fs-3); color: var(--text-muted); }
+.participants-stats { margin: 14px 0 18px; }
+/* le nom ouvre le détail : un lien qui se lit comme le nom, souligné au survol et au clavier */
+.participants-nom {
+  padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-weight: 500; text-align: left; cursor: pointer;
+  text-decoration: underline; text-decoration-color: rgba({{couleur_rvb}}, 0.35); text-underline-offset: 3px;
+}
+.participants-nom:hover, .participants-nom:focus-visible { color: var(--accent-dark); text-decoration-color: currentColor; }
+.participants-nombre { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.participants-nombre--alerte { color: var(--erreur); font-weight: 600; }
+
+/* ---- détail d'une personne : frise des événements, la couleur du type sur le fil ---- */
+.modale-participant { width: min(520px, 100%); }
+.modale-participant .modale-entete { align-items: flex-start; }
+.participant-resume { margin: 4px 0 0; font-size: var(--fs-3); color: var(--text-muted); }
+.participant-frise { list-style: none; margin: 0; padding: 0 0 0 18px; position: relative; }
+.participant-frise::before { content: ""; position: absolute; left: 5px; top: 10px; bottom: 10px; width: 2px; background: var(--border); }
+.participant-etape { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+/* pastille du type posée sur le fil ; un événement à venir n'a que son contour */
+.participant-etape::before {
+  content: ""; position: absolute; left: -18px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%;
+  background: var(--vis); box-shadow: 0 0 0 3px var(--bg-card);
+}
+.participant-etape--a-venir::before { background: var(--bg-card); border: 2px solid var(--vis); box-sizing: border-box; }
+.participant-evenement {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; margin: -8px 0;
+  border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.participant-evenement:hover, .participant-evenement:focus-visible { background: var(--bg3); }
+.participant-evenement-titre { font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
+.participant-evenement-quand { font-size: var(--fs-2); color: var(--text-muted); }
+.participant-etape--absent .participant-evenement-titre { color: var(--erreur); }
+.participant-etape .puce { flex-shrink: 0; }

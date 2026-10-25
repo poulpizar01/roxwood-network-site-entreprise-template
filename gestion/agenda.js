@@ -343,8 +343,14 @@ grilleAgenda.addEventListener("keydown", ev => {
   if (el && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); ouvrirEvenementExistant(el.dataset.id); }
 });
 
-document.getElementById("agenda-semaine-precedente").addEventListener("click", () => { decalerAgenda(-1); chargerAgenda(true); });
-document.getElementById("agenda-semaine-suivante").addEventListener("click", () => { decalerAgenda(1); chargerAgenda(true); });
+// Onglet Participants : pas de sélecteur propre, il affiche la période choisie ici (jour, semaine ou mois).
+const panneauParticipantsVisible = () => !document.getElementById("panneau-agenda-participants").classList.contains("cache");
+async function chargerPeriode(reinitialiserDefilement) {
+  await chargerAgenda(reinitialiserDefilement);
+  if (panneauParticipantsVisible()) chargerParticipants();
+}
+document.getElementById("agenda-semaine-precedente").addEventListener("click", () => { decalerAgenda(-1); chargerPeriode(true); });
+document.getElementById("agenda-semaine-suivante").addEventListener("click", () => { decalerAgenda(1); chargerPeriode(true); });
 // Raccourci T (« today », comme les agendas courants) : revient à la période actuelle. Ignoré pendant une saisie, une
 // fenêtre ouverte ou avec Ctrl / Alt / Cmd ; « t » ou « T » (avec Maj, la touche arrive en majuscule). Le bouton
 // s'illumine un instant : on voit ce que la touche a fait. En jeu, le clavier reste au jeu hors des champs : le bouton suffit.
@@ -360,13 +366,13 @@ document.addEventListener("keydown", (e) => {
 });
 document.getElementById("agenda-aujourdhui").addEventListener("click", () => {
   AGENDA_REF = aujourdhuiParis();
-  chargerAgenda(true);
+  chargerPeriode(true);
 });
 document.querySelectorAll(".agenda-vue-bouton").forEach(btn => {
   btn.addEventListener("click", () => {
     if (btn.dataset.vue === AGENDA_VUE_CHOISIE) return;
     AGENDA_VUE_CHOISIE = btn.dataset.vue;
-    chargerAgenda(true);
+    chargerPeriode(true);
   });
 });
 AGENDA_TELEPHONE.addEventListener("change", () => chargerAgenda(true));
@@ -950,82 +956,136 @@ document.querySelectorAll("[data-agenda-onglet]").forEach(btn => {
   });
 });
 
-// ---- participants : qui a été invité à un événement personnel, qui était présent, par semaine (même recette que
-// Quota, gestion/quota.js : navigation vers le passé seulement, le serveur ramène une semaine future à la semaine
-// en cours) ----
-const jourParisISOParticipants = d => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris" }).format(d);
-function lundiDeParticipants(iso) {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-  return d.toISOString().slice(0, 10);
-}
-function decalerSemaineParticipants(iso, sens) {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 7 * sens);
-  return d.toISOString().slice(0, 10);
-}
-const SEMAINE_COURANTE_PARTICIPANTS = lundiDeParticipants(jourParisISOParticipants(new Date()));
-let PARTICIPANTS_SEMAINE = SEMAINE_COURANTE_PARTICIPANTS, EMPLOYES_PARTICIPANTS = [];
-
-function majNavSemaineParticipants() {
-  const courante = PARTICIPANTS_SEMAINE === SEMAINE_COURANTE_PARTICIPANTS;
-  const debut = new Date(`${PARTICIPANTS_SEMAINE}T00:00:00Z`);
-  const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 6);
-  const options = { day: "numeric", month: "short", timeZone: "UTC" };
-  const bouton = document.getElementById("participants-aujourdhui");
-  bouton.textContent = courante ? "Cette semaine" : `Sem. du ${debut.toLocaleDateString("fr-FR", options)}`;
-  bouton.title = courante ? "Raccourci : touche T" : "Revenir à cette semaine (touche T)";
-  document.getElementById("participants-semaine-suivante").disabled = courante;
-  document.getElementById("participants-periode").textContent = `Participation du ${debut.toLocaleDateString("fr-FR", options)} au ${fin.toLocaleDateString("fr-FR", options)}`;
-}
+/// ---- participants : qui a été invité à un événement personnel terminé, qui était présent, sur la période du
+// sélecteur de l'agenda (jour, semaine ou mois). Les événements à venir sont comptés à part (entreprise/participants.ts).
+let EMPLOYES_PARTICIPANTS = [];
+let FILTRE_PARTICIPANTS = "invites";
+const tauxPresence = e => (e.invitations > 0 ? e.presences / e.invitations : -1);
+const comparerNomParticipant = (a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" });
+const TRI_PARTICIPANTS = gestion.creerTri({
+  nom: comparerNomParticipant,
+  grade: (a, b) => a.gradeLibelle.localeCompare(b.gradeLibelle, "fr", { sensitivity: "base" }) || comparerNomParticipant(a, b),
+  presence: (a, b) => tauxPresence(a) - tauxPresence(b) || a.invitations - b.invitations || comparerNomParticipant(a, b),
+  absences: (a, b) => (a.invitations - a.presences) - (b.invitations - b.presences) || comparerNomParticipant(a, b),
+  avenir: (a, b) => a.aVenir - b.aVenir || comparerNomParticipant(a, b),
+});
+const plurielParticipant = (n, mot) => `${n} ${mot}${n > 1 ? "s" : ""}`;
+// vert dès 80 %, orange au-dessous, rouge à 0 ; la barre reste vide à 0 (une barre pleine se lirait « 100 % »)
+const etatPresence = taux => (taux < 0 ? "gris" : taux === 0 ? "rouge" : taux < 0.8 ? "orange" : "vert");
 
 function ligneParticipant(e) {
-  const taux = e.invitations > 0 ? Math.round((e.presences / e.invitations) * 100) : null;
+  const taux = tauxPresence(e), pct = taux < 0 ? 0 : Math.round(taux * 100), etat = etatPresence(taux);
+  const absences = e.invitations - e.presences;
+  const presence = e.invitations
+    ? `<div class="run-barre run-etat-${etat}" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Présence de ${echapper(e.nomComplet)}"><div class="run-barre-remplie run-etat-${etat}" style="width:${pct}%"></div></div>
+       <span class="run-progression-texte"><strong>${pct} %</strong> · ${e.presences} sur ${e.invitations}</span>`
+    : `<span class="run-progression-texte run-sans-objectif">${e.aVenir ? "Rien de terminé" : "Pas invité"}</span>`;
   return `<tr>
     <td><span class="run-personne">
       <span class="admin-avatar" aria-hidden="true">${echapper(initiales(e.nomComplet))}</span>
-      <span class="run-nom">${echapper(e.nomComplet)}</span>
+      ${e.evenements.length
+        ? `<button type="button" class="participants-nom" data-detail-participant="${e.id}" aria-label="Voir la participation de ${echapper(e.nomComplet)}">${echapper(e.nomComplet)}</button>`
+        : `<span class="run-nom">${echapper(e.nomComplet)}</span>`}
     </span></td>
     <td>${echapper(e.gradeLibelle)}</td>
-    <td>${e.invitations}</td>
-    <td>${e.presences}</td>
-    <td>${taux === null ? "—" : `${taux} %`}</td>
-    <td>${e.invitations ? `<button type="button" class="btn btn-fantome" data-detail-participant="${e.id}">Détail</button>` : ""}</td>
+    <td class="run-cellule-progression">${presence}</td>
+    <td class="participants-nombre${absences ? " participants-nombre--alerte" : ""}">${e.invitations ? absences : "—"}</td>
+    <td class="participants-nombre">${e.aVenir || "—"}</td>
   </tr>`;
+}
+function majEnteteParticipants() {
+  const t = TRI_PARTICIPANTS;
+  document.getElementById("participants-entete").innerHTML = `<th data-titre>${t.bouton("nom", "Personne")}</th><th>${t.bouton("grade", "Grade")}</th><th>${t.bouton("presence", "Présence")}</th><th>${t.bouton("absences", "Absences")}</th><th>${t.bouton("avenir", "À venir")}</th>`;
 }
 function afficherParticipants() {
   const terme = document.getElementById("participants-recherche").value.trim().toLocaleLowerCase("fr");
-  const filtres = terme ? EMPLOYES_PARTICIPANTS.filter(e => e.nomComplet.toLocaleLowerCase("fr").includes(terme)) : EMPLOYES_PARTICIPANTS;
-  document.getElementById("participants-entete").innerHTML = "<th>Personne</th><th>Grade</th><th>Invitations</th><th>Présences</th><th>Taux</th><th></th>";
+  const garder = {
+    invites: e => e.invitations > 0 || e.aVenir > 0,
+    absents: e => e.invitations > e.presences,
+    tous: () => true,
+  }[FILTRE_PARTICIPANTS];
+  const filtres = TRI_PARTICIPANTS.appliquer(EMPLOYES_PARTICIPANTS.filter(e => garder(e) && (!terme || e.nomComplet.toLocaleLowerCase("fr").includes(terme))));
+  const vide = !EMPLOYES_PARTICIPANTS.length ? "Aucun employé actif."
+    : terme ? "Personne ne correspond à cette recherche."
+    : FILTRE_PARTICIPANTS === "absents" ? "Aucune absence sur cette période."
+    : "Personne n’a été invité à un événement sur cette période. Invitez des employés depuis la fiche d’un événement.";
   document.getElementById("participants-corps").innerHTML = filtres.length
     ? filtres.map(ligneParticipant).join("")
-    : `<tr><td colspan="6" class="run-vide">${terme ? "Aucune personne pour cette recherche." : "Aucun employé actif."}</td></tr>`;
+    : `<tr><td colspan="5" class="run-vide">${vide}</td></tr>`;
 }
+function afficherSyntheseParticipants(s) {
+  const taux = s.invitations ? Math.round((s.presences / s.invitations) * 100) : null;
+  const etat = etatPresence(s.invitations ? s.presences / s.invitations : -1);
+  document.getElementById("participants-taux").textContent = taux === null ? "—" : `${taux} %`;
+  document.getElementById("participants-taux-libelle").textContent = s.invitations ? `${plurielParticipant(s.presences, "présence")} sur ${plurielParticipant(s.invitations, "invitation")}` : "aucune invitation terminée";
+  const barre = document.getElementById("participants-barre");
+  barre.className = `run-barre run-etat-${etat}`;
+  barre.firstElementChild.className = `run-barre-remplie run-etat-${etat}`;
+  barre.firstElementChild.style.width = `${taux ?? 0}%`;
+  document.getElementById("participants-absences").textContent = String(s.absences);
+  document.getElementById("participants-absences-libelle").textContent = s.absences ? "sur les événements terminés" : "personne n’a manqué un événement";
+  document.getElementById("participants-evenements").textContent = String(s.evenementsPasses);
+  document.getElementById("participants-evenements-libelle").textContent = `${s.evenementsPasses > 1 ? "terminés" : "terminé"}${s.evenementsAVenir ? `, ${s.evenementsAVenir} à venir` : ""}`;
+}
+// « Participation du 20 au 26 oct. » : la période se nomme par ses dates
+function titreParticipants() {
+  const { debut, fin } = periodeAgenda();
+  const court = d => d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  document.getElementById("participants-titre").textContent = formaterDateISO(debut) === formaterDateISO(fin)
+    ? `Participation du ${court(debut)}` : `Participation du ${court(debut)} au ${court(fin)}`;
+}
+majEnteteParticipants();
+document.getElementById("participants-table").addEventListener("click", e => {
+  const tri = e.target.closest("[data-tri]");
+  if (tri) {
+    TRI_PARTICIPANTS.cycler(tri.dataset.tri);
+    majEnteteParticipants();
+    afficherParticipants();
+    document.querySelector(`#participants-entete [data-tri="${tri.dataset.tri}"]`)?.focus();
+    return;
+  }
+  const b = e.target.closest("[data-detail-participant]");
+  if (b) ouvrirDetailParticipant(b.dataset.detailParticipant);
+});
+document.getElementById("participants-filtres").addEventListener("click", e => {
+  const b = e.target.closest("[data-participants-filtre]");
+  if (!b) return;
+  document.querySelectorAll("[data-participants-filtre]").forEach(x => { x.classList.toggle("actif", x === b); x.setAttribute("aria-pressed", String(x === b)); });
+  FILTRE_PARTICIPANTS = b.dataset.participantsFiltre;
+  afficherParticipants();
+});
 
-// ---- détail : les événements où cette personne a été invitée cette semaine-là ----
+// ---- détail : les événements où cette personne a été invitée sur la période affichée, en frise ----
+const LIBELLES_ETAT_PARTICIPATION = { present: ["Présent", "puce-ok"], absent: ["Absent", "puce-off"], "a-venir": ["À venir", "puce-masquee"] };
 let OUVREUR_PARTICIPANT = null;
 function ouvrirDetailParticipant(id) {
   const p = EMPLOYES_PARTICIPANTS.find(e => e.id === Number(id));
   if (!p) return;
   OUVREUR_PARTICIPANT = document.activeElement;
-  document.getElementById("modale-participant-titre").textContent = `Participation de ${p.nomComplet}`;
-  document.getElementById("liste-participant-evenements").innerHTML = p.evenements.length
-    ? p.evenements.map(ev => `<li>
-        <span><strong>${echapper(ev.titre)}</strong> — ${new Date(`${ev.jour}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "short" })}${ev.heureDebut ? `, ${ev.heureDebut}` : ""} — ${ev.present ? "présent" : "absent"}</span>
-        <button type="button" class="btn btn-fantome" data-voir-evenement="${ev.id}" data-jour-evenement="${ev.jour}">Voir</button>
-      </li>`).join("")
-    : "<li><span>Aucun événement cette semaine-là.</span></li>";
+  document.getElementById("modale-participant-titre").textContent = p.nomComplet;
+  const absences = p.invitations - p.presences;
+  document.getElementById("modale-participant-resume").textContent = [
+    p.invitations ? `${plurielParticipant(p.presences, "présence")} sur ${p.invitations}` : "",
+    absences ? plurielParticipant(absences, "absence") : "",
+    p.aVenir ? `${p.aVenir} à venir` : "",
+  ].filter(Boolean).join(", ");
+  document.getElementById("liste-participant-evenements").innerHTML = p.evenements.map(ev => {
+    const [libelle, classe] = LIBELLES_ETAT_PARTICIPATION[ev.etat];
+    const date = new Date(`${ev.jour}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+    return `<li class="participant-etape participant-etape--${ev.etat}" style="--vis:${echapper(ev.type?.couleur || "#9fb4c7")}">
+      <button type="button" class="participant-evenement" data-voir-evenement="${ev.id}" data-jour-evenement="${ev.jour}">
+        <span class="participant-evenement-titre">${echapper(ev.titre)}</span>
+        <span class="participant-evenement-quand">${capitaliser(date)}${ev.heureDebut ? `, ${ev.heureDebut}` : ""}${ev.type ? ` · ${echapper(ev.type.nom)}` : ""}</span>
+      </button>
+      <span class="puce ${classe}">${libelle}</span>
+    </li>`;
+  }).join("");
   document.getElementById("modale-participant").classList.remove("cache");
   document.getElementById("fermer-modale-participant").focus();
 }
 const fermerModaleParticipant = () => { document.getElementById("modale-participant").classList.add("cache"); if (OUVREUR_PARTICIPANT?.isConnected) OUVREUR_PARTICIPANT.focus(); };
-document.getElementById("participants-corps").addEventListener("click", e => {
-  const b = e.target.closest("[data-detail-participant]");
-  if (b) ouvrirDetailParticipant(b.dataset.detailParticipant);
-});
 document.getElementById("fermer-modale-participant").addEventListener("click", fermerModaleParticipant);
 document.getElementById("modale-participant").addEventListener("click", e => { if (e.target.id === "modale-participant") fermerModaleParticipant(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !document.getElementById("modale-participant").classList.contains("cache") && !document.querySelector("[role=alertdialog]")) fermerModaleParticipant(); });
 document.getElementById("liste-participant-evenements").addEventListener("click", async e => {
   const b = e.target.closest("[data-voir-evenement]");
   if (!b) return;
@@ -1038,22 +1098,13 @@ document.getElementById("liste-participant-evenements").addEventListener("click"
 });
 async function chargerParticipants() {
   gestion.message("zone-message-participants", "");
+  titreParticipants();
+  const { debut, fin } = periodeAgenda();
   try {
-    const r = await socle.api(`/api/agenda/participants?semaine=${PARTICIPANTS_SEMAINE}`);
-    PARTICIPANTS_SEMAINE = r.debutSemaine; // le serveur ramène une semaine future demandée à la semaine en cours
+    const r = await socle.api(`/api/agenda/participants?debut=${formaterDateISO(debut)}&fin=${formaterDateISO(fin)}`);
     EMPLOYES_PARTICIPANTS = r.employes;
-    majNavSemaineParticipants();
+    afficherSyntheseParticipants(r.synthese);
     afficherParticipants();
-  } catch (e) { gestion.message("zone-message-participants", `Impossible de charger les participants : ${e.message}`); }
+  } catch (e) { gestion.message("zone-message-participants", `Impossible de charger la participation : ${e.message}. Rechargez la page ; si le problème continue, prévenez la personne qui s’occupe du site.`); }
 }
-function allerSemaineParticipants(iso) { PARTICIPANTS_SEMAINE = iso; chargerParticipants(); }
-document.getElementById("participants-semaine-precedente").addEventListener("click", () => allerSemaineParticipants(decalerSemaineParticipants(PARTICIPANTS_SEMAINE, -1)));
-document.getElementById("participants-semaine-suivante").addEventListener("click", () => allerSemaineParticipants(decalerSemaineParticipants(PARTICIPANTS_SEMAINE, 1)));
-document.getElementById("participants-aujourdhui").addEventListener("click", () => allerSemaineParticipants(SEMAINE_COURANTE_PARTICIPANTS));
 document.getElementById("participants-recherche").addEventListener("input", afficherParticipants);
-document.addEventListener("keydown", e => {
-  if (document.getElementById("panneau-agenda-participants").classList.contains("cache")) return;
-  if (e.repeat || e.ctrlKey || e.altKey || e.metaKey || e.key.length !== 1 || e.key.toLowerCase() !== "t") return;
-  if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
-  allerSemaineParticipants(SEMAINE_COURANTE_PARTICIPANTS);
-});

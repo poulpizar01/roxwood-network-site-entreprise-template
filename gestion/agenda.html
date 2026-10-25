@@ -58,25 +58,40 @@
       </div>
 
       <!-- Participants aux événements personnels (réunions, formations…) : qui a été invité, qui était présent
-           (corrigé après coup dans la fiche de l'événement). Permission rh-voir, comme Quota. Serveur :
-           /api/agenda/participants, entreprise/participants.ts. -->
+           (corrigé après coup dans la fiche de l'événement). Permission rh-voir, comme Quota. Pas de sélecteur de
+           date propre : la période (jour, semaine ou mois) est celle du sélecteur de l'agenda, en tête de page.
+           Serveur : /api/agenda/participants, entreprise/participants.ts. -->
       <div id="panneau-agenda-participants" class="cache agenda-sous-panneau">
-        <div class="entete-admin" style="margin-top:0;">
-          <div>
-            <h2 style="margin:0;" id="participants-periode">Participation, cumulée depuis lundi.</h2>
-          </div>
-          <div class="run-semaine-nav" role="group" aria-label="Semaine affichée">
-            <button type="button" class="run-fleche run-fleche--avant" id="participants-semaine-precedente" aria-label="Semaine précédente"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
-            <button type="button" class="run-semaine-bouton" id="participants-aujourdhui" aria-keyshortcuts="T">Cette semaine</button>
-            <span class="run-touche" aria-hidden="true"><kbd>T</kbd> cette semaine</span>
-            <button type="button" class="run-fleche run-fleche--apres" id="participants-semaine-suivante" aria-label="Semaine suivante"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
-          </div>
+        <div class="participants-entete">
+          <h2 class="participants-titre" id="participants-titre">Participation</h2>
+          <p class="participants-aide">Événements personnels terminés (réunions, formations…). Ceux à venir ne comptent pas encore.</p>
         </div>
         <div id="zone-message-participants" role="status"></div>
+        <!-- chiffres de l'équipe : place réservée (« — ») avant la réponse, rien ne saute à l'arrivée -->
+        <div class="run-stats participants-stats">
+          <div class="run-stat">
+            <span class="run-stat-titre">Taux de présence</span>
+            <p class="run-stat-chiffre"><span id="participants-taux">—</span><span id="participants-taux-libelle">des invitations honorées</span></p>
+            <div class="run-barre" id="participants-barre"><div class="run-barre-remplie"></div></div>
+          </div>
+          <div class="run-stat">
+            <span class="run-stat-titre">Absences</span>
+            <p class="run-stat-chiffre"><span id="participants-absences">—</span><span id="participants-absences-libelle">sur les événements terminés</span></p>
+          </div>
+          <div class="run-stat">
+            <span class="run-stat-titre">Événements</span>
+            <p class="run-stat-chiffre"><span id="participants-evenements">—</span><span id="participants-evenements-libelle">terminés</span></p>
+          </div>
+        </div>
         <div class="run-filtres">
           <div class="comptes-recherche run-recherche">
             <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
             <input type="search" id="participants-recherche" aria-label="Rechercher une personne par son nom ou prénom" placeholder="Nom ou prénom">
+          </div>
+          <div class="comptes-filtres" role="group" aria-label="Afficher" id="participants-filtres">
+            <button type="button" class="comptes-filtre actif" data-participants-filtre="invites" aria-pressed="true">Invités</button>
+            <button type="button" class="comptes-filtre" data-participants-filtre="absents" aria-pressed="false">Au moins une absence</button>
+            <button type="button" class="comptes-filtre" data-participants-filtre="tous" aria-pressed="false">Tous</button>
           </div>
         </div>
         <div class="carte-table">
@@ -205,15 +220,18 @@
   </div>
 </div>
 
-<!-- Détail de la participation d'une personne (onglet Participants) : les événements où elle a été invitée cette
-     semaine-là, et si elle y était présente. « Voir » ouvre l'événement sur l'agenda. -->
-<div class="modale-fond cache" id="modale-participant">
-  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-participant-titre">
+<!-- Détail de la participation d'une personne (onglet Participants) : les événements où elle a été invitée sur la
+     période affichée, dans l'ordre, avec leur état (présent, absent, à venir). Un clic ouvre l'événement sur l'agenda. -->
+<div class="modale-fond cache" id="modale-participant" data-echap>
+  <div class="modale modale-participant" role="dialog" aria-modal="true" aria-labelledby="modale-participant-titre">
     <div class="modale-entete">
-      <h2 id="modale-participant-titre" class="modale-titre">Participation</h2>
+      <div>
+        <h2 id="modale-participant-titre" class="modale-titre">Participation</h2>
+        <p class="participant-resume" id="modale-participant-resume"></p>
+      </div>
       <button type="button" id="fermer-modale-participant" aria-label="Fermer">✕</button>
     </div>
-    <ul class="rh-historique" id="liste-participant-evenements" style="margin:0 24px 24px;"></ul>
+    <ol class="participant-frise" id="liste-participant-evenements"></ol>
   </div>
 </div>
 
