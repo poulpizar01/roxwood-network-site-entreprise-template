@@ -15,68 +15,105 @@
   <title>Grades — {{nom}}</title>
 </head>
 <body class="page-agents">
-  <!-- GESTION — grades et permissions (permission « grades », serveur : socle/routes/grades.ts). Liste du plus haut au plus
-       bas, réordonnée par glisser-déposer (gestion/vendor/Sortable.min.js) ou au clavier ; un clic ouvre le grade.
-       Inspirée de la page Hiérarchie du modèle famille. -->
+  <!-- GESTION — grades et permissions (permission « grades », serveur : socle/routes/grades.ts). Liste à gauche, du
+       plus haut au plus bas (glisser-déposer ou clavier) ; un clic ouvre le grade dans un tiroir à droite, par
+       onglets (Affichage, Permissions, Agenda, Quotas, Aperçu). Fenêtre, Échap, piège au clavier : mécanique
+       commune de .modale-fond (gestion.js), rien à refaire ici. -->
   <main class="admin-contenu">
     <div class="entete-admin">
       <div>
         <h1 style="margin-bottom:2px;">Grades</h1>
         <p style="margin:0;font-size:var(--fs-3);">Du plus haut au plus bas. Glissez <span class="grades-poignee-exemple" aria-hidden="true">⠿</span> pour changer l’ordre, cliquez sur un grade pour le modifier.</p>
       </div>
-      <button class="btn btn-or" type="button" id="nouveau"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouveau grade</button>
+      <div class="contrats-entete-actions">
+        <button class="btn btn-fantome" type="button" id="bouton-vue-ensemble">Vue d’ensemble</button>
+        <button class="btn btn-or" type="button" id="nouveau"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouveau grade</button>
+      </div>
     </div>
     <div id="zone-message" role="status"></div>
     <ol class="grades-liste" id="liste-grades" aria-label="Grades, du plus haut au plus bas"><li class="grades-vide">Chargement…</li></ol>
     <p class="comptes-aide grades-note">Un grade lié à un rôle Discord est donné à la connexion à qui porte ce rôle, et retiré à qui ne le porte plus ; le grade d’une fiche active dans Ressources humaines l’emporte. Vous ne gérez que les grades sous le vôtre.</p>
   </main>
 
-  <div class="modale-fond cache" id="modale-grade">
-    <div class="modale modale-grade" role="dialog" aria-modal="true" aria-labelledby="titre-modale">
-      <div class="modale-entete"><h2 id="titre-modale" class="modale-titre">Nouveau grade</h2><button type="button" id="fermer" aria-label="Fermer">✕</button></div>
-      <form id="form" novalidate>
-        <div class="grade-corps">
-        <div class="grade-identite">
-          <div class="champ">
-            <label for="libelle">Nom du grade</label>
-            <input type="text" id="libelle" maxlength="40" placeholder="Ex. Employé confirmé">
-            <p class="champ-erreur cache" id="erreur-libelle">Donnez un nom au grade.</p>
-          </div>
-          <div class="champ grade-couleur">
-            <label for="couleur">Couleur</label>
-            <input type="color" id="couleur" value="#c9a55c">
-          </div>
-        </div>
-        <div class="champ">
-          <label for="role-liste" id="libelle-role">Rôle Discord <small>facultatif</small></label>
-          <select id="role-liste" class="cache"></select>
-          <input type="text" id="role" inputmode="numeric" pattern="\d{5,32}" placeholder="Identifiant du rôle" aria-label="Identifiant du rôle Discord">
-          <p class="champ-aide" id="role-aide-bot"></p>
-          <p class="champ-aide" id="role-aide">Qui porte ce rôle reçoit ce grade à sa connexion, et est validé d’office.<span class="role-aide-identifiant"> Identifiant : Discord → Paramètres du serveur → Rôles → clic droit sur le rôle → « Copier l’identifiant ».</span></p>
-        </div>
-        <fieldset class="grade-permissions grade-separee">
-          <legend>Droits</legend>
-          <p class="champ-aide" style="margin:0 0 6px;">Vous ne pouvez accorder que ce que vous pouvez faire vous-même.</p>
-          <div id="cases"></div>
-        </fieldset>
-        <section class="grade-run-reglages grade-separee cache" id="grade-run" aria-labelledby="titre-grade-run">
-          <h3 id="titre-grade-run">Run</h3>
-          <div class="champ champ-run-quota">
-            <label for="run-quota">Quota hebdomadaire</label>
-            <div class="champ-run-quota-saisie"><input type="number" id="run-quota" min="0" max="1000000" step="1" value="0"><span aria-hidden="true">unités</span></div>
-            <p class="champ-aide">Unités à vendre chaque semaine pour ce grade (suivi : page Quota, onglet Quota run). 0 = pas de quota.</p>
-          </div>
-        </section>
-        <section class="grade-facture-reglages grade-separee cache" id="grade-facture" aria-labelledby="titre-grade-facture">
-          <h3 id="titre-grade-facture">Factures</h3>
-          <div class="champ champ-run-quota">
-            <label for="facture-quota">Quota hebdomadaire</label>
-            <div class="champ-run-quota-saisie"><input type="number" id="facture-quota" min="0" max="1000000" step="1" value="0"><span aria-hidden="true">$</span></div>
-            <p class="champ-aide">Montant à facturer chaque semaine pour ce grade (suivi : page Quota, onglet Quota facture). 0 = pas de quota. Seules les factures constatées en jeu comptent, crédités à qui les a enregistrés : une commande Discord ou une facture saisie depuis le site (page Facturation) ne crédite personne.</p>
-          </div>
-        </section>
+  <!-- Fiche d'un grade : tiroir à droite (plein écran sur téléphone). Bandeau et pied fixes, seul le corps défile. -->
+  <div class="modale-fond tiroir-fond cache" id="tiroir-grade" data-echap>
+    <div class="tiroir tiroir-grade" role="dialog" aria-modal="true" aria-labelledby="titre-grade">
+      <div class="tiroir-entete">
+        <span class="pastille-grade" id="grade-pastille" aria-hidden="true" style="width:14px;height:14px;margin:4px 0 0;"></span>
+        <div class="tiroir-identite"><h2 id="titre-grade">Nouveau grade</h2></div>
+        <button type="button" id="fermer" aria-label="Fermer">✕</button>
+      </div>
+      <nav class="grade-onglets" role="tablist" aria-label="Sections du grade">
+        <button type="button" class="grade-onglet actif" data-onglet="affichage" role="tab" aria-selected="true">Affichage</button>
+        <button type="button" class="grade-onglet" data-onglet="permissions" role="tab" aria-selected="false">Permissions</button>
+        <button type="button" class="grade-onglet" data-onglet="agenda" role="tab" aria-selected="false">Agenda</button>
+        <button type="button" class="grade-onglet" data-onglet="quotas" role="tab" aria-selected="false">Quotas</button>
+        <button type="button" class="grade-onglet" data-onglet="apercu" role="tab" aria-selected="false">Aperçu</button>
+      </nav>
+      <div class="tiroir-corps">
+        <div id="zone-message-modale" role="status"></div>
+        <form id="form" novalidate>
+          <section id="onglet-affichage" data-panneau="affichage">
+            <div class="grade-identite">
+              <div class="champ">
+                <label for="libelle">Nom du grade</label>
+                <input type="text" id="libelle" maxlength="40" placeholder="Ex. Employé confirmé">
+                <p class="champ-erreur cache" id="erreur-libelle">Donnez un nom au grade.</p>
+              </div>
+              <div class="champ grade-couleur">
+                <label for="couleur">Couleur</label>
+                <input type="color" id="couleur" value="#c9a55c">
+              </div>
+            </div>
+            <div class="champ">
+              <label for="role-liste" id="libelle-role">Rôle Discord <small>facultatif</small></label>
+              <select id="role-liste" class="cache"></select>
+              <input type="text" id="role" inputmode="numeric" pattern="\d{5,32}" placeholder="Identifiant du rôle" aria-label="Identifiant du rôle Discord">
+              <p class="champ-aide" id="role-aide-bot"></p>
+              <p class="champ-aide" id="role-aide">Qui porte ce rôle reçoit ce grade à sa connexion, et est validé d’office.<span class="role-aide-identifiant"> Identifiant : Discord → Paramètres du serveur → Rôles → clic droit sur le rôle → « Copier l’identifiant ».</span></p>
+            </div>
+          </section>
+
+          <section id="onglet-permissions" class="cache" data-panneau="permissions">
+            <div class="champ grade-recherche">
+              <label for="recherche-permissions">Rechercher une permission</label>
+              <input type="search" id="recherche-permissions" placeholder="Ex. facture, rôle, sanction…">
+            </div>
+            <p class="champ-aide" style="margin:8px 0 10px;">Vous ne pouvez accorder que ce que vous pouvez faire vous-même. Cocher un droit coche aussi ce qu’il suppose.</p>
+            <div id="cases"></div>
+            <p class="comptes-vide cache" id="recherche-vide">Aucune permission ne correspond à cette recherche.</p>
+          </section>
+
+          <section id="onglet-agenda" class="cache" data-panneau="agenda"></section>
+
+          <section id="onglet-quotas" class="cache" data-panneau="quotas">
+            <section class="grade-run-reglages" id="grade-run" aria-labelledby="titre-grade-run">
+              <h3 id="titre-grade-run">Run</h3>
+              <div class="champ champ-run-quota">
+                <label for="run-quota">Quota hebdomadaire</label>
+                <div class="champ-run-quota-saisie"><input type="number" id="run-quota" min="0" max="1000000" step="1" value="0"><span aria-hidden="true">unités</span></div>
+                <p class="champ-aide">Unités à vendre chaque semaine pour ce grade (suivi : page Quota, onglet Quota run). 0 = pas de quota.</p>
+              </div>
+            </section>
+            <section class="grade-facture-reglages grade-separee" id="grade-facture" aria-labelledby="titre-grade-facture">
+              <h3 id="titre-grade-facture">Factures</h3>
+              <div class="champ champ-run-quota">
+                <label for="facture-quota">Quota hebdomadaire</label>
+                <div class="champ-run-quota-saisie"><input type="number" id="facture-quota" min="0" max="1000000" step="1" value="0"><span aria-hidden="true">$</span></div>
+                <p class="champ-aide">Montant à facturer chaque semaine pour ce grade (suivi : page Quota, onglet Quota facture). 0 = pas de quota. Seules les factures constatées en jeu comptent, crédités à qui les a enregistrés : une commande Discord ou une facture saisie depuis le site (page Facturation) ne crédite personne.</p>
+              </div>
+            </section>
+          </section>
+
+          <section id="onglet-apercu" class="cache" data-panneau="apercu">
+            <p class="champ-aide" style="margin:0 0 10px;">Ce que ce grade voit dans le menu, avec les droits cochés dans l’onglet Permissions — comme les coche la personne qui l’ouvre (elle ne propose jamais plus que ce qu’elle détient elle-même).</p>
+            <ul class="grades-liste" id="apercu-liste" aria-label="Rubriques visibles pour ce grade"></ul>
+          </section>
+        </form>
+        <!-- hors du formulaire : son innerHTML est recopié dans #onglet-agenda à chaque ouverture (afficherDroitsAgenda),
+             qui remplace tout le contenu de la section — un template placé dedans serait détruit au premier remplacement -->
         <template id="agenda-droits-modele">
-          <section class="grade-agenda-reglages cache" id="agenda-droits" aria-label="Droits sur les événements de l’agenda">
+          <div id="agenda-droits">
             <p class="champ-aide grade-agenda-intro">Les événements personnels restent visibles uniquement à leur auteur et à la personne concernée.</p>
             <section class="grade-agenda-partage" aria-labelledby="titre-agenda-tous">
               <h4 id="titre-agenda-tous">Événements pour toute l’équipe</h4>
@@ -105,17 +142,28 @@
               </div>
               <p class="champ-aide cache" id="agenda-verrou-note">Les cases grisées sont des droits que vous n’avez pas vous-même sur l’agenda : seul un supérieur peut les accorder.</p>
             </section>
-          </section>
+          </div>
         </template>
-        </div>
-        <div id="zone-message-modale" role="status"></div>
-        <div class="grade-pied pied-centre">
-          <button type="button" class="btn btn-fantome grade-supprimer pied-secondaire cache" id="supprimer">Supprimer le grade</button>
-          <button type="submit" class="btn btn-or pied-principal" id="enregistrer">Ajouter</button>
-        </div>
-      </form>
+      </div>
+      <div class="tiroir-pied pied-centre">
+        <button type="button" class="btn btn-fantome grade-supprimer pied-secondaire cache" id="supprimer">Supprimer le grade</button>
+        <button type="submit" form="form" class="btn btn-or pied-principal" id="enregistrer">Ajouter</button>
+      </div>
     </div>
   </div>
+
+  <!-- Vue d'ensemble : qui a quoi, en lecture seule. Une permission par ligne (pas une grille rôles × permissions,
+       qui défilerait de côté sur un petit écran) : son libellé, puis les grades qui la portent. -->
+  <div class="modale-fond cache" id="modale-vue-ensemble" data-echap>
+    <div class="modale" role="dialog" aria-modal="true" aria-labelledby="titre-vue-ensemble" style="max-width:720px;display:flex;flex-direction:column;height:min(88vh,900px);max-height:calc(100vh - 40px);padding:0;">
+      <div class="modale-entete" style="flex:0 0 auto;margin:0;padding:22px 28px 14px;border-bottom:1px solid var(--border);">
+        <h2 id="titre-vue-ensemble" class="modale-titre">Vue d’ensemble</h2>
+        <button type="button" id="fermer-vue-ensemble" aria-label="Fermer">✕</button>
+      </div>
+      <div class="grade-corps" id="vue-ensemble-corps" style="flex:1 1 auto;"></div>
+    </div>
+  </div>
+
   <script src="/gestion/vendor/Sortable.min.js"></script>
   <script>
     let moi, grades = [], permissions = [], droitsAgenda = [], quotasRun = [], quotasFacture = [], edition = null, nouveauCleMatrice = null, gradeCreeEnCours = false, effectifs = null, ouvreur = null;
@@ -135,6 +183,18 @@
       m.delete('Autres');
       return [...m, ...(autres ? [['Autres', autres]] : [])];
     };
+    const libelleDe = cle => permissions.find(p => p.cle === cle)?.libelle || cle;
+    // permissions qui exigent cle, directement ou en cascade (pour les décocher si on retire une dépendance) — nom
+    // distinct de la variable locale « dependantes » de la cascade d'agenda plus bas, pour ne pas la masquer
+    function permissionsDependantes(cle) {
+      const deps = new Set();
+      let ajout = true;
+      while (ajout) {
+        ajout = false;
+        for (const p of permissions) if (!deps.has(p.cle) && (p.requiert || []).some(r => r === cle || deps.has(r))) { deps.add(p.cle); ajout = true; }
+      }
+      return deps;
+    }
     function resumeDroits(g) {
       if (permissions.length && permissions.every(p => g.permissions.includes(p.cle))) return '<span class="grades-tag accent">Tous les droits</span>';
       if (!g.permissions.length) return '<span class="grades-tag">Aucun droit de gestion</span>';
@@ -184,6 +244,7 @@
     }
 
     function afficherDroitsAgenda(g) {
+      $('onglet-agenda').innerHTML = $('agenda-droits-modele').innerHTML;
       const boite = $('agenda-droits');
       boite.classList.toggle('cache', !!g && !gerable(g));
       if (g && !gerable(g)) return;
@@ -224,14 +285,70 @@
       });
     }
 
-    $('form').addEventListener('change', async e => {
+    // onglets du tiroir : un seul visible à la fois, bascule simple (pas de contenu à recharger)
+    function ouvrirOnglet(cle) {
+      document.querySelectorAll('.grade-onglet').forEach(b => { const actif = b.dataset.onglet === cle; b.classList.toggle('actif', actif); b.setAttribute('aria-selected', String(actif)); });
+      document.querySelectorAll('[data-panneau]').forEach(s => s.classList.toggle('cache', s.dataset.panneau !== cle));
+      document.querySelector('.tiroir-corps').scrollTop = 0;
+    }
+    document.querySelector('.grade-onglets').addEventListener('click', e => {
+      const b = e.target.closest('.grade-onglet');
+      if (b) ouvrirOnglet(b.dataset.onglet);
+    });
+
+    // aperçu : rubriques du menu que ce grade verrait, d'après les permissions cochées dans l'onglet Permissions —
+    // même filtre que le menu réel (gestion.rubriques, gestion.js), appliqué aux cases plutôt qu'au compte connecté
+    function actualiserApercu() {
+      const cochees = new Set([...document.querySelectorAll('#cases input[type="checkbox"][value]:checked')].map(c => c.value));
+      const lignes = gestion.rubriques(cle => cochees.has(cle));
+      $('apercu-liste').innerHTML = lignes.length ? lignes.map(l => l.groupe
+        ? `<li class="grades-vide" style="text-align:left;padding:10px 4px 2px;border:0;color:var(--text-faint);font-size:var(--fs-2);">${echapper(l.groupe)}</li>`
+        : `<li class="grades-ligne"><span class="grades-principal" style="cursor:default;">${ico(l.icone)}<span class="grades-nom">${echapper(l.label)}</span></span></li>`).join('')
+        : '<li class="grades-vide">Avec les droits cochés, ce grade ne verrait aucune rubrique dans le menu (hors Accueil et Agenda, toujours accessibles).</li>';
+    }
+
+    $('cases').addEventListener('change', async e => {
+      const input = e.target.closest('input[type="checkbox"][value]');
+      if (!input) { actualiserApercu(); return; }
+      const def = permissions.find(p => p.cle === input.value);
+      if (input.checked) {
+        // coche aussi ce que ce droit exige
+        for (const r of def?.requiert || []) {
+          const dep = $('cases').querySelector(`input[value="${CSS.escape(r)}"]`);
+          if (dep && !dep.disabled) dep.checked = true;
+        }
+      } else {
+        const cochees = [...permissionsDependantes(input.value)].map(c => $('cases').querySelector(`input[value="${CSS.escape(c)}"]`)).filter(el => el?.checked);
+        if (cochees.length) {
+          const ok = await gestion.confirmer(`Retirer « ${libelleDe(input.value)} » retirera aussi : ${cochees.map(el => libelleDe(el.value)).join(', ')}.`, 'Retirer ce droit ?', 'Retirer ces droits', { danger: false });
+          if (ok) cochees.forEach(el => { el.checked = false; });
+          else input.checked = true;
+        }
+      }
+      actualiserApercu();
+    });
+    $('recherche-permissions').addEventListener('input', () => {
+      const q = $('recherche-permissions').value.trim().toLowerCase();
+      const labels = [...$('cases').querySelectorAll('.grade-permission')];
+      labels.forEach(l => l.classList.toggle('cache', !!q && !l.dataset.recherche.includes(q)));
+      let visible = 0;
+      $('cases').querySelectorAll('.grade-domaine').forEach(d => {
+        const montre = [...d.querySelectorAll('.grade-permission')].some(l => !l.classList.contains('cache'));
+        d.classList.toggle('cache', !montre);
+        if (montre) visible++;
+      });
+      $('recherche-vide').classList.toggle('cache', !q || visible > 0);
+    });
+
+    $('form').addEventListener('change', e => {
       if (e.target.id === 'agenda-consulter-tous') {
         if (!e.target.checked && $('agenda-gerer-tous').checked) {
-          if (!await gestion.confirmer('Retirer la consultation supprimera aussi la gestion des événements partagés avec toute l’équipe.', 'Retirer ces droits d’agenda ?', 'Retirer ces droits', { danger: false })) {
-            e.target.checked = true;
-            return;
-          }
-          $('agenda-gerer-tous').checked = false;
+          gestion.confirmer('Retirer la consultation supprimera aussi la gestion des événements partagés avec toute l’équipe.', 'Retirer ces droits d’agenda ?', 'Retirer ces droits', { danger: false }).then(ok => {
+            if (!ok) { e.target.checked = true; return; }
+            $('agenda-gerer-tous').checked = false;
+            actualiserDroitsEquipe();
+          });
+          return;
         }
         actualiserDroitsEquipe();
       }
@@ -246,9 +363,12 @@
       if (action === 'consulter' && !input.checked && cle) {
         const dependantes = [...$('agenda-grades').querySelectorAll(`[data-grade="${CSS.escape(cle)}"][data-agenda-action="modifier"], [data-grade="${CSS.escape(cle)}"][data-agenda-action="creer"]`)];
         if (dependantes.some(c => c.checked)) {
-          const confirmer = await gestion.confirmer('Retirer la consultation supprimera aussi les droits de modification et de création pour ce grade.', 'Retirer l’accès à l’agenda ?', 'Retirer ces droits', { danger: false });
-          if (!confirmer) input.checked = true;
-          else dependantes.forEach(c => { c.checked = false; });
+          gestion.confirmer('Retirer la consultation supprimera aussi les droits de modification et de création pour ce grade.', 'Retirer l’accès à l’agenda ?', 'Retirer ces droits', { danger: false }).then(ok => {
+            if (!ok) input.checked = true;
+            else dependantes.forEach(c => { c.checked = false; });
+            actualiserMatriceAgenda();
+          });
+          return;
         }
       }
       if ((action === 'modifier' || action === 'creer') && input.checked && cle) {
@@ -259,8 +379,15 @@
         const coches = [...$('agenda-grades').querySelectorAll(`[data-agenda-action="${action}"]:not([data-verrou="1"])`)];
         if (action === 'consulter' && !input.checked) {
           const dependantes = [...$('agenda-grades').querySelectorAll('[data-agenda-action="modifier"]:checked, [data-agenda-action="creer"]:checked')];
-          if (dependantes.length && !await gestion.confirmer('Retirer la consultation supprimera aussi les droits de modification et de création associés.', 'Retirer l’accès à l’agenda ?', 'Retirer ces droits', { danger: false })) input.checked = true;
-          else dependantes.forEach(c => { c.checked = false; });
+          if (dependantes.length) {
+            gestion.confirmer('Retirer la consultation supprimera aussi les droits de modification et de création associés.', 'Retirer l’accès à l’agenda ?', 'Retirer ces droits', { danger: false }).then(ok => {
+              if (!ok) input.checked = true;
+              else dependantes.forEach(c => { c.checked = false; });
+              coches.forEach(c => { c.checked = input.checked; });
+              actualiserMatriceAgenda();
+            });
+            return;
+          }
         }
         coches.forEach(c => { c.checked = input.checked; });
         if (action === 'modifier' || action === 'creer') {
@@ -309,18 +436,34 @@
       if (b) ouvrir(grades.find(g => g.cle === b.closest('[data-cle]').dataset.cle));
     });
 
+    // instantané du formulaire à l'ouverture : compare à la fermeture pour confirmer la perte de modifications en cours
+    let instantaneOuverture = null;
+    function instantaneFormulaire() {
+      return JSON.stringify({
+        libelle: $('libelle').value, couleur: $('couleur').value, role: roles.length ? $('role-liste').value : $('role').value,
+        permissions: [...document.querySelectorAll('#cases input[type="checkbox"][value]:checked')].map(c => c.value).sort(),
+        agenda: $('agenda-droits') ? {
+          consulter_tous: $('agenda-consulter-tous').checked, gerer_tous: $('agenda-gerer-tous').checked,
+          cases: [...document.querySelectorAll('[data-agenda-action]')].filter(c => c.checked).map(c => `${c.dataset.agendaAction}:${c.dataset.grade}`).sort(),
+        } : null,
+        runQuota: $('run-quota').value, factureQuota: $('facture-quota').value,
+      });
+    }
+
     function ouvrir(g) {
       ouvreur = document.activeElement;
       edition = g?.cle ?? null;
       nouveauCleMatrice = null;
       gradeCreeEnCours = false;
-      $('titre-modale').textContent = g ? g.libelle : 'Nouveau grade';
+      $('titre-grade').textContent = g ? g.libelle : 'Nouveau grade';
+      $('grade-pastille').style.background = g?.couleur || '#c9a55c';
       $('enregistrer').textContent = g ? 'Enregistrer' : 'Ajouter';
       $('supprimer').classList.toggle('cache', !g);
       $('libelle').value = g?.libelle ?? '';
       $('couleur').value = g?.couleur ?? '#c9a55c';
       $('role').value = g?.roleDiscordId ?? '';
       $('erreur-libelle').classList.add('cache');
+      $('recherche-permissions').value = '';
       if (roles.length) {
         const id = g?.roleDiscordId ?? '';
         // rôle supprimé sur Discord depuis : gardé dans la liste, signalé
@@ -333,23 +476,128 @@
       $('cases').innerHTML = domaines().map(([nom, cles]) => {
         const liste = cles.map(c => permissions.find(p => p.cle === c)).filter(Boolean);
         if (!liste.length) return '';
-        const reglageAgenda = nom === 'Agenda' ? $('agenda-droits-modele').innerHTML : '';
         return `<div class="grade-domaine"><h3>${echapper(nom)}</h3>${liste.map(p => {
           const detenue = socle.peut(moi, p.cle);
-          return `<label class="grade-permission${detenue ? '' : ' interdite'}">
+          const requiert = (p.requiert || []).map(libelleDe).join(', ');
+          const recherche = echapper(`${p.libelle} ${p.description || ''}`.toLowerCase());
+          return `<label class="grade-permission${detenue ? '' : ' interdite'}" data-recherche="${recherche}">
             <input type="checkbox" value="${echapper(p.cle)}" ${detenue ? '' : 'disabled'} ${g?.permissions.includes(p.cle) ? 'checked' : ''}>
-            <span><strong>${echapper(p.libelle)}</strong><small>${echapper(p.description || '')}${detenue ? '' : ' (vous ne l’avez pas)'}</small></span>
+            <span>
+              <strong>${echapper(p.libelle)}${p.sensible ? ' <span class="grade-sensible">Sensible</span>' : ''}</strong>
+              <small>${echapper(p.description || '')}${detenue ? '' : ' (vous ne l’avez pas)'}</small>
+              ${requiert ? `<small class="grade-requiert">Nécessite : ${echapper(requiert)}</small>` : ''}
+            </span>
           </label>`;
-        }).join('')}${reglageAgenda}</div>`;
+        }).join('')}</div>`;
       }).join('');
+      $('recherche-vide').classList.add('cache');
       afficherDroitsAgenda(g);
       afficherQuotaRun(g);
       afficherQuotaFacture(g);
+      actualiserApercu();
+      ouvrirOnglet('affichage');
       gestion.message('zone-message-modale', '');
-      $('modale-grade').classList.remove('cache');
-      $('libelle').focus();
+      $('tiroir-grade').classList.remove('cache');
+      instantaneOuverture = instantaneFormulaire();
     }
-    const fermer = () => { $('modale-grade').classList.add('cache'); if (ouvreur?.isConnected) ouvreur.focus(); };
+    async function fermer() {
+      if (instantaneOuverture !== null && instantaneFormulaire() !== instantaneOuverture) {
+        if (!await gestion.confirmer('Les modifications de ce grade ne sont pas enregistrées.', 'Fermer sans enregistrer ?', 'Fermer sans enregistrer')) return;
+      }
+      instantaneOuverture = null;
+      $('tiroir-grade').classList.add('cache');
+      if (ouvreur?.isConnected) ouvreur.focus();
+    }
+
+    $('supprimer').addEventListener('click', async () => {
+      const g = grades.find(x => x.cle === edition);
+      if (!g) return;
+      const n = effectifs?.get(g.cle) ?? 0;
+      const texte = n ? `${n} membre${n > 1 ? 's ont' : ' a'} ce grade : ${n > 1 ? 'ils se retrouveront' : 'il se retrouvera'} sans grade.` : 'Aucun membre n’a ce grade.';
+      if (!await gestion.confirmer(texte, `Supprimer « ${g.libelle} » ?`, 'Supprimer le grade')) return;
+      try {
+        grades = await socle.api(`/api/grades/${encodeURIComponent(g.cle)}`, { method: 'DELETE' });
+        instantaneOuverture = null;
+        $('tiroir-grade').classList.add('cache');
+        gestion.notifier(`Grade « ${g.libelle} » supprimé ✓`);
+        charger();
+      } catch (err) { gestion.message('zone-message-modale', err.message); }
+    });
+
+    $('form').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!$('libelle').value.trim()) { ouvrirOnglet('affichage'); $('erreur-libelle').classList.remove('cache'); $('libelle').focus(); return; }
+      const corps = {
+        libelle: $('libelle').value.trim(), couleur: $('couleur').value, roleDiscordId: roles.length ? $('role-liste').value : $('role').value.trim(),
+        permissions: [...document.querySelectorAll('#cases input[type="checkbox"][value]:checked')].map(c => c.value),
+      };
+      // une erreur après la création/modification du grade lui-même (agenda, quotas : requêtes séparées) ne l'annule
+      // pas : le message le dit, plutôt que de laisser croire à un échec complet
+      let apresGrade = false;
+      try {
+        const creation = !edition;
+        const clesAvant = new Set(grades.map(g => g.cle));
+        grades = creation
+          ? await socle.api('/api/grades', { method: 'POST', body: corps })
+          : await socle.api(`/api/grades/${encodeURIComponent(edition)}`, { method: 'PATCH', body: corps });
+        apresGrade = true;
+        if (creation) {
+          const cree = grades.find(g => !clesAvant.has(g.cle));
+          if (!cree) throw new Error('Le grade a été créé, mais ses droits d’agenda n’ont pas pu être associés. Actualisez la page puis modifiez ce grade.');
+          edition = nouveauCleMatrice = cree.cle;
+          gradeCreeEnCours = true;
+          $('titre-grade').textContent = cree.libelle;
+          $('enregistrer').textContent = 'Enregistrer';
+          $('supprimer').classList.remove('cache');
+        }
+        const selection = action => [...$('agenda-grades').querySelectorAll(`[data-agenda-action="${action}"]:checked`)]
+          .map(c => c.dataset.grade === '__nouveau_grade__' ? nouveauCleMatrice : c.dataset.grade).filter(Boolean);
+        const droits = {
+          consulter: selection('consulter'),
+          modifier: selection('modifier'),
+          creer: selection('creer'),
+          consulter_tous: $('agenda-consulter-tous').checked,
+          gerer_tous: $('agenda-gerer-tous').checked,
+        };
+        await socle.api(`/api/agenda/droits-grades/${encodeURIComponent(edition)}`, { method: 'PUT', body: droits });
+        await socle.api(`/api/run/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('run-quota').value) || 0 } });
+        await socle.api(`/api/compta/factures/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('facture-quota').value) || 0 } });
+        const libelle = grades.find(g => g.cle === edition)?.libelle ?? corps.libelle;
+        instantaneOuverture = null;
+        $('tiroir-grade').classList.add('cache');
+        gestion.notifier(gradeCreeEnCours ? `Grade « ${libelle} » créé ✓` : `Grade « ${libelle} » enregistré ✓`);
+        gradeCreeEnCours = false;
+        nouveauCleMatrice = null;
+        charger();
+      } catch (err) {
+        gestion.message('zone-message-modale', apresGrade ? `Le grade a été enregistré, mais : ${err.message} Rouvrez-le pour corriger ce point.` : err.message);
+      }
+    });
+
+    $('fermer').addEventListener('click', fermer);
+    $('tiroir-grade').addEventListener('click', e => { if (e.target.id === 'tiroir-grade') fermer(); });
+
+    // Vue d'ensemble : lecture seule, aucun champ à défendre au clavier au-delà du piège générique des fenêtres
+    function construireVueEnsemble() {
+      return domaines().map(([nom, cles]) => {
+        const liste = cles.map(c => permissions.find(p => p.cle === c)).filter(Boolean);
+        if (!liste.length) return '';
+        return `<div class="grade-domaine"><h3>${echapper(nom)}</h3>${liste.map(p => {
+          const porteurs = grades.filter(g => g.permissions.includes(p.cle));
+          const chips = porteurs.map(g => `<span class="grades-tag"><span class="pastille-grade" style="background:${echapper(g.couleur || '#8a93b8')}"></span>${echapper(g.libelle)}</span>`).join('');
+          return `<div class="vue-ensemble-ligne">
+            <div><strong>${echapper(p.libelle)}${p.sensible ? ' <span class="grade-sensible">Sensible</span>' : ''}</strong><br><small class="champ-aide" style="margin:2px 0 0;">${echapper(p.description || '')}</small></div>
+            <div class="grades-tags">${chips || '<span class="comptes-discret">Aucun grade</span>'}</div>
+          </div>`;
+        }).join('')}</div>`;
+      }).join('');
+    }
+    $('bouton-vue-ensemble').addEventListener('click', () => {
+      $('vue-ensemble-corps').innerHTML = construireVueEnsemble();
+      $('modale-vue-ensemble').classList.remove('cache');
+    });
+    $('fermer-vue-ensemble').addEventListener('click', () => $('modale-vue-ensemble').classList.add('cache'));
+    $('modale-vue-ensemble').addEventListener('click', e => { if (e.target.id === 'modale-vue-ensemble') $('modale-vue-ensemble').classList.add('cache'); });
 
     async function charger() {
       let r;
@@ -385,77 +633,6 @@
     }
 
     $('nouveau').addEventListener('click', () => ouvrir(null));
-    $('fermer').addEventListener('click', fermer);
-    $('modale-grade').addEventListener('click', e => { if (e.target.id === 'modale-grade') fermer(); });
-    document.addEventListener('keydown', e => {
-      const modale = $('modale-grade');
-      if (modale.classList.contains('cache') || document.querySelector('[role="alertdialog"]')) return;
-      if (e.key === 'Escape') { fermer(); return; }
-      if (e.key !== 'Tab') return;
-      const focusables = [...modale.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')]
-        .filter(el => !el.disabled && el.offsetParent !== null);
-      if (!focusables.length) return;
-      const premier = focusables[0], dernier = focusables[focusables.length - 1];
-      if (e.shiftKey && document.activeElement === premier) { e.preventDefault(); dernier.focus(); }
-      else if (!e.shiftKey && document.activeElement === dernier) { e.preventDefault(); premier.focus(); }
-    });
-
-    $('supprimer').addEventListener('click', async () => {
-      const g = grades.find(x => x.cle === edition);
-      if (!g) return;
-      const n = effectifs?.get(g.cle) ?? 0;
-      const texte = n ? `${n} membre${n > 1 ? 's ont' : ' a'} ce grade : ${n > 1 ? 'ils se retrouveront' : 'il se retrouvera'} sans grade.` : 'Aucun membre n’a ce grade.';
-      if (!await gestion.confirmer(texte, `Supprimer « ${g.libelle} » ?`, 'Supprimer le grade')) return;
-      try {
-        grades = await socle.api(`/api/grades/${encodeURIComponent(g.cle)}`, { method: 'DELETE' });
-        fermer();
-        gestion.notifier(`Grade « ${g.libelle} » supprimé ✓`);
-        charger();
-      } catch (err) { gestion.message('zone-message-modale', err.message); }
-    });
-
-    $('form').addEventListener('submit', async e => {
-      e.preventDefault();
-      if (!$('libelle').value.trim()) { $('erreur-libelle').classList.remove('cache'); $('libelle').focus(); return; }
-      const corps = {
-        libelle: $('libelle').value.trim(), couleur: $('couleur').value, roleDiscordId: roles.length ? $('role-liste').value : $('role').value.trim(),
-        permissions: [...document.querySelectorAll('#cases input[type="checkbox"][value]:checked')].map(c => c.value),
-      };
-      try {
-        const creation = !edition;
-        const clesAvant = new Set(grades.map(g => g.cle));
-        grades = creation
-          ? await socle.api('/api/grades', { method: 'POST', body: corps })
-          : await socle.api(`/api/grades/${encodeURIComponent(edition)}`, { method: 'PATCH', body: corps });
-        if (creation) {
-          const cree = grades.find(g => !clesAvant.has(g.cle));
-          if (!cree) throw new Error('Le grade a été créé, mais ses droits d’agenda n’ont pas pu être associés. Actualisez la page puis modifiez ce grade.');
-          edition = nouveauCleMatrice = cree.cle;
-          gradeCreeEnCours = true;
-          $('titre-modale').textContent = cree.libelle;
-          $('enregistrer').textContent = 'Enregistrer';
-          $('supprimer').classList.remove('cache');
-        }
-        const selection = action => [...$('agenda-grades').querySelectorAll(`[data-agenda-action="${action}"]:checked`)]
-          .map(c => c.dataset.grade === '__nouveau_grade__' ? nouveauCleMatrice : c.dataset.grade).filter(Boolean);
-        const droits = {
-          consulter: selection('consulter'),
-          modifier: selection('modifier'),
-          creer: selection('creer'),
-          consulter_tous: $('agenda-consulter-tous').checked,
-          gerer_tous: $('agenda-gerer-tous').checked,
-        };
-        await socle.api(`/api/agenda/droits-grades/${encodeURIComponent(edition)}`, { method: 'PUT', body: droits });
-        await socle.api(`/api/run/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('run-quota').value) || 0 } });
-        await socle.api(`/api/compta/factures/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('facture-quota').value) || 0 } });
-        const libelle = grades.find(g => g.cle === edition)?.libelle ?? corps.libelle;
-        fermer();
-        gestion.notifier(gradeCreeEnCours ? `Grade « ${libelle} » créé ✓` : `Grade « ${libelle} » enregistré ✓`);
-        gradeCreeEnCours = false;
-        nouveauCleMatrice = null;
-        charger();
-      } catch (err) { gestion.message('zone-message-modale', err.message); }
-    });
 
     gestion.coque('grades').then(m => { moi = m; return charger(); }).catch(e => gestion.message('zone-message', e.message));
   </script>

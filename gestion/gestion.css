@@ -2235,7 +2235,7 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 /* action destructive d'un pied de fiche ou de tiroir : ghost rouge, épinglée à gauche (.pied-centre) */
 .grade-supprimer { color: var(--erreur); border-color: var(--erreur); }
 @media (max-width: 760px) {
-  .modale-fond#modale-grade, .modale-fond#modale-paie-grade { padding: 0; }
+  .modale-fond#modale-paie-grade { padding: 0; }
   .modale.modale-grade { height: 100vh; height: 100dvh; max-height: none; max-width: none; border: 0; border-radius: 0; }
   .modale-grade > .modale-entete { padding: 16px 18px 12px; }
   .grade-corps { padding: 14px 18px 10px; }
@@ -2251,6 +2251,42 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
      s'écrasant à quelques px de large, chaque étiquette renvoyant alors son texte à la ligne mot par mot — d'où le
      chevauchement avec l'effectif et la flèche. flex-basis:100% leur réserve toujours leur propre ligne complète. */
   .grades-tags, .grades-effectif { flex-basis: 100%; }
+}
+
+/* ---- fiche d'un grade en tiroir (grades.html) : liste à gauche, tiroir à droite, par onglets — remplace l'ancienne
+   modale (gardée pour la fiche de paie, modale-paie, qui n'a pas d'onglets). Les classes .grade-* ci-dessus (identité,
+   domaine, permission, run/facture, agenda) sont réutilisées telles quelles dans les deux. */
+.tiroir-grade { width: min(760px, 100%); }
+/* même reset que .modale-grade : un <label> ou une <legend> y est normal, pas en majuscules (règle générale, label{}) */
+.tiroir-grade label, .tiroir-grade legend { text-transform: none; letter-spacing: 0; }
+.tiroir-grade .champ label small { font-weight: 400; color: var(--text-faint); }
+.grade-onglets { display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; padding: 10px 24px 0; border-bottom: 1px solid var(--border); scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent; }
+.grade-onglets::-webkit-scrollbar { height: 6px; }
+.grade-onglets::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba({{couleur_rvb}}, 0.36); }
+.compta-sous-onglets, .run-onglets, .grade-onglets { gap: 4px; border-bottom: 1px solid var(--border); }
+.compta-sous-onglet, .run-onglet, .grade-onglet {
+  margin-bottom: -1px; padding: 10px 12px; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: none; color: var(--text-muted); font-size: var(--fs-3); white-space: nowrap; flex: 0 0 auto;
+}
+.compta-sous-onglet:hover, .run-onglet:hover, .grade-onglet:hover { color: var(--text); border-bottom-color: var(--border-light); }
+.compta-sous-onglet.actif, .run-onglet.actif, .grade-onglet.actif { background: none; color: var(--text); border-bottom-color: var(--accent); }
+.compta-sous-onglet.actif .ico, .run-onglet.actif .ico, .grade-onglet.actif .ico { color: var(--accent); }
+.tiroir-grade [data-panneau] { padding-top: 16px; }
+/* recherche d'une permission (page longue sous Ressources humaines) : champ standard, résultats filtrés en JS */
+.grade-recherche input[type="search"] { max-width: 360px; }
+/* droit qui donne accès à des informations sensibles (RIB, comptes, grades…) : signalé, jamais caché */
+.grade-sensible { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; margin-left: 6px; border-radius: 999px; background: var(--alerte-soft); color: var(--alerte); font-size: var(--fs-1); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; vertical-align: 1px; }
+.grade-requiert { color: var(--accent-dark); }
+/* aperçu (onglet Aperçu) : mêmes lignes que la liste des grades, simple affichage sans poignée ni flèche */
+#apercu-liste .grades-principal { cursor: default; }
+/* vue d'ensemble (lecture seule) : une permission par ligne, les grades qui la portent en étiquettes — jamais une
+   grille rôles × permissions, qui défilerait de côté sur un petit écran (docs/design.md §4) */
+.vue-ensemble-ligne { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.vue-ensemble-ligne:last-child { border-bottom: 0; }
+.vue-ensemble-ligne > div:first-child { flex: 1 1 240px; min-width: 0; }
+.vue-ensemble-ligne .grades-tags { flex: 1 1 260px; }
+@media (max-width: 760px) {
+  .grade-onglets, .tiroir-grade [data-panneau] { padding-left: 16px; padding-right: 16px; }
 }
 
 /* ---------- Ventes & statistiques (statistiques.html) : chiffres clés, classement de la semaine, lecture du Sheets ---------- */
@@ -2677,6 +2713,24 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .contrat-periode--a-facturer .contrat-periode-etat { color: var(--erreur); font-weight: 500; }
 .contrat-periode--a-venir { opacity: 0.65; border-style: dashed; }
 .contrat-facturer { width: 100%; min-height: 44px; margin-top: 14px; }
+
+/* Échéanciers (gestion/echeanciers.js) : une ligne par échéance, en cartes sous une largeur réduite (flex-wrap, jamais
+   de défilement latéral) — checkbox, date, montant, statut (puce) et actions restent tous visibles et cliquables. */
+.echeancier-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px 20px; margin: 16px 0 20px; }
+.echeancier-stats dt { font-size: var(--fs-2); color: var(--text-faint); }
+.echeancier-stats dd { margin: 2px 0 0; font-family: var(--display); font-size: var(--fs-5); color: var(--text); }
+.echeancier-liste { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.echeancier-ligne { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.echeancier-ligne-date { font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 92px; }
+.echeancier-ligne-note { color: var(--text-faint); font-size: var(--fs-2); }
+.echeancier-ligne-montant { font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: auto; }
+.echeancier-type { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: var(--fs-1); font-weight: 500; background: var(--bg3); color: var(--text-muted); }
+.echeancier-type--paiement { background: var(--accent-soft); color: var(--accent-dark); }
+/* fenêtre « Plus d'actions » d'un échéancier : liste verticale, chaque bouton occupe toute la largeur ; l'action
+   destructrice (déjà rouge, .grade-supprimer) est séparée des autres par un peu d'espace plutôt que perdue entre elles. */
+.plus-echeancier-liste { display: flex; flex-direction: column; gap: 8px; }
+.plus-echeancier-liste .btn { width: 100%; justify-content: flex-start; min-height: 48px; }
+.plus-echeancier-liste .btn.grade-supprimer { margin-top: 8px; }
 
 .contrat-personnes { list-style: none; margin: 0; padding: 0; columns: 2 200px; column-gap: 20px; }
 .contrat-personnes li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); break-inside: avoid; font-size: var(--fs-3); }

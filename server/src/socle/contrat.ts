@@ -14,7 +14,9 @@ import type { Prisma } from '../generated/prisma/client.js';
 // requiert : clés d'autres permissions sans lesquelles celle-ci n'a pas de sens (ex. « modifier » suppose « voir »).
 // La page Grades les coche automatiquement ; le serveur les ajoute aussi d'office à l'enregistrement d'un grade
 // (socle/droits.ts, completerPermissions) : impossible d'accorder l'une sans les autres.
-export type Permission = { cle: string; libelle: string; description?: string; domaine?: string; requiert?: string[] };
+// sensible : donne accès à des informations ou des réglages qu'on n'étend pas à la légère (données personnelles,
+// comptes, grades…) : la page Grades le signale par un badge, rien de plus (le serveur ne s'en sert pas).
+export type Permission = { cle: string; libelle: string; description?: string; domaine?: string; requiert?: string[]; sensible?: boolean };
 
 // Niveau d'accès d'une page de gestion/ : 'public' (sans connexion), 'connecte' (compte même en attente),
 // 'valide' (compte validé), ou une clé de permission. Une page non déclarée exige un compte validé.

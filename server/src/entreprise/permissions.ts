@@ -18,7 +18,7 @@ export const permissions: Permission[] = [
   { cle: 'quota', domaine: RH, libelle: 'Consulter les quotas', description: 'Voir les quotas de run et de facturation, les classements et le suivi par semaine' },
   { cle: 'services', domaine: RH, libelle: 'Consulter les prises de service', description: 'Voir qui est en service et l’historique des prises de service' },
   { cle: 'services-corriger', domaine: RH, libelle: 'Corriger un service', description: 'Modifier un service ou ignorer une anomalie signalée', requiert: ['services'] },
-  { cle: 'rh-sensible', domaine: RH, libelle: 'Consulter le téléphone et le RIB', description: 'Voir et modifier le téléphone et le RIB des employés', requiert: ['rh-voir'] },
+  { cle: 'rh-sensible', domaine: RH, libelle: 'Consulter le téléphone et le RIB', description: 'Voir et modifier le téléphone et le RIB des employés', requiert: ['rh-voir'], sensible: true },
   { cle: 'rh-modifier', domaine: RH, libelle: 'Modifier une fiche', description: 'Changer l’identité, le grade ou les dates d’un employé', requiert: ['rh-voir'] },
   { cle: 'rh-sanctionner', domaine: RH, libelle: 'Gérer les sanctions', description: 'Ajouter ou retirer une sanction sur une fiche employé', requiert: ['rh-voir', 'rh-sanctions-voir'] },
   { cle: 'rh-creer', domaine: RH, libelle: 'Ajouter un employé', description: 'Créer une fiche ; retraiter ou écarter une candidature reçue', requiert: ['rh-voir'] },

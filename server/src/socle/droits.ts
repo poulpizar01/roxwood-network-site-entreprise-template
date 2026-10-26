@@ -12,9 +12,9 @@ import { permissions as permissionsEntreprise } from '../entreprise/permissions.
 import { fail } from './config.js';
 
 export const PERMISSIONS_SOCLE: Permission[] = [
-  { cle: 'comptes', domaine: 'Équipe et site', libelle: 'Gérer les comptes', description: 'Valider ou refuser les demandes, attribuer un grade, supprimer un compte (sous son propre grade)' },
-  { cle: 'grades', domaine: 'Équipe et site', libelle: 'Gérer les grades', description: 'Créer, ordonner, modifier les grades et leurs permissions (sous son propre grade)' },
-  { cle: 'parametres', domaine: 'Équipe et site', libelle: 'Paramétrer le site', description: 'Régler les liens et réglages du site (page Paramètres)' },
+  { cle: 'comptes', domaine: 'Équipe et site', libelle: 'Gérer les comptes', description: 'Valider ou refuser les demandes, attribuer un grade, supprimer un compte (sous son propre grade)', sensible: true },
+  { cle: 'grades', domaine: 'Équipe et site', libelle: 'Gérer les grades', description: 'Créer, ordonner, modifier les grades et leurs permissions (sous son propre grade)', sensible: true },
+  { cle: 'parametres', domaine: 'Équipe et site', libelle: 'Paramétrer le site', description: 'Régler les liens et réglages du site (page Paramètres)', sensible: true },
 ];
 
 // permissions de l'entreprise contrôlées au démarrage : une faute de frappe se voit tout de suite, pas à la première requête

@@ -213,6 +213,13 @@ window.gestion = {
   ligneEnService,
   ordreEnService,
 
+  // rubriques visibles du menu pour un filtre de permission donné (coque, et l'aperçu d'un grade dans grades.html) :
+  // regroupées sous leur titre, un groupe sans aucune rubrique visible n'apparaît pas.
+  rubriques(peutFn) {
+    const visibles = GESTION_NAV.filter(l => l.groupe || !l.permission || peutFn(l.permission));
+    return visibles.filter((l, i) => !l.groupe || (visibles[i + 1] && !visibles[i + 1].groupe));
+  },
+
   // Tri de colonne pour un tableau ou une liste en grille, réinitialisable sans recharger la page : un premier clic
   // sur une colonne trie en croissant, un second en décroissant, un troisième revient à l'ordre d'origine (aucun
   // tri). defaut (facultatif) ne sert qu'au premier affichage, avant tout clic ; il n'intervient plus ensuite — y
@@ -272,9 +279,7 @@ window.gestion = {
         <span class="pastille-service" aria-hidden="true"></span><span data-service-texte></span></button>
       <a href="compte.html" class="admin-barre-haut-compte" data-avatar aria-label="Mon compte"></a>`;
     const dessiner = (moi) => {
-      // un groupe sans aucune rubrique visible n'est pas affiché
-      const visibles = GESTION_NAV.filter(l => l.groupe || !l.permission || socle.peut(moi, l.permission));
-      barre.querySelector('.admin-nav').innerHTML = visibles.filter((l, i) => !l.groupe || (visibles[i + 1] && !visibles[i + 1].groupe)).map(l => l.groupe
+      barre.querySelector('.admin-nav').innerHTML = gestion.rubriques(cle => socle.peut(moi, cle)).map(l => l.groupe
         ? `<p class="admin-nav-groupe">${socle.esc(l.groupe)}</p>`
         : `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`).join('');
       const nom = moi.nom || moi.pseudo;
