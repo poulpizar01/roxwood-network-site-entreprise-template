@@ -2259,7 +2259,9 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 /* ---- fiche d'un grade en tiroir (grades.html) : liste à gauche, tiroir à droite, par onglets — remplace l'ancienne
    modale (gardée pour la fiche de paie, modale-paie, qui n'a pas d'onglets). Les classes .grade-* ci-dessus (identité,
    domaine, permission, run/facture, agenda) sont réutilisées telles quelles dans les deux. */
-.tiroir-grade { width: min(760px, 100%); }
+/* 900px, pas la largeur générique de .tiroir (560px) : la grille de droits d'agenda (4 colonnes, minimum 540px de
+   contenu) venait respirer dans l'ancienne modale (max-width 920px) ; à 760px elle était trop serrée. */
+.tiroir-grade { width: min(900px, 100%); }
 /* même reset que .modale-grade : un <label> ou une <legend> y est normal, pas en majuscules (règle générale, label{}) */
 .tiroir-grade label, .tiroir-grade legend { text-transform: none; letter-spacing: 0; }
 .tiroir-grade .champ label small { font-weight: 400; color: var(--text-faint); }
@@ -2283,7 +2285,11 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 .grade-sensible { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; margin-left: 6px; border-radius: 999px; background: var(--alerte-soft); color: var(--alerte); font-size: var(--fs-1); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; vertical-align: 1px; }
 .grade-requiert { color: var(--accent-dark); }
 /* aperçu (onglet Aperçu) : mêmes lignes que la liste des grades, simple affichage sans poignée ni flèche */
-#apercu-liste .grades-principal { cursor: default; }
+#apercu-menu .grades-principal { cursor: default; }
+/* détail de l'aperçu (ce que le grade peut faire, par domaine) : même texte que .grade-permission, sans interrupteur */
+.apercu-droit { margin: 0; padding: 6px 10px; }
+.apercu-droit strong { display: block; font-weight: 500; color: var(--text); font-size: var(--fs-3); }
+.apercu-droit small { display: block; font-size: var(--fs-2); color: var(--text-faint); }
 /* vue d'ensemble (lecture seule) : une permission par ligne, les grades qui la portent en étiquettes — jamais une
    grille rôles × permissions, qui défilerait de côté sur un petit écran (docs/design.md §4) */
 .vue-ensemble-ligne { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); }

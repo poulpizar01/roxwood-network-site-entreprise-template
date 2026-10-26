@@ -106,8 +106,12 @@
           </section>
 
           <section id="onglet-apercu" class="cache" data-panneau="apercu">
-            <p class="champ-aide" style="margin:0 0 10px;">Ce que ce grade voit dans le menu, avec les droits cochés dans l’onglet Permissions — comme les coche la personne qui l’ouvre (elle ne propose jamais plus que ce qu’elle détient elle-même).</p>
-            <ul class="grades-liste" id="apercu-liste" aria-label="Rubriques visibles pour ce grade"></ul>
+            <p class="champ-aide" style="margin:0 0 10px;">Avec les droits cochés dans l’onglet Permissions — comme les coche la personne qui l’ouvre, qui ne propose jamais plus que ce qu’elle détient elle-même.</p>
+            <div class="grade-domaine">
+              <h3>Dans le menu</h3>
+              <ul class="grades-liste" id="apercu-menu" aria-label="Rubriques visibles pour ce grade"></ul>
+            </div>
+            <div id="apercu-droits"></div>
           </section>
         </form>
         <!-- hors du formulaire : son innerHTML est recopié dans #onglet-agenda à chaque ouverture (afficherDroitsAgenda),
@@ -296,15 +300,25 @@
       if (b) ouvrirOnglet(b.dataset.onglet);
     });
 
-    // aperçu : rubriques du menu que ce grade verrait, d'après les permissions cochées dans l'onglet Permissions —
-    // même filtre que le menu réel (gestion.rubriques, gestion.js), appliqué aux cases plutôt qu'au compte connecté
+    // aperçu, en deux temps : les rubriques du menu que ce grade verrait (même filtre que le menu réel,
+    // gestion.rubriques, appliqué aux cases plutôt qu'au compte connecté), puis le détail de ce que ces droits lui
+    // permettent de faire — des droits sans rubrique à eux (rh-creer, rh-sanctionner, agenda-types…) ne se verraient
+    // pas dans la seule liste des rubriques.
     function actualiserApercu() {
       const cochees = new Set([...document.querySelectorAll('#cases input[type="checkbox"][value]:checked')].map(c => c.value));
       const lignes = gestion.rubriques(cle => cochees.has(cle));
-      $('apercu-liste').innerHTML = lignes.length ? lignes.map(l => l.groupe
+      $('apercu-menu').innerHTML = lignes.length ? lignes.map(l => l.groupe
         ? `<li class="grades-vide" style="text-align:left;padding:10px 4px 2px;border:0;color:var(--text-faint);font-size:var(--fs-2);">${echapper(l.groupe)}</li>`
         : `<li class="grades-ligne"><span class="grades-principal" style="cursor:default;">${ico(l.icone)}<span class="grades-nom">${echapper(l.label)}</span></span></li>`).join('')
         : '<li class="grades-vide">Avec les droits cochés, ce grade ne verrait aucune rubrique dans le menu (hors Accueil et Agenda, toujours accessibles).</li>';
+
+      const domainesAccordes = domaines().map(([nom, cles]) => {
+        const accordees = cles.map(c => permissions.find(p => p.cle === c)).filter(p => p && cochees.has(p.cle));
+        return accordees.length ? { nom, accordees } : null;
+      }).filter(Boolean);
+      $('apercu-droits').innerHTML = domainesAccordes.length ? domainesAccordes.map(d => `<div class="grade-domaine"><h3>${echapper(d.nom)}</h3>${d.accordees.map(p => `
+        <p class="apercu-droit"><strong>${echapper(p.libelle)}${p.sensible ? ' <span class="grade-sensible">Sensible</span>' : ''}</strong><small>${echapper(p.description || '')}</small></p>`).join('')}</div>`).join('')
+        : '<p class="comptes-vide">Avec les droits cochés, ce grade ne peut rien faire de particulier.</p>';
     }
 
     $('cases').addEventListener('change', async e => {
