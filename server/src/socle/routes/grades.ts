@@ -6,7 +6,7 @@ import { prisma } from '../db.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import { body, couleur, permission, text, valide } from '../http.js';
 import { rolesDiscord, rolesDiscordConfigures, RolesIndisponibles } from '../roles-discord.js';
-import { auDessusDe, chargerGrades, CLES_PERMISSIONS, gradeDe, gradePublic, peut, peutAccorder, rang, tousLesGrades } from '../droits.js';
+import { auDessusDe, chargerGrades, CLES_PERMISSIONS, completerPermissions, gradeDe, gradePublic, peut, peutAccorder, rang, tousLesGrades } from '../droits.js';
 import { entreprise } from '../../entreprise/index.js';
 
 export const grades = Router();
@@ -56,11 +56,13 @@ grades.post('/api/grades', ...permission('grades'), async (req: Request, res) =>
   const perms = lirePermissions(b.permissions ?? []), role = lireRole(b.roleDiscordId ?? null);
   if (!libelle || !/^[a-z0-9-]{1,20}$/.test(cle)) { res.status(400).json({ error: 'Libellé requis (la clé : minuscules, chiffres, tirets).' }); return; }
   if (!perms || role === undefined) { res.status(400).json({ error: 'Permissions ou rôle Discord invalides.' }); return; }
-  if (!peutAccorder(moi, perms)) { res.status(403).json({ error: 'Tu ne peux accorder que des permissions que tu détiens.' }); return; }
+  // complétées par ce qu'elles exigent (ex. cocher « rh-modifier » coche aussi « rh-voir ») avant de vérifier qu'on les détient
+  const completes = completerPermissions(perms);
+  if (!peutAccorder(moi, completes)) { res.status(403).json({ error: 'Tu ne peux accorder que des permissions que tu détiens.' }); return; }
   if (role && roleRefuse(moi, res)) return;
   // nouveau grade : en bas de la hiérarchie (donc sous celui de son créateur)
   const position = Math.max(-1, ...tousLesGrades().map(g => g.position)) + 1;
-  if (await enregistrer(res, () => prisma.grade.create({ data: { cle, libelle, position, couleur: couleur(b.couleur), permissions: perms, roleDiscordId: role } }))) repondreListe(res.status(201));
+  if (await enregistrer(res, () => prisma.grade.create({ data: { cle, libelle, position, couleur: couleur(b.couleur), permissions: completes, roleDiscordId: role } }))) repondreListe(res.status(201));
 });
 
 grades.patch('/api/grades/:cle', ...permission('grades'), async (req, res) => {
@@ -73,13 +75,15 @@ grades.patch('/api/grades/:cle', ...permission('grades'), async (req, res) => {
   if (b.permissions !== undefined) {
     const perms = lirePermissions(b.permissions);
     if (!perms) { res.status(400).json({ error: 'Permissions invalides.' }); return; }
+    // complétées par ce qu'elles exigent, comme à la création
+    const completes = completerPermissions(perms);
     // on ne peut ni ajouter ni retirer une permission qu'on n'a pas (sinon un gestionnaire limité retirerait celles des autres).
     // actuelles : filtrées comme permissionsDe() — une clé retirée du code (plus dans CLES_PERMISSIONS) ne compte déjà plus pour
     // personne ; la considérer encore « détenue » par le grade l'aurait rendue impossible à retirer, même pour le propriétaire.
     const actuelles = g.permissions.filter(p => CLES_PERMISSIONS.has(p));
-    const changees = [...perms.filter(p => !actuelles.includes(p)), ...actuelles.filter(p => !perms.includes(p))];
+    const changees = [...completes.filter(p => !actuelles.includes(p)), ...actuelles.filter(p => !completes.includes(p))];
     if (!peutAccorder(moi, changees)) { res.status(403).json({ error: 'Tu ne peux changer que des permissions que tu détiens.' }); return; }
-    data.permissions = perms;
+    data.permissions = completes;
   }
   if (b.roleDiscordId !== undefined) {
     const role = lireRole(b.roleDiscordId);
