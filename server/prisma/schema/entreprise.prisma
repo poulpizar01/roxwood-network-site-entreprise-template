@@ -17,16 +17,16 @@ model EvenementAgenda {
   heureDebut       String?  @map("heure_debut") @db.VarChar(5) // HH:MM, heure de Paris ; absentes sur plusieurs jours (pas d'horaire)
   heureFin         String?  @map("heure_fin") @db.VarChar(5)
   notes            String   @default("") @db.VarChar(500)
-  typeId           Int?     @map("type_id") // classement (couleur) ; type supprimé : « Sans type »
+  typeId           Int?     @map("type_id") // classement (couleur) ; type supprimé : « Sans type ». Pour une absence,
+  // sert aussi de motif (congé, maladie…) : l'entreprise crée ses propres types, le socle n'en impose aucun.
   type             TypeAgenda? @relation(fields: [typeId], references: [id], onDelete: SetNull)
   // destiné à : « perso » (l'auteur et ses invités), « tous », ou « grade » (selon les droits exacts réglés par grade, agenda-regles.ts)
   destination      String   @default("perso") @db.VarChar(10)
   destinationGrade String?  @map("destination_grade") @db.VarChar(20)
   // absence (congé…) : null = événement normal ; sinon « en_attente », « approuve » ou « refuse » (routes/agenda.ts,
-  // agenda-regles.ts). Motif choisi à la création, jamais changé après ; modifier une absence approuvée la repasse
-  // « en_attente ». Une absence refusée n'est plus modifiable : purgée 30 jours après la décision (purge.ts).
+  // agenda-regles.ts). Modifier une absence approuvée la repasse « en_attente ». Une absence refusée n'est plus
+  // modifiable : purgée 30 jours après la décision (purge.ts).
   statutAbsence     String?   @map("statut_absence") @db.VarChar(10)
-  absenceMotif      String?   @map("absence_motif") @db.VarChar(10) // conge | maladie | personnel | autre (routes/agenda.ts)
   absenceMotifRefus String?   @map("absence_motif_refus") @db.VarChar(200) // motif facultatif saisi par qui refuse
   absenceDecideLe   DateTime? @map("absence_decide_le") @db.Timestamptz(6) // approuvée ou refusée le
   invitations      InvitationAgenda[]

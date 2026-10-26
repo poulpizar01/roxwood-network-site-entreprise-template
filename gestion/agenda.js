@@ -529,12 +529,12 @@ function majChampInvites() {
 
 // Événement ou Absence : choisi à la création seulement, jamais changé après (comme l'était la case « C'est une
 // absence »). Une absence est toujours personnelle et n'a ni titre libre, ni horaire, ni partage, ni invités : le
-// titre se déduit du motif, les notes restent le seul texte libre.
+// titre se déduit du type choisi (motif de l'absence — congé, maladie… — créé par l'entreprise dans la liste des
+// types, comme pour un événement), les notes restent le seul texte libre.
 const modeEvenementChoisi = () => document.querySelector("#evenement-mode-filtres .comptes-filtre.actif")?.dataset.modeEvenement || "evenement";
 function majModeEvenement() {
   const absence = modeEvenementChoisi() === "absence";
   document.getElementById("champ-evenement-titre").classList.toggle("cache", absence);
-  document.getElementById("champ-evenement-motif").classList.toggle("cache", !absence);
   document.getElementById("champ-evenement-classement").classList.toggle("cache", absence);
   majChampHeures();
   majChampInvites();
@@ -547,7 +547,6 @@ document.getElementById("evenement-mode-filtres").addEventListener("click", e =>
 });
 
 const dateCourteFr = iso => new Date(iso + "T00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-const MOTIFS_ABSENCE = { conge: "Congé", maladie: "Maladie", personnel: "Personnel", autre: "Autre" };
 const ETATS_ABSENCE = {
   en_attente: ["En attente de validation", "puce-or"],
   approuve: ["Approuvée", "puce-ok"],
@@ -579,12 +578,10 @@ function ouvrirModaleEvenement(options) {
     const actif = b.dataset.modeEvenement === (estAbsence ? "absence" : "evenement");
     b.classList.toggle("actif", actif); b.setAttribute("aria-pressed", String(actif));
   });
-  const selectMotif = document.getElementById("evenement-motif");
-  selectMotif.value = (e && e.absence_motif) || "conge";
-  ameliorerSelect(selectMotif);
   majModeEvenement();
 
-  // Type : « Sans type » puis les types de la Direction (un type supprimé depuis : « Sans type »)
+  // Type : « Sans type » puis les types de la Direction (un type supprimé depuis : « Sans type »). Sert aussi de
+  // motif pour une absence (congé, maladie…) : pas de liste imposée, l'entreprise crée ses propres types.
   const selectType = document.getElementById("evenement-type");
   selectType.innerHTML = `<option value="">Sans type</option>` + AGENDA_TYPES.map(t => `<option value="${Number(t.id)}">${echapper(t.nom)}</option>`).join("");
   selectType.value = e && typeDe(e) ? String(e.type_id) : "";
@@ -619,7 +616,8 @@ function ouvrirModaleEvenement(options) {
     document.getElementById("evenement-absence-pastille").className = `puce ${classeEtat}`;
     document.getElementById("evenement-absence-pastille").textContent = libelleEtat;
     const periode = e.jour === e.jour_fin ? `le ${dateCourteFr(e.jour)}` : `du ${dateCourteFr(e.jour)} au ${dateCourteFr(e.jour_fin)}`;
-    document.getElementById("evenement-absence-resume").textContent = `${e.auteur || "Cette personne"} · ${periode} · ${e.absence_motif_libelle || MOTIFS_ABSENCE[e.absence_motif] || "Motif inconnu"}${e.absence_motif_refus ? ` · ${e.absence_motif_refus}` : ""}`;
+    const typeNom = typeDe(e)?.nom;
+    document.getElementById("evenement-absence-resume").textContent = `${e.auteur || "Cette personne"} · ${periode}${typeNom ? ` · ${typeNom}` : ""}${e.absence_motif_refus ? ` · ${e.absence_motif_refus}` : ""}`;
   }
   document.getElementById("champ-refus-absence-motif").classList.toggle("cache", !(e && e.peut_valider));
   document.getElementById("refus-absence-motif").value = "";
@@ -639,7 +637,6 @@ function ouvrirModaleEvenement(options) {
   document.querySelectorAll("#formulaire-evenement input, #formulaire-evenement textarea, #formulaire-evenement select")
     .forEach(c => { c.disabled = !modifiable; });
   if (destinationFigee) selectDest.disabled = true;
-  selectMotif.disabled = estEdition || !modifiable;   // motif fixé à la création, jamais changé après coup
   if (e && e.peut_valider) document.getElementById("refus-absence-motif").disabled = false;   // la personne qui valide peut toujours écrire un motif de refus
   document.getElementById("bouton-enregistrer-evenement").classList.toggle("cache", !modifiable);
   document.getElementById("bouton-enregistrer-evenement").textContent = estEdition ? "Enregistrer" : "Ajouter";
@@ -649,8 +646,9 @@ function ouvrirModaleEvenement(options) {
   document.querySelectorAll("#formulaire-evenement .champ-erreur").forEach(p => p.classList.add("cache"));
   gestion.message("zone-message-modale-evenement", "");
   document.getElementById("modale-evenement").classList.remove("cache");
-  const premierChamp = estAbsence && !estEdition ? selectMotif
-    : document.getElementById("champ-evenement-type").classList.contains("cache") ? document.getElementById("evenement-titre") : selectType;
+  const typeCache = document.getElementById("champ-evenement-type").classList.contains("cache");
+  const premierChamp = !typeCache ? selectType
+    : estAbsence && !estEdition ? document.getElementById("evenement-jour") : document.getElementById("evenement-titre");
   (modifiable ? premierChamp : document.getElementById("fermer-modale-evenement")).focus();
 }
 
@@ -755,7 +753,7 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
   gestion.message("zone-message-modale-evenement", "");
   document.querySelectorAll("#formulaire-evenement .champ-erreur").forEach(p => p.classList.add("cache"));
 
-  const absence = !document.getElementById("champ-evenement-motif").classList.contains("cache");
+  const absence = modeEvenementChoisi() === "absence";
   const titre = document.getElementById("evenement-titre").value.trim();
   const jour = document.getElementById("evenement-jour").value;
   const jourFin = document.getElementById("evenement-jour-fin").value;
@@ -783,12 +781,13 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
 
   const id = document.getElementById("evenement-id").value;
   const notes = document.getElementById("evenement-notes").value.trim();
+  const typeId = document.getElementById("evenement-type").value || null;
   const payload = absence
-    ? { jour, jour_fin: jourFin, notes, absence_motif: document.getElementById("evenement-motif").value, ...(id ? {} : { absence: true }) }
+    ? { jour, jour_fin: jourFin, notes, type_id: typeId, ...(id ? {} : { absence: true }) }
     : {
       titre, jour, jour_fin: jourFin,
       heure_debut: multi ? null : heureDebut, heure_fin: multi ? null : heureFin,
-      notes, type_id: document.getElementById("evenement-type").value || null,
+      notes, type_id: typeId,
     };
   let invitesEmployes = [];
   if (!absence) {

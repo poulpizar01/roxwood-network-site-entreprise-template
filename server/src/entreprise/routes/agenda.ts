@@ -42,10 +42,6 @@ const libelleDestination = (e: Pick<EvenementAgenda, 'destination' | 'destinatio
       : invitations.length === 1 ? `Personnel — ${invitations[0].nom}`
         : invitations.length ? `Personnel — ${invitations.length} invités` : 'Personnel — moi uniquement';
 
-// motifs d'absence proposés à la création : liste fermée, jamais un texte libre (le détail va dans les notes)
-export const MOTIFS_ABSENCE: Record<string, string> = { conge: 'Congé', maladie: 'Maladie', personnel: 'Personnel', autre: 'Autre' };
-const motifAbsenceValide = (m: unknown): m is keyof typeof MOTIFS_ABSENCE => typeof m === 'string' && m in MOTIFS_ABSENCE;
-
 type EvenementAvecInvitations = EvenementAgenda & { invitations: InvitationAgenda[] };
 const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAgenda) => ({
   id: e.id, titre: e.titre, jour: e.jour.toISOString().slice(0, 10), jour_fin: e.jourFin.toISOString().slice(0, 10),
@@ -57,20 +53,29 @@ const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAge
     nom, prevenu, present,
   })),
   modifiable: modifiable(e, lecteur(req), droits, clesGrades()),
-  absence: !!e.statutAbsence, statut_absence: e.statutAbsence,
-  absence_motif: e.absenceMotif, absence_motif_libelle: e.absenceMotif ? MOTIFS_ABSENCE[e.absenceMotif] : null, absence_motif_refus: e.absenceMotifRefus,
+  absence: !!e.statutAbsence, statut_absence: e.statutAbsence, absence_motif_refus: e.absenceMotifRefus,
   peut_valider: e.statutAbsence === 'en_attente' && e.compteId !== req.compte.id && peutValiderAbsences(droits),
 });
 
-// absence : seules les dates et les notes se saisissent (pas d'horaire, de type, de partage ni d'invités) ; le titre
-// se déduit du motif, jamais changé après coup (ni le motif lui-même)
-async function lireAbsence(b: Record<string, unknown>): Promise<{ titre: string; jour: Date; jourFin: Date; motif: string; notes: string }> {
-  if (!motifAbsenceValide(b.absence_motif)) throw new Refus('Choisissez le motif de l’absence.');
+// type (facultatif) : classement visuel, partagé avec les événements (permission « agenda-types ») ; l'entreprise s'en
+// sert aussi pour distinguer ses motifs d'absence (congé, maladie…), sans liste imposée par le socle
+async function lireTypeId(b: Record<string, unknown>): Promise<{ typeId: number | null; typeNom: string }> {
+  if (b.type_id === undefined || b.type_id === null || b.type_id === '') return { typeId: null, typeNom: '' };
+  const typeId = entier(b.type_id);
+  const type = typeId !== null ? await prisma.typeAgenda.findUnique({ where: { id: typeId } }) : null;
+  if (!type) throw new Refus('Ce type d’événement n’existe plus : choisissez-en un autre.');
+  return { typeId, typeNom: type.nom };
+}
+
+// absence : seules les dates, le type et les notes se saisissent (pas d'horaire, de titre libre, de partage ni
+// d'invités) ; le titre se déduit du type choisi (ou reste « Absence » sans type)
+async function lireAbsence(b: Record<string, unknown>): Promise<{ titre: string; jour: Date; jourFin: Date; typeId: number | null; notes: string }> {
   if (!dateValide(b.jour)) throw new Refus('Date de début invalide : attendue au format jj/mm/aaaa.');
   if (!dateValide(b.jour_fin)) throw new Refus('Date de fin invalide : attendue au format jj/mm/aaaa.');
   if (String(b.jour_fin) < String(b.jour)) throw new Refus('La date de fin doit être après la date de début.');
   if (String(b.notes ?? '').length > 500) throw new Refus('Les notes sont trop longues (500 caractères maximum).');
-  return { titre: `Absence — ${MOTIFS_ABSENCE[b.absence_motif]}`.slice(0, 80), jour: versDate(b.jour), jourFin: versDate(b.jour_fin), motif: b.absence_motif, notes: text(b.notes, 500) };
+  const { typeId, typeNom } = await lireTypeId(b);
+  return { titre: (typeNom ? `Absence — ${typeNom}` : 'Absence').slice(0, 80), jour: versDate(b.jour), jourFin: versDate(b.jour_fin), typeId, notes: text(b.notes, 500) };
 }
 
 type Champs = { titre: string; jour: Date; jourFin: Date; heureDebut: string | null; heureFin: string | null; notes: string; typeId: number | null };
@@ -90,11 +95,7 @@ async function lire(b: Record<string, unknown>): Promise<Champs> {
     if (heureFin <= heureDebut) throw new Refus('L’heure de fin doit être après l’heure de début.');
   }
   if (String(b.notes ?? '').length > 500) throw new Refus('Les notes sont trop longues (500 caractères maximum).');
-  let typeId: number | null = null;
-  if (b.type_id !== undefined && b.type_id !== null && b.type_id !== '') {
-    typeId = entier(b.type_id);
-    if (typeId === null || !await prisma.typeAgenda.findUnique({ where: { id: typeId } })) throw new Refus('Ce type d’événement n’existe plus : choisissez-en un autre.');
-  }
+  const { typeId } = await lireTypeId(b);
   return { titre, jour: versDate(b.jour), jourFin: versDate(b.jour_fin), heureDebut, heureFin, notes: text(b.notes, 500), typeId };
 }
 
@@ -385,7 +386,7 @@ agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
     const a = await lireAbsence(b);
     const auteur = req.compte.nom || req.compte.pseudo;
     const e = await prisma.evenementAgenda.create({
-      data: { titre: a.titre, jour: a.jour, jourFin: a.jourFin, notes: a.notes, destination: 'perso', compteId: req.compte.id, auteurNom: auteur.slice(0, 64), statutAbsence: 'en_attente', absenceMotif: a.motif },
+      data: { titre: a.titre, jour: a.jour, jourFin: a.jourFin, notes: a.notes, typeId: a.typeId, destination: 'perso', compteId: req.compte.id, auteurNom: auteur.slice(0, 64), statutAbsence: 'en_attente' },
     });
     res.status(201).json({ id: e.id, notifications: [], en_cours: 0, avertissements: [] });
     return;
@@ -449,13 +450,13 @@ async function modifiableOuRefus(req: Request) {
 agenda.put('/api/agenda/:id', ...valide, traiter(async (req, res) => {
   const { e, droits, grades } = await modifiableOuRefus(req);
   const b = body(req);
-  // absence : seules les dates et les notes se corrigent ; une absence déjà approuvée repasse « en attente »
+  // absence : seules les dates, le type et les notes se corrigent ; une absence déjà approuvée repasse « en attente »
   if (e.statutAbsence) {
-    const a = await lireAbsence({ ...b, absence_motif: e.absenceMotif });
+    const a = await lireAbsence(b);
     const remiseEnAttente = e.statutAbsence === 'approuve';
     await prisma.evenementAgenda.update({
       where: { id: e.id },
-      data: { jour: a.jour, jourFin: a.jourFin, notes: a.notes, ...(remiseEnAttente ? { statutAbsence: 'en_attente', absenceDecideLe: null, absenceMotifRefus: null } : {}) },
+      data: { jour: a.jour, jourFin: a.jourFin, typeId: a.typeId, notes: a.notes, titre: a.titre, ...(remiseEnAttente ? { statutAbsence: 'en_attente', absenceDecideLe: null, absenceMotifRefus: null } : {}) },
     });
     res.json({ ok: true, notifications: [], en_cours: 0, annulations: 0, avertissements: remiseEnAttente ? ['Absence remise en attente de validation après modification.'] : [] });
     return;
