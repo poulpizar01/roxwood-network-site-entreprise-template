@@ -2197,7 +2197,10 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 .grade-domaine h3 { margin: 0 0 4px; font-family: var(--body); font-size: var(--fs-2); font-weight: 600; letter-spacing: 0.04em; color: var(--accent-dark); }
 .grade-permission { display: flex; align-items: flex-start; gap: 12px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; }
 .grade-permission:hover { background: rgba({{couleur_rvb}}, 0.06); }
-.grade-permission input { width: 18px; height: 18px; margin: 2px 0 0; flex-shrink: 0; accent-color: var(--accent); }
+/* interrupteur (.d8-switch) plutôt qu'une case : une permission est un bouton on/off, pas un choix dans une liste —
+   même composant que Paramètres → Rémunération et la fiche de paie du grade. Aligné sur la première ligne du libellé
+   (docs/design.md §5), comme la case qu'il remplace. */
+.grade-permission .d8-switch { margin-top: 1px; }
 .grade-permission strong { display: block; font-weight: 500; color: var(--text); font-size: var(--fs-4); }
 .grade-permission small { display: block; font-size: var(--fs-2); color: var(--text-faint); }
 .grade-permission.interdite { opacity: 0.5; cursor: not-allowed; }
@@ -2260,7 +2263,9 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 /* même reset que .modale-grade : un <label> ou une <legend> y est normal, pas en majuscules (règle générale, label{}) */
 .tiroir-grade label, .tiroir-grade legend { text-transform: none; letter-spacing: 0; }
 .tiroir-grade .champ label small { font-weight: 400; color: var(--text-faint); }
-.grade-onglets { display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; padding: 10px 24px 0; border-bottom: 1px solid var(--border); scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent; }
+/* flex: 0 0 auto comme .tiroir-entete et .tiroir-pied : sans lui, un onglet au contenu long (Permissions) pouvait
+   le faire céder de la place dans la colonne du tiroir et le réduire presque à rien. */
+.grade-onglets { flex: 0 0 auto; display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; padding: 10px 24px 0; border-bottom: 1px solid var(--border); scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent; }
 .grade-onglets::-webkit-scrollbar { height: 6px; }
 .grade-onglets::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba({{couleur_rvb}}, 0.36); }
 .compta-sous-onglets, .run-onglets, .grade-onglets { gap: 4px; border-bottom: 1px solid var(--border); }

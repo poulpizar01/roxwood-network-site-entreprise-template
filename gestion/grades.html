@@ -119,11 +119,11 @@
               <h4 id="titre-agenda-tous">Événements pour toute l’équipe</h4>
               <div class="grade-agenda-choix">
                 <label class="grade-permission">
-                  <input type="checkbox" id="agenda-consulter-tous">
+                  <span class="d8-switch"><input type="checkbox" id="agenda-consulter-tous"><span class="d8-switch-piste"></span></span>
                   <span><strong>Consulter</strong><small>Voir les événements partagés avec toute l’équipe.</small></span>
                 </label>
                 <label class="grade-permission">
-                  <input type="checkbox" id="agenda-gerer-tous">
+                  <span class="d8-switch"><input type="checkbox" id="agenda-gerer-tous"><span class="d8-switch-piste"></span></span>
                   <span><strong>Créer et modifier</strong><small>Créer, modifier ou supprimer les événements partagés avec toute l’équipe.</small></span>
                 </label>
               </div>
@@ -481,7 +481,7 @@
           const requiert = (p.requiert || []).map(libelleDe).join(', ');
           const recherche = echapper(`${p.libelle} ${p.description || ''}`.toLowerCase());
           return `<label class="grade-permission${detenue ? '' : ' interdite'}" data-recherche="${recherche}">
-            <input type="checkbox" value="${echapper(p.cle)}" ${detenue ? '' : 'disabled'} ${g?.permissions.includes(p.cle) ? 'checked' : ''}>
+            <span class="d8-switch"><input type="checkbox" value="${echapper(p.cle)}" ${detenue ? '' : 'disabled'} ${g?.permissions.includes(p.cle) ? 'checked' : ''}><span class="d8-switch-piste"></span></span>
             <span>
               <strong>${echapper(p.libelle)}${p.sensible ? ' <span class="grade-sensible">Sensible</span>' : ''}</strong>
               <small>${echapper(p.description || '')}${detenue ? '' : ' (vous ne l’avez pas)'}</small>
