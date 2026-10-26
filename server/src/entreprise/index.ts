@@ -19,6 +19,7 @@ import { apparence } from './routes/apparence.js';
 import { compte } from './routes/compte.js';
 import { compta } from './routes/compta.js';
 import { contrats } from './routes/contrats.js';
+import { echeanciers } from './routes/echeanciers.js';
 import { paie } from './routes/paie.js';
 import { rh } from './routes/rh.js';
 import { run } from './routes/run.js';
@@ -34,20 +35,21 @@ export const entreprise: Entreprise = {
     comptes: 'comptes',
     grades: 'grades',
     rh: 'rh-voir',
-    sanctions: 'rh-voir',
-    services: 'rh-voir',
-    quota: 'rh-voir',
+    sanctions: 'rh-sanctions-voir',
+    services: 'services',
+    quota: 'quota',
     dot: 'compta',
     contrats: 'contrats',
     beneficiaires: 'contrats-beneficiaires',
     'contrat-client': 'public',   // espace du client lui-même, par lien à jeton (sans compte) — routes/contrats.ts
-    facturation: 'factures',
+    facturation: 'factures-voir',
+    echeanciers: 'factures-voir',
     paie: 'paie',
     parametres: 'parametres',
   },
 
   // apparence en premier : elle répond sur les adresses des images de la marque, avant le fichier livré
-  routes: [apparence, agenda, rh, run, compta, contrats, paie, services, accueil, compte],
+  routes: [apparence, agenda, rh, run, compta, contrats, echeanciers, paie, services, accueil, compte],
 
   // page Paramètres (socle) : liens et réglages de ce site, déclarés dans parametres.ts
   parametres: PARAMETRES,
@@ -71,6 +73,7 @@ export const entreprise: Entreprise = {
   avantSuppressionCompte: async (compteId, tx) => {
     const compte = await tx.compte.findUnique({ where: { id: compteId }, select: { discordId: true } });
     await tx.facture.updateMany({ where: { compteId }, data: { compteId: null } });
+    await tx.echeancier.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.importCompta.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.ecritureDot.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.apparenceImage.updateMany({ where: { compteId }, data: { compteId: null } });

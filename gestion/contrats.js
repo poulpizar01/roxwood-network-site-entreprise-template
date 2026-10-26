@@ -90,8 +90,8 @@ function echeanceDe(c) {
 }
 function facturationDe(c) {
   if (c.partie !== 'client') return '';
-  if (c.aFacturer) return `<span class="contrat-facturation contrat-facturation--a-faire">${pluriel(c.aFacturer.nombre, `${PERIODES[c.periodicite].unite} à facturer`, `${PERIODES[c.periodicite].unites} à facturer`)}</span>`;
-  return c.periodes.some(p => p.etat !== 'a-venir') ? '<span class="contrat-facturation contrat-facturation--ok">À jour</span>' : '<span class="contrat-facturation">Rien à facturer</span>';
+  if (c.aFacturer) return `<span class="contrat-facturation contrat-facturation--a-faire">${pluriel(c.aFacturer.nombre, 'échéance à facturer', 'échéances à facturer')}</span>`;
+  return c.echeances.some(e => e.statut !== 'a-venir') ? '<span class="contrat-facturation contrat-facturation--ok">À jour</span>' : '<span class="contrat-facturation">Rien à facturer</span>';
 }
 function ligneContrat(c) {
   const e = echeanceDe(c);
@@ -114,9 +114,9 @@ function afficherStats(contrats) {
   $c('carte-stat-facturer').classList.toggle('cache', !client);
   if (client) {
     const aFacturer = contrats.filter(c => c.aFacturer);
-    const total = aFacturer.reduce((s, c) => s + c.aFacturer.nombre * c.montant, 0);
+    const total = aFacturer.reduce((s, c) => s + c.aFacturer.montant, 0);
     $c('stat-facturer').textContent = formaterMontant(total);
-    $c('stat-facturer-libelle').textContent = aFacturer.length ? `sur ${pluriel(aFacturer.length, 'contrat', 'contrats')}, périodes commencées` : 'tout est facturé';
+    $c('stat-facturer-libelle').textContent = aFacturer.length ? `sur ${pluriel(aFacturer.length, 'contrat', 'contrats')}, échéances dues` : 'tout est facturé';
   }
   const fin = enCours.filter(c => c.finProche).length;
   $c('stat-fin').textContent = String(fin);
@@ -160,9 +160,10 @@ $c('contrats-liste').addEventListener('click', e => {
 
 // ---- fiche d'un contrat (tiroir) : bandeau d'état, résumé, facturation, bénéficiaires, accès client, notes ----
 let CONTRAT_OUVERT = null, OUVREUR_TIROIR = null;
-const ETATS_PERIODE = {
+const ETATS_ECHEANCE = {
   payee: ['Payée', 'contrat-periode--payee'],
   facturee: ['Facturée, en attente de paiement', 'contrat-periode--facturee'],
+  annulee: ['Annulée (avoir émis)', 'contrat-periode--facturee'],
   'a-facturer': ['À facturer', 'contrat-periode--a-facturer'],
   'a-venir': ['À venir', 'contrat-periode--a-venir'],
 };
@@ -186,25 +187,27 @@ function sectionResume(c) {
     ${c.statut === 'actif' && c.prochaineEcheance ? `<div><dt>Prochaine échéance</dt><dd>${jourFr(c.prochaineEcheance, { weekday: 'long', day: 'numeric', month: 'long' })}</dd></div>` : ''}
   </dl>`;
 }
+// Échéancier : les 13 dernières échéances (fournies par le serveur, entreprise/echeanciers.ts), remplace l'ancienne
+// frise calculée ici. Le détail (ajouter, modifier, étendre une échéance) se fait sur sa page dédiée (echeanciers.html) ;
+// la fiche contrat ne porte que l'aperçu et le bouton « Facturer ».
 function sectionFacturation(c) {
   if (c.partie !== 'client') return '';
-  const p = PERIODES[c.periodicite];
-  const frise = c.periodes.map(x => {
-    const [libelle, classe] = ETATS_PERIODE[x.etat];
-    const dates = x.debut === x.fin ? jourCourt(x.debut) : `${jourCourt(x.debut)} – ${jourCourt(x.fin)}`;
-    return `<li class="contrat-periode ${classe}"><span class="contrat-periode-dates">${dates}</span><span class="contrat-periode-etat">${libelle}</span></li>`;
+  const frise = c.echeances.map(x => {
+    const [libelle, classe] = ETATS_ECHEANCE[x.statut] || ETATS_ECHEANCE['a-venir'];
+    return `<li class="contrat-periode ${classe}"><span class="contrat-periode-dates">${jourCourt(x.datePrevue)}</span><span class="contrat-periode-etat">${libelle}</span></li>`;
   }).join('');
   const a = c.aFacturer;
   const action = a
     ? peutFacturer()
-      ? `<button type="button" class="btn btn-or contrat-facturer" data-facturer>Facturer ${pluriel(a.nombre, p.unite, p.unites)} · ${formaterMontant(a.nombre * c.montant)}</button>
-         <p class="champ-aide">Du ${jourFr(a.debut)} au ${jourFr(a.fin)}. Le formulaire de facture s’ouvre pré-rempli : vérifiez puis validez.</p>`
-      : `<p class="champ-aide">${pluriel(a.nombre, p.unite, p.unites)} à facturer, du ${jourFr(a.debut)} au ${jourFr(a.fin)}. Demandez-le à une personne qui gère les factures.</p>`
-    : `<p class="champ-aide">${c.periodes.length ? 'Toutes les périodes commencées sont facturées.' : 'Le contrat n’a pas encore commencé.'}</p>`;
+      ? `<button type="button" class="btn btn-or contrat-facturer" data-facturer>Facturer ${pluriel(a.nombre, 'échéance', 'échéances')} · ${formaterMontant(a.montant)}</button>
+         <p class="champ-aide">Une facture est créée par échéance due.</p>`
+      : `<p class="champ-aide">${pluriel(a.nombre, 'échéance', 'échéances')} due${a.nombre > 1 ? 's' : ''}, pour ${formaterMontant(a.montant)}. Demandez-le à une personne qui gère les factures.</p>`
+    : `<p class="champ-aide">${c.echeances.length ? 'Toutes les échéances dues sont facturées.' : 'Aucune échéance pour le moment.'}</p>`;
   return `<section class="tiroir-section" aria-labelledby="titre-facturation-contrat">
-    <h3 id="titre-facturation-contrat">Facturation</h3>
-    ${c.periodes.length ? `<ol class="contrat-frise" aria-label="Périodes, de la plus ancienne à la prochaine">${frise}</ol>` : ''}
+    <h3 id="titre-facturation-contrat">Échéancier</h3>
+    ${c.echeances.length ? `<ol class="contrat-frise" aria-label="Échéances, de la plus ancienne à la prochaine">${frise}</ol>` : ''}
     ${action}
+    ${c.echeancierId && socle.peut(MOI, 'factures-voir') ? `<p class="champ-aide"><a href="echeanciers.html?id=${Number(c.echeancierId)}">Gérer le détail de l’échéancier (ajouter, modifier, étendre) ${fleche('droite')}</a></p>` : ''}
   </section>`;
 }
 function sectionBeneficiaires(c) {
@@ -284,12 +287,16 @@ $c('tiroir-contrat').addEventListener('click', async e => {
   else if (e.target.closest('[data-revoquer-acces]')) revoquerAcces(c);
 });
 
-// facture : formulaire de Facturation pré-rempli avec les périodes à facturer (le serveur les revérifie)
-function facturerContrat(c) {
-  const a = c.aFacturer, p = PERIODES[c.periodicite];
-  if (!a) return;
-  const params = new URLSearchParams({ depuisContrat: String(c.id), client: c.partenaire, montant: String(c.montant), nombre: String(a.nombre), unite: p.unite, debut: a.debut, fin: a.fin });
-  location.href = `facturation.html?${params}`;
+// une facture par échéance due (le serveur revérifie que chacune n'est pas déjà facturée)
+async function facturerContrat(c) {
+  const a = c.aFacturer;
+  if (!a || !c.echeancierId) return;
+  if (!await gestion.confirmer(`${pluriel(a.nombre, 'facture', 'factures')} ${a.nombre > 1 ? 'seront créées, une par échéance' : 'sera créée'}, pour un total de ${formaterMontant(a.montant)}.`, `Facturer ${c.partenaire} ?`, `Facturer ${pluriel(a.nombre, 'échéance', 'échéances')}`, { danger: false })) return;
+  try {
+    await socle.api(`/api/echeanciers/${c.echeancierId}/facturer`, { method: 'POST', body: { ids: [] } });
+    gestion.notifier(`${pluriel(a.nombre, 'Facture créée', 'Factures créées')} ✓`);
+    chargerContrats();
+  } catch (e) { gestion.message('zone-message-contrats', e.message); }
 }
 
 async function copierAcces(c, nouveau) {

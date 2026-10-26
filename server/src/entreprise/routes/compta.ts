@@ -1,5 +1,6 @@
-// ENTREPRISE — comptabilité (permission « compta » : relevé Tablettes et DOT ; permission « factures » séparée : gestion
-// des factures) : relevé Tablettes collé, mouvements et résumé DOT hebdomadaire. Le calcul d'une semaine (relevé,
+// ENTREPRISE — comptabilité (permission « compta » : relevé Tablettes et DOT ; permissions « factures-voir » (lecture)
+// et « factures » (gestion, exige factures-voir) séparées) : relevé Tablettes collé, mouvements et résumé DOT
+// hebdomadaire. Le calcul d'une semaine (relevé,
 // mouvements, salariés, résumé, verrouillage) vit dans ../dot.ts, partagé avec la tâche planifiée de verrouillage
 // automatique (verrouillage-dot.ts).
 import { Prisma } from '../../generated/prisma/client.js';
@@ -12,7 +13,7 @@ import {
   CLE_SOLDE_BANCAIRE, TYPES_ECRITURE, construireEtVerrouiller, corrigerLigneTotale, dernierReleve, ecrituresBrutes,
   enregistrerReleve, estVerrouillee, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
 } from '../dot.js';
-import { verifierFacturationContrat } from '../contrats.js';
+import { planPaiementDeFacture } from '../echeanciers.js';
 import { classementFactures, definirQuotaFacture, quotasFacture } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
 import { caBrutReleve } from '../stats/releve.js';
@@ -21,6 +22,7 @@ import { jourValide, versDate } from '../texte.js';
 export const compta = Router();
 const gerer = permission('compta');
 const gererFactures = permission('factures');
+const voirFactures = permission('factures-voir');
 
 // ---------- relevé Tablettes ----------
 // Le navigateur découpe le tableau collé en colonnes et en lignes ; le serveur revalide ce résultat (jamais de
@@ -127,7 +129,7 @@ async function avecAuteurs<T extends { compteId: number | null }>(lignes: T[]) {
   return lignes.map(l => ({ ...l, saisiePar: l.compteId != null ? parId.get(l.compteId) ?? null : null }));
 }
 
-compta.get('/api/compta/factures', ...gererFactures, async (req, res) => {
+compta.get('/api/compta/factures', ...voirFactures, async (req, res) => {
   const source = String(req.query.source ?? '');
   const factures = await prisma.facture.findMany({
     where: SOURCES_FACTURE.includes(source) ? { source } : undefined,
@@ -137,15 +139,19 @@ compta.get('/api/compta/factures', ...gererFactures, async (req, res) => {
   // avoirEmis (bouton « Créer un avoir » de la liste) : un avoir peut dater d'une autre semaine que l'originale (sa
   // date de facture n'est pas reprise de l'originale), donc pas déductible des seules lignes déjà chargées
   const ids = factures.map(f => f.id);
-  const avoirs = ids.length ? await prisma.facture.findMany({ where: { avoirDeId: { in: ids } }, select: { avoirDeId: true } }) : [];
+  const [avoirs, plans] = ids.length ? await Promise.all([
+    prisma.facture.findMany({ where: { avoirDeId: { in: ids } }, select: { avoirDeId: true } }),
+    prisma.echeancier.findMany({ where: { factureId: { in: ids } }, select: { id: true, factureId: true } }),
+  ]) : [[], []];
   const avoirsDe = new Set(avoirs.map(a => a.avoirDeId));
-  res.json({ factures: (await avecAuteurs(factures)).map(f => ({ ...f, avoirEmis: avoirsDe.has(f.id) })) });
+  const planParFacture = new Map(plans.map(p => [p.factureId, p.id]));
+  res.json({ factures: (await avecAuteurs(factures)).map(f => ({ ...f, avoirEmis: avoirsDe.has(f.id), planPaiementId: planParFacture.get(f.id) ?? null })) });
 });
 
 // quota hebdomadaire de montant facturé par grade : réglé dans la fiche du grade (page Grades), mêmes routes que
 // l'objectif de run (server/src/entreprise/routes/run.ts). Déclarées avant /:id pour ne pas être avalées par elle.
-// Consultation : page Quota (gestion/quota.html, onglets Quota facture et Classements), permission rh-voir comme Run.
-compta.get('/api/compta/factures/classement', ...permission('rh-voir'), async (req, res) => {
+// Consultation : page Quota (gestion/quota.html, onglets Quota facture et Classements), permission « quota » comme Run.
+compta.get('/api/compta/factures/classement', ...permission('quota'), async (req, res) => {
   const semaine = typeof req.query.semaine === 'string' && jourValide(req.query.semaine) ? req.query.semaine : undefined;
   res.json(await classementFactures(semaine));
 });
@@ -160,7 +166,7 @@ compta.put('/api/compta/factures/quotas/:grade', ...permission('grades'), traite
   res.json({ ok: true });
 }));
 
-compta.get('/api/compta/factures/:id', ...gererFactures, async (req, res) => {
+compta.get('/api/compta/factures/:id', ...voirFactures, async (req, res) => {
   const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
   if (!f) { res.status(404).json({ error: 'Facture introuvable.' }); return; }
   const avoir = await prisma.facture.findFirst({ where: { avoirDeId: f.id }, select: { id: true } });
@@ -218,16 +224,9 @@ compta.post('/api/compta/factures', ...gererFactures, traiter(async (req, res) =
     dateFacture: versDate(dateFacture),
     dateEcheance: dateEcheance ? versDate(dateEcheance) : null,
   };
-  // facture d'un contrat client (depuis sa fiche) : les périodes couvertes sont revérifiées, contrat verrouillé, dans
-  // la même transaction que la création (jamais deux factures pour une même période)
-  const contratId = b.contratId === undefined || b.contratId === null ? null : Number(b.contratId);
-  if (contratId !== null && !Number.isInteger(contratId)) throw new Refus('Contrat invalide.');
-  const f = contratId === null
-    ? await prisma.facture.create({ data })
-    : await prisma.$transaction(async tx => {
-      const p = await verifierFacturationContrat(tx, contratId, b.periodeDebut, b.periodeFin);
-      return tx.facture.create({ data: { ...data, contratId, periodeDebut: p.debut, periodeFin: p.fin } });
-    });
+  // une facture liée à un contrat client se fait désormais depuis son échéancier (echeanciers.ts, facturerEcheances) :
+  // montant fixe de l'échéance, jamais une saisie libre d'articles
+  const f = await prisma.facture.create({ data });
   res.status(201).json({ id: f.id });
 }));
 
@@ -262,6 +261,7 @@ compta.delete('/api/compta/factures/:id', ...gererFactures, traiter(async (req, 
   const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
   if (!f) throw new Refus('Facture introuvable.', 404);
   if (f.source !== 'manuel') throw new Refus('Seule une facture saisie à la main peut être supprimée.', 403);
+  if (await planPaiementDeFacture(f.id)) throw new Refus('Cette facture a un plan de règlement en plusieurs fois : supprimez-le d’abord.', 409);
   await prisma.facture.delete({ where: { id: f.id } });
   res.json({ ok: true });
 }));
@@ -276,6 +276,7 @@ compta.post('/api/compta/factures/:id/statut', ...gererFactures, traiter(async (
   const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
   if (!f) throw new Refus('Facture introuvable.', 404);
   if (f.source !== 'manuel' || f.avoirDeId) throw new Refus('Seule une facture saisie à la main peut changer de statut.', 403);
+  if (await planPaiementDeFacture(f.id)) throw new Refus('Cette facture est réglée en plusieurs fois : son statut suit les échéances, depuis Échéanciers.', 409);
   const statut = String(body(req).statut ?? '');
   if (!STATUTS_MANUELS.includes(statut)) throw new Refus('Statut invalide.');
   if (statut === f.statutPaiement) { res.json({ ok: true }); return; }

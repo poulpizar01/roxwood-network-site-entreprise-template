@@ -1,5 +1,5 @@
 // ENTREPRISE — routes de la page gestion/quota.html (/api/run), partie run : classement et progression en unités
-// vendues depuis lundi (heure de Paris), permission rh-voir. L'objectif par grade se règle dans la fiche du grade
+// vendues depuis lundi (heure de Paris), permission « quota ». L'objectif par grade se règle dans la fiche du grade
 // (page Grades, mêmes routes que les droits d'agenda) : /api/run/quotas, permission « grades ». L'objectif de toute
 // l'équipe se règle dans Paramètres → Quota. Logique : entreprise/run.ts. Partie factures : routes/compta.ts.
 import { Router } from 'express';
@@ -19,7 +19,7 @@ export const run = Router();
 // alors à la semaine en cours) ; omis ou invalide, c'est la semaine en cours.
 // Chaque ligne porte aussi le temps en service de la semaine (services.ts, heures comptées en paie), affiché dans les
 // deux tableaux de Quota.
-run.get('/api/run', ...permission('rh-voir'), async (req, res) => {
+run.get('/api/run', ...permission('quota'), async (req, res) => {
   const semaine = typeof req.query.semaine === 'string' && jourValide(req.query.semaine) ? req.query.semaine : undefined;
   const [classement, moi] = await Promise.all([
     classementRuns(semaine),

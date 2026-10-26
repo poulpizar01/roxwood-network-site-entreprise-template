@@ -2,7 +2,7 @@
 // Une erreur ici ouvrirait un événement de direction à tout le monde sans rien d'anormal à l'écran.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutValiderAbsences, voit } from '../src/entreprise/agenda-regles.js';
+import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, voit } from '../src/entreprise/agenda-regles.js';
 
 const GRADES = ['patron', 'directeur', 'manager', 'agent'];   // du sommet à la base
 const ev = (destination: string, destinationGrade: string | null = null, compteId: number | null = 99, invitesDiscordIds: string[] = [], statutAbsence: string | null = null) =>
@@ -79,15 +79,13 @@ test('événement personnel, sans grade, grade disparu, propriétaire', () => {
   assert.equal(peutInviter(proprio, 'patron', GRADES), true);
 });
 
-test('absence : visible par qui peut la valider même sans invitation, jamais par les autres', () => {
-  const gere = droitsAgenda(GRADES, 'manager', false, { consulter: [], creer: [], modifier: [], consulterTous: true, gererTous: true });
-  const simple = droitsAgenda(GRADES, 'manager', false, null);
+test('absence : visible par qui a la permission de la valider même sans invitation, jamais par les autres', () => {
+  // décorrélé des droits d'agenda (permission dédiée « agenda-absences », calculée par l'appelant et transmise ici)
+  const d = droitsAgenda(GRADES, 'manager', false, null);
   const absence = ev('perso', null, 99, [], 'en_attente');
-  assert.equal(voit(absence, MOI, gere, GRADES), true, 'qui gère toute l’équipe voit une absence même « perso »');
-  assert.equal(voit(absence, MOI, simple, GRADES), false, 'sans ce droit, une absence des autres reste invisible');
-  assert.equal(peutValiderAbsences(gere), true);
-  assert.equal(peutValiderAbsences(simple), false);
-  assert.equal(peutValiderAbsences(droitsAgenda(GRADES, null, true, null)), true, 'le propriétaire valide toujours');
+  assert.equal(voit(absence, MOI, d, GRADES, true), true, 'qui a la permission voit une absence même « perso »');
+  assert.equal(voit(absence, MOI, d, GRADES, false), false, 'sans cette permission, une absence des autres reste invisible');
+  assert.equal(voit(absence, MOI, d, GRADES), false, 'sans argument, par défaut invisible');
 });
 
 test('absence refusée : plus modifiable, même par son auteur (purgée 30 jours après, purge.ts)', () => {

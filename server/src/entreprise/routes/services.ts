@@ -42,19 +42,19 @@ services.post('/api/services/terminer', ...valide, traiter(async (req, res) => {
   res.json({ ok: true });
 }));
 
-// anomalies à traiter (RH, onglet Services) : tant qu'une ligne n'est pas corrigée ou ignorée, ses heures ne comptent
-// pas dans la paie à l'heure de la DOT (services.ts, heuresServiceSemaine).
-services.get('/api/services/anomalies', ...permission('rh-voir'), async (req, res) => {
-  res.json({ anomalies: await anomaliesATraiter(), peutCorriger: peut(req.compte, 'rh-modifier') });
+// anomalies à traiter (page Prises de service) : tant qu'une ligne n'est pas corrigée ou ignorée, ses heures ne
+// comptent pas dans la paie à l'heure de la DOT (services.ts, heuresServiceSemaine).
+services.get('/api/services/anomalies', ...permission('services'), async (req, res) => {
+  res.json({ anomalies: await anomaliesATraiter(), peutCorriger: peut(req.compte, 'services-corriger') });
 });
 
-services.put('/api/services/:id', ...permission('rh-modifier'), traiter(async (req, res) => {
+services.put('/api/services/:id', ...permission('services-corriger'), traiter(async (req, res) => {
   const b = body(req);
   await corrigerService(intParam(req, 'id'), String(b.jour ?? ''), String(b.heure_debut ?? ''), String(b.heure_fin ?? ''));
   res.json({ ok: true });
 }));
 
-services.post('/api/services/:id/ignorer', ...permission('rh-modifier'), traiter(async (req, res) => {
+services.post('/api/services/:id/ignorer', ...permission('services-corriger'), traiter(async (req, res) => {
   await ignorerAnomalie(intParam(req, 'id'));
   res.json({ ok: true });
 }));

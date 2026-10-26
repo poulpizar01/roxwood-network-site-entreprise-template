@@ -3,10 +3,9 @@
 // traite, rien d'autre ; une liste vide masque le bloc.
 import { Router } from 'express';
 import { prisma } from '../../socle/db.js';
-import { peut, tousLesGrades } from '../../socle/droits.js';
+import { peut } from '../../socle/droits.js';
 import { valide } from '../../socle/http.js';
-import { droitsAgenda, peutValiderAbsences } from '../agenda-regles.js';
-import { nombreContratsAFacturer } from '../contrats.js';
+import { nombreContratsAFacturer } from '../echeanciers.js';
 import { EN_SUSPENS } from '../rh.js';
 import { debutSemaineParis } from '../texte.js';
 
@@ -36,10 +35,8 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
     const n = await nombreContratsAFacturer();
     if (n) taches.push({ cle: 'contrats', nombre: n, texte: `${pluriel(n, 'contrat')} à facturer`, lien: 'contrats.html?a-facturer=1' });
   }
-  // valider une absence : réservé à qui gère déjà l'agenda de toute l'équipe (peutValiderAbsences, agenda-regles.ts)
-  const grades = tousLesGrades().map(g => g.cle);
-  const droitsAgendaGrade = c.gradeCle ? await prisma.agendaDroitsGrade.findUnique({ where: { gradeCle: c.gradeCle } }) : null;
-  if (peutValiderAbsences(droitsAgenda(grades, c.gradeCle, c.proprietaire, droitsAgendaGrade))) {
+  // valider une absence : permission dédiée « agenda-absences » (page Grades)
+  if (peut(c, 'agenda-absences')) {
     const n = await prisma.evenementAgenda.count({ where: { statutAbsence: 'en_attente' } });
     if (n) taches.push({ cle: 'absences', nombre: n, texte: `${pluriel(n, 'absence')} à valider`, lien: 'agenda.html' });
   }

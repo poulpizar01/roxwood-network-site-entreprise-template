@@ -46,17 +46,15 @@ export function droitsAgenda(grades: readonly string[], gradeCle: string | null,
 const droitSurGrade = (autorisations: readonly string[], destination: string, destinationGrade: string | null): boolean =>
   destination === 'grade' && !!destinationGrade && autorisations.includes(destinationGrade);
 
-// Valider (approuver/refuser) une absence : réservé à qui gère déjà l'agenda de toute l'équipe — aucun droit séparé à
-// régler, et personne ne peut valider sa propre absence (vérifié en plus par l'appelant, routes/agenda.ts).
-export const peutValiderAbsences = (d: DroitsAgenda): boolean => d.tout || (d.consulterTous && d.gererTous);
-
 export type EvenementVu = { compteId: number | null; destination: string; destinationGrade: string | null; invitesDiscordIds?: readonly string[]; statutAbsence?: string | null };
 export type Lecteur = { id: number; discordId: string | null };
 
-export function voit(e: EvenementVu, moi: Lecteur, d: DroitsAgenda, _grades: readonly string[]): boolean {
+// peutValiderAbsence : permission dédiée (« agenda-absences », page Grades), décorrélée des droits d'agenda — calculée
+// par l'appelant (socle/droits.ts, peut()) et transmise ici, cette fonction reste pure (sans accès aux permissions).
+export function voit(e: EvenementVu, moi: Lecteur, d: DroitsAgenda, _grades: readonly string[], peutValiderAbsence = false): boolean {
   if (e.compteId === moi.id) return true;
   // une absence (même « perso » et sans invitation) se voit par qui peut la valider : sinon rien ne la lui montrerait
-  if (e.statutAbsence && peutValiderAbsences(d)) return true;
+  if (e.statutAbsence && peutValiderAbsence) return true;
   if (e.destination === 'perso') return !!moi.discordId && !!e.invitesDiscordIds?.includes(moi.discordId);
   if (e.destination === 'tous') return d.tout || d.consulterTous;
   return d.tout || droitSurGrade(d.consulter, e.destination, e.destinationGrade);

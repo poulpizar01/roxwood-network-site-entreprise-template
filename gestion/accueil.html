@@ -37,7 +37,7 @@
       <ul id="a-traiter-liste"></ul>
     </section>
     <div class="accueil-panneaux">
-      <!-- la semaine en chiffres : mon run (fiche RH), puis l'équipe et son écart avec la semaine d'avant (rh-voir) -->
+      <!-- la semaine en chiffres : mon run (fiche RH), puis l'équipe et son écart avec la semaine d'avant (permission « quota ») -->
       <section class="accueil-panneau cache" aria-labelledby="titre-semaine" id="panneau-semaine">
         <div class="accueil-panneau-entete">
           <h2 id="titre-semaine">Cette semaine</h2>
@@ -98,7 +98,7 @@
       document.getElementById('date-du-jour').textContent = jour.charAt(0).toUpperCase() + jour.slice(1);
 
       // chaque bloc se charge seul : une erreur dans l'un n'empêche pas d'afficher les autres
-      const equipe = socle.peut(moi, 'rh-voir'), avant = lundi(aujourdhui, -1);
+      const equipe = socle.peut(moi, 'quota'), avant = lundi(aujourdhui, -1);
       const [taches, agenda, service, fiche, run, runAvant, fact, factAvant] = await Promise.allSettled([
         socle.api('/api/accueil/a-traiter'),
         socle.api(`/api/agenda?debut=${aujourdhui}&fin=${dansUneSemaine}`),

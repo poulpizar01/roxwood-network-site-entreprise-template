@@ -1,5 +1,6 @@
-// ENTREPRISE — routes des ressources humaines (/api/rh/…), page gestion/rh.html. Toutes exigent rh-voir ; chaque
-// action vérifie en plus sa propre permission (logique : entreprise/rh.ts).
+// ENTREPRISE — routes des ressources humaines (/api/rh/…), page gestion/rh.html. Toutes exigent rh-voir (sauf la
+// lecture des sanctions, page à part : rh-sanctions-voir) ; chaque action vérifie en plus sa propre permission
+// (logique : entreprise/rh.ts).
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type { Employe } from '../../generated/prisma/client.js';
 import { prisma } from '../../socle/db.js';
@@ -84,8 +85,9 @@ rh.post('/api/rh/employes/:id/service/terminer', ...voir, exiger('modifier', 'Vo
   res.json({ ok: true });
 }));
 
-// sanctions : onglet dédié de Ressources humaines, toutes les fiches confondues
-rh.get('/api/rh/sanctions', ...voir, async (req, res) => {
+// sanctions : page dédiée (sanctions.html), toutes les fiches confondues. Permission à part (rh-sanctions-voir) : qui
+// gère les sanctions l'a forcément (rh-sanctionner l'exige), mais elle s'accorde aussi seule, en lecture.
+rh.get('/api/rh/sanctions', ...permission('rh-sanctions-voir'), async (req, res) => {
   res.json({ sanctions: await toutesSanctions(), types: await listeTypesSanction(), peutSanctionner: droitsRh(req.compte).has('sanctionner') });
 });
 

@@ -11,10 +11,10 @@ import type { EvenementAgenda, InvitationAgenda } from '../../generated/prisma/c
 import { config } from '../../socle/config.js';
 import { prisma } from '../../socle/db.js';
 import { appelBot, ErreurDiscord, posterMessage } from '../../socle/discord.js';
-import { auDessusDe, gradeDe, tousLesGrades } from '../../socle/droits.js';
+import { auDessusDe, gradeDe, peut, tousLesGrades } from '../../socle/droits.js';
 import { body, couleur, entier, intParam, permission, text, valide } from '../../socle/http.js';
 import { site } from '../../socle/site.js';
-import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutValiderAbsences, voit, type Destination, type DroitsAgenda } from '../agenda-regles.js';
+import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, voit, type Destination, type DroitsAgenda } from '../agenda-regles.js';
 import { idsRegles } from '../parametres.js';
 import { classementParticipants } from '../participants.js';
 import { Refus, traiter } from '../refus.js';
@@ -43,7 +43,7 @@ const libelleDestination = (e: Pick<EvenementAgenda, 'destination' | 'destinatio
         : invitations.length ? `Personnel — ${invitations.length} invités` : 'Personnel — moi uniquement';
 
 type EvenementAvecInvitations = EvenementAgenda & { invitations: InvitationAgenda[] };
-const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAgenda) => ({
+const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAgenda, peutValiderAbsence: boolean) => ({
   id: e.id, titre: e.titre, jour: e.jour.toISOString().slice(0, 10), jour_fin: e.jourFin.toISOString().slice(0, 10),
   heure_debut: e.heureDebut, heure_fin: e.heureFin, notes: e.notes,
   type_id: e.typeId, destination: e.destination, destination_grade: e.destinationGrade, destinataire: libelleDestination(e, e.invitations),
@@ -54,7 +54,7 @@ const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAge
   })),
   modifiable: modifiable(e, lecteur(req), droits, clesGrades()),
   absence: !!e.statutAbsence, statut_absence: e.statutAbsence, absence_motif_refus: e.absenceMotifRefus,
-  peut_valider: e.statutAbsence === 'en_attente' && e.compteId !== req.compte.id && peutValiderAbsences(droits),
+  peut_valider: e.statutAbsence === 'en_attente' && e.compteId !== req.compte.id && peutValiderAbsence,
 });
 
 // type (facultatif) : classement visuel, partagé avec les événements (permission « agenda-types ») ; l'entreprise s'en
@@ -347,6 +347,7 @@ agenda.get('/api/agenda', ...valide, async (req, res) => {
   const { debut, fin } = req.query;
   if (!dateValide(debut) || !dateValide(fin)) { res.status(400).json({ error: 'Plage de dates invalide.' }); return; }
   const droits = await droitsDe(req), grades = clesGrades(), moi = lecteur(req);
+  const peutValiderAbsence = peut(req.compte, 'agenda-absences');
   const candidats = await prisma.evenementAgenda.findMany({
     where: {
       jour: { lte: versDate(fin) },
@@ -354,7 +355,7 @@ agenda.get('/api/agenda', ...valide, async (req, res) => {
       OR: [
         { compteId: req.compte.id }, { invitations: { some: { discordId: req.compte.discordId ?? '' } } }, { destination: { in: ['tous', 'grade'] } },
         // les absences (même « perso ») se voient par qui peut les valider, sans quoi rien ne les lui montrerait
-        ...(peutValiderAbsences(droits) ? [{ statutAbsence: { not: null } }] : []),
+        ...(peutValiderAbsence ? [{ statutAbsence: { not: null } }] : []),
       ],
     },
     orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
@@ -366,7 +367,7 @@ agenda.get('/api/agenda', ...valide, async (req, res) => {
   if (peutCreer(droits, 'tous', null, grades)) destinations.push({ valeur: 'tous', libelle: 'Toute l’équipe' });
   for (const g of tousLesGrades()) if (peutCreer(droits, 'grade', g.cle, grades)) destinations.push({ valeur: `grade:${g.cle}`, libelle: g.libelle });
   res.json({
-    evenements: candidats.filter(e => voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, moi, droits, grades)).slice(0, 1000).map(e => versClient(e, req, droits)),
+    evenements: candidats.filter(e => voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, moi, droits, grades, peutValiderAbsence)).slice(0, 1000).map(e => versClient(e, req, droits, peutValiderAbsence)),
     types: await listeTypes(),
     droits: { destinations, peut_inviter: droits.tout || droits.creer.length > 0 },
   });
@@ -442,7 +443,7 @@ agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
 async function modifiableOuRefus(req: Request) {
   const e = await prisma.evenementAgenda.findUnique({ where: { id: intParam(req, 'id') }, include: { invitations: true } });
   const droits = await droitsDe(req), grades = clesGrades();
-  if (!e || !voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, lecteur(req), droits, grades)) throw new Refus('Événement introuvable.', 404);
+  if (!e || !voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, lecteur(req), droits, grades, peut(req.compte, 'agenda-absences'))) throw new Refus('Événement introuvable.', 404);
   if (!modifiable(e, lecteur(req), droits, grades)) throw new Refus('Votre grade ne permet pas de modifier cet événement.', 403);
   return { e, droits, grades };
 }
@@ -554,15 +555,13 @@ agenda.delete('/api/agenda/:id', ...valide, traiter(async (req, res) => {
   res.json({ ok: true });
 }));
 
-// Valider une absence : réservé à qui gère l'agenda de toute l'équipe (peutValiderAbsences), jamais son auteur. Un
-// refus garde l'événement (motif facultatif), purgé 30 jours après la décision (purge.ts) ; l'auteur en est prévenu
-// sur Discord s'il est joignable (prevenirDecisionAbsence).
-agenda.post('/api/agenda/:id/absence', ...valide, traiter(async (req, res) => {
+// Valider une absence : permission dédiée « agenda-absences » (page Grades), jamais son auteur. Un refus garde
+// l'événement (motif facultatif), purgé 30 jours après la décision (purge.ts) ; l'auteur en est prévenu sur Discord
+// s'il est joignable (prevenirDecisionAbsence).
+agenda.post('/api/agenda/:id/absence', ...permission('agenda-absences'), traiter(async (req, res) => {
   const e = await prisma.evenementAgenda.findUnique({ where: { id: intParam(req, 'id') } });
   if (!e || e.statutAbsence !== 'en_attente') throw new Refus('Absence introuvable ou déjà traitée.', 404);
   if (e.compteId === req.compte.id) throw new Refus('Vous ne pouvez pas valider votre propre absence.', 403);
-  const droits = await droitsDe(req);
-  if (!peutValiderAbsences(droits)) throw new Refus('Vous n’avez pas le droit de valider les absences.', 403);
   const b = body(req), approuve = !!b.approuve;
   if (String(b.motif ?? '').length > 200) throw new Refus('Le motif est trop long (200 caractères maximum).');
   const motifRefus = approuve ? null : (text(b.motif, 200) || null);
@@ -574,8 +573,8 @@ agenda.post('/api/agenda/:id/absence', ...valide, traiter(async (req, res) => {
 
 // Participation aux événements personnels (réunions, formations…) : qui a été invité, qui était présent, sur la
 // période affichée par le sélecteur partagé de l'agenda (jour, semaine ou mois). Page Agenda, onglet Participants ;
-// même permission que Quota (rh-voir).
-agenda.get('/api/agenda/participants', ...permission('rh-voir'), traiter(async (req, res) => {
+// même permission que Quota.
+agenda.get('/api/agenda/participants', ...permission('quota'), traiter(async (req, res) => {
   const { debut, fin } = req.query;
   if (typeof debut !== 'string' || typeof fin !== 'string' || !dateValide(debut) || !dateValide(fin)) throw new Refus('Période invalide.', 400);
   res.json(await classementParticipants(debut, fin));
