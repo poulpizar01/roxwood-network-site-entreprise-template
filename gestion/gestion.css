@@ -2218,8 +2218,11 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 .grade-agenda-partage > .champ-aide { margin: 0 0 6px; }
 .grade-agenda-choix { display: grid; grid-template-columns: 1fr; gap: 4px; }
 .grade-agenda-choix .grade-permission { padding: 8px 4px; }
-.grade-agenda-matrice { overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.grade-agenda-entete, .grade-agenda-ligne { display: grid; grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(120px, 1fr)); align-items: center; gap: 4px; padding: 6px 10px; }
+/* overflow-x: auto plutôt que hidden : si la grille ne tient vraiment pas (nom de grade très long, fenêtre étroite
+   entre deux largeurs), elle défile plutôt que de couper une colonne (souvent celle des actions) sans rien dire.
+   overflow-y: hidden explicite (sinon overflow-x: auto seul force aussi overflow-y à « auto », cf. .grade-onglets). */
+.grade-agenda-matrice { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.grade-agenda-entete, .grade-agenda-ligne { display: grid; grid-template-columns: minmax(140px, 1.4fr) repeat(3, minmax(100px, 1fr)); align-items: center; gap: 4px; padding: 6px 10px; }
 .grade-agenda-entete { background: rgba({{couleur_rvb}}, 0.07); border-bottom: 1px solid var(--border); }
 .grade-agenda-entete > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .grade-agenda-entete > strong { align-self: start; padding-top: 6px; }
@@ -2267,7 +2270,9 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 .tiroir-grade .champ label small { font-weight: 400; color: var(--text-faint); }
 /* flex: 0 0 auto comme .tiroir-entete et .tiroir-pied : sans lui, un onglet au contenu long (Permissions) pouvait
    le faire céder de la place dans la colonne du tiroir et le réduire presque à rien. */
-.grade-onglets { flex: 0 0 auto; display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; padding: 10px 24px 0; border-bottom: 1px solid var(--border); scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent; }
+/* overflow-y: hidden explicite : sans lui, poser overflow-x: auto seul force aussi overflow-y à « auto » (règle de la
+   spec CSS, les deux doivent être précisés) et une barre verticale inutile s'incrustait à droite du bandeau. */
+.grade-onglets { flex: 0 0 auto; display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding: 10px 24px 0; border-bottom: 1px solid var(--border); scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent; }
 .grade-onglets::-webkit-scrollbar { height: 6px; }
 .grade-onglets::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba({{couleur_rvb}}, 0.36); }
 .compta-sous-onglets, .run-onglets, .grade-onglets { gap: 4px; border-bottom: 1px solid var(--border); }
