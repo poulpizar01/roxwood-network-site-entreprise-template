@@ -287,6 +287,9 @@
 /* centrage de l'action principale (et Approuver/Refuser l'absence) et Supprimer épinglé à gauche : .pied-centre */
 .evenement-pied { flex: 0 0 auto; margin: 0 28px; padding: 12px 0 20px; border-top: 1px solid var(--border); background: var(--bg-card); }
 .evenement-pied .evenement-supprimer { color: var(--erreur); border-color: var(--erreur); }
+/* seule action principale la plupart du temps (Approuver/Refuser et Enregistrer/Ajouter ne s'affichent jamais
+   ensemble) : elle prend toute la place plutôt que de rester une pastille centrée */
+#bouton-enregistrer-evenement { flex: 1 1 auto; }
 #zone-message-modale-evenement .message { margin: 0 0 12px; }
 @media (prefers-reduced-motion: reduce) {
   .agenda-evenement, .agenda-vue-bouton, .agenda-mois-ajouter { transition: none; }

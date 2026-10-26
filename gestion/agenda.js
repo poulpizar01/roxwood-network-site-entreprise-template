@@ -581,6 +581,7 @@ function ouvrirModaleEvenement(options) {
   });
   const selectMotif = document.getElementById("evenement-motif");
   selectMotif.value = (e && e.absence_motif) || "conge";
+  ameliorerSelect(selectMotif);
   majModeEvenement();
 
   // Type : « Sans type » puis les types de la Direction (un type supprimé depuis : « Sans type »)
