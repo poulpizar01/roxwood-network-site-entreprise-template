@@ -228,7 +228,8 @@ const STATUTS_FACTURE_MANUELLE = {
 // facture ; Aperçu de la facture est toujours là.
 function menuLigneFacture(f) {
   // un avoir n'est pas modifiable : il reprend tels quels les montants qu'il annule (server/src/entreprise/routes/compta.ts)
-  const editable = f.source === "manuel" && !f.avoirDeId;
+  // une facture réglée en plusieurs fois non plus : son statut suit les échéances (echeanciers.ts, soldeFactureSelonEcheances)
+  const editable = f.source === "manuel" && !f.avoirDeId && !f.planPaiementId;
   const items = [];
   if (editable && !(f.statutPaiement === "PAYEE" && f.avoirEmis)) {
     for (const statut of ["EN_ATTENTE", "PAYEE", "ANNULEE"]) {
@@ -239,6 +240,13 @@ function menuLigneFacture(f) {
   }
   if (["PAID", "PAYEE"].includes(f.statutPaiement) && !f.avoirDeId && !f.avoirEmis) {
     items.push(`<button type="button" role="menuitem" data-facture-avoir="${f.id}">${gestion.ico("receipt")} Créer un avoir</button>`);
+  }
+  // paiement en plusieurs fois (gestion/echeanciers.js) : seulement sur une facture encore due, pas elle-même un avoir,
+  // et pas déjà réglée ainsi — la facture reste le document de référence, l'échéancier n'est que son plan de règlement
+  if (f.planPaiementId) {
+    items.push(`<button type="button" role="menuitem" data-facture-voir-plan="${f.planPaiementId}">${gestion.ico("calendar")} Voir le plan de règlement</button>`);
+  } else if (!f.avoirDeId && !["PAID", "PAYEE", "ANNULEE"].includes(f.statutPaiement)) {
+    items.push(`<button type="button" role="menuitem" data-facture-paiement-plusieurs-fois="${f.id}">${gestion.ico("calendar")} Paiement en plusieurs fois</button>`);
   }
   items.push(`<button type="button" role="menuitem" data-facture-apercu="${f.id}">${gestion.ico("sheet")} Aperçu de la facture</button>`);
   const nom = echapper(f.numeroFacture ? `la facture ${f.numeroFacture}` : `la facture n° ${f.id}`);
@@ -272,7 +280,7 @@ document.getElementById("corps-table-factures").addEventListener("click", ev => 
     MENU_FACTURE_OUVERT = menu;
     return;
   }
-  const bouton = ev.target.closest("button[data-facture-voir], button[data-facture-statut], button[data-facture-avoir], button[data-facture-apercu]");
+  const bouton = ev.target.closest("button[data-facture-voir], button[data-facture-statut], button[data-facture-avoir], button[data-facture-apercu], button[data-facture-paiement-plusieurs-fois], button[data-facture-voir-plan]");
   if (!bouton) return;
   fermerMenuFacture(false);
   if (bouton.dataset.factureVoir) { ouvrirFactureForm(Number(bouton.dataset.factureVoir)); return; }
@@ -287,7 +295,9 @@ document.getElementById("corps-table-factures").addEventListener("click", ev => 
       { libelle: "Avoir créé", confirmation: { texte: "Une facture d'avoir sera créée (montants négatifs), liée à celle-ci. Si elle a été saisie à la main, elle passera elle-même à « annulée ».", titre: "Créer un avoir pour cette facture ?", bouton: "Créer l'avoir" } });
     return;
   }
-  if (bouton.dataset.factureApercu) ouvrirApercuFacture(FACTURES_TOUTES.find(f => f.id === Number(bouton.dataset.factureApercu)));
+  if (bouton.dataset.factureApercu) { ouvrirApercuFacture(FACTURES_TOUTES.find(f => f.id === Number(bouton.dataset.factureApercu))); return; }
+  if (bouton.dataset.facturePaiementPlusieursFois) location.href = `echeanciers.html?nouveauPaiement=${bouton.dataset.facturePaiementPlusieursFois}`;
+  if (bouton.dataset.factureVoirPlan) location.href = `echeanciers.html?id=${bouton.dataset.factureVoirPlan}`;
 });
 document.addEventListener("click", ev => { if (MENU_FACTURE_OUVERT && !MENU_FACTURE_OUVERT.contains(ev.target)) fermerMenuFacture(false); });
 document.addEventListener("keydown", ev => {
@@ -600,7 +610,8 @@ async function ouvrirFactureForm(id) {
     catch (e) { gestion.message("zone-message-factures", "Impossible d'ouvrir cette facture : " + e.message); return; }
   }
   FACTURE_COURANTE = f;
-  FACTURE_CONTRAT = null;   // rattachement à un contrat : posé après l'ouverture, seulement depuis la fiche d'un contrat
+  // une facture émise depuis l'échéancier d'un contrat (gestion/echeanciers.js) porte son contratId et ses périodes ;
+  // affiché ici en lecture, jamais recréé depuis ce formulaire
   noteContratFacture(f?.contratId ? { debut: f.periodeDebut?.slice(0, 10), fin: f.periodeFin?.slice(0, 10) } : null);
   // un avoir n'est pas modifiable : il reprend tels quels les montants qu'il annule (server/src/entreprise/routes/compta.ts)
   const editable = !f || (f.source === "manuel" && !f.avoirDeId);
@@ -684,7 +695,6 @@ document.getElementById("formulaire-facture").addEventListener("submit", async (
     return;
   }
   const corps = {
-    ...(FACTURE_CONTRAT && !FACTURE_COURANTE ? { contratId: FACTURE_CONTRAT.id, periodeDebut: FACTURE_CONTRAT.debut, periodeFin: FACTURE_CONTRAT.fin } : {}),
     dateFacture,
     dateEcheance: document.getElementById("facture-echeance").value,
     numeroFacture: document.getElementById("facture-numero").value.trim(),
@@ -709,8 +719,7 @@ document.getElementById("formulaire-facture").addEventListener("submit", async (
   }
 });
 
-// facture d'un contrat : la note dit quelles périodes elle couvre (le serveur refuse une période déjà facturée)
-let FACTURE_CONTRAT = null;
+// facture d'un contrat (émise depuis son échéancier, gestion/echeanciers.js) : la note dit quelles périodes elle couvre
 const jourCourtFacture = iso => new Date(`${iso}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" });
 function noteContratFacture(p) {
   const note = document.getElementById("facture-note-contrat");
@@ -718,27 +727,4 @@ function noteContratFacture(p) {
   note.classList.toggle("cache", !p?.debut);
 }
 
-// « Facturer » depuis la fiche d'un contrat client (gestion/contrats.js) :
-// ?depuisContrat=<id>&client=…&montant=…&nombre=…&unite=…&debut=AAAA-MM-JJ&fin=AAAA-MM-JJ
-// ouvre directement le formulaire de nouvelle facture, pré-rempli (une ligne : le nombre de périodes au montant du
-// contrat) ; l'utilisateur vérifie et valide. L'URL est nettoyée pour qu'un rechargement ne rouvre pas le formulaire.
-const PARAMS_CONTRAT = new URLSearchParams(location.search);
-const ID_CONTRAT = Number(PARAMS_CONTRAT.get("depuisContrat"));
-if (Number.isInteger(ID_CONTRAT) && ID_CONTRAT > 0) {
-  const client = PARAMS_CONTRAT.get("client") || "", montant = Math.round(Number(PARAMS_CONTRAT.get("montant"))) || 0;
-  const nombre = Math.max(1, Math.round(Number(PARAMS_CONTRAT.get("nombre"))) || 1), unite = PARAMS_CONTRAT.get("unite") || "période";
-  const debut = PARAMS_CONTRAT.get("debut") || "", fin = PARAMS_CONTRAT.get("fin") || "";
-  history.replaceState(null, "", location.pathname);
-  gestion.coque('facturation').then(async () => {
-    await chargerFactures();
-    await ouvrirFactureForm(null);
-    FACTURE_CONTRAT = { id: ID_CONTRAT, debut, fin };
-    noteContratFacture({ debut, fin });
-    document.getElementById("facture-client").value = client;
-    const libelle = `Contrat : ${nombre} ${unite}${nombre > 1 && !unite.endsWith("s") ? "s" : ""}, du ${jourCourtFacture(debut)} au ${jourCourtFacture(fin)}`;
-    remplirArticlesFacture([{ name: libelle.slice(0, 100), unitPrice: montant, quantity: nombre }]);
-    majApercuTotalFacture();
-  });
-} else {
-  gestion.coque('facturation').then(() => chargerFactures());
-}
+gestion.coque('facturation').then(() => chargerFactures());

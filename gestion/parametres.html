@@ -75,7 +75,7 @@
     function choixDiscord(r, etiquette) {
       const ids = String(r.valeur || '').split(/\s+/).filter(Boolean), plusieurs = r.type === 'ids-discord';
       const options = LISTES[r.discord]().filter(x => !ids.includes(x.id));
-      return `<div class="choix-discord" data-choix="${echapper(r.cle)}">
+      return `<div class="choix-discord" data-choix="${echapper(r.cle)}" role="group" aria-labelledby="lbl-${echapper(r.cle)}">
         <input type="hidden" data-cle="${echapper(r.cle)}" value="${echapper(ids.join(' '))}">
         ${ids.map(id => `<span class="choix-etiquette">${echapper(PREFIXE[r.discord] + (nomDe(r.discord, id) || `introuvable (${id})`))}<button type="button" data-retirer="${echapper(id)}" aria-label="Retirer ${echapper(nomDe(r.discord, id) || id)}">×</button></span>`).join('')}
         ${plusieurs || !ids.length ? `<select id="r-${echapper(r.cle)}" aria-label="${echapper(etiquette || r.libelle)}"><option value="">${ids.length ? 'Ajouter…' : 'Choisir…'}</option>
@@ -91,7 +91,7 @@
       return `<input id="r-${echapper(r.cle)}" data-cle="${echapper(r.cle)}" value="${echapper(r.valeur)}" autocomplete="off" ${attributs}${etiquette ? ` aria-label="${echapper(etiquette)}"` : ''}${r.discord ? ' placeholder="Identifiant Discord"' : ''}>`;
     }
     const champ = r => `<div class="champ">
-        <label for="r-${echapper(r.cle)}">${echapper(r.libelle)}</label>
+        <label id="lbl-${echapper(r.cle)}" for="r-${echapper(r.cle)}">${echapper(r.libelle)}</label>
         ${saisie(r)}
         ${r.aide ? `<p class="champ-aide">${echapper(r.aide)}</p>` : ''}
       </div>`;

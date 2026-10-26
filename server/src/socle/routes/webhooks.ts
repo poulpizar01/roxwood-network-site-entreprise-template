@@ -61,7 +61,14 @@ webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, 
   empreintesEnCours.add(empreinte);
 
   const traitement = entreprise.webhooks?.[e.eventType];
-  try { if (traitement) await traitement(e); }
+  try {
+    if (traitement) await traitement(e);
+    // traité : seule l'empreinte reste utile (dédoublonnage). Le corps, qui peut porter des données personnelles
+    // (réponses d'un candidat), n'est gardé que tant que le traitement échoue, pour le diagnostiquer. Le verrou
+    // mémoire (finally) n'est levé qu'une fois cette écriture faite : sinon une livraison en double arrivant entre
+    // la fin du traitement et ce marquage le relancerait une seconde fois.
+    await prisma.webhookRecu.update({ where: { id: recu.id }, data: { traite: true, contenu: {} } });
+  }
   catch (err) {
     // 500 : le bot réessaiera (erreur transitoire de son point de vue) ; l'événement reste enregistré, non traité
     console.error(`Webhook ${e.eventType} : échec du traitement`, err);
@@ -69,8 +76,5 @@ webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, 
     return;
   }
   finally { empreintesEnCours.delete(empreinte); }
-  // traité : seule l'empreinte reste utile (dédoublonnage). Le corps, qui peut porter des données personnelles
-  // (réponses d'un candidat), n'est gardé que tant que le traitement échoue, pour le diagnostiquer.
-  await prisma.webhookRecu.update({ where: { id: recu.id }, data: { traite: true, contenu: {} } });
   res.json({ ok: true });
 });

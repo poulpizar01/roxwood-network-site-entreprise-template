@@ -1,8 +1,9 @@
-// ENTREPRISE — périodes d'un contrat (journalier, hebdomadaire, mensuel) : fin d'un contrat, échéances, et ce qui
-// reste à facturer. Fonctions pures sur des jours AAAA-MM-JJ (calendrier de Paris, sans heure), testées par
-// test/contrats-periodes.test.ts : une erreur ici facture deux fois la même période, ou en oublie une.
+// ENTREPRISE — périodes d'un contrat (journalier, hebdomadaire, mensuel) : fin d'un contrat et dates d'échéance.
+// Fonctions pures sur des jours AAAA-MM-JJ (calendrier de Paris, sans heure), testées par test/contrats-periodes.test.ts.
 // Les périodes se calent sur la date de début du contrat, pas sur le calendrier : pas de prorata. Un mois commencé un
 // 31 se termine la veille du même jour du mois suivant, ramené au dernier jour des mois plus courts.
+// La facturation elle-même (quelle période est due, déjà facturée…) est portée par l'échéancier du contrat
+// (echeanciers.ts, table echeances) : ce fichier ne fournit plus que le calendrier de périodes.
 
 export const PERIODICITES = ['journalier', 'hebdomadaire', 'mensuel'] as const;
 export type Periodicite = typeof PERIODICITES[number];
@@ -55,51 +56,4 @@ export const finPeriodeEnCours = (dateDebut: string, p: Periodicite, aujourdhui:
 export function prochaineEcheance(c: { dateDebut: string; dateFin: string | null; periodicite: Periodicite }, aujourdhui: string): string | null {
   const suivante = aujourdhui < c.dateDebut ? c.dateDebut : debutPeriode(c.dateDebut, c.periodicite, indexPeriode(c.dateDebut, c.periodicite, aujourdhui) + 1);
   return c.dateFin !== null && suivante > c.dateFin ? null : suivante;
-}
-
-// ---- facturation : chaque période commencée est à facturer une fois, et une seule ----
-export type FactureContrat = { id: number; periodeDebut: string; periodeFin: string; payee: boolean };
-export type EtatPeriode = Periode & { index: number; etat: 'payee' | 'facturee' | 'a-facturer' | 'a-venir'; factureId: number | null };
-
-// toutes les périodes, de la première à celle qui suit aujourd'hui (une seule à venir, pour montrer l'échéance), sans
-// dépasser la date de fin ; `limite` : les plus récentes seulement (frise de la fiche)
-export function etatsPeriodes(
-  c: { dateDebut: string; dateFin: string | null; periodicite: Periodicite }, factures: FactureContrat[], aujourdhui: string, limite = 400,
-): EtatPeriode[] {
-  const derniere = Math.min(
-    indexPeriode(c.dateDebut, c.periodicite, aujourdhui) + 1,
-    c.dateFin === null ? Infinity : indexPeriode(c.dateDebut, c.periodicite, c.dateFin),
-  );
-  const etats: EtatPeriode[] = [];
-  for (let n = Math.max(0, derniere - limite + 1); n <= derniere; n++) {
-    const p = periode(c.dateDebut, c.periodicite, n);
-    const f = factures.find(x => x.periodeDebut <= p.debut && x.periodeFin >= p.fin);
-    const etat = f ? (f.payee ? 'payee' : 'facturee') : p.debut > aujourdhui ? 'a-venir' : 'a-facturer';
-    etats.push({ ...p, index: n, etat, factureId: f?.id ?? null });
-  }
-  return etats;
-}
-
-// périodes à facturer d'un bloc : la plus longue suite de périodes commencées et non facturées qui se suivent, en
-// partant de la plus ancienne (une facture couvre des périodes consécutives, jamais des trous)
-export function aFacturer(etats: EtatPeriode[]): { debut: string; fin: string; nombre: number } | null {
-  const i = etats.findIndex(e => e.etat === 'a-facturer');
-  if (i < 0) return null;
-  let j = i;
-  while (j + 1 < etats.length && etats[j + 1].etat === 'a-facturer') j++;
-  return { debut: etats[i].debut, fin: etats[j].fin, nombre: j - i + 1 };
-}
-
-// une plage demandée pour une facture : bornes calées sur les périodes du contrat, toutes commencées, aucune déjà
-// facturée. Renvoie le nombre de périodes, ou le motif du refus (texte affiché tel quel).
-export function verifierPlage(
-  c: { dateDebut: string; dateFin: string | null; periodicite: Periodicite }, factures: FactureContrat[], debut: string, fin: string, aujourdhui: string,
-): { nombre: number } | { refus: string } {
-  const i = indexPeriode(c.dateDebut, c.periodicite, debut), j = indexPeriode(c.dateDebut, c.periodicite, fin);
-  if (i < 0 || debutPeriode(c.dateDebut, c.periodicite, i) !== debut || periode(c.dateDebut, c.periodicite, j).fin !== fin || j < i)
-    return { refus: 'Les dates ne correspondent pas aux périodes du contrat. Repartez de sa fiche.' };
-  if (debut > aujourdhui) return { refus: 'Une période qui n’a pas commencé ne se facture pas encore.' };
-  if (c.dateFin !== null && debut > c.dateFin) return { refus: 'Le contrat est terminé avant cette période.' };
-  if (factures.some(f => f.periodeDebut <= fin && f.periodeFin >= debut)) return { refus: 'Une partie de ces périodes est déjà facturée. Rouvrez la fiche du contrat pour voir ce qui reste.' };
-  return { nombre: j - i + 1 };
 }

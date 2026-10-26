@@ -8,30 +8,30 @@
 
 // Agenda partagé : visibilité, invitations et règles dans entreprise/agenda-regles.ts et routes/agenda.ts
 model EvenementAgenda {
-  id               Int      @id @default(autoincrement())
-  compteId         Int?     @map("compte_id") // auteur ; null : compte supprimé (événement partagé gardé)
-  auteurNom        String   @default("") @map("auteur_nom") @db.VarChar(64)
-  titre            String   @db.VarChar(80)
-  jour             DateTime @db.Date // premier jour de l'événement
-  jourFin          DateTime @map("jour_fin") @db.Date // dernier jour ; égal à `jour` pour un événement d'un seul jour
-  heureDebut       String?  @map("heure_debut") @db.VarChar(5) // HH:MM, heure de Paris ; absentes sur plusieurs jours (pas d'horaire)
-  heureFin         String?  @map("heure_fin") @db.VarChar(5)
-  notes            String   @default("") @db.VarChar(500)
-  typeId           Int?     @map("type_id") // classement (couleur) ; type supprimé : « Sans type ». Pour une absence,
+  id                Int                @id @default(autoincrement())
+  compteId          Int?               @map("compte_id") // auteur ; null : compte supprimé (événement partagé gardé)
+  auteurNom         String             @default("") @map("auteur_nom") @db.VarChar(64)
+  titre             String             @db.VarChar(80)
+  jour              DateTime           @db.Date // premier jour de l'événement
+  jourFin           DateTime           @map("jour_fin") @db.Date // dernier jour ; égal à `jour` pour un événement d'un seul jour
+  heureDebut        String?            @map("heure_debut") @db.VarChar(5) // HH:MM, heure de Paris ; absentes sur plusieurs jours (pas d'horaire)
+  heureFin          String?            @map("heure_fin") @db.VarChar(5)
+  notes             String             @default("") @db.VarChar(500)
+  typeId            Int?               @map("type_id") // classement (couleur) ; type supprimé : « Sans type ». Pour une absence,
   // sert aussi de motif (congé, maladie…) : l'entreprise crée ses propres types, le socle n'en impose aucun.
-  type             TypeAgenda? @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  type              TypeAgenda?        @relation(fields: [typeId], references: [id], onDelete: SetNull)
   // destiné à : « perso » (l'auteur et ses invités), « tous », ou « grade » (selon les droits exacts réglés par grade, agenda-regles.ts)
-  destination      String   @default("perso") @db.VarChar(10)
-  destinationGrade String?  @map("destination_grade") @db.VarChar(20)
+  destination       String             @default("perso") @db.VarChar(10)
+  destinationGrade  String?            @map("destination_grade") @db.VarChar(20)
   // absence (congé…) : null = événement normal ; sinon « en_attente », « approuve » ou « refuse » (routes/agenda.ts,
   // agenda-regles.ts). Modifier une absence approuvée la repasse « en_attente ». Une absence refusée n'est plus
   // modifiable : purgée 30 jours après la décision (purge.ts).
-  statutAbsence     String?   @map("statut_absence") @db.VarChar(10)
-  absenceMotifRefus String?   @map("absence_motif_refus") @db.VarChar(200) // motif facultatif saisi par qui refuse
-  absenceDecideLe   DateTime? @map("absence_decide_le") @db.Timestamptz(6) // approuvée ou refusée le
-  invitations      InvitationAgenda[]
-  creeLe           DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
-  majLe            DateTime @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+  statutAbsence     String?            @map("statut_absence") @db.VarChar(10)
+  absenceMotifRefus String?            @map("absence_motif_refus") @db.VarChar(200) // motif facultatif saisi par qui refuse
+  absenceDecideLe   DateTime?          @map("absence_decide_le") @db.Timestamptz(6) // approuvée ou refusée le
+  invitations       InvitationAgenda[]
+  creeLe            DateTime           @default(now()) @map("cree_le") @db.Timestamptz(6)
+  majLe             DateTime           @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@index([compteId, jour])
   @@index([destination, jour])
@@ -57,11 +57,11 @@ model InvitationAgenda {
 
 // Types d'événements de l'agenda : simple classement (nom, couleur), gérés par la permission « agenda-types »
 model TypeAgenda {
-  id          Int    @id @default(autoincrement())
-  nom         String @unique @db.VarChar(40)
-  couleur     String @db.VarChar(7)
-  position    Int    @default(0)
-  evenements  EvenementAgenda[]
+  id         Int               @id @default(autoincrement())
+  nom        String            @unique @db.VarChar(40)
+  couleur    String            @db.VarChar(7)
+  position   Int               @default(0)
+  evenements EvenementAgenda[]
 
   @@map("agenda_types")
 }
@@ -112,17 +112,17 @@ model Employe {
 // un renvoi du bot ne la recrée pas). « reponses » (qui peuvent contenir téléphone et RIB) n'est gardé que pour un
 // ticket en suspens, 30 jours au plus.
 model ArriveeBot {
-  id        Int      @id @default(autoincrement())
-  ticketId  String   @unique @map("ticket_id") @db.VarChar(100)
-  discordId String   @default("") @map("discord_id") @db.VarChar(30)
-  nomRecu   String   @default("") @map("nom_recu") @db.VarChar(130)
-  resultat  String   @db.VarChar(10)
-  motif     String   @default("") @db.VarChar(400)
-  employeId Int?     @map("employe_id")
-  reponses  Json?
-  accepteLe String   @default("") @map("accepte_le") @db.VarChar(40)
+  id          Int       @id @default(autoincrement())
+  ticketId    String    @unique @map("ticket_id") @db.VarChar(100)
+  discordId   String    @default("") @map("discord_id") @db.VarChar(30)
+  nomRecu     String    @default("") @map("nom_recu") @db.VarChar(130)
+  resultat    String    @db.VarChar(10)
+  motif       String    @default("") @db.VarChar(400)
+  employeId   Int?      @map("employe_id")
+  reponses    Json?
+  accepteLe   String    @default("") @map("accepte_le") @db.VarChar(40)
   evenementLe DateTime? @map("evenement_le") @db.Timestamptz(6) // date (sentAt) du dernier événement du bot appliqué à ce ticket
-  recuLe    DateTime @default(now()) @map("recu_le") @db.Timestamptz(6)
+  recuLe      DateTime  @default(now()) @map("recu_le") @db.Timestamptz(6)
 
   @@index([recuLe(sort: Desc)])
   @@map("rh_arrivees_bot")
@@ -138,29 +138,40 @@ model ArriveeBot {
 // rattachement au quota de facturation (page Quota), seulement pour un paiement constaté en jeu (monitoring.invoice,
 // même principe que `runs` : la fiche RH de l'employé qui a enregistré le paiement, jamais le client).
 model Facture {
-  id             Int      @id @default(autoincrement())
-  source         String   @db.VarChar(12) // order | monitoring | manuel
-  idBot          String?  @unique @map("id_bot") @db.VarChar(100) // identifiant du bot (orderId…) : idempotence des renvois
-  numeroFacture  String   @default("") @map("numero_facture") @db.VarChar(100)
-  clientNom      String   @default("") @map("client_nom") @db.VarChar(200)
-  sousTotal      Int      @default(0) @map("sous_total")
-  livraison      Int      @default(0)
-  reduction      Int      @default(0)
-  total          Int      @default(0)
-  statutPaiement String   @default("") @map("statut_paiement") @db.VarChar(20)
+  id             Int        @id @default(autoincrement())
+  source         String     @db.VarChar(12) // order | monitoring | manuel
+  idBot          String?    @unique @map("id_bot") @db.VarChar(100) // identifiant du bot (orderId…) : idempotence des renvois
+  numeroFacture  String     @default("") @map("numero_facture") @db.VarChar(100)
+  clientNom      String     @default("") @map("client_nom") @db.VarChar(200)
+  sousTotal      Int        @default(0) @map("sous_total")
+  livraison      Int        @default(0)
+  reduction      Int        @default(0)
+  total          Int        @default(0)
+  statutPaiement String     @default("") @map("statut_paiement") @db.VarChar(20)
+  // instant d'origine (sentAt) du dernier order.updated appliqué : une relance tardive (après échec réseau) d'un
+  // événement plus ancien qu'un événement déjà appliqué ne doit pas écraser un état plus récent (source=order
+  // uniquement, null pour les autres sources)
+  evenementLe    DateTime?  @map("evenement_le") @db.Timestamptz(6)
   details        Json?
-  compteId       Int?     @map("compte_id") // saisie depuis le site ; null = reçue du bot
-  employeId      Int?     @map("employe_id") // qui a enregistré le paiement en jeu (monitoring.invoice uniquement) ; quota de facturation
-  avoirDeId      Int?     @unique @map("avoir_de_id") // renseigné seulement sur l'avoir : facture d'origine qu'il annule (montants négatifs) ; unique pour empêcher deux avoirs sur la même facture en cas de double requête simultanée
-  dateFacture    DateTime  @default(now()) @map("date_facture") @db.Timestamptz(6) // date de la facture : reçue du bot, prise à défaut sur l'instant de réception ; saisie à la main sinon ; modifiable ensuite dans les deux cas (routes/compta.ts) — jamais réécrite par un renvoi du bot (changement de statut)
-  dateEcheance   DateTime? @map("date_echeance") @db.Timestamptz(6) // date d'échéance de paiement, facultative : jamais fournie par le bot, saisie et modifiée depuis la gestion
+  compteId       Int?       @map("compte_id") // saisie depuis le site ; null = reçue du bot
+  employeId      Int?       @map("employe_id") // qui a enregistré le paiement en jeu (monitoring.invoice uniquement) ; quota de facturation
+  avoirDeId      Int?       @unique @map("avoir_de_id") // renseigné seulement sur l'avoir : facture d'origine qu'il annule (montants négatifs) ; unique pour empêcher deux avoirs sur la même facture en cas de double requête simultanée
+  dateFacture    DateTime   @default(now()) @map("date_facture") @db.Timestamptz(6) // date de la facture : reçue du bot, prise à défaut sur l'instant de réception ; saisie à la main sinon ; modifiable ensuite dans les deux cas (routes/compta.ts) — jamais réécrite par un renvoi du bot (changement de statut)
+  dateEcheance   DateTime?  @map("date_echeance") @db.Timestamptz(6) // date d'échéance de paiement, facultative : jamais fournie par le bot, saisie et modifiée depuis la gestion
   // facture d'un contrat client (saisie depuis sa fiche) : périodes entières couvertes, bornes incluses
   // (contrats-periodes.ts) ; contrat supprimé : la facture reste, détachée
-  contratId      Int?      @map("contrat_id")
-  contrat        Contrat?  @relation(fields: [contratId], references: [id], onDelete: SetNull)
-  periodeDebut   DateTime? @map("periode_debut") @db.Date
-  periodeFin     DateTime? @map("periode_fin") @db.Date
-  majLe          DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+  contratId      Int?       @map("contrat_id")
+  contrat        Contrat?   @relation(fields: [contratId], references: [id], onDelete: SetNull)
+  periodeDebut   DateTime?  @map("periode_debut") @db.Date
+  periodeFin     DateTime?  @map("periode_fin") @db.Date
+  majLe          DateTime   @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+  // échéance d'un échéancier de facturation qu'elle a réglée (echeanciers.ts) ; avoir émis sur cette facture : son
+  // échéance redevient à facturer (onDelete: SetNull, côté Echeance.factureId).
+  echeances      Echeance[] @relation("EcheanceFacturee")
+  // plan de règlement en plusieurs fois de cette facture (echeanciers.ts, type « paiement ») : la facture reste le
+  // document de référence (numérotation, archivage — standard du secteur, jamais recréée ni supprimée) ; une
+  // échéance réglée n'est qu'une quittance calculée à l'affichage, jamais une facture séparée.
+  planPaiement   Echeancier? @relation("FacturePaiement")
 
   @@index([source, dateFacture(sort: Desc)])
   @@index([dateFacture(sort: Desc)])
@@ -168,6 +179,61 @@ model Facture {
   @@index([employeId])
   @@index([contratId])
   @@map("factures")
+}
+
+// Échéancier : plan de plusieurs échéances datées, pour deux usages (type) :
+// - « facturation » : chaque échéance donne lieu à sa propre facture quand on clique « Facturer » (avant ou après sa
+//   date prévue) ; rattaché à un contrat client (une seule échéancier par contrat, régénéré à sa création et à ses
+//   changements, echeanciers.ts) ou libre (partenaire saisi à la main, aucun contrat).
+// - « paiement » : règlement en plusieurs fois d'UNE facture déjà émise, qui reste le document de référence
+//   (factureId, une seule fois) ; chaque échéance se marque « réglée » à la main (payeeLe), jamais par le bot (aucune
+//   information de paiement partiel ne nous parvient) — son reçu (quittance) se calcule à l'affichage, sans ligne en
+//   base ni facture séparée (standard du secteur : une facture, plusieurs encaissements).
+model Echeancier {
+  id            Int        @id @default(autoincrement())
+  type          String     @db.VarChar(12) // facturation | paiement
+  partenaire    String     @default("") @db.VarChar(200) // nom du client ou fournisseur ; figé à la création (copié du contrat ou de la facture)
+  contratId     Int?       @unique @map("contrat_id")
+  contrat       Contrat?   @relation(fields: [contratId], references: [id], onDelete: SetNull)
+  // « paiement » seulement : facture réglée en plusieurs fois, jamais supprimée ni recréée. Une seule facture ne
+  // peut avoir qu'un plan à la fois (unique) ; Restrict : supprimer la facture exige de supprimer ce plan d'abord
+  // (la suppression est bloquée plus tôt, côté route, avec un message clair).
+  factureId     Int?       @unique @map("facture_id")
+  facture       Facture?   @relation("FacturePaiement", fields: [factureId], references: [id], onDelete: Restrict)
+  notes         String     @default("") @db.VarChar(500)
+  compteId      Int?       @map("compte_id") // créateur ; sans relation Prisma (règle socle) — nettoyé dans avantSuppressionCompte
+  creeLe        DateTime   @default(now()) @map("cree_le") @db.Timestamptz(6)
+  majLe         DateTime   @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+  echeances     Echeance[]
+
+  @@map("echeanciers")
+}
+
+// Une ligne de l'échéancier. « facturation » : periodeDebut/Fin (facultatives, un échéancier libre n'en a pas) et
+// factureId une fois émise. « paiement » : payeeLe/moyenPaiement une fois réglée, periodeDebut/Fin et factureId
+// inutilisés. `ordre` fixe l'affichage (plusieurs échéances peuvent partager la même datePrevue après un ajustement).
+model Echeance {
+  id            Int        @id @default(autoincrement())
+  echeancierId  Int        @map("echeancier_id")
+  echeancier    Echeancier @relation(fields: [echeancierId], references: [id], onDelete: Cascade)
+  datePrevue    DateTime   @map("date_prevue") @db.Date
+  periodeDebut  DateTime?  @map("periode_debut") @db.Date
+  periodeFin    DateTime?  @map("periode_fin") @db.Date
+  montant       Int
+  note          String     @default("") @db.VarChar(200)
+  factureId     Int?       @map("facture_id")
+  facture       Facture?   @relation("EcheanceFacturee", fields: [factureId], references: [id], onDelete: SetNull)
+  payeeLe       DateTime?  @map("payee_le") @db.Timestamptz(6)
+  moyenPaiement String     @default("") @map("moyen_paiement") @db.VarChar(40)
+  creeLe        DateTime   @default(now()) @map("cree_le") @db.Timestamptz(6)
+  majLe         DateTime   @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+
+  // (echeancierId, periodeDebut) : une seule échéance par période d'un contrat (null ignoré par Postgres, sans effet
+  // sur les échéanciers libres ou de paiement) — regénérer l'échéancier d'un contrat (echeanciers.ts) ne duplique jamais
+  @@unique([echeancierId, periodeDebut])
+  @@index([echeancierId, datePrevue])
+  @@index([factureId])
+  @@map("echeances")
 }
 
 // Vente d'objet en jeu (« run »), reçue du bot Discord entreprise : événement monitoring.sale, un message par vente
@@ -282,12 +348,12 @@ model EcritureDot {
 // compteId renseigné) ou automatique (planifiée la semaine suivante si personne ne l'a fait, compteId nul) :
 // entreprise/verrouillage-dot.ts.
 model DeclarationDot {
-  semaine  DateTime @id @db.Date
-  statut   String   @db.VarChar(10) // validee | auto
-  figeeLe  DateTime @default(now()) @map("figee_le") @db.Timestamptz(6)
-  compteId Int?     @map("compte_id") // qui a validé ; null si verrouillage automatique
-  resume   Json
-  salaries Json
+  semaine   DateTime @id @db.Date
+  statut    String   @db.VarChar(10) // validee | auto
+  figeeLe   DateTime @default(now()) @map("figee_le") @db.Timestamptz(6)
+  compteId  Int?     @map("compte_id") // qui a validé ; null si verrouillage automatique
+  resume    Json
+  salaries  Json
   ecritures Json
 
   @@map("compta_dot_declarations")
@@ -366,18 +432,18 @@ model ImageRetiree {
 // Membres en service (services.ts) : une ligne par service, d'après les prises et fins de service envoyées par le bot
 // Discord (événement monitoring.duty). fin vide = en service.
 model Service {
-  id           Int       @id @default(autoincrement())
-  serviceId    String    @unique @map("service_id") @db.VarChar(64) // tiré de la personne et de l'heure (un renvoi du bot ne double rien)
-  employeNom   String    @default("") @map("employe_nom") @db.VarChar(120) // nom de la fiche RH, sinon celui envoyé par le bot
-  discordId    String?   @map("discord_id") @db.VarChar(22) // identifiant Discord envoyé par le bot
-  employeId    Int?      @map("employe_id")
-  debut        DateTime  @db.Timestamptz(6)
-  fin          DateTime? @db.Timestamptz(6)
-  causeFin     String    @default("") @map("cause_fin") @db.VarChar(120)
-  finSource    String    @default("") @map("fin_source") @db.VarChar(8) // bot | auto | doublon | manuel
-  anomalie     String    @default("") @db.VarChar(20) // fin_sans_debut | debut_en_double | cloture_auto
-  traite       Boolean   @default(false) // anomalie ignorée (RH/Services) : ses heures restent exclues, mais plus à traiter
-  majLe        DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+  id         Int       @id @default(autoincrement())
+  serviceId  String    @unique @map("service_id") @db.VarChar(64) // tiré de la personne et de l'heure (un renvoi du bot ne double rien)
+  employeNom String    @default("") @map("employe_nom") @db.VarChar(120) // nom de la fiche RH, sinon celui envoyé par le bot
+  discordId  String?   @map("discord_id") @db.VarChar(22) // identifiant Discord envoyé par le bot
+  employeId  Int?      @map("employe_id")
+  debut      DateTime  @db.Timestamptz(6)
+  fin        DateTime? @db.Timestamptz(6)
+  causeFin   String    @default("") @map("cause_fin") @db.VarChar(120)
+  finSource  String    @default("") @map("fin_source") @db.VarChar(8) // bot | auto | doublon | manuel
+  anomalie   String    @default("") @db.VarChar(20) // fin_sans_debut | debut_en_double | cloture_auto
+  traite     Boolean   @default(false) // anomalie ignorée (RH/Services) : ses heures restent exclues, mais plus à traiter
+  majLe      DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@index([fin, debut])
   @@index([discordId, debut]) // chaque prise ou fin de service cherche les services de la personne
@@ -388,9 +454,9 @@ model Service {
 
 // Réception des prises et fins de service (affichée dans Paramètres : preuve que l'abonnement du bot fonctionne).
 model ServiceEtat {
-  id               Int       @id @default(1)
-  derniereLecture  DateTime? @map("derniere_lecture") @db.Timestamptz(6) // dernier événement reçu du bot
-  nbReconnus       Int       @default(0) @map("nb_reconnus") // événements reçus
+  id              Int       @id @default(1)
+  derniereLecture DateTime? @map("derniere_lecture") @db.Timestamptz(6) // dernier événement reçu du bot
+  nbReconnus      Int       @default(0) @map("nb_reconnus") // événements reçus
 
   @@map("services_etat")
 }
@@ -428,26 +494,27 @@ model TypeSanction {
 // dédiée « contrats ». Montant par période (periodicite) ; sans date de fin, reconduit tacitement à chaque période ;
 // avec une date de fin (incluse), terminé seul le lendemain (contrats.ts, termineAujourdhui et la tâche quotidienne).
 model Contrat {
-  id         Int          @id @default(autoincrement())
-  partenaire String       @db.VarChar(100)
-  partie     String       @db.VarChar(12) // client | fournisseur — même vocabulaire que TypeContrat.partie
-  montant    Int          // par période
-  periodicite String      @default("hebdomadaire") @db.VarChar(12) // journalier | hebdomadaire | mensuel
-  dateDebut  DateTime     @map("date_debut") @db.Date // les périodes se calent dessus (facturation, contrats-periodes.ts)
-  dateFin    DateTime?    @map("date_fin") @db.Date // dernier jour couvert ; null = reconduction tacite
-  statut     String       @default("actif") @db.VarChar(12) // actif | termine (posé par la tâche quotidienne, revérifié à chaque lecture)
-  typeId     Int?         @map("type_id") // type supprimé : « Sans type » (onDelete: SetNull), comme les types d'agenda
-  type       TypeContrat? @relation(fields: [typeId], references: [id], onDelete: SetNull)
-  notes      String       @default("") @db.VarChar(500)
+  id                 Int                   @id @default(autoincrement())
+  partenaire         String                @db.VarChar(100)
+  partie             String                @db.VarChar(12) // client | fournisseur — même vocabulaire que TypeContrat.partie
+  montant            Int // par période
+  periodicite        String                @default("hebdomadaire") @db.VarChar(12) // journalier | hebdomadaire | mensuel
+  dateDebut          DateTime              @map("date_debut") @db.Date // les périodes se calent dessus (facturation, contrats-periodes.ts)
+  dateFin            DateTime?             @map("date_fin") @db.Date // dernier jour couvert ; null = reconduction tacite
+  statut             String                @default("actif") @db.VarChar(12) // actif | termine (posé par la tâche quotidienne, revérifié à chaque lecture)
+  typeId             Int?                  @map("type_id") // type supprimé : « Sans type » (onDelete: SetNull), comme les types d'agenda
+  type               TypeContrat?          @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  notes              String                @default("") @db.VarChar(500)
   // accès client (lien à jeton, sans compte) : remplit ses bénéficiaires lui-même, seulement les jours réglés dans
   // Paramètres (parametres.ts, contrats_jours_acces). null = accès non donné. jamais renvoyé en liste (routes/contrats.ts).
-  jeton         String?  @unique @db.VarChar(64)
-  beneficiaires ContratBeneficiaire[]
-  beneficiairesMajLe DateTime? @map("beneficiaires_maj_le") @db.Timestamptz(6) // dernière liste enregistrée
-  factures   Facture[]
-  compteId   Int?         @map("compte_id") // auteur ; null si compte supprimé
-  creeLe     DateTime     @default(now()) @map("cree_le") @db.Timestamptz(6)
-  majLe      DateTime     @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+  jeton              String?               @unique @db.VarChar(64)
+  beneficiaires      ContratBeneficiaire[]
+  beneficiairesMajLe DateTime?             @map("beneficiaires_maj_le") @db.Timestamptz(6) // dernière liste enregistrée
+  factures           Facture[]
+  echeancier         Echeancier? // son plan de facturation (échéances) ; regénéré à la création et aux changements (echeanciers.ts)
+  compteId           Int?                  @map("compte_id") // auteur ; null si compte supprimé
+  creeLe             DateTime              @default(now()) @map("cree_le") @db.Timestamptz(6)
+  majLe              DateTime              @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@index([statut, creeLe(sort: Desc)])
   @@map("contrats")
@@ -472,11 +539,11 @@ model ContratBeneficiaire {
 // d'agenda (agenda-regles.ts) ou de sanction (sanctions.ts). Non partagés entre clients et fournisseurs (champ
 // « partie », logiquement différents) : un nom peut se répéter d'une partie à l'autre, pas au sein de la même.
 model TypeContrat {
-  id       Int        @id @default(autoincrement())
-  nom      String     @db.VarChar(40)
-  couleur  String     @db.VarChar(7)
-  partie   String     @db.VarChar(12) // client | fournisseur — qui est l'autre partie du contrat
-  position Int        @default(0)
+  id       Int       @id @default(autoincrement())
+  nom      String    @db.VarChar(40)
+  couleur  String    @db.VarChar(7)
+  partie   String    @db.VarChar(12) // client | fournisseur — qui est l'autre partie du contrat
+  position Int       @default(0)
   contrats Contrat[]
 
   @@unique([nom, partie])

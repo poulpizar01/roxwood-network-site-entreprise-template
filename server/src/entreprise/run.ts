@@ -1,14 +1,14 @@
 // ENTREPRISE — ventes d'objets en jeu (« runs »), reçues du bot Discord entreprise : événement monitoring.sale, un
-// message par vente annoncée dans le salon de monitoring (docs/webhooks.md). Rattachée à la fiche RH du vendeur (ID
-// Discord, sinon pseudo) quand elle existe ; sans fiche, gardée telle quelle (pas de fiche créée automatiquement).
-// Idempotence : déjà assurée par le socle (empreinte du corps d'un même envoi, socle/routes/webhooks.ts) — jobId
-// n'identifie que le métier RP du vendeur, jamais la transaction.
+// message par vente annoncée dans le salon de monitoring (docs/webhooks.md). Rattachée à la fiche RH du vendeur par
+// son ID Discord quand elle existe ; sans ID Discord fiable, gardée non rattachée (jamais par le seul pseudo, en
+// texte libre et non garanti unique : un homonyme créditerait la mauvaise fiche, donc le mauvais quota et la
+// mauvaise paie). Idempotence : déjà assurée par le socle (empreinte du corps d'un même envoi, socle/routes/webhooks.ts).
 import type { EvenementBot } from '../socle/contrat.js';
 import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { entierRegle } from './parametres.js';
 import { nomComplet } from './rh.js';
-import { debutSemaineParis, jourDeSemaineParis, normaliserPseudo } from './texte.js';
+import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -19,13 +19,13 @@ export async function recevoirRun(e: EvenementBot): Promise<void> {
   // forme inattendue : ignorée (la renvoyer ne la rendrait pas valide), mais consignée — si le bot change de format,
   // c'est la seule trace qui le dira
   if (!p || typeof p !== 'object' || !parsed || typeof parsed !== 'object') {
-    console.warn('[run] événement monitoring.sale ignoré : forme inattendue', JSON.stringify(p).slice(0, 300));
+    // seules les clés sont journalisées : la valeur peut porter des données personnelles (pseudo, description)
+    console.warn('[run] événement monitoring.sale ignoré : forme inattendue', p && typeof p === 'object' ? Object.keys(p) : typeof p);
     return;
   }
   const discordId = texte(p.playerDiscord, 22);
   const nom = texte(p.playerName, 120).replace(/[`*_<>@]/g, '');
-  const employe = /^\d{15,22}$/.test(discordId) ? await prisma.employe.findUnique({ where: { discordId } })
-    : nom ? await prisma.employe.findUnique({ where: { discordPseudoNormalise: normaliserPseudo(nom) } }) : null;
+  const employe = /^\d{15,22}$/.test(discordId) ? await prisma.employe.findUnique({ where: { discordId } }) : null;
   await prisma.run.create({
     data: {
       jobId: texte(p.jobId, 100), vendeurNom: nom, vendeurDiscordId: discordId || null, employeId: employe?.id ?? null,

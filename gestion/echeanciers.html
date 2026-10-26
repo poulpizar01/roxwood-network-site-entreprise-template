@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Échéanciers — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — échéanciers (permission « factures »). Deux usages : « facturation » (plan de plusieurs échéances,
+       chacune donnant lieu à sa propre facture — libre, ou celui d'un contrat client, géré dans sa fiche,
+       gestion/contrats.js) et « paiement » (règlement en plusieurs fois d'une facture déjà émise, réglé à la main).
+       Une ligne ouvre la fiche (tiroir) : échéances, totaux, actions. Serveur : entreprise/routes/echeanciers.ts,
+       entreprise/echeanciers.ts. -->
+  <main class="admin-contenu">
+    <section id="panneau-echeanciers">
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Échéanciers</h1>
+          <p style="margin:0;font-size:var(--fs-3);">Plans de facturation et paiements en plusieurs fois.</p>
+        </div>
+        <button type="button" class="btn btn-or" id="bouton-nouvel-echeancier"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouvel échéancier</button>
+      </div>
+      <div id="zone-message-echeanciers" role="status"></div>
+
+      <div class="comptes-outils contrats-outils">
+        <div class="comptes-filtres" role="group" aria-label="Filtrer par type">
+          <button type="button" class="comptes-filtre actif" data-type-echeancier="" aria-pressed="true">Tous</button>
+          <button type="button" class="comptes-filtre" data-type-echeancier="facturation" aria-pressed="false">Facturation</button>
+          <button type="button" class="comptes-filtre" data-type-echeancier="paiement" aria-pressed="false">Paiement</button>
+        </div>
+        <div class="comptes-recherche">
+          <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+          <input type="search" id="recherche-echeanciers" aria-label="Rechercher par partenaire" placeholder="Partenaire">
+        </div>
+      </div>
+      <div class="contrats-liste-v2" id="echeanciers-liste"></div>
+    </section>
+  </main>
+
+<!-- Fiche d'un échéancier : tiroir à droite (plein écran sur téléphone). -->
+<div class="modale-fond tiroir-fond cache" id="tiroir-echeancier" data-echap>
+  <div class="tiroir" role="dialog" aria-modal="true" aria-labelledby="tiroir-echeancier-titre">
+    <div class="tiroir-entete">
+      <span class="admin-avatar" id="tiroir-echeancier-avatar" aria-hidden="true"></span>
+      <div class="tiroir-identite">
+        <h2 id="tiroir-echeancier-titre"></h2>
+        <p class="tiroir-sous-titre" id="tiroir-echeancier-sous-titre"></p>
+      </div>
+      <button type="button" id="fermer-tiroir-echeancier" aria-label="Fermer">✕</button>
+    </div>
+    <div class="tiroir-corps" id="tiroir-echeancier-corps"></div>
+    <div class="tiroir-pied" id="tiroir-echeancier-pied"></div>
+  </div>
+</div>
+
+<!-- Relevé d'un échéancier, à l'écran : jamais un fichier téléchargé ni print() (gèlerait le navigateur embarqué de
+     l'ordinateur en jeu, docs/design.md §10) — la personne le montre ou le capture elle-même. Mêmes identifiants que
+     l'aperçu de facture (gestion/facturation.html) : les règles de défilement et de plein écran de gestion.css sont
+     posées sur ces identifiants précis, pas sur la classe .modale-apercu-facture seule. Contenu rempli par
+     rendreReleveEcheancier (gestion/echeanciers.js). -->
+<div class="modale-fond cache" id="modale-apercu-facture" data-echap>
+  <div class="modale modale-apercu-facture" id="apercu-facture-boite">
+    <div class="modale-entete">
+      <h3 id="titre-modale-apercu-facture">Relevé</h3>
+      <div class="apercu-facture-entete-actions">
+        <button type="button" class="btn btn-fantome btn-petit cache" id="bouton-apercu-copier"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier en image</button>
+        <button type="button" class="btn btn-fantome btn-petit cache" id="bouton-apercu-plein-ecran">Plein écran</button>
+        <button type="button" id="fermer-modale-apercu-facture" aria-label="Fermer">✕</button>
+      </div>
+    </div>
+    <div id="apercu-facture-corps"></div>
+  </div>
+</div>
+
+<!-- Plus d'actions d'un échéancier : fenêtre plutôt qu'un menu « ⋯ » flottant — depuis le pied du tiroir, collé au
+     bord bas de l'écran sur téléphone, un menu qui s'ouvre vers le haut ou le bas n'a pas la place de s'afficher
+     correctement (docs/design.md §5, §10 : une fenêtre pleine écran, déjà réglée pour le mobile, est le composant
+     fiable). Fonctionne pour les lignes d'échéance (petit menu dans une zone qui défile) ; pas pour un pied fixe. -->
+<div class="modale-fond cache" id="modale-plus-echeancier" data-echap>
+  <div class="modale" style="max-width:420px;" role="dialog" aria-modal="true" aria-labelledby="titre-modale-plus-echeancier">
+    <div class="modale-entete">
+      <h2 id="titre-modale-plus-echeancier" class="modale-titre">Actions</h2>
+      <button type="button" id="fermer-modale-plus-echeancier" aria-label="Fermer">✕</button>
+    </div>
+    <div class="plus-echeancier-liste" id="plus-echeancier-corps"></div>
+  </div>
+</div>
+
+<!-- Nouvel échéancier libre (sans contrat) : partenaire, puis générateur facultatif (sinon on ajoute les échéances
+     une à une depuis la fiche) ; ou paiement en plusieurs fois d'une facture (ouvert depuis Facturation, factureId
+     déjà connu). -->
+<div class="modale-fond cache modale-pleine" id="modale-echeancier" data-echap>
+  <div class="modale modale-pleine" role="dialog" aria-modal="true" aria-labelledby="modale-echeancier-titre">
+    <div class="modale-entete">
+      <h2 id="modale-echeancier-titre" class="modale-titre">Nouvel échéancier</h2>
+      <button type="button" id="fermer-modale-echeancier" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-echeancier"></div>
+    <form id="formulaire-echeancier" autocomplete="off" novalidate>
+      <p class="champ-aide cache" id="echeancier-facture-aide"></p>
+      <div class="champ" id="champ-echeancier-partenaire"><label for="echeancier-partenaire">Client ou fournisseur</label><input type="text" id="echeancier-partenaire" maxlength="200" placeholder="Nom"></div>
+      <fieldset class="contrat-choix">
+        <legend>Générer des échéances maintenant <small>facultatif : vous pouvez aussi les ajouter une à une ensuite</small></legend>
+        <div class="champ-deux">
+          <div class="champ"><label for="echeancier-premiere">Première échéance</label><input type="date" id="echeancier-premiere"></div>
+          <div class="champ"><label for="echeancier-rythme">Rythme</label>
+            <select id="echeancier-rythme">
+              <option value="hebdomadaire">Chaque semaine</option>
+              <option value="journalier">Chaque jour</option>
+              <option value="mensuel">Chaque mois</option>
+            </select>
+          </div>
+        </div>
+        <div class="champ-deux">
+          <div class="champ"><label for="echeancier-nombre">Nombre d’échéances</label><input type="number" id="echeancier-nombre" min="1" max="120" step="1" inputmode="numeric"></div>
+          <div class="champ" id="champ-echeancier-montant-total"><label for="echeancier-montant-total">Montant total</label><div class="champ-dollar"><input type="number" id="echeancier-montant-total" min="1" max="2147483647" step="1" inputmode="numeric"></div></div>
+        </div>
+        <p class="champ-aide">Réparti également entre les échéances ; la dernière absorbe l’arrondi.</p>
+      </fieldset>
+      <div class="champ"><label for="echeancier-notes">Notes <small>facultatif</small></label><textarea id="echeancier-notes" maxlength="500" rows="2"></textarea></div>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or" id="bouton-enregistrer-echeancier">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Ajouter ou modifier une échéance : date, montant, note. -->
+<div class="modale-fond cache" id="modale-echeance" data-echap>
+  <div class="modale" style="max-width:420px;" role="dialog" aria-modal="true" aria-labelledby="modale-echeance-titre">
+    <div class="modale-entete">
+      <h2 id="modale-echeance-titre" class="modale-titre">Ajouter une échéance</h2>
+      <button type="button" id="fermer-modale-echeance" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-echeance"></div>
+    <form id="formulaire-echeance" novalidate>
+      <div class="champ"><label for="echeance-date">Date prévue</label><input type="date" id="echeance-date" required></div>
+      <div class="champ"><label for="echeance-montant">Montant</label><div class="champ-dollar"><input type="number" id="echeance-montant" min="1" max="2147483647" step="1" inputmode="numeric" required></div></div>
+      <div class="champ"><label for="echeance-note">Note <small>facultatif</small></label><input type="text" id="echeance-note" maxlength="200"></div>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or" id="bouton-enregistrer-echeance">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Nouveau montant à partir d'une date : toutes les échéances non facturées à partir de là. -->
+<div class="modale-fond cache" id="modale-ajuster" data-echap>
+  <div class="modale" style="max-width:420px;" role="dialog" aria-modal="true" aria-labelledby="modale-ajuster-titre">
+    <div class="modale-entete">
+      <h2 id="modale-ajuster-titre" class="modale-titre">Nouveau montant</h2>
+      <button type="button" id="fermer-modale-ajuster" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-ajuster"></div>
+    <form id="formulaire-ajuster" novalidate>
+      <p class="champ-aide">S’applique à chaque échéance non encore facturée, à partir de cette date.</p>
+      <div class="champ"><label for="ajuster-date">À partir du</label><input type="date" id="ajuster-date" required></div>
+      <div class="champ"><label for="ajuster-montant">Nouveau montant</label><div class="champ-dollar"><input type="number" id="ajuster-montant" min="1" max="2147483647" step="1" inputmode="numeric" required></div></div>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Étendre : ajoute des échéances après la dernière, au même montant. -->
+<div class="modale-fond cache" id="modale-etendre" data-echap>
+  <div class="modale" style="max-width:420px;" role="dialog" aria-modal="true" aria-labelledby="modale-etendre-titre">
+    <div class="modale-entete">
+      <h2 id="modale-etendre-titre" class="modale-titre">Ajouter des échéances</h2>
+      <button type="button" id="fermer-modale-etendre" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-etendre"></div>
+    <form id="formulaire-etendre" novalidate>
+      <div class="champ-deux">
+        <div class="champ"><label for="etendre-nombre">Nombre</label><input type="number" id="etendre-nombre" min="1" max="60" step="1" inputmode="numeric" value="12" required></div>
+        <div class="champ"><label for="etendre-rythme">Rythme</label>
+          <select id="etendre-rythme">
+            <option value="hebdomadaire">Chaque semaine</option>
+            <option value="journalier">Chaque jour</option>
+            <option value="mensuel">Chaque mois</option>
+          </select>
+        </div>
+      </div>
+      <p class="champ-aide">Même montant que la dernière échéance.</p>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or">Ajouter</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <script src="/gestion/echeanciers.js"></script>
+</body>
+</html>

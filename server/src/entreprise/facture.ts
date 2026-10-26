@@ -9,7 +9,7 @@ import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { entierRegle } from './parametres.js';
 import { nomComplet } from './rh.js';
-import { debutSemaineParis, jourDeSemaineParis, normaliserPseudo } from './texte.js';
+import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -31,12 +31,18 @@ type Article = { name?: unknown; unitPrice?: unknown; quantity?: unknown; weight
 
 // Traitement de l'événement order.updated (entreprise.webhooks) : upsert sur l'identifiant de commande du bot — un
 // renvoi (changement de statut, régénération de facture) remplace l'état précédent plutôt que d'en créer un second.
-// Le bot n'envoie que l'ID Discord du client (pas de nom affiché) : clientNom le garde tel quel.
+// Le bot n'envoie que l'ID Discord du client (pas de nom affiché) : clientNom le garde tel quel. Une relance tardive
+// (après échec réseau côté bot) peut arriver après un événement plus récent déjà appliqué : evenementLe (sentAt)
+// l'empêche d'écraser un état plus récent.
 export async function recevoirFactureCommande(e: EvenementBot): Promise<void> {
   const p = e.payload as Record<string, unknown> | null;
   if (!p || typeof p !== 'object') { console.warn('[facture] événement order.updated ignoré : contenu absent'); return; }
   const idBot = texte(p.orderId, 100);
   if (!idBot) { console.warn('[facture] événement order.updated ignoré : pas de orderId'); return; }
+  const envoiLe = new Date(e.sentAt);
+  if (Number.isNaN(envoiLe.getTime())) { console.warn('[facture] événement order.updated ignoré : sentAt invalide'); return; }
+  const existante = await prisma.facture.findUnique({ where: { idBot }, select: { evenementLe: true } });
+  if (existante?.evenementLe && existante.evenementLe > envoiLe) return;
   // bornée comme les réponses de candidature (rh.ts) : une commande à très nombreux articles ne doit pas gonfler
   // sans limite details.articles, réécrit en entier à chaque renvoi (changement de statut)
   const articles = (Array.isArray(p.items) ? p.items as Article[] : []).slice(0, 50).map(a => ({
@@ -47,6 +53,7 @@ export async function recevoirFactureCommande(e: EvenementBot): Promise<void> {
   }));
   const data = {
     source: 'order',
+    evenementLe: envoiLe,
     numeroFacture: texte(p.invoiceNumber, 100),
     clientNom: texte(p.customerId, 200),
     sousTotal: entier(p.subtotal),
@@ -71,20 +78,21 @@ export async function recevoirFactureCommande(e: EvenementBot): Promise<void> {
 // dédoublonnage des renvois est déjà assuré par le socle (empreinte du corps, socle/routes/webhooks.ts).
 // playerDiscord/playerName (même champs que monitoring.sale, entreprise/run.ts) identifient l'employé qui a
 // enregistré le paiement en jeu, jamais le client : parsed.payerName (texte libre du log, sans identifiant fiable)
-// ne sert qu'à l'affichage (clientNom).
+// ne sert qu'à l'affichage (clientNom). Rattachement par ID Discord uniquement (jamais par le seul pseudo : un
+// homonyme en jeu créditerait la mauvaise fiche, donc le mauvais quota et la mauvaise paie).
 export async function recevoirFactureMonitoring(e: EvenementBot): Promise<void> {
   const p = e.payload as Record<string, unknown> | null;
   const parsed = p?.parsed as Record<string, unknown> | null | undefined;
   // forme inattendue (description du log FiveM non reconnue par le bot) : ignorée, mais consignée — seule trace si
   // le bot change de format
   if (!p || typeof p !== 'object' || !parsed || typeof parsed !== 'object') {
-    console.warn('[facture] événement monitoring.invoice ignoré : forme inattendue', JSON.stringify(p).slice(0, 300));
+    // seules les clés sont journalisées : la valeur peut porter des données personnelles (pseudo, description)
+    console.warn('[facture] événement monitoring.invoice ignoré : forme inattendue', p && typeof p === 'object' ? Object.keys(p) : typeof p);
     return;
   }
   const discordId = texte(p.playerDiscord, 22);
   const nom = texte(p.playerName, 120).replace(/[`*_<>@]/g, '');
-  const employe = /^\d{15,22}$/.test(discordId) ? await prisma.employe.findUnique({ where: { discordId } })
-    : nom ? await prisma.employe.findUnique({ where: { discordPseudoNormalise: normaliserPseudo(nom) } }) : null;
+  const employe = /^\d{15,22}$/.test(discordId) ? await prisma.employe.findUnique({ where: { discordId } }) : null;
   await prisma.facture.create({
     data: {
       source: 'monitoring',

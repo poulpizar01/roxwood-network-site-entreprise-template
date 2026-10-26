@@ -79,6 +79,7 @@ export const entreprise: Entreprise = {
     await tx.apparenceImage.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.sanction.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.contrat.updateMany({ where: { compteId }, data: { compteId: null } });
+    await tx.declarationDot.updateMany({ where: { compteId }, data: { compteId: null } });
     if (compte) await tx.invitationAgenda.deleteMany({ where: { discordId: compte.discordId } });
     await tx.evenementAgenda.deleteMany({ where: { compteId, destination: 'perso' } });
     await tx.evenementAgenda.updateMany({ where: { compteId }, data: { compteId: null, auteurNom: '' } });

@@ -3,14 +3,13 @@
 // DOT. Permission dédiée « contrats ». Montant par période (journalier, hebdomadaire, mensuel) ; sans date de fin, le
 // contrat est reconduit tacitement ; y mettre fin, c'est lui poser une date de fin (incluse) : terminé le lendemain
 // (contratTermine, revérifié à chaque lecture, et la tâche quotidienne qui pose le statut). Terminé : liste du client
-// figée, absent de la page Bénéficiaires. Calculs de périodes et de facturation : contrats-periodes.ts.
+// figée, absent de la page Bénéficiaires. Calendrier de périodes : contrats-periodes.ts. Facturation d'un contrat
+// client : son échéancier (echeanciers.ts), régénéré ici à chaque changement qui touche ses dates (synchroniserEcheancierContrat).
 import crypto from 'node:crypto';
 import { prisma } from '../socle/db.js';
 import { lireBeneficiaires, lireCollage, type Beneficiaire } from './contrats-beneficiaires.js';
-import {
-  aFacturer, contratTermine, etatsPeriodes, finPeriodeEnCours, prochaineEcheance, verifierPlage,
-  PERIODICITES, type FactureContrat, type Periodicite,
-} from './contrats-periodes.js';
+import { contratTermine, finPeriodeEnCours, prochaineEcheance, PERIODICITES, type Periodicite } from './contrats-periodes.js';
+import { contratAEcheancesFacturees, echeanciersDeContrats, synchroniserEcheancierContrat } from './echeanciers.js';
 import { joursAccesContrats } from './parametres.js';
 import { Refus } from './refus.js';
 import { JOURS_SEMAINE, jourParis, jourSemaineParis, jourValide, versDate, versJour } from './texte.js';
@@ -29,29 +28,13 @@ type TypeContrat = { id: number; nom: string; couleur: string; partie: string };
 const versType = (t: TypeContrat) => ({ id: t.id, nom: t.nom, couleur: t.couleur, partie: t.partie });
 export const listeTypesContrat = async () => (await prisma.typeContrat.findMany({ orderBy: [{ position: 'asc' }, { nom: 'asc' }] })).map(versType);
 
-// factures d'un contrat qui couvrent des périodes : une facture annulée (statut, ou avoir émis) libère ses périodes
-const PAYEES = ['PAID', 'PAYEE'];
-async function facturesDe(contratIds: number[]): Promise<Map<number, FactureContrat[]>> {
-  const lignes = await prisma.facture.findMany({
-    where: { contratId: { in: contratIds }, periodeDebut: { not: null }, periodeFin: { not: null }, statutPaiement: { not: 'ANNULEE' }, avoirDeId: null },
-    select: { id: true, contratId: true, periodeDebut: true, periodeFin: true, statutPaiement: true },
-  });
-  const parContrat = new Map<number, FactureContrat[]>();
-  for (const f of lignes) {
-    const liste = parContrat.get(f.contratId!) ?? [];
-    liste.push({ id: f.id, periodeDebut: versJour(f.periodeDebut), periodeFin: versJour(f.periodeFin), payee: PAYEES.includes(f.statutPaiement) });
-    parContrat.set(f.contratId!, liste);
-  }
-  return parContrat;
-}
-
 type LigneContrat = { id: number; statut: string; periodicite: string; dateDebut: Date; dateFin: Date | null };
 const calendrier = (c: LigneContrat) => ({ dateDebut: versJour(c.dateDebut), dateFin: c.dateFin ? versJour(c.dateFin) : null, periodicite: c.periodicite as Periodicite });
 // fin d'un contrat à durée fixe dans les 7 prochains jours (le jour même compris)
 const finProche = (dateFin: string | null, aujourdhui: string) =>
   dateFin !== null && dateFin >= aujourdhui && (versDate(dateFin).getTime() - versDate(aujourdhui).getTime()) / 864e5 < JOURS_FIN_PROCHE;
 
-async function lireChamps(b: Record<string, unknown>, existant?: LigneContrat & { factures: number }) {
+async function lireChamps(b: Record<string, unknown>, existant?: LigneContrat & { verrou: boolean }) {
   const partenaire = texte(b.partenaire, 100);
   if (!partenaire) throw new Refus('Le nom du partenaire est obligatoire.');
   if (!PARTIES_CONTRAT.includes(b.partie as PartieContrat)) throw new Refus('Choisissez un client ou un fournisseur.');
@@ -65,8 +48,12 @@ async function lireChamps(b: Record<string, unknown>, existant?: LigneContrat & 
   const dateFin = b.dateFin === null || b.dateFin === undefined || b.dateFin === '' ? null : b.dateFin;
   if (dateFin !== null && !jourValide(dateFin)) throw new Refus('La date de fin est invalide (jj/mm/aaaa).');
   if (dateFin !== null && dateFin < dateDebut) throw new Refus('La date de fin ne peut pas précéder la date de début.');
-  // les périodes déjà facturées se calent sur la date de début et la périodicité : les changer décalerait tout
-  if (existant?.factures && (periodicite !== existant.periodicite || dateDebut !== versJour(existant.dateDebut)))
+  // une date de fin trop éloignée (faute de frappe sur l'année) ferait générer des dizaines de milliers d'échéances
+  // d'un coup (synchroniserEcheancierContrat, journalier) à chaque modification du contrat
+  if (dateFin !== null && (versDate(dateFin).getTime() - versDate(dateDebut).getTime()) / 864e5 > 3660)
+    throw new Refus('La date de fin ne peut pas dépasser 10 ans après la date de début.');
+  // les échéances déjà facturées se calent sur la date de début et la périodicité : les changer décalerait tout
+  if (existant?.verrou && (periodicite !== existant.periodicite || dateDebut !== versJour(existant.dateDebut)))
     throw new Refus('Ce contrat a déjà des factures : sa date de début et sa périodicité ne changent plus. Pour changer de rythme, mettez fin à ce contrat et créez-en un nouveau.', 409);
   const typeIdBrut = b.typeId === null || b.typeId === undefined || b.typeId === '' ? null : Number(b.typeId);
   let typeId: number | null = null;
@@ -86,50 +73,48 @@ async function lireChamps(b: Record<string, unknown>, existant?: LigneContrat & 
 }
 
 // jeton jamais renvoyé en liste (secret d'accès) : seulement accesActif, pour afficher l'état du bouton. Chaque
-// contrat porte ses bénéficiaires, son état effectif et, pour un client, sa facturation par période.
+// contrat porte ses bénéficiaires, son état effectif et, pour un client, son échéancier de facturation.
 export async function listerContrats() {
   const lignes = await prisma.contrat.findMany({
     orderBy: [{ creeLe: 'desc' }],
     include: { type: true, beneficiaires: { orderBy: { nom: 'asc' }, select: { nom: true, idUnique: true } } },
   });
   const aujourdhui = jourParis();
-  const factures = await facturesDe(lignes.map(c => c.id));
+  const echeanciers = await echeanciersDeContrats(lignes.filter(c => c.partie === 'client').map(c => c.id));
   return lignes.map(({ jeton, ...c }) => {
     const cal = calendrier(c);
     const termine = contratTermine({ statut: c.statut, dateFin: cal.dateFin }, aujourdhui);
-    const fc = factures.get(c.id) ?? [];
-    // frise de la fiche : les 12 dernières périodes et la prochaine ; « à facturer » sur tout l'historique
-    const periodes = c.partie === 'client' ? etatsPeriodes(cal, fc, aujourdhui) : [];
+    const e = echeanciers.get(c.id);
     return {
       ...c, ...cal, statut: termine ? 'termine' : 'actif', accesActif: !!jeton,
       finProche: !termine && finProche(cal.dateFin, aujourdhui),
       prochaineEcheance: termine ? null : prochaineEcheance(cal, aujourdhui),
       finPeriodeEnCours: finPeriodeEnCours(cal.dateDebut, cal.periodicite, aujourdhui),
-      factures: fc.length,
-      periodes: periodes.slice(-13),
-      aFacturer: aFacturer(periodes),
+      echeancierId: e?.id ?? null,
+      // les 13 dernières échéances (passées et à venir proches), pour l'aperçu de la fiche
+      echeances: e?.echeances.slice(-13) ?? [],
+      aFacturer: e?.aFacturer ?? null,
     };
   });
 }
 
 async function contratOu404(id: number) {
-  const c = await prisma.contrat.findUnique({ where: { id }, include: { _count: { select: { factures: true } } } });
+  const c = await prisma.contrat.findUnique({ where: { id } });
   if (!c) throw new Refus('Contrat introuvable.', 404);
   return c;
 }
 
-// Accueil, « À traiter » : contrats clients dont au moins une période commencée n'est pas facturée
-export async function nombreContratsAFacturer(): Promise<number> {
-  return (await listerContrats()).filter(c => c.aFacturer).length;
-}
-
 export async function creerContrat(b: Record<string, unknown>, compteId: number) {
-  return prisma.contrat.create({ data: { ...await lireChamps(b), compteId } });
+  const c = await prisma.contrat.create({ data: { ...await lireChamps(b), compteId } });
+  await synchroniserEcheancierContrat(c);
+  return c;
 }
 
 export async function modifierContrat(id: number, b: Record<string, unknown>): Promise<void> {
   const c = await contratOu404(id);
-  await prisma.contrat.update({ where: { id }, data: await lireChamps(b, { ...c, factures: c._count.factures }) });
+  const verrou = await contratAEcheancesFacturees(id);
+  const c2 = await prisma.contrat.update({ where: { id }, data: await lireChamps(b, { ...c, verrou }) });
+  await synchroniserEcheancierContrat(c2);
 }
 
 export async function supprimerContrat(id: number): Promise<void> {
@@ -143,18 +128,21 @@ export async function terminerContrat(id: number, quand: unknown): Promise<void>
   const c = await contratOu404(id);
   const aujourdhui = jourParis(), cal = calendrier(c);
   if (contratTermine({ statut: c.statut, dateFin: cal.dateFin }, aujourdhui)) throw new Refus('Ce contrat est déjà terminé.', 409);
+  let c2;
   if (quand === 'maintenant') {
     // un contrat qui n'a pas encore commencé finit à sa date de début (jamais une fin avant le début)
     const fin = aujourdhui < cal.dateDebut ? cal.dateDebut : aujourdhui;
-    await prisma.contrat.update({ where: { id }, data: { statut: 'termine', dateFin: versDate(fin) } });
+    c2 = await prisma.contrat.update({ where: { id }, data: { statut: 'termine', dateFin: versDate(fin) } });
   } else if (quand === 'fin-periode') {
-    await prisma.contrat.update({ where: { id }, data: { dateFin: versDate(finPeriodeEnCours(cal.dateDebut, cal.periodicite, aujourdhui)) } });
+    c2 = await prisma.contrat.update({ where: { id }, data: { dateFin: versDate(finPeriodeEnCours(cal.dateDebut, cal.periodicite, aujourdhui)) } });
   } else throw new Refus('Choisissez quand le contrat prend fin.');
+  await synchroniserEcheancierContrat(c2);   // échéances non facturées au-delà de la nouvelle date de fin : retirées
 }
 
 export async function reprendreContrat(id: number): Promise<void> {
   await contratOu404(id);
-  await prisma.contrat.update({ where: { id }, data: { statut: 'actif', dateFin: null } });
+  const c2 = await prisma.contrat.update({ where: { id }, data: { statut: 'actif', dateFin: null } });
+  await synchroniserEcheancierContrat(c2);   // reconduction tacite : échéancier étendu de 12 échéances d'avance
 }
 
 // tâche quotidienne : pose le statut des contrats dont la date de fin est passée (les lectures le revérifient déjà)
@@ -167,27 +155,6 @@ export function planifierFinContrats(): void {
     .catch(e => console.error('[contrats] fin automatique', e));
   run();
   setInterval(run, 3600e3).unref();   // toutes les heures : le changement de jour est vu dans l'heure
-}
-
-// ---- facturation d'un contrat client : contrôle d'une plage de périodes avant d'enregistrer la facture ----
-// Appelée dans la transaction de création de la facture, contrat verrouillé (FOR UPDATE) : deux saisies simultanées
-// ne facturent jamais deux fois la même période.
-export async function verifierFacturationContrat(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], contratId: number, debut: unknown, fin: unknown,
-): Promise<{ debut: Date; fin: Date }> {
-  if (!jourValide(debut) || !jourValide(fin)) throw new Refus('Les périodes facturées sont invalides. Repartez de la fiche du contrat.');
-  await tx.$queryRaw`SELECT id FROM contrats WHERE id = ${contratId} FOR UPDATE`;
-  const c = await tx.contrat.findUnique({ where: { id: contratId } });
-  if (!c) throw new Refus('Contrat introuvable.', 404);
-  if (c.partie !== 'client') throw new Refus('Seul un contrat client se facture.');
-  const lignes = await tx.facture.findMany({
-    where: { contratId, periodeDebut: { not: null }, periodeFin: { not: null }, statutPaiement: { not: 'ANNULEE' }, avoirDeId: null },
-    select: { id: true, periodeDebut: true, periodeFin: true, statutPaiement: true },
-  });
-  const deja = lignes.map(f => ({ id: f.id, periodeDebut: versJour(f.periodeDebut), periodeFin: versJour(f.periodeFin), payee: PAYEES.includes(f.statutPaiement) }));
-  const r = verifierPlage(calendrier(c), deja, debut, fin, jourParis());
-  if ('refus' in r) throw new Refus(r.refus, 409);
-  return { debut: versDate(debut), fin: versDate(fin) };
 }
 
 // ---- accès client (lien à jeton) : le client remplit lui-même sa liste de bénéficiaires, sans compte ni session —
