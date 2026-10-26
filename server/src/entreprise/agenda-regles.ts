@@ -63,6 +63,8 @@ export function voit(e: EvenementVu, moi: Lecteur, d: DroitsAgenda, _grades: rea
 }
 
 export function modifiable(e: EvenementVu, moi: Lecteur, d: DroitsAgenda, _grades: readonly string[]): boolean {
+  // une absence refusée n'est plus qu'informative, en attendant sa purge (30 jours, purge.ts)
+  if (e.statutAbsence === 'refuse') return false;
   if (e.compteId === moi.id) return true;
   if (e.destination === 'perso') return false;
   if (e.destination === 'tous') return d.tout || (d.consulterTous && d.gererTous);

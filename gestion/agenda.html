@@ -75,7 +75,7 @@
             <div class="run-barre" id="participants-barre"><div class="run-barre-remplie"></div></div>
           </div>
           <div class="run-stat">
-            <span class="run-stat-titre">Absences</span>
+            <span class="run-stat-titre">Absences non justifiées</span>
             <p class="run-stat-chiffre"><span id="participants-absences">—</span><span id="participants-absences-libelle">sur les événements terminés</span></p>
           </div>
           <div class="run-stat">
@@ -90,7 +90,7 @@
           </div>
           <div class="comptes-filtres" role="group" aria-label="Afficher" id="participants-filtres">
             <button type="button" class="comptes-filtre actif" data-participants-filtre="invites" aria-pressed="true" title="Employés invités à au moins un événement sur cette période, passé ou à venir.">Invités sur la période</button>
-            <button type="button" class="comptes-filtre" data-participants-filtre="absents" aria-pressed="false" title="Parmi les employés invités, ceux qui ont manqué au moins un événement terminé.">Avec une absence</button>
+            <button type="button" class="comptes-filtre" data-participants-filtre="absents" aria-pressed="false" title="Parmi les employés invités, ceux qui ont manqué au moins un événement terminé sans absence approuvée.">Avec une absence non justifiée</button>
             <button type="button" class="comptes-filtre" data-participants-filtre="tous" aria-pressed="false" title="Tous les employés actifs, même sans aucune invitation sur cette période.">Tous les employés</button>
           </div>
         </div>
@@ -113,14 +113,36 @@
     <form id="formulaire-evenement" novalidate>
       <input type="hidden" id="evenement-id">
       <div class="evenement-corps">
+        <!-- choix à la création seulement : un événement ou une demande d'absence (jamais changé après coup) -->
+        <div class="champ cache" id="champ-evenement-mode">
+          <div class="comptes-filtres" role="group" aria-label="Type d’entrée" id="evenement-mode-filtres">
+            <button type="button" class="comptes-filtre actif" data-mode-evenement="evenement" aria-pressed="true">Événement</button>
+            <button type="button" class="comptes-filtre" data-mode-evenement="absence" aria-pressed="false">Absence</button>
+          </div>
+        </div>
+        <!-- bandeau d'état d'une absence (en attente, approuvée, refusée) : résume qui, quand et pourquoi, pour
+             que la personne qui valide n'ait pas qu'un formulaire grisé devant elle -->
+        <div class="evenement-absence-bandeau cache" id="evenement-absence-bandeau" role="status">
+          <span class="puce" id="evenement-absence-pastille"></span>
+          <span id="evenement-absence-resume"></span>
+        </div>
         <div class="champ cache" id="champ-evenement-type">
           <label for="evenement-type">Type</label>
           <select id="evenement-type"></select>
         </div>
-        <div class="champ">
+        <div class="champ" id="champ-evenement-titre">
           <label for="evenement-titre">Titre</label>
           <input type="text" id="evenement-titre" maxlength="80" placeholder="Ex. Réunion d’équipe">
           <p class="champ-erreur cache" id="erreur-evenement-titre">Donnez un titre à l’événement.</p>
+        </div>
+        <div class="champ cache" id="champ-evenement-motif">
+          <label for="evenement-motif">Motif</label>
+          <select id="evenement-motif">
+            <option value="conge">Congé</option>
+            <option value="maladie">Maladie</option>
+            <option value="personnel">Personnel</option>
+            <option value="autre">Autre</option>
+          </select>
         </div>
         <div class="evenement-quand">
           <div class="champ">
@@ -146,18 +168,13 @@
         </div>
         <p class="champ-aide cache" id="evenement-plusieurs-jours">Sur plusieurs jours, l’événement occupe la journée entière : pas d’horaire.</p>
         <p class="champ-erreur cache evenement-erreur-heures" id="erreur-evenement-heures">Heures au format 24 h (14:30) ; la fin doit être après le début.</p>
-        <div class="evenement-classement">
+        <div class="evenement-classement" id="champ-evenement-classement">
           <div class="champ">
             <label for="evenement-destination">Partager avec</label>
             <select id="evenement-destination"></select>
             <p class="champ-aide">« Personnel » le réserve à vous et aux personnes invitées ; les autres choix dépendent des droits définis dans Grades.</p>
           </div>
         </div>
-        <div class="champ cache" id="champ-evenement-absence">
-          <label><input type="checkbox" id="evenement-absence"> C’est une absence</label>
-          <p class="champ-aide">Congé, maladie… précisez dans le titre ou les notes. Reste « en attente » jusqu’à validation ; ne se change plus après coup.</p>
-        </div>
-        <p class="champ-aide cache" id="evenement-absence-statut"></p>
         <fieldset class="champ agenda-invitations cache" id="champ-evenement-invites">
           <legend>Inviter des personnes <small>facultatif</small></legend>
           <p class="champ-aide" id="aide-evenement-invites">Les personnes invitées verront l’événement dans leur agenda et seront prévenues sur Discord. Si vous les retirez, l’événement disparaît de leur agenda et une annulation leur est envoyée si le bot est disponible. Elles ne peuvent pas répondre depuis le site.</p>
@@ -167,11 +184,15 @@
           <ul class="agenda-invites-selection" id="liste-evenement-invites" aria-label="Personnes invitées"></ul>
           <p class="champ-aide agenda-invites-etat" id="etat-evenement-invites" role="status" aria-live="polite"></p>
         </fieldset>
-        <div class="champ">
+        <div class="champ" id="champ-evenement-notes">
           <label for="evenement-notes">Notes <small>facultatif</small></label>
           <textarea id="evenement-notes" maxlength="500" rows="3" placeholder="Lieu de rendez-vous, contact, détails…"></textarea>
         </div>
         <p class="champ-aide cache" id="evenement-origine"></p>
+        <div class="champ cache" id="champ-refus-absence-motif">
+          <label for="refus-absence-motif">Motif du refus <small>facultatif</small></label>
+          <textarea id="refus-absence-motif" maxlength="200" rows="2" placeholder="Visible par l’auteur, y compris sur Discord"></textarea>
+        </div>
       </div>
       <div id="zone-message-modale-evenement" role="status"></div>
       <div class="evenement-pied pied-centre">

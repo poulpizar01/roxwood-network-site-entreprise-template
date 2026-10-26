@@ -168,7 +168,11 @@ function disposerEvenements(evts) {
   return places;
 }
 
-const descriptionEvenement = e => `${e.titre}, ${texteHoraire(e)}${typeDe(e) ? `, ${typeDe(e).nom}` : ""}, pour ${e.destinataire || "moi"}${e.absence ? `, ${e.statut_absence === "approuve" ? "absence approuvée" : "absence en attente de validation"}` : ""}`;
+const LIBELLES_STATUT_ABSENCE = { en_attente: "en attente de validation", approuve: "approuvée", refuse: "refusée" };
+const libelleStatutAbsence = e => `absence ${LIBELLES_STATUT_ABSENCE[e.statut_absence] || LIBELLES_STATUT_ABSENCE.en_attente}`;
+// une absence refusée garde la classe de son statut (le nom reste explicite ailleurs : fiche, bandeau)
+const classeAbsence = e => e.absence ? ` absence-${e.statut_absence === "approuve" ? "approuvee" : e.statut_absence === "refuse" ? "refusee" : "en-attente"}` : "";
+const descriptionEvenement = e => `${e.titre}, ${texteHoraire(e)}${typeDe(e) ? `, ${typeDe(e).nom}` : ""}, pour ${e.destinataire || "moi"}${e.absence ? `, ${libelleStatutAbsence(e)}` : ""}`;
 
 // Événements sans horaire (sur un ou plusieurs jours) : une bande par événement, étirée sur les jours qu'il couvre
 // (comme dans un agenda courant), plutôt qu'un bloc plein écran répété dans chaque colonne horaire.
@@ -210,7 +214,7 @@ function rendreGrilleAgenda(jours) {
     <div class="agenda-toutjour">
       <span class="agenda-coin" aria-hidden="true"></span>
       ${toutJourPlaces.map(p => `
-        <div class="agenda-toutjour-barre" data-id="${p.e.id}" tabindex="0" role="button"
+        <div class="agenda-toutjour-barre${classeAbsence(p.e)}" data-id="${p.e.id}" tabindex="0" role="button"
              style="${styleType(p.e)}grid-column:${p.col1 + 2} / ${p.col2 + 3};grid-row:${p.rangee + 1}" aria-label="${echapper(descriptionEvenement(p.e))}">
           ${echapper(p.e.titre)}
         </div>`).join("")}
@@ -261,7 +265,7 @@ function rendreMoisAgenda() {
     const iso = formaterDateISO(d);
     const evs = evenementsDu(iso);
     const puces = evs.slice(0, 3).map(e => `
-      <span class="agenda-mois-evenement" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
+      <span class="agenda-mois-evenement${classeAbsence(e)}" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
         ${e.heure_debut ? `<span class="agenda-mois-heure">${e.heure_debut}</span> ` : ""}${echapper(e.titre)}
       </span>`).join("");
     const plus = evs.length > 3 ? `<button type="button" class="agenda-mois-plus" data-aller-jour="${iso}">${evs.length - 3} de plus</button>` : "";
@@ -292,9 +296,9 @@ function rendreListeAgenda() {
   const evs = evenementsDu(choisi);
   const liste = evs.length
     ? `<ul class="agenda-liste-evenements">${evs.map(e => `
-        <li><div class="agenda-carte" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
+        <li><div class="agenda-carte${classeAbsence(e)}" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
           <span class="agenda-carte-heures">${e.heure_debut ? `${e.heure_debut}<small>${e.heure_fin}</small>` : "<small>Toute la journée</small>"}</span>
-          <span class="agenda-carte-texte"><strong>${echapper(e.titre)}</strong><small>${typeDe(e) ? `${echapper(typeDe(e).nom)} · ` : ""}${echapper(e.destinataire || "Moi")}${e.auteur && !e.mien ? ` · ajouté par ${echapper(e.auteur)}` : ""}${e.absence ? ` · ${e.statut_absence === "approuve" ? "absence approuvée" : "absence en attente"}` : ""}</small></span>
+          <span class="agenda-carte-texte"><strong>${echapper(e.titre)}</strong><small>${typeDe(e) ? `${echapper(typeDe(e).nom)} · ` : ""}${echapper(e.destinataire || "Moi")}${e.auteur && !e.mien ? ` · ajouté par ${echapper(e.auteur)}` : ""}${e.absence ? ` · ${libelleStatutAbsence(e)}` : ""}</small></span>
         </div></li>`).join("")}</ul>`
     : `<p class="agenda-vide">Rien de prévu ce jour-là.</p>`;
   grille.className = "agenda-grille agenda-liste";
@@ -513,7 +517,7 @@ function choisirInvite(id) {
 function majChampInvites() {
   const perso = document.getElementById("evenement-destination").value === "perso";
   const invitationExistante = AGENDA_INVITES_SELECTIONNES.some(p => p.source === "invitation");
-  const visible = AGENDA_EVENEMENT_MODIFIABLE && perso && (AGENDA_DROITS.peut_inviter || invitationExistante);
+  const visible = modeEvenementChoisi() === "evenement" && AGENDA_EVENEMENT_MODIFIABLE && perso && (AGENDA_DROITS.peut_inviter || invitationExistante);
   document.getElementById("champ-evenement-invites").classList.toggle("cache", !visible);
   const recherche = document.getElementById("recherche-evenement-invites");
   recherche.disabled = !AGENDA_DROITS.peut_inviter;
@@ -523,12 +527,32 @@ function majChampInvites() {
   }
 }
 
-// une absence est toujours personnelle : la case disparaît (et se décoche) pour les autres partages
-function majChampAbsence() {
-  const perso = document.getElementById("evenement-destination").value === "perso";
-  document.getElementById("champ-evenement-absence").classList.toggle("cache", !perso);
-  if (!perso) document.getElementById("evenement-absence").checked = false;
+// Événement ou Absence : choisi à la création seulement, jamais changé après (comme l'était la case « C'est une
+// absence »). Une absence est toujours personnelle et n'a ni titre libre, ni horaire, ni partage, ni invités : le
+// titre se déduit du motif, les notes restent le seul texte libre.
+const modeEvenementChoisi = () => document.querySelector("#evenement-mode-filtres .comptes-filtre.actif")?.dataset.modeEvenement || "evenement";
+function majModeEvenement() {
+  const absence = modeEvenementChoisi() === "absence";
+  document.getElementById("champ-evenement-titre").classList.toggle("cache", absence);
+  document.getElementById("champ-evenement-motif").classList.toggle("cache", !absence);
+  document.getElementById("champ-evenement-classement").classList.toggle("cache", absence);
+  majChampHeures();
+  majChampInvites();
 }
+document.getElementById("evenement-mode-filtres").addEventListener("click", e => {
+  const b = e.target.closest("[data-mode-evenement]");
+  if (!b) return;
+  document.querySelectorAll("#evenement-mode-filtres [data-mode-evenement]").forEach(x => { x.classList.toggle("actif", x === b); x.setAttribute("aria-pressed", String(x === b)); });
+  majModeEvenement();
+});
+
+const dateCourteFr = iso => new Date(iso + "T00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+const MOTIFS_ABSENCE = { conge: "Congé", maladie: "Maladie", personnel: "Personnel", autre: "Autre" };
+const ETATS_ABSENCE = {
+  en_attente: ["En attente de validation", "puce-or"],
+  approuve: ["Approuvée", "puce-ok"],
+  refuse: ["Refusée", "puce-off"],
+};
 
 let OUVREUR_EVENEMENT = null;
 let AGENDA_EVENEMENT_MODIFIABLE = true;
@@ -536,10 +560,11 @@ function ouvrirModaleEvenement(options) {
   const o = options || {};
   const e = o.evenement || null;
   const estEdition = !!o.id;
+  const estAbsence = !!(e && e.absence);
   const modifiable = !e || e.modifiable;
   AGENDA_EVENEMENT_MODIFIABLE = modifiable;
   OUVREUR_EVENEMENT = document.activeElement;
-  document.getElementById("titre-modale-evenement").textContent = !modifiable ? "Événement" : estEdition ? "Modifier l’événement" : "Nouvel événement";
+  document.getElementById("titre-modale-evenement").textContent = !modifiable ? (estAbsence ? "Absence" : "Événement") : estEdition ? "Modifier l’événement" : "Nouvel événement";
   document.getElementById("evenement-id").value = o.id || "";
   document.getElementById("evenement-titre").value = o.titre || "";
   document.getElementById("evenement-jour").value = o.jour || maintenantParis().iso;
@@ -547,7 +572,16 @@ function ouvrirModaleEvenement(options) {
   document.getElementById("evenement-heure-debut").value = o.heureDebut || "09:00";
   document.getElementById("evenement-heure-fin").value = o.heureFin || "10:00";
   document.getElementById("evenement-notes").value = o.notes || "";
-  majChampHeures();
+
+  // choix Événement/Absence : à la création seulement, jamais changé après (l'édition garde le mode de l'existant)
+  document.getElementById("champ-evenement-mode").classList.toggle("cache", estEdition);
+  document.querySelectorAll("#evenement-mode-filtres [data-mode-evenement]").forEach(b => {
+    const actif = b.dataset.modeEvenement === (estAbsence ? "absence" : "evenement");
+    b.classList.toggle("actif", actif); b.setAttribute("aria-pressed", String(actif));
+  });
+  const selectMotif = document.getElementById("evenement-motif");
+  selectMotif.value = (e && e.absence_motif) || "conge";
+  majModeEvenement();
 
   // Type : « Sans type » puis les types de la Direction (un type supprimé depuis : « Sans type »)
   const selectType = document.getElementById("evenement-type");
@@ -576,12 +610,18 @@ function ouvrirModaleEvenement(options) {
   dessinerInvitesSelectionnes();
   majChampInvites();
 
-  // absence : case à part, ne se change plus après la création ; statut et validation lus sur l'événement
-  document.getElementById("evenement-absence").checked = !!(e && e.absence);
-  majChampAbsence();
-  const statutAbsence = document.getElementById("evenement-absence-statut");
-  statutAbsence.textContent = e && e.absence ? (e.statut_absence === "approuve" ? "Absence approuvée." : "Absence en attente de validation.") : "";
-  statutAbsence.classList.toggle("cache", !(e && e.absence));
+  // bandeau d'état d'une absence existante : qui, quand, motif et statut en un coup d'œil (pas qu'un formulaire grisé)
+  const bandeau = document.getElementById("evenement-absence-bandeau");
+  bandeau.classList.toggle("cache", !estAbsence);
+  if (estAbsence) {
+    const [libelleEtat, classeEtat] = ETATS_ABSENCE[e.statut_absence] || ETATS_ABSENCE.en_attente;
+    document.getElementById("evenement-absence-pastille").className = `puce ${classeEtat}`;
+    document.getElementById("evenement-absence-pastille").textContent = libelleEtat;
+    const periode = e.jour === e.jour_fin ? `le ${dateCourteFr(e.jour)}` : `du ${dateCourteFr(e.jour)} au ${dateCourteFr(e.jour_fin)}`;
+    document.getElementById("evenement-absence-resume").textContent = `${e.auteur || "Cette personne"} · ${periode} · ${e.absence_motif_libelle || MOTIFS_ABSENCE[e.absence_motif] || "Motif inconnu"}${e.absence_motif_refus ? ` · ${e.absence_motif_refus}` : ""}`;
+  }
+  document.getElementById("champ-refus-absence-motif").classList.toggle("cache", !(e && e.peut_valider));
+  document.getElementById("refus-absence-motif").value = "";
 
   // origine : qui l'a ajouté, qui a été invité et comment les personnes ont été prévenues
   const origine = document.getElementById("evenement-origine");
@@ -598,7 +638,8 @@ function ouvrirModaleEvenement(options) {
   document.querySelectorAll("#formulaire-evenement input, #formulaire-evenement textarea, #formulaire-evenement select")
     .forEach(c => { c.disabled = !modifiable; });
   if (destinationFigee) selectDest.disabled = true;
-  document.getElementById("evenement-absence").disabled = estEdition || !modifiable;   // ne se change plus après coup
+  selectMotif.disabled = estEdition || !modifiable;   // motif fixé à la création, jamais changé après coup
+  if (e && e.peut_valider) document.getElementById("refus-absence-motif").disabled = false;   // la personne qui valide peut toujours écrire un motif de refus
   document.getElementById("bouton-enregistrer-evenement").classList.toggle("cache", !modifiable);
   document.getElementById("bouton-enregistrer-evenement").textContent = estEdition ? "Enregistrer" : "Ajouter";
   document.getElementById("bouton-supprimer-evenement").classList.toggle("cache", !estEdition || !modifiable);
@@ -607,22 +648,23 @@ function ouvrirModaleEvenement(options) {
   document.querySelectorAll("#formulaire-evenement .champ-erreur").forEach(p => p.classList.add("cache"));
   gestion.message("zone-message-modale-evenement", "");
   document.getElementById("modale-evenement").classList.remove("cache");
-  const premierChamp = document.getElementById("champ-evenement-type").classList.contains("cache")
-    ? document.getElementById("evenement-titre")
-    : selectType;
+  const premierChamp = estAbsence && !estEdition ? selectMotif
+    : document.getElementById("champ-evenement-type").classList.contains("cache") ? document.getElementById("evenement-titre") : selectType;
   (modifiable ? premierChamp : document.getElementById("fermer-modale-evenement")).focus();
 }
 
-// sur plusieurs jours, pas d'horaire : l'événement occupe chaque journée entière (voir segmentJour)
+// sur plusieurs jours, pas d'horaire : l'événement occupe chaque journée entière (voir segmentJour) ; une absence
+// n'a jamais d'horaire, quelle que soit sa durée
 function majChampHeures() {
+  const absence = modeEvenementChoisi() === "absence";
   const jour = document.getElementById("evenement-jour").value, jourFin = document.getElementById("evenement-jour-fin").value;
-  const multi = !!jour && !!jourFin && jourFin !== jour;
+  const multi = absence || (!!jour && !!jourFin && jourFin !== jour);
   document.getElementById("champ-evenement-heures").classList.toggle("cache", multi);
-  document.getElementById("evenement-plusieurs-jours").classList.toggle("cache", !multi);
+  document.getElementById("evenement-plusieurs-jours").classList.toggle("cache", absence || !multi);
 }
 document.getElementById("evenement-jour").addEventListener("input", majChampHeures);
 document.getElementById("evenement-jour-fin").addEventListener("input", majChampHeures);
-document.getElementById("evenement-destination").addEventListener("change", () => { majChampInvites(); majChampAbsence(); });
+document.getElementById("evenement-destination").addEventListener("change", majChampInvites);
 const rechercheInvites = document.getElementById("recherche-evenement-invites");
 rechercheInvites.addEventListener("focus", () => {
   if (AGENDA_DROITS.peut_inviter && !AGENDA_ERREUR_PERSONNES) afficherSuggestionsInvites();
@@ -712,12 +754,13 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
   gestion.message("zone-message-modale-evenement", "");
   document.querySelectorAll("#formulaire-evenement .champ-erreur").forEach(p => p.classList.add("cache"));
 
+  const absence = !document.getElementById("champ-evenement-motif").classList.contains("cache");
   const titre = document.getElementById("evenement-titre").value.trim();
   const jour = document.getElementById("evenement-jour").value;
   const jourFin = document.getElementById("evenement-jour-fin").value;
   const heureDebut = document.getElementById("evenement-heure-debut").value;
   const heureFin = document.getElementById("evenement-heure-fin").value;
-  const multi = !!jour && !!jourFin && jourFin !== jour;
+  const multi = absence || (!!jour && !!jourFin && jourFin !== jour);
   let premierChamp = null;
   if (!jour) {
     document.getElementById("erreur-evenement-jour").classList.remove("cache");
@@ -727,38 +770,38 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
     document.getElementById("erreur-evenement-jour-fin").classList.remove("cache");
     premierChamp ||= document.getElementById("evenement-jour-fin");
   }
-  if (!titre) {
+  if (!absence && !titre) {
     document.getElementById("erreur-evenement-titre").classList.remove("cache");
     premierChamp = document.getElementById("evenement-titre");
   }
-  if (!multi && (!heureDebut || !heureFin || heureFin <= heureDebut)) {
+  if (!absence && !multi && (!heureDebut || !heureFin || heureFin <= heureDebut)) {
     document.getElementById("erreur-evenement-heures").classList.remove("cache");
     premierChamp ||= document.getElementById("evenement-heure-fin");
   }
   if (premierChamp) { premierChamp.focus(); return; }
 
   const id = document.getElementById("evenement-id").value;
-  const payload = {
-    titre,
-    jour,
-    jour_fin: jourFin,
-    heure_debut: multi ? null : heureDebut,
-    heure_fin: multi ? null : heureFin,
-    notes: document.getElementById("evenement-notes").value.trim(),
-    type_id: document.getElementById("evenement-type").value || null,
-  };
-  // l'absence ne se décide qu'à la création : en édition, la case est désactivée, jamais envoyée
-  if (!id) payload.absence = document.getElementById("evenement-absence").checked;
-  const dest = document.getElementById("evenement-destination").value || "perso";
-  payload.destination = dest.startsWith("grade:") ? "grade" : dest;
-  if (dest.startsWith("grade:")) payload.destination_grade = dest.slice(6);
-  const invitesEmployes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "employe").map(p => Number(p.id));
-  const invitationsExistantes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation").map(p => Number(p.invitation_id));
-  if (dest === "perso") {
-    payload.invites_employe_ids = invitesEmployes;
-    if (id) {
-      payload.invitation_ids = invitationsExistantes;
-      payload.absents_invitation_ids = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation" && p.present === false).map(p => Number(p.invitation_id));
+  const notes = document.getElementById("evenement-notes").value.trim();
+  const payload = absence
+    ? { jour, jour_fin: jourFin, notes, absence_motif: document.getElementById("evenement-motif").value, ...(id ? {} : { absence: true }) }
+    : {
+      titre, jour, jour_fin: jourFin,
+      heure_debut: multi ? null : heureDebut, heure_fin: multi ? null : heureFin,
+      notes, type_id: document.getElementById("evenement-type").value || null,
+    };
+  let invitesEmployes = [];
+  if (!absence) {
+    const dest = document.getElementById("evenement-destination").value || "perso";
+    payload.destination = dest.startsWith("grade:") ? "grade" : dest;
+    if (dest.startsWith("grade:")) payload.destination_grade = dest.slice(6);
+    invitesEmployes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "employe").map(p => Number(p.id));
+    const invitationsExistantes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation").map(p => Number(p.invitation_id));
+    if (dest === "perso") {
+      payload.invites_employe_ids = invitesEmployes;
+      if (id) {
+        payload.invitation_ids = invitationsExistantes;
+        payload.absents_invitation_ids = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation" && p.present === false).map(p => Number(p.invitation_id));
+      }
     }
   }
   const bouton = document.getElementById("bouton-enregistrer-evenement");
@@ -782,7 +825,7 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
       reponse?.en_cours && `${reponse.en_cours} ${reponse.en_cours === 1 ? "invitation encore en cours d’envoi" : "invitations encore en cours d’envoi"} sur Discord`,
       reponse?.annulations && `${reponse.annulations} ${reponse.annulations === 1 ? "annulation signalée" : "annulations signalées"} sur Discord`,
     ].filter(Boolean).join(" et ");
-    const action = id ? "Événement enregistré" : "Événement créé";
+    const action = absence ? (id ? "Absence enregistrée" : "Demande d’absence envoyée, en attente de validation") : id ? "Événement enregistré" : "Événement créé";
     if (reponse?.avertissements?.length) {
       gestion.message("zone-message-agenda", `${action}${resume ? ` ; ${resume}` : ""}. ${reponse.avertissements.join(" ")}`);
     } else if (resume) gestion.notifier(`${action} ; ${resume} ✓`);
@@ -812,11 +855,13 @@ document.getElementById("bouton-supprimer-evenement").addEventListener("click", 
 async function validerAbsence(approuve) {
   const id = document.getElementById("evenement-id").value;
   if (!id) return;
-  if (!approuve && !await gestion.confirmer("L’absence est retirée de l’agenda ; son auteur n’en est pas averti sur Discord.", "Refuser cette absence ?", "Refuser l’absence", { danger: true })) return;
+  const motif = document.getElementById("refus-absence-motif").value.trim();
+  if (!approuve && !await gestion.confirmer("L’auteur en est prévenu sur Discord, avec le motif indiqué s’il y en a un. L’absence reste visible un mois puis disparaît.", "Refuser cette absence ?", "Refuser l’absence", { danger: true })) return;
   try {
-    await socle.api(`/api/agenda/${id}/absence`, { method: "POST", body: { approuve } });
+    const reponse = await socle.api(`/api/agenda/${id}/absence`, { method: "POST", body: { approuve, motif: approuve ? undefined : motif } });
     fermerModaleEvenement();
     gestion.notifier(approuve ? "Absence approuvée ✓" : "Absence refusée ✓");
+    if (reponse?.avertissement) gestion.message("zone-message-agenda", reponse.avertissement);
     chargerAgenda(false);
   } catch (e) {
     gestion.message("zone-message-modale-evenement", e.message);
@@ -1004,7 +1049,7 @@ function ligneParticipant(e) {
 }
 function majEnteteParticipants() {
   const t = TRI_PARTICIPANTS;
-  document.getElementById("participants-entete").innerHTML = `<th data-titre>${t.bouton("nom", "Personne")}</th><th>${t.bouton("grade", "Grade")}</th><th>${t.bouton("presence", "Présence")}</th><th>${t.bouton("absences", "Absences")}</th><th>${t.bouton("avenir", "À venir")}</th>`;
+  document.getElementById("participants-entete").innerHTML = `<th data-titre>${t.bouton("nom", "Personne")}</th><th>${t.bouton("grade", "Grade")}</th><th>${t.bouton("presence", "Présence")}</th><th title="Absences non justifiées : une absence couverte par un congé approuvé ne compte pas dans ce total.">${t.bouton("absences", "Absences")}</th><th>${t.bouton("avenir", "À venir")}</th>`;
 }
 function afficherParticipants() {
   const terme = document.getElementById("participants-recherche").value.trim().toLocaleLowerCase("fr");
@@ -1016,7 +1061,7 @@ function afficherParticipants() {
   const filtres = TRI_PARTICIPANTS.appliquer(EMPLOYES_PARTICIPANTS.filter(e => garder(e) && (!terme || e.nomComplet.toLocaleLowerCase("fr").includes(terme))));
   const vide = !EMPLOYES_PARTICIPANTS.length ? "Aucun employé actif."
     : terme ? "Personne ne correspond à cette recherche."
-    : FILTRE_PARTICIPANTS === "absents" ? "Aucune absence sur cette période."
+    : FILTRE_PARTICIPANTS === "absents" ? "Aucune absence non justifiée sur cette période."
     : "Personne n’a été invité à un événement sur cette période. Invitez des employés depuis la fiche d’un événement.";
   document.getElementById("participants-corps").innerHTML = filtres.length
     ? filtres.map(ligneParticipant).join("")
@@ -1032,7 +1077,8 @@ function afficherSyntheseParticipants(s) {
   barre.firstElementChild.className = `run-barre-remplie run-etat-${etat}`;
   barre.firstElementChild.style.width = `${taux ?? 0}%`;
   document.getElementById("participants-absences").textContent = String(s.absences);
-  document.getElementById("participants-absences-libelle").textContent = s.absences ? "sur les événements terminés" : "personne n’a manqué un événement";
+  document.getElementById("participants-absences-libelle").textContent = (s.absences ? "sur les événements terminés" : "personne n’a manqué un événement")
+    + (s.absencesJustifiees ? ` (+ ${plurielParticipant(s.absencesJustifiees, "absence justifiée")})` : "");
   document.getElementById("participants-evenements").textContent = String(s.evenementsPasses);
   document.getElementById("participants-evenements-libelle").textContent = `${s.evenementsPasses > 1 ? "terminés" : "terminé"}${s.evenementsAVenir ? `, ${s.evenementsAVenir} à venir` : ""}`;
 }
@@ -1065,7 +1111,7 @@ document.getElementById("participants-filtres").addEventListener("click", e => {
 });
 
 // ---- détail : les événements où cette personne a été invitée sur la période affichée, en frise ----
-const LIBELLES_ETAT_PARTICIPATION = { present: ["Présent", "puce-ok"], absent: ["Absent", "puce-off"], "a-venir": ["À venir", "puce-masquee"] };
+const LIBELLES_ETAT_PARTICIPATION = { present: ["Présent", "puce-ok"], absent: ["Absent", "puce-off"], "absence-justifiee": ["Absence justifiée", "puce-ok"], "a-venir": ["À venir", "puce-masquee"] };
 let OUVREUR_PARTICIPANT = null;
 function ouvrirDetailParticipant(id) {
   const p = EMPLOYES_PARTICIPANTS.find(e => e.id === Number(id));
@@ -1075,7 +1121,8 @@ function ouvrirDetailParticipant(id) {
   const absences = p.invitations - p.presences;
   document.getElementById("modale-participant-resume").textContent = [
     p.invitations ? `${plurielParticipant(p.presences, "présence")} sur ${p.invitations}` : "",
-    absences ? plurielParticipant(absences, "absence") : "",
+    absences ? plurielParticipant(absences, "absence non justifiée") : "",
+    p.absencesJustifiees ? plurielParticipant(p.absencesJustifiees, "absence justifiée") : "",
     p.aVenir ? `${p.aVenir} à venir` : "",
   ].filter(Boolean).join(", ");
   document.getElementById("liste-participant-evenements").innerHTML = p.evenements.map(ev => {

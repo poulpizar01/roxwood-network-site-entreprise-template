@@ -90,6 +90,13 @@ test('absence : visible par qui peut la valider même sans invitation, jamais pa
   assert.equal(peutValiderAbsences(droitsAgenda(GRADES, null, true, null)), true, 'le propriétaire valide toujours');
 });
 
+test('absence refusée : plus modifiable, même par son auteur (purgée 30 jours après, purge.ts)', () => {
+  const d = droitsAgenda(GRADES, 'manager', false, { consulter: [], creer: [], modifier: [], consulterTous: true, gererTous: true });
+  assert.equal(modifiable(ev('perso', null, MOI.id, [], 'refuse'), MOI, d, GRADES), false, 'son auteur ne peut plus la changer');
+  assert.equal(modifiable(ev('perso', null, MOI.id, [], 'en_attente'), MOI, d, GRADES), true, 'en attente, son auteur peut encore la corriger');
+  assert.equal(modifiable(ev('perso', null, MOI.id, [], 'approuve'), MOI, d, GRADES), true, 'approuvée, son auteur peut encore la corriger (elle repasse en attente)');
+});
+
 test('inviter une personne : son grade exact doit être autorisé à la création', () => {
   const d = droitsAgenda(GRADES, 'manager', false, { consulter: ['agent', 'manager'], creer: ['agent'], modifier: ['manager'] });
   assert.equal(peutInviter(d, 'agent', GRADES), true);

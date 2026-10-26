@@ -42,6 +42,10 @@ const libelleDestination = (e: Pick<EvenementAgenda, 'destination' | 'destinatio
       : invitations.length === 1 ? `Personnel — ${invitations[0].nom}`
         : invitations.length ? `Personnel — ${invitations.length} invités` : 'Personnel — moi uniquement';
 
+// motifs d'absence proposés à la création : liste fermée, jamais un texte libre (le détail va dans les notes)
+export const MOTIFS_ABSENCE: Record<string, string> = { conge: 'Congé', maladie: 'Maladie', personnel: 'Personnel', autre: 'Autre' };
+const motifAbsenceValide = (m: unknown): m is keyof typeof MOTIFS_ABSENCE => typeof m === 'string' && m in MOTIFS_ABSENCE;
+
 type EvenementAvecInvitations = EvenementAgenda & { invitations: InvitationAgenda[] };
 const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAgenda) => ({
   id: e.id, titre: e.titre, jour: e.jour.toISOString().slice(0, 10), jour_fin: e.jourFin.toISOString().slice(0, 10),
@@ -54,8 +58,20 @@ const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAge
   })),
   modifiable: modifiable(e, lecteur(req), droits, clesGrades()),
   absence: !!e.statutAbsence, statut_absence: e.statutAbsence,
+  absence_motif: e.absenceMotif, absence_motif_libelle: e.absenceMotif ? MOTIFS_ABSENCE[e.absenceMotif] : null, absence_motif_refus: e.absenceMotifRefus,
   peut_valider: e.statutAbsence === 'en_attente' && e.compteId !== req.compte.id && peutValiderAbsences(droits),
 });
+
+// absence : seules les dates et les notes se saisissent (pas d'horaire, de type, de partage ni d'invités) ; le titre
+// se déduit du motif, jamais changé après coup (ni le motif lui-même)
+async function lireAbsence(b: Record<string, unknown>): Promise<{ titre: string; jour: Date; jourFin: Date; motif: string; notes: string }> {
+  if (!motifAbsenceValide(b.absence_motif)) throw new Refus('Choisissez le motif de l’absence.');
+  if (!dateValide(b.jour)) throw new Refus('Date de début invalide : attendue au format jj/mm/aaaa.');
+  if (!dateValide(b.jour_fin)) throw new Refus('Date de fin invalide : attendue au format jj/mm/aaaa.');
+  if (String(b.jour_fin) < String(b.jour)) throw new Refus('La date de fin doit être après la date de début.');
+  if (String(b.notes ?? '').length > 500) throw new Refus('Les notes sont trop longues (500 caractères maximum).');
+  return { titre: `Absence — ${MOTIFS_ABSENCE[b.absence_motif]}`.slice(0, 80), jour: versDate(b.jour), jourFin: versDate(b.jour_fin), motif: b.absence_motif, notes: text(b.notes, 500) };
+}
 
 type Champs = { titre: string; jour: Date; jourFin: Date; heureDebut: string | null; heureFin: string | null; notes: string; typeId: number | null };
 // un seul jour : horaires obligatoires ; plusieurs jours : pas d'horaire (l'événement occupe la journée entière, chaque jour)
@@ -172,6 +188,34 @@ async function prevenirInvitations(invitations: InvitationAgenda[], ev: Paramete
   clearTimeout(minuteur);
   // copie : la liste continue de se remplir en arrière-plan
   return { envois: [...envois], enCours: invitations.length - envois.length };
+}
+
+// prévenir l'auteur d'une absence de la décision (approbation ou refus), dans son ticket sinon en message privé
+function texteDecisionAbsence(discordId: string, e: { jour: Date; jourFin: Date }, approuve: boolean, motifRefus: string | null, valideur: string): string {
+  const debut = Math.floor(parisVersDate(e.jour.toISOString().slice(0, 10), '00:00').getTime() / 1000);
+  const fin = Math.floor(parisVersDate(e.jourFin.toISOString().slice(0, 10), '00:00').getTime() / 1000);
+  const quand = e.jour.getTime() === e.jourFin.getTime() ? `<t:${debut}:D>` : `<t:${debut}:D> → <t:${fin}:D>`;
+  return [`<@${discordId}>`, '',
+    approuve ? `✅ Ton absence du ${quand} a été **approuvée**.` : `❌ Ton absence du ${quand} a été **refusée**${motifRefus ? ` : ${echapperMarkdown(motifRefus)}` : '.'}`,
+    '', `*Décidé par ${echapperMarkdown(valideur)} · ${echapperMarkdown(site.nom)}*`].join('\n').slice(0, 2000);
+}
+async function prevenirDecisionAbsence(e: EvenementAgenda, approuve: boolean, motifRefus: string | null, valideur: string): Promise<string> {
+  if (!e.compteId) return '';
+  const compte = await prisma.compte.findUnique({ where: { id: e.compteId }, select: { discordId: true } });
+  if (!compte) return '';
+  if (!config.discord.botToken) return 'L’auteur n’a pas été prévenu sur Discord : le bot n’est pas relié au site.';
+  const contenu = { content: texteDecisionAbsence(compte.discordId, e, approuve, motifRefus, valideur) };
+  try {
+    const salons = await lireSalons();
+    const ticket = salons ? choisirTicket(salons, compte.discordId, idsRegles('agenda_categories_tickets')) : null;
+    if (ticket) { await posterMessage(ticket, contenu, [compte.discordId]); return ''; }
+    const prive = await appelBot('POST', '/users/@me/channels', { recipient_id: compte.discordId }) as { id?: unknown } | null;
+    await posterMessage(String(prive?.id ?? ''), contenu, [compte.discordId]);
+    return '';
+  } catch (err) {
+    const cause = err instanceof ErreurDiscord && err.statut === 403 ? 'ses messages privés sont fermés' : pourquoi(err);
+    return `L’auteur n’a pas pu être prévenu sur Discord (${cause}) : prévenez-le vous-même.`;
+  }
 }
 
 async function prevenirRetrait(invitation: InvitationAgenda, titre: string): Promise<string> {
@@ -336,11 +380,19 @@ agenda.get('/api/agenda/personnes', ...valide, traiter(async (req, res) => {
 }));
 
 agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
-  const b = body(req), d = await lire(b), dest = lireDestination(b);
+  const b = body(req);
+  if (b.absence) {
+    const a = await lireAbsence(b);
+    const auteur = req.compte.nom || req.compte.pseudo;
+    const e = await prisma.evenementAgenda.create({
+      data: { titre: a.titre, jour: a.jour, jourFin: a.jourFin, notes: a.notes, destination: 'perso', compteId: req.compte.id, auteurNom: auteur.slice(0, 64), statutAbsence: 'en_attente', absenceMotif: a.motif },
+    });
+    res.status(201).json({ id: e.id, notifications: [], en_cours: 0, avertissements: [] });
+    return;
+  }
+  const d = await lire(b), dest = lireDestination(b);
   const droits = await droitsDe(req), grades = clesGrades();
   if (!peutCreer(droits, dest.destination, dest.destinationGrade, grades)) throw refusDestination(dest);
-  const estAbsence = !!b.absence;
-  if (estAbsence && dest.destination !== 'perso') throw new Refus('Une absence est toujours personnelle : choisissez « Personnel ».');
   const auteur = req.compte.nom || req.compte.pseudo;
 
   const valeurs = b.invites_employe_ids;
@@ -372,7 +424,6 @@ agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
   const e = await prisma.evenementAgenda.create({
     data: {
       ...d, ...dest, compteId: req.compte.id, auteurNom: auteur.slice(0, 64),
-      statutAbsence: estAbsence ? 'en_attente' : null,
       invitations: { create: personnes.map(p => ({ ...p })) },
     },
     include: { invitations: true },
@@ -397,7 +448,19 @@ async function modifiableOuRefus(req: Request) {
 
 agenda.put('/api/agenda/:id', ...valide, traiter(async (req, res) => {
   const { e, droits, grades } = await modifiableOuRefus(req);
-  const b = body(req), d = await lire(b);
+  const b = body(req);
+  // absence : seules les dates et les notes se corrigent ; une absence déjà approuvée repasse « en attente »
+  if (e.statutAbsence) {
+    const a = await lireAbsence({ ...b, absence_motif: e.absenceMotif });
+    const remiseEnAttente = e.statutAbsence === 'approuve';
+    await prisma.evenementAgenda.update({
+      where: { id: e.id },
+      data: { jour: a.jour, jourFin: a.jourFin, notes: a.notes, ...(remiseEnAttente ? { statutAbsence: 'en_attente', absenceDecideLe: null, absenceMotifRefus: null } : {}) },
+    });
+    res.json({ ok: true, notifications: [], en_cours: 0, annulations: 0, avertissements: remiseEnAttente ? ['Absence remise en attente de validation après modification.'] : [] });
+    return;
+  }
+  const d = await lire(b);
   const invitationIds: number[] = [];
   if (b.invitation_ids === undefined) invitationIds.push(...e.invitations.map(i => i.id));
   else {
@@ -491,17 +554,21 @@ agenda.delete('/api/agenda/:id', ...valide, traiter(async (req, res) => {
 }));
 
 // Valider une absence : réservé à qui gère l'agenda de toute l'équipe (peutValiderAbsences), jamais son auteur. Un
-// refus retire l'événement (son auteur ne le voit plus sur Discord : il n'y a jamais été prévenu, c'était « perso »).
+// refus garde l'événement (motif facultatif), purgé 30 jours après la décision (purge.ts) ; l'auteur en est prévenu
+// sur Discord s'il est joignable (prevenirDecisionAbsence).
 agenda.post('/api/agenda/:id/absence', ...valide, traiter(async (req, res) => {
   const e = await prisma.evenementAgenda.findUnique({ where: { id: intParam(req, 'id') } });
   if (!e || e.statutAbsence !== 'en_attente') throw new Refus('Absence introuvable ou déjà traitée.', 404);
   if (e.compteId === req.compte.id) throw new Refus('Vous ne pouvez pas valider votre propre absence.', 403);
   const droits = await droitsDe(req);
   if (!peutValiderAbsences(droits)) throw new Refus('Vous n’avez pas le droit de valider les absences.', 403);
-  const approuve = !!body(req).approuve;
-  if (approuve) await prisma.evenementAgenda.update({ where: { id: e.id }, data: { statutAbsence: 'approuve' } });
-  else await prisma.evenementAgenda.delete({ where: { id: e.id } });
-  res.json({ ok: true, approuve });
+  const b = body(req), approuve = !!b.approuve;
+  if (String(b.motif ?? '').length > 200) throw new Refus('Le motif est trop long (200 caractères maximum).');
+  const motifRefus = approuve ? null : (text(b.motif, 200) || null);
+  await prisma.evenementAgenda.update({ where: { id: e.id }, data: { statutAbsence: approuve ? 'approuve' : 'refuse', absenceDecideLe: new Date(), absenceMotifRefus: motifRefus } });
+  const valideur = req.compte.nom || req.compte.pseudo;
+  const avertissement = await prevenirDecisionAbsence(e, approuve, motifRefus, valideur);
+  res.json({ ok: true, approuve, avertissement });
 }));
 
 // Participation aux événements personnels (réunions, formations…) : qui a été invité, qui était présent, sur la

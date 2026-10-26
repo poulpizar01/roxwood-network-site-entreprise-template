@@ -188,6 +188,27 @@
 .agenda-carte-texte small { font-size: var(--fs-2); color: var(--vis); }
 .agenda-vide { margin: 0 0 14px; padding: 22px 16px; border: 1px dashed rgba({{couleur_rvb}}, 0.25); border-radius: var(--radius); text-align: center; color: var(--text-faint); }
 .agenda-liste-ajouter { width: 100%; gap: 8px; min-height: 44px; }
+
+/* ---- absences : hachures en attente, teinte pleine approuvée, atténuée et provisoire refusée (toutes vues) ----
+   Un motif dessiné (repeating-linear-gradient), jamais une seule couleur : le texte du statut reste la source sûre. */
+.agenda-toutjour-barre.absence-en-attente {
+  background-image: repeating-linear-gradient(135deg, var(--vis-fond-fort) 0 7px, transparent 7px 14px), linear-gradient(var(--vis-fond), var(--vis-fond));
+  background-color: var(--bg2);
+}
+.agenda-mois-evenement.absence-en-attente, .agenda-carte.absence-en-attente {
+  background-image: repeating-linear-gradient(135deg, var(--vis-fond-fort) 0 7px, transparent 7px 14px), linear-gradient(var(--vis-fond), var(--vis-fond));
+}
+.agenda-toutjour-barre.absence-approuvee { background-image: linear-gradient(var(--vis-fond-fort), var(--vis-fond-fort)); background-color: var(--bg2); }
+.agenda-mois-evenement.absence-approuvee, .agenda-carte.absence-approuvee { background: var(--vis-fond-fort); }
+.agenda-toutjour-barre.absence-refusee, .agenda-mois-evenement.absence-refusee, .agenda-carte.absence-refusee { opacity: 0.55; border-left-style: dashed; }
+
+/* ---- bandeau d'état d'une absence, en tête de sa fiche : qui, quand, motif et statut en un coup d'œil, pour que
+   la personne qui valide n'ait pas qu'un formulaire grisé devant elle ---- */
+.evenement-absence-bandeau {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -6px 0 2px; padding: 10px 14px;
+  border-radius: var(--radius-sm); background: var(--bg3); font-size: var(--fs-3);
+}
+.evenement-absence-bandeau #evenement-absence-resume { color: var(--text-muted); overflow-wrap: anywhere; }
 .agenda-liste-ajouter .ico { width: 16px; height: 16px; }
 
 /* téléphone : la vue liste s'impose, donc plus de choix de vue ; ajout en bouton rond dans l'en-tête */
