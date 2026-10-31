@@ -13,7 +13,7 @@ Contrairement au [modèle des sites famille](https://github.com/poulpizar01/roxw
 | Liberté | Aucune modification dans un site : les améliorations se font **dans le modèle**, puis chaque site les récupère | Totale, dans le respect des règles du socle (voir [CLAUDE.md](../CLAUDE.md)) |
 
 Ce que le socle apporte, prêt à l'emploi :
-- **Connexion Discord** réservée aux membres du serveur Discord de l'entreprise, comptes en attente de validation, propriétaire du serveur Discord avec tous les droits ;
+- **Connexion Discord** réservée aux membres du serveur Discord de l'entreprise, comptes en attente de validation, super-admins (`SUPER_ADMIN_DISCORD_IDS`) avec tous les droits ;
 - **Grades et permissions** : chaque grade coche des permissions (celles du socle et celles que déclare l'entreprise), peut être lié à un rôle Discord (attribué et retiré à la connexion) ; personne ne gère ce qui est au-dessus de lui ni n'accorde ce qu'il n'a pas ;
 - **Contrôle d'accès** des pages et des routes côté serveur, politique de sécurité stricte (CSP à nonce), protection contre les requêtes d'un autre site, limites de requêtes ;
 - **Images** : contrôle, réencodage WebP et dépôt sur le stockage distant (CDN) ;

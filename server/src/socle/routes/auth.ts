@@ -9,13 +9,12 @@ import { gradesImposes } from '../grades-imposes.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 const REDIRECT_URI = `${config.baseUrl}/auth/discord/callback`;
-const SCOPES = 'identify guilds guilds.members.read';   // guilds : savoir si l'utilisateur est propriétaire du serveur
+const SCOPES = 'identify guilds.members.read';
 // pages où mènent la connexion (noms imposés aux sites : voir CLAUDE.md)
 export const PAGE_ACCUEIL = '/gestion/accueil.html', PAGE_ATTENTE = '/gestion/attente.html', PAGE_CONNEXION = '/gestion/';
 
 type DiscordUser = { id: string; username: string; global_name: string | null; avatar: string | null };
 type GuildMember = { nick: string | null; roles: string[] };
-type UserGuild = { id: string; owner: boolean };
 
 export const auth = Router();
 
@@ -55,17 +54,6 @@ auth.get('/auth/discord', async (req, res) => {
   res.redirect(url.toString());
 });
 
-// Comptes encore marqués propriétaires alors qu'un autre l'est devenu (serveur transféré) : plus de permissions
-// d'office, et un grade sans rôle Discord (qu'il a pu s'attribuer lui-même) est retiré. Un grade lié à un rôle est
-// gardé, revérifié à leur prochaine connexion.
-async function retirerProprietaires(saufDiscordId: string) {
-  const anciens = await prisma.compte.findMany({ where: { proprietaire: true, discordId: { not: saufDiscordId } }, select: { id: true, gradeCle: true } });
-  for (const a of anciens) {
-    const lie = !!tousLesGrades().find(g => g.cle === a.gradeCle)?.roleDiscordId;
-    await prisma.compte.update({ where: { id: a.id }, data: { proprietaire: false, ...(!lie && { gradeCle: null }) } });
-  }
-}
-
 auth.get('/auth/discord/callback', async (req, res) => {
   try {
     const { code, state, error } = req.query;
@@ -85,30 +73,34 @@ auth.get('/auth/discord/callback', async (req, res) => {
     const { access_token } = await tokenRes.json() as { access_token: string };
     const discord = (path: string) => fetch(`${DISCORD_API}${path}`, { headers: { Authorization: `Bearer ${access_token}` }, signal: delai() });
 
-    // 2. identité, appartenance au serveur (+ rôles), propriété du serveur. Une réponse en erreur de Discord (limite,
-    // panne) interrompt la connexion sans toucher au compte : la lire comme « pas propriétaire » ou « pas membre »
-    // retirerait ses droits à quelqu'un qui les a.
-    const [userRes, memberRes, guildsRes] = [await discord('/users/@me'), await discord(`/users/@me/guilds/${config.discord.guildId}/member`), await discord('/users/@me/guilds')];
-    if (memberRes.status === 404) { res.redirect(`${PAGE_CONNEXION}?erreur=pas-membre`); return; }
-    if (!userRes.ok || !memberRes.ok || !guildsRes.ok) { res.redirect(`${PAGE_CONNEXION}?erreur=discord`); return; }
-    const user = await userRes.json() as DiscordUser, guildMember = await memberRes.json() as GuildMember, guilds = await guildsRes.json() as UserGuild[];
-    // formes attendues : ces valeurs servent à construire l'adresse de l'avatar, insérée dans les pages
-    if (!/^\d{5,32}$/.test(String(user.id)) || !Array.isArray(guildMember.roles) || !Array.isArray(guilds)) { res.redirect(`${PAGE_CONNEXION}?erreur=discord`); return; }
-    if (user.avatar && !/^(a_)?[0-9a-f]{32}$/.test(user.avatar)) user.avatar = null;
-    const proprietaire = guilds.some(g => g.id === config.discord.guildId && g.owner === true);
+    // 2. identité, toujours nécessaire (ID Discord). Une réponse en erreur de Discord (limite, panne) interrompt la
+    // connexion sans toucher au compte : la lire comme « pas membre » retirerait ses droits à quelqu'un qui les a.
+    const userRes = await discord('/users/@me');
+    if (!userRes.ok) { res.redirect(`${PAGE_CONNEXION}?erreur=discord`); return; }
+    const user = await userRes.json() as DiscordUser;
+    // super-admin : ID Discord déclaré dans SUPER_ADMIN_DISCORD_IDS (.env), tous les droits, sans devoir appartenir au
+    // serveur Discord de l'entreprise — remplace l'ancienne notion de « propriétaire du serveur Discord ».
+    const proprietaire = config.superAdmins.includes(user.id);
+    // membre du serveur (+ rôles), sauf pour un super-admin qui se connecte directement
+    let guildMember: GuildMember = { nick: null, roles: [] };
+    if (!proprietaire) {
+      const memberRes = await discord(`/users/@me/guilds/${config.discord.guildId}/member`);
+      if (memberRes.status === 404) { res.redirect(`${PAGE_CONNEXION}?erreur=pas-membre`); return; }
+      if (!memberRes.ok) { res.redirect(`${PAGE_CONNEXION}?erreur=discord`); return; }
+      guildMember = await memberRes.json() as GuildMember;
+      if (!Array.isArray(guildMember.roles)) { res.redirect(`${PAGE_CONNEXION}?erreur=discord`); return; }
+    }
     // rôles gardés sur le compte (req.compte.rolesDiscord) : l'entreprise peut s'en servir (visibilité selon le rôle…).
     // Photo de la dernière connexion Discord, pas de l'instant : un rôle retiré sur Discord compte jusqu'à la suivante.
     const rolesDiscord = [...new Set(guildMember.roles.map(String).filter(r => /^\d{15,21}$/.test(r)))].slice(0, 250);
 
-    // 3. grade : règles dans grade-connexion.ts (rôle Discord porté, grade attribué à la main, ancien propriétaire)
+    // 3. grade : règles dans grade-connexion.ts (rôle Discord porté, grade attribué à la main, ancien super-admin)
     const existant = await prisma.compte.findUnique({ where: { discordId: user.id } });
     const { grade: gradeDiscord, parRole: gradeParRole } = gradeALaConnexion(tousLesGrades(), guildMember.roles, existant?.gradeCle, !!existant?.proprietaire && !proprietaire);
     // grade imposé par l'entreprise (fiche RH…) : il l'emporte ; il ne valide pas le compte à lui seul
     const grade = (await gradesImposes([user.id])).get(user.id)?.grade ?? gradeDiscord;
-    // nouveau propriétaire : l'ancien perd aussitôt ce que la propriété lui donnait, sans attendre sa reconnexion
-    if (proprietaire) await retirerProprietaires(user.id);
 
-    // 4. statut : nouveau compte en attente de validation ; validé d'office pour le propriétaire, et pour qui reçoit un
+    // 4. statut : nouveau compte en attente de validation ; validé d'office pour le super-admin, et pour qui reçoit un
     // grade par son rôle Discord (l'entreprise l'a déjà reconnu sur Discord). Un compte refusé le reste.
     const valideOffice = proprietaire || (!!gradeParRole && existant?.statut !== 'refuse');
     const c = await prisma.compte.upsert({

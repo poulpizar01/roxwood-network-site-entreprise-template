@@ -43,8 +43,7 @@ comptes.patch('/api/moi', ...valide, async (req, res) => {
   res.json(comptePublic(c));
 });
 
-// supprimer son propre compte, validé ou en attente (le propriétaire du serveur Discord aussi : il sera recréé à sa
-// prochaine connexion). Pas un compte refusé : recréé à la connexion suivante, il effacerait son refus (de nouveau en
+// supprimer son propre compte, validé ou en attente (un super-admin aussi : il sera recréé à sa prochaine connexion). Pas un compte refusé : recréé à la connexion suivante, il effacerait son refus (de nouveau en
 // attente, voire validé d'office par un rôle Discord). Seul un gestionnaire des comptes peut le supprimer.
 comptes.delete('/api/moi', ...connecte, async (req, res) => {
   const id = req.session.compteId!;
@@ -72,20 +71,20 @@ comptes.get('/api/comptes', ...permission('comptes'), async (_req, res) => {
   res.json(liste.map(c => comptePublic(c, imposes.get(c.discordId))));
 });
 
-// valider / refuser, renommer, changer de grade. Hors propriétaire : seulement un compte sous son propre grade, vers un
-// grade sous le sien ; jamais son propre compte ; le compte du propriétaire du serveur Discord ne se touche que par lui.
+// valider / refuser, renommer, changer de grade. Hors super-admin : seulement un compte sous son propre grade, vers un
+// grade sous le sien ; jamais son propre compte ; le compte d'un super-admin ne se touche que par un autre super-admin.
 comptes.patch('/api/comptes/:id', ...permission('comptes'), async (req, res) => {
   const cible = await prisma.compte.findUnique({ where: { id: intParam(req, 'id') } });
   if (!cible) { res.status(404).json({ error: 'Compte introuvable.' }); return; }
   const moi = req.compte;
   if (cible.id === moi.id && !moi.proprietaire) { res.status(403).json({ error: 'Ton propre compte se modifie par un autre gestionnaire.' }); return; }
-  if (cible.proprietaire && !moi.proprietaire) { res.status(403).json({ error: 'Le compte du propriétaire ne se modifie que par lui.' }); return; }
+  if (cible.proprietaire && !moi.proprietaire) { res.status(403).json({ error: 'Le compte d’un super-admin ne se modifie que par un autre super-admin.' }); return; }
   if (!auDessusDe(moi, cible.gradeCle)) { res.status(403).json({ error: 'Ce compte a un grade égal ou supérieur au tien.' }); return; }
 
   const b = body(req), data: Record<string, unknown> = {};
   if (b.statut !== undefined) {
     if (b.statut !== 'valide' && b.statut !== 'refuse' && b.statut !== 'attente') { res.status(400).json({ error: 'Statut inconnu.' }); return; }
-    if (cible.proprietaire && b.statut !== 'valide') { res.status(400).json({ error: 'Le propriétaire reste validé.' }); return; }
+    if (cible.proprietaire && b.statut !== 'valide') { res.status(400).json({ error: 'Le super-admin reste validé.' }); return; }
     data.statut = b.statut;
     if (b.statut === 'valide' && cible.statut !== 'valide') Object.assign(data, { valideLe: new Date(), valideParId: moi.id });
   }
@@ -111,7 +110,7 @@ comptes.delete('/api/comptes/:id', ...permission('comptes'), async (req, res) =>
   if (!cible) { res.status(404).json({ error: 'Compte introuvable.' }); return; }
   const moi = req.compte;
   if (cible.id === moi.id) { res.status(400).json({ error: 'Pour supprimer ton propre compte, passe par ta page de compte.' }); return; }
-  if (cible.proprietaire && !moi.proprietaire) { res.status(403).json({ error: 'Le compte du propriétaire ne se supprime que par lui.' }); return; }
+  if (cible.proprietaire && !moi.proprietaire) { res.status(403).json({ error: 'Le compte d’un super-admin ne se supprime que par un autre super-admin.' }); return; }
   if (!auDessusDe(moi, cible.gradeCle)) { res.status(403).json({ error: 'Ce compte a un grade égal ou supérieur au tien.' }); return; }
   await supprimerCompte(cible.id);
   res.json({ ok: true });

@@ -1,6 +1,6 @@
 // SOCLE — grades et leurs permissions (permission « grades »).
-// Hors propriétaire : on ne crée, modifie, ordonne ou supprime que des grades SOUS le sien, et on n'y coche que des
-// permissions qu'on détient (droits.ts). Le propriétaire du serveur Discord a toujours tout : personne ne peut s'enfermer dehors.
+// Hors super-admin : on ne crée, modifie, ordonne ou supprime que des grades SOUS le sien, et on n'y coche que des
+// permissions qu'on détient (droits.ts). Un super-admin a toujours tout : personne ne peut s'enfermer dehors.
 import { Router, type Request, type Response } from 'express';
 import { prisma } from '../db.js';
 import { Prisma } from '../../generated/prisma/client.js';
@@ -18,7 +18,7 @@ const lirePermissions = (v: unknown): string[] | null =>
 const lireRole = (v: unknown): string | null | undefined =>
   v === null || v === '' ? null : typeof v === 'string' && /^\d{5,32}$/.test(v) ? v : undefined;
 // Lier un grade à un rôle Discord valide d'office, à leur connexion, les comptes qui portent ce rôle : c'est aussi
-// gérer les comptes. Hors propriétaire, il faut donc les deux permissions (« grades » seule ne suffit pas).
+// gérer les comptes. Hors super-admin, il faut donc les deux permissions (« grades » seule ne suffit pas).
 const roleRefuse = (moi: Request['compte'], res: Response): boolean => {
   if (peut(moi, 'comptes')) return false;
   res.status(403).json({ error: 'Tu ne peux pas lier ce grade à un rôle Discord : ce lien valide des comptes, il faut donc aussi la permission « Gérer les comptes ».' });
@@ -75,7 +75,7 @@ grades.patch('/api/grades/:cle', ...permission('grades'), async (req, res) => {
     if (!perms) { res.status(400).json({ error: 'Permissions invalides.' }); return; }
     // on ne peut ni ajouter ni retirer une permission qu'on n'a pas (sinon un gestionnaire limité retirerait celles des autres).
     // actuelles : filtrées comme permissionsDe() — une clé retirée du code (plus dans CLES_PERMISSIONS) ne compte déjà plus pour
-    // personne ; la considérer encore « détenue » par le grade l'aurait rendue impossible à retirer, même pour le propriétaire.
+    // personne ; la considérer encore « détenue » par le grade l'aurait rendue impossible à retirer, même pour un super-admin.
     const actuelles = g.permissions.filter(p => CLES_PERMISSIONS.has(p));
     const changees = [...perms.filter(p => !actuelles.includes(p)), ...actuelles.filter(p => !perms.includes(p))];
     if (!peutAccorder(moi, changees)) { res.status(403).json({ error: 'Tu ne peux changer que des permissions que tu détiens.' }); return; }
@@ -90,7 +90,7 @@ grades.patch('/api/grades/:cle', ...permission('grades'), async (req, res) => {
   if (await enregistrer(res, () => prisma.grade.update({ where: { cle: g.cle }, data }))) repondreListe(res);
 });
 
-// nouvel ordre complet (liste de clés, du sommet à la base). Hors propriétaire, les grades jusqu'au sien inclus restent en place.
+// nouvel ordre complet (liste de clés, du sommet à la base). Hors super-admin, les grades jusqu'au sien inclus restent en place.
 grades.put('/api/grades/ordre', ...permission('grades'), async (req, res) => {
   const ordre = body(req).ordre, actuels = tousLesGrades().map(g => g.cle), moi = req.compte;
   if (!Array.isArray(ordre) || ordre.length !== actuels.length || !actuels.every(c => ordre.includes(c))) { res.status(400).json({ error: 'L’ordre doit contenir chaque grade une fois.' }); return; }

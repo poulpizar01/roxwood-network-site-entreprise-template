@@ -28,7 +28,7 @@ model Compte {
   nom          String?      @db.VarChar(64) // nom RP
   gradeCle     String?      @map("grade") @db.VarChar(20) // null = sans grade
   statut       StatutCompte @default(attente)
-  proprietaire Boolean      @default(false) // propriétaire du serveur Discord (revérifié à chaque connexion)
+  proprietaire Boolean      @default(false) // super-admin (ID Discord dans SUPER_ADMIN_DISCORD_IDS, revérifié à chaque connexion)
   rolesDiscord String[]     @default([]) @map("roles_discord") // IDs des rôles portés sur le serveur : relus à chaque connexion Discord, et régulièrement par le bot (synchro-discord.ts)
   quitteLe     DateTime?    @map("quitte_le") @db.Timestamptz(6) // parti du serveur Discord (vu par le bot) : sessions fermées, connexion en jeu refusée ; effacé à la connexion Discord suivante
   creeLe       DateTime     @default(now()) @map("cree_le") @db.Timestamptz(6)

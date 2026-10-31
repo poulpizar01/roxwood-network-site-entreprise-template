@@ -69,7 +69,7 @@
       $('avatar').outerHTML = moi.avatar ? `<img class="admin-avatar" id="avatar" src="${echapper(moi.avatar)}" alt="">` : `<span class="admin-avatar" id="avatar" aria-hidden="true">${echapper(initiales(nom))}</span>`;
       $('nom-affiche').textContent = nom;
       $('pseudo').textContent = `@${moi.pseudo}`;
-      $('grade').textContent = `Grade : ${moi.grade?.libelle || (moi.proprietaire ? 'Propriétaire' : 'Sans grade')}`;
+      $('grade').textContent = `Grade : ${moi.grade?.libelle || (moi.proprietaire ? 'Super-admin' : 'Sans grade')}`;
       $('nom').value = moi.nom || '';
     }
     const pluriel = (n, mot) => `${n} ${mot}${n > 1 ? 's' : ''}`;

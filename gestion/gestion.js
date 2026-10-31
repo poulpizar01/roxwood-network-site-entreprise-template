@@ -275,7 +275,7 @@ window.gestion = {
         ? `<p class="admin-nav-groupe">${socle.esc(l.groupe)}</p>`
         : `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`).join('');
       const nom = moi.nom || moi.pseudo;
-      const grade = moi.grade?.libelle || (moi.proprietaire ? 'Propriétaire' : 'Sans grade');
+      const grade = moi.grade?.libelle || (moi.proprietaire ? 'Super-admin' : 'Sans grade');
       const avatar = moi.avatar ? `<img class="admin-avatar" src="${socle.esc(moi.avatar)}" alt="">` : `<span class="admin-avatar" aria-hidden="true">${socle.esc(initiales(nom))}</span>`;
       const ici = rubrique === 'compte';
       barre.querySelector('[data-compte]').innerHTML = `<a class="admin-compte-lien${ici ? ' actif' : ''}" href="compte.html"${ici ? ' aria-current="page"' : ''} aria-label="Mon compte : ${socle.esc(nom)}">${avatar}

@@ -1,9 +1,9 @@
 // SOCLE — grades et permissions.
-// Une permission est une clé ; un grade en porte une liste ; un compte a les permissions de son grade. Le propriétaire
-// du serveur Discord les a toutes. Les grades sont peu nombreux et lus à chaque requête : ils restent en mémoire,
-// rechargés après chaque modification.
+// Une permission est une clé ; un grade en porte une liste ; un compte a les permissions de son grade. Un super-admin
+// (ID Discord déclaré dans SUPER_ADMIN_DISCORD_IDS, voir config.ts et routes/auth.ts) les a toutes. Les grades sont peu
+// nombreux et lus à chaque requête : ils restent en mémoire, rechargés après chaque modification.
 //
-// Règle anti-escalade : hors propriétaire, on ne gère que ce qui est SOUS son propre grade (comptes et grades), et on
+// Règle anti-escalade : hors super-admin, on ne gère que ce qui est SOUS son propre grade (comptes et grades), et on
 // n'accorde que des permissions qu'on détient soi-même.
 import { prisma } from './db.js';
 import type { Compte, Grade } from '../generated/prisma/client.js';

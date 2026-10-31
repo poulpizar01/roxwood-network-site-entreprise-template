@@ -12,7 +12,7 @@ Les messages d'erreur destinés à l'utilisateur sont des phrases (`{ error: "Gr
 | — (public) | aucune | — |
 | `...connecte` | session ouverte (compte éventuellement en attente ou refusé) | `401 non-connecte` |
 | `...valide` | compte **validé** | `401` / `403 { error: "attente", statut }` |
-| `...permission('cle')` | compte validé **et** permission `cle` (par son grade, ou propriétaire du serveur Discord) | `403 { error: "interdit", permission }` |
+| `...permission('cle')` | compte validé **et** permission `cle` (par son grade, ou super-admin) | `403 { error: "interdit", permission }` |
 
 Pages de `gestion/` : mêmes niveaux, contrôlés par le serveur avant tout envoi (`server/src/index.ts`, d'après `entreprise.pages`) : pas connecté → `gestion/` (connexion) ; compte pas validé → `attente.html` ; permission manquante → `403` avec `refuse.html`. Page non déclarée : compte validé.
 

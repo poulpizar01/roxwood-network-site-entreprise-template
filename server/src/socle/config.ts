@@ -52,6 +52,12 @@ if (storageUrl && !/^[\w.-]+(\/[\w.-]+)*\/$/.test(storagePrefix)) fail(`STORAGE_
 const webhookSecrets = (env.BOT_WEBHOOK_SECRETS || '').split(',').map(s => s.trim()).filter(Boolean);
 if (webhookSecrets.some(s => s.length < 16)) fail('BOT_WEBHOOK_SECRETS dans .env : chaque secret doit faire 16 caractères au moins (copier celui donné par le bot)');
 
+// Super-admins : IDs Discord qui se connectent directement, avec tous les droits (compte.proprietaire), sans devoir
+// appartenir au serveur Discord de l'entreprise — remplace l'ancienne notion de « propriétaire du serveur Discord ».
+// Séparés par des virgules.
+const superAdmins = (env.SUPER_ADMIN_DISCORD_IDS || '').split(',').map(s => s.trim()).filter(Boolean);
+for (const id of superAdmins) if (!/^\d{15,22}$/.test(id)) fail(`SUPER_ADMIN_DISCORD_IDS dans .env : « ${id} » n'est pas un ID Discord valide`);
+
 // Ordinateur en jeu (FolkOS, navigateur FiveM) : facultatif, désactivé sans FOLKOS_HOTE. Le site s'affiche alors dans
 // l'iframe de FolkOS (origine FOLKOS_HOTE, plus les cadres FiveM et ceux de FOLKOS_CADRES), et charge le SDK de
 // l'opérateur depuis cette origine. FOLKOS_ID_BASE + identifiants : connexion « IG » par le SSO FolkOS (routes/auth.ts).
@@ -97,6 +103,7 @@ export const config = {
     dir: env.UPLOAD_DIR || join(root, 'uploads'),
   },
   webhookSecrets,
+  superAdmins,
   folkos: {
     hote: folkosHote,           // vide : FolkOS désactivé
     cadres: folkosCadres,

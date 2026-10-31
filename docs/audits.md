@@ -31,7 +31,7 @@ Cherche :
 - toute route /api ou /auth de server/src/entreprise/ ou server/src/socle/ sans garde (...connecte, ...valide, ...permission de socle/http.ts), avec une garde plus faible que celle annoncée dans docs/api.md ou ENTREPRISE.md, ou une garde passée sans être étalée ;
 - les pages de gestion/ qui affichent des données réservées à une permission sans être déclarées avec cette permission dans entreprise.pages (server/src/entreprise/index.ts) ;
 - les vérifications « auteur ou permission » contournables en changeant un identifiant dans l'adresse ou le corps ;
-- l'escalade de droits : un compte qui se donne un grade, modifie un compte ou un grade égal ou supérieur au sien, accorde une permission qu'il n'a pas, garde un grade lié à un rôle Discord qu'il n'a plus ; le propriétaire revérifié à chaque connexion, et l'ancien propriétaire qui perd ses permissions après un transfert du serveur ;
+- l'escalade de droits : un compte qui se donne un grade, modifie un compte ou un grade égal ou supérieur au sien, accorde une permission qu'il n'a pas, garde un grade lié à un rôle Discord qu'il n'a plus ; le statut de super-admin (`SUPER_ADMIN_DISCORD_IDS`) revérifié à chaque connexion ;
 - la connexion Discord : paramètre state, appartenance au serveur vérifiée, session régénérée, comptes en attente ou refusés qui accèdent quand même à des données ;
 - DEV_LOGIN activable en production, ou tout autre raccourci de dev qui survit en prod ;
 - les requêtes qui modifient des données déclenchables depuis un autre site (SameSite, vérification d'origine) ;

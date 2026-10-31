@@ -47,7 +47,7 @@ Un fichier `/etc/nginx/sites-available/<domaine>.conf` tiré de [`server/deploy/
 
 ### 5. Première connexion
 La base de prod démarre **vide** (rien n'est repris du dev). Dans cet ordre :
-1. Le **propriétaire du serveur Discord** se connecte le premier (`https://<domaine>/gestion/`) : il est validé d'office avec tous les droits.
+1. Un **super-admin** (son ID Discord dans `SUPER_ADMIN_DISCORD_IDS`, `.env`) se connecte le premier (`https://<domaine>/gestion/`) : il est validé d'office avec tous les droits, sans devoir appartenir au serveur Discord de l'entreprise.
 2. Dans Gestion → Grades, il crée les grades de l'entreprise, du sommet à la base : libellé, couleur, permissions, et le **rôle Discord** qui donne chaque grade (facultatif, mais c'est ce qui évite de valider chaque employé à la main).
 3. Les employés se connectent : ceux qui portent un rôle lié à un grade entrent directement ; les autres attendent la validation (Gestion → Comptes).
 4. **Paramètres** (permission « Paramètres du site ») : liens et réglages de l'entreprise, onglet par onglet — rien de tout cela ne va dans le `.env`. Un réglage Discord (rôle, salon, catégorie) se choisit par son nom quand le bot est relié.
@@ -63,7 +63,7 @@ La base de prod démarre **vide** (rien n'est repris du dev). Dans cet ordre :
 - [ ] `docker compose ps` : tout `Up`, site et base `healthy`
 - [ ] certificat obtenu pour chaque domaine (site, et sous-domaine éventuel `entreprise.hotes`), renouvellement testé (`certbot renew --dry-run`)
 - [ ] redirection Discord ajoutée ; bot invité sur le serveur avec les droits que le site demande
-- [ ] propriétaire du serveur Discord connecté en premier ; grades créés et liés à leurs rôles
+- [ ] `SUPER_ADMIN_DISCORD_IDS` renseigné ; ce compte connecté en premier ; grades créés et liés à leurs rôles
 - [ ] Paramètres renseignés ; réglages propres au site faits (voir son `deploy/INSTALLATION.md`)
 - [ ] webhooks du bot et ordinateur en jeu déclarés, si utilisés
 - [ ] envoi d'une image testé (stockage) ; affichage dans l'ordinateur en jeu testé, si utilisé
@@ -117,7 +117,7 @@ Une par site.
 2. OAuth2 → Client ID / Client Secret → `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` dans `.env`
 3. OAuth2 → Redirects → ajouter `https://<domaine>/auth/discord/callback`
 4. `DISCORD_GUILD_ID` = ID du serveur Discord de l'entreprise (mode développeur → clic droit sur le serveur → Copier l'identifiant). Seuls ses membres peuvent se connecter.
-5. Le **propriétaire du serveur Discord** est propriétaire du site : validé d'office, toutes les permissions quel que soit son grade (vérifié à chaque connexion).
+5. `SUPER_ADMIN_DISCORD_IDS` (`.env`) : IDs Discord qui se connectent directement, validés d'office avec toutes les permissions quel que soit leur grade (revérifié à chaque connexion), sans devoir appartenir au serveur Discord de l'entreprise.
 6. Grades : Gestion → Grades. Pour y choisir les rôles Discord par leur nom (liste lue sur Discord, toujours à jour) : dans la même application, onglet Bot → Reset Token → `DISCORD_BOT_TOKEN` dans `.env`, puis inviter ce bot sur le serveur (OAuth2 → URL Generator, scope `bot`, aucune permission pour le socle ; un site qui s'en sert pour autre chose indique les droits à ajouter). Aucune « intention privilégiée » n'est nécessaire. Les salons et catégories proposés dans Paramètres sont ceux que le bot peut voir : un salon qui manque dans la liste est un salon que le bot ne voit pas. Sans lui, l'identifiant d'un rôle se copie en mode développeur (Paramètres du serveur → Rôles → clic droit → Copier l'identifiant). Rôles et grades sont relus à chaque connexion et, avec ce jeton, toutes les 10 minutes : un rôle retiré sur Discord compte aussitôt, et un membre parti du serveur est déconnecté. Sans jeton, seulement à la connexion suivante (7 jours au plus, durée d'une session).
 
 ## Images
