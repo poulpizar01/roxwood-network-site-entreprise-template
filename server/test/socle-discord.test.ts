@@ -43,3 +43,21 @@ test('faux bot : ouvre une conversation privée et garde le message', async () =
   const lus = await appelSimule('GET', `/channels/${canal.id}/messages?limit=10`) as { content: string }[];
   assert.deepEqual(lus.map(m => m.content), ['Rendez-vous demain']);
 });
+
+test('faux bot : crée un salon (ex. un salon privé par dossier) et y poste un message', async () => {
+  const salon = await appelSimule('POST', '/guilds/1000000000000000001/channels', {
+    name: 'Demande #12', type: 0, parent_id: '900000000000000101', permission_overwrites: [{ id: '900000000000000002', type: 0, allow: '1024' }],
+  }) as { id: string; name: string; parent_id: string; permission_overwrites: unknown[] };
+  assert.match(salon.id, /^\d{15,22}$/);
+  assert.equal(salon.name, 'Demande #12');
+  assert.equal(salon.parent_id, '900000000000000101');
+  assert.deepEqual(salon.permission_overwrites, [{ id: '900000000000000002', type: 0, allow: '1024' }]);
+  const message = await appelSimule('POST', `/channels/${salon.id}/messages`, { content: 'Dossier ouvert' }) as { id: string };
+  assert.match(message.id, /^\d{15,22}$/);
+  const lus = await appelSimule('GET', `/channels/${salon.id}/messages`) as { content: string }[];
+  assert.deepEqual(lus.map(m => m.content), ['Dossier ouvert']);
+});
+
+test('faux bot : création de salon sans nom, refusée', async () => {
+  await assert.rejects(appelSimule('POST', '/guilds/1000000000000000001/channels', { type: 0 }), (e: unknown) => e instanceof ErreurDiscord && e.statut === 400);
+});

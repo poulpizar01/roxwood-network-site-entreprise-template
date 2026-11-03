@@ -1,7 +1,8 @@
 // SOCLE — faux bot Discord pour le développement (DISCORD_BOT_TOKEN=simulation, refusé sans DEV_LOGIN : config.ts).
 // appelBot (discord.ts) lui passe chaque appel au lieu de Discord : rôles, catégories et salons fictifs, un salon de
 // ticket par personne connue, membres qui gardent les rôles déjà enregistrés (la synchro ne retire rien), messages
-// de salons et privés gardés en mémoire et relus par GET …/messages. De quoi voir fonctionner sans vrai bot ce qui en dépend
+// de salons et privés gardés en mémoire et relus par GET …/messages, salons créés à la volée (POST
+// /guilds/:id/channels, ex. un salon privé par dossier). De quoi voir fonctionner sans vrai bot ce qui en dépend
 // (page Paramètres, Grades, tâches de l'entreprise). Rien n'est envoyé à Discord ; tout est perdu au redémarrage.
 // L'entreprise y ajoute ce que son propre bot ferait : personnes ayant un ticket (ajouterPersonnesSimulees), messages
 // publiés dans un salon (publierMessageSimule, ex. notifications d'un bot tiers).
@@ -59,6 +60,11 @@ const messages = new Map<string, Message[]>();   // par salon, du plus ancien au
 const conversationsPrivees = new Map<string, string>();   // identifiant Discord de la personne → salon privé simulé
 const AUTEUR = { id: '900000000000000999', username: 'Bot simulé', bot: true as const };
 
+// salons créés à la volée par l'entreprise (POST /guilds/:id/channels), par identifiant ; retrouvés ensuite par
+// GET .../channels (mêlés aux salons fixes et aux tickets) et par POST/GET .../messages, comme un vrai salon Discord
+type SalonCree = { id: string; name: string; type: number; parent_id: string | null; permission_overwrites: unknown[]; position: number };
+const salonsCrees = new Map<string, SalonCree>();
+
 // message déposé dans un salon comme s'il venait d'un bot (relu par GET /channels/:id/messages)
 export function publierMessageSimule(salonId: string, contenu: { content?: string; embeds?: unknown[] }, date = new Date()): string {
   const m: Message = { id: idSimule(date.getTime()), timestamp: date.toISOString(), author: AUTEUR, ...contenu };
@@ -83,7 +89,21 @@ export async function appelSimule(methode: string, chemin: string, corps?: unkno
     return { id };
   }
   if (methode === 'GET' && /^\/guilds\/[^/]*\/roles$/.test(route)) return ROLES.map(r => ({ ...r, managed: false }));
-  if (methode === 'GET' && /^\/guilds\/[^/]*\/channels$/.test(route)) return [...CATEGORIES.map(c => ({ ...c, type: 4 })), ...SALONS, ...await tickets()];
+  if (methode === 'GET' && /^\/guilds\/[^/]*\/channels$/.test(route)) return [...CATEGORIES.map(c => ({ ...c, type: 4 })), ...SALONS, ...await tickets(), ...salonsCrees.values()];
+  if (methode === 'POST' && /^\/guilds\/[^/]*\/channels$/.test(route)) {
+    const b = (corps ?? {}) as { name?: unknown; type?: unknown; parent_id?: unknown; permission_overwrites?: unknown };
+    const name = typeof b.name === 'string' ? b.name.trim().slice(0, 100) : '';
+    if (!name) throw new ErreurDiscord(400, 'Nom de salon invalide (simulation).');
+    const salon: SalonCree = {
+      id: idSimule(), name, type: typeof b.type === 'number' ? b.type : 0,
+      parent_id: typeof b.parent_id === 'string' && ID_DISCORD.test(b.parent_id) ? b.parent_id : null,
+      permission_overwrites: Array.isArray(b.permission_overwrites) ? b.permission_overwrites : [],
+      position: salonsCrees.size,
+    };
+    salonsCrees.set(salon.id, salon);
+    console.log(`[discord simulé] salon créé : ${salon.name} (${salon.id})`);
+    return salon;
+  }
   if (methode === 'GET' && (m = route.match(/^\/guilds\/[^/]*\/members\/(\d+)$/))) {
     // membre toujours présent, avec les rôles déjà enregistrés : la synchro ne change rien
     const c = await prisma.compte.findUnique({ where: { discordId: m[1] }, select: { rolesDiscord: true } });
@@ -93,7 +113,7 @@ export async function appelSimule(methode: string, chemin: string, corps?: unkno
   if ((m = route.match(/^\/channels\/(\d+)\/messages$/))) {
     const salon = m[1];
     const connu = SALONS.some(s => s.id === salon) || [...conversationsPrivees.values()].includes(salon)
-      || messages.has(salon) || (await tickets()).some(t => t.id === salon);
+      || messages.has(salon) || (await tickets()).some(t => t.id === salon) || salonsCrees.has(salon);
     if (!connu) throw introuvable(10003);
     if (methode === 'POST') {
       const { content, embeds } = (corps ?? {}) as { content?: string; embeds?: unknown[] };
