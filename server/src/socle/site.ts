@@ -4,6 +4,7 @@
    {{couleur_rvb}} (« 62, 123, 250 », pour rgba()) et {{couleur_sombre}} (30 % plus sombre) : les feuilles s'en servent
    au lieu de color-mix(), que le navigateur de l'ordinateur en jeu ne connaît pas (la couleur y disparaîtrait).
    site.json accepte toute clé dont la valeur est un texte : chaque site y ajoute les siennes (adresse, horaires…). */
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import type { RequestHandler, Response } from 'express';
@@ -52,10 +53,27 @@ const cache = new Map<string, string>();
 export function renderFile(file: string): string {
   const hit = cache.get(file);
   if (hit !== undefined) return hit;
-  const out = render(readFileSync(file, 'utf8'));
+  let out = render(readFileSync(file, 'utf8'));
+  if (extname(file) === '.html') out = versionner(out);
   if (config.production) cache.set(file, out);
   return out;
 }
+
+// feuilles et scripts du site appelés avec ?v=<empreinte du contenu> : gardés un an par le navigateur (index.ts),
+// une nouvelle version change l'adresse. Empreinte d'une feuille : après insertion de site.json (sa couleur y entre).
+const empreintes = new Map<string, string | null>();
+function empreinte(url: string): string | null {
+  if (empreintes.has(url)) return empreintes.get(url)!;
+  let v: string | null = null;
+  try {
+    const fichier = join(config.root, url);
+    v = createHash('sha256').update(extname(url) === '.css' ? renderFile(fichier) : readFileSync(fichier)).digest('hex').slice(0, 12);
+  } catch { /* fichier absent : adresse laissée telle quelle */ }
+  if (config.production) empreintes.set(url, v);
+  return v;
+}
+const versionner = (html: string) => html.replace(/(<(?:script|link)\b[^>]*?\s(?:src|href)=")(\/[\w\-/.]+\.(?:js|css))"/g,
+  (tout, debut: string, url: string) => { const v = !url.includes('..') && empreinte(url); return v ? `${debut}${url}?v=${v}"` : tout; });
 // FolkOS configuré : chaque page charge socle/folkos.js en tête (inerte hors de l'ordinateur en jeu)
 const scriptFolkos = config.folkos.hote ? `<script src="/socle/folkos.js" data-hote="${esc(config.folkos.hote)}"></script>` : '';
 // page HTML prête à envoyer : chaque <script> reçoit le jeton de la réponse (politique de contenu, security.ts)

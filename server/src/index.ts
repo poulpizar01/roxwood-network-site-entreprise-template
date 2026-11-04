@@ -94,6 +94,12 @@ app.use('/api', (_req, res) => { res.status(404).json({ error: 'introuvable' });
 // Les pages (.html, .css, .txt, .xml) passent par site.ts, qui y insère l'identité du site (site.json).
 // redirect: false — un dossier du dépôt (/server, /docs) répond 404 comme le reste, sans révéler qu'il existe
 const statics: Parameters<typeof express.static>[1] = { index: false, dotfiles: 'ignore', redirect: false };
+// feuille ou script appelé avec ?v=<empreinte> (posée par site.ts dans les pages) : l'adresse change avec le contenu,
+// le navigateur le garde un an sans redemander ; sans ?v, toujours revalidé
+app.use((req, res, next) => {
+  if (config.production && typeof req.query.v === 'string' && /\.(js|css)$/.test(req.path)) res.set('Cache-Control', 'public, max-age=31536000, immutable');
+  next();
+});
 
 // Pages de gestion/ : envoyées seulement à qui y a droit, selon les mêmes règles que l'API. Sinon la page n'est jamais
 // envoyée : pas connecté → connexion ; compte pas encore validé → attente ; droits insuffisants → refuse.html (403).
@@ -133,11 +139,11 @@ async function accesPage(req: express.Request, res: express.Response, next: expr
 app.use('/gestion', pages(join(config.root, 'gestion')), express.static(join(config.root, 'gestion'), statics));
 app.use('/socle', express.static(join(config.root, 'socle'), statics));
 // images et polices gardées 7 jours par les navigateurs en production ; en dev, toujours revalidées (un visuel changé
-// s'affiche aussitôt). Scripts et feuilles (assets/js, assets/css) toujours revalidés : un ancien script resté en cache
-// une semaine ne correspondrait plus aux pages ni à l'API mises à jour.
+// s'affiche aussitôt). Scripts et feuilles (assets/js, assets/css) toujours revalidés sans ?v : un ancien script resté en
+// cache une semaine ne correspondrait plus aux pages ni à l'API mises à jour.
 app.use('/assets', express.static(join(config.root, 'assets'), {
   dotfiles: 'ignore', maxAge: config.production ? '7d' : 0,
-  setHeaders: (res, chemin) => { if (/\.(js|mjs|css)$/.test(chemin)) res.setHeader('Cache-Control', 'no-cache'); },
+  setHeaders: (res, chemin) => { if (/\.(js|mjs|css)$/.test(chemin) && !res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'no-cache'); },
 }));
 // fichiers envoyés sur le disque (dev uniquement : en production, ils sont sur le stockage distant)
 if (storage.kind === 'local') app.use('/uploads', express.static(storage.dir, { dotfiles: 'ignore', index: false, redirect: false }));
