@@ -131,5 +131,6 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
 - **Avec de vraies données chargées.** Une page vide ou en erreur (limite de requêtes atteinte par des tests répétés) est plus courte et cache les défauts.
   Vu : « Mon profil » jugé sans défilement sur une page dont le profil ne s'était pas chargé.
 - **Avec tous les droits et avec le moins de droits** (`/auth/discord?compte=<ID>` en dev), et avec le faux bot Discord (`DISCORD_BOT_TOKEN=simulation`) pour ce qui en dépend.
+- **Sur téléphone lent et réseau lent** : outils de développement, processeur ralenti ×4 et réseau « 3G » (Playwright : `Network.emulateNetworkConditions` et `Emulation.setCPUThrottlingRate` par CDP). En local, tout répond en quelques millisecondes : un squelette absent, une place non réservée ou une requête en série ne se voient qu'ainsi.
 - **Mesurer ce qui bouge** quand le défaut est temporel (flash, saut) : relever les instants de peinture et de chargement des polices, ou capturer une image toutes les 50 ms, plutôt que de supposer.
 - **Ne pas affirmer une correction non vérifiée.** Si un point n'a pas pu être vérifié, le dire.

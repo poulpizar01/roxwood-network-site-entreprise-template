@@ -55,6 +55,9 @@ Cherche :
 - les fichiers servis : vérifie que server/, site.json, ENTREPRISE.md, compose*.yaml, .env, docs/ restent inaccessibles, y compris via encodage (%2e%2e, double slash, majuscules) ;
 - les données renvoyées au navigateur sans besoin (champs de comptes d'autres employés, identifiants internes, contenu brut d'un webhook), y compris dans la réponse d'une modification (PATCH) et pas seulement des lectures ;
 - les réponses personnelles que le navigateur pourrait garder en cache (en-tête Cache-Control: no-store sur /api et /auth).
+- le cache des feuilles et scripts : un `<script src>` ou `<link href>` local écrit autrement que par un chemin absolu (`/gestion/x.js`) échappe au `?v=<empreinte>` de site.ts et reste revalidé à chaque page ; un `Cache-Control` long posé sur une adresse sans `?v` (un ancien script resterait chez les visiteurs après une mise à jour) ; un script chargé par un autre script (sans `?v`) qui doit pourtant changer en même temps que sa page ;
+- une bibliothèque lourde (gestion/vendor, assets/vendor) chargée par une balise sur toute une page alors qu'une seule action s'en sert (la charger à la demande, comme html2canvas dans facturation.js) ;
+- une image : liste d'images (avatars, vignettes) sans `loading="lazy"`, image hors du premier écran chargée d'emblée, image statique de assets/ bien plus lourde que sa taille d'affichage, image envoyée qui contourne le réencodage WebP d'enregistrerImage.
 - les routes publiques (vitrine) qui renvoient des champs qu'aucune page n'affiche (auteur, dates internes, identifiants de compte), et les routes de l'API qu'aucune page n'appelle ;
 - les valeurs dérivées d'une donnée utilisateur (initiales, extrait, titre raccourci) insérées sans échappement, et les replis (`x || valeur`) qui insèrent la valeur brute ;
 - la CSP : nonce réutilisé entre réponses ou prévisible ;
@@ -94,11 +97,15 @@ Cherche :
 - l'envoi d'images : enregistrerImage contourné, fichiers orphelins sur le stockage après une erreur ou une suppression (lignes effacées avant les fichiers) ;
 - la base : tables qui grossissent sans fin (sans purge), requêtes sans index sur des colonnes filtrées ou triées, migrations non commitées, migration qui exige un super-utilisateur, référence à un compte sans nettoyage dans avantSuppressionCompte ;
 - le démarrage : variables d'environnement de l'entreprise manquantes ou invalides détectées tôt avec un message clair, ou erreur obscure plus tard ;
-- le déploiement : compose.yaml (limites mémoire, ports en loopback, sauvegardes restaurables), nginx (docs/nginx.md, routes longues de l'entreprise sans leur bloc location), cookies Secure derrière le proxy ;
+- le déploiement : compose.yaml (limites mémoire, ports en loopback, sauvegardes restaurables), nginx (docs/nginx.md, routes longues de l'entreprise sans leur bloc location, gzip absent ou sans le JSON ni le JS dans gzip_types), cookies Secure derrière le proxy ;
 - les règles de l'hébergement (CLAUDE.md, « Déploiement ») : aucun volume Docker de médias, fichier nginx <domaine>.conf avec bloc HTTP réservé au défi ACME, include snippets/deny-hidden.conf, X-Forwarded-Proto et X-Forwarded-Host transmis.
 - les middlewares et gestionnaires async dont la promesse n'est pas renvoyée (hôte annexe, minuteur) et les lectures de corps de réponse (`text()`, `arrayBuffer()`) hors du try : un rejet non attrapé arrête Node ;
 - les relais qui gardent une réponse entière en mémoire sans plafond au lieu de la transmettre en flux ;
 - le coût algorithmique : calcul par employé qui reparcourt toute une table (employés × lignes), tables entières relues à chaque requête d'une page ;
+- une requête en base par ligne d'une liste (`await prisma…` dans une boucle d'une route) au lieu d'une seule requête avec `in` ou `include` ; une boucle dans une tâche de fond n'est signalée que si elle peut se regrouper ;
+- les requêtes indépendantes envoyées l'une après l'autre : `await` en série dans un enregistrement ou un chargement (gestion/*.js, scripts des pages) ou dans une route, quand aucune ne dépend du résultat de l'autre (`Promise.all`) ; garder l'ordre seulement quand la seconde a besoin de la première (grade créé avant ses droits) ;
+- une même donnée demandée deux fois par une page : la page refait un appel que la coque a déjà fait (`socle.moi()`, `gestion.servicesEnCours()`, `socle.liens()`), ou deux blocs d'une page appellent la même route ;
+- une recherche ou une autocomplétion qui appelle le serveur à chaque frappe sans attendre la fin de la saisie (filtrer en mémoire quand la liste est déjà chargée) ;
 - les sondages côté navigateur (setInterval) qui continuent dans un onglet caché et partagent la limite de requêtes du compte avec le reste de l'API ;
 - les tâches périodiques qui peuvent se chevaucher (pas de verrou « en cours ») ou rester bloquées sur les mêmes lignes en échec en tête de file ;
 - les fichiers déposés sur le stockage avant une écriture en base qui échoue (retirer le fichier dans le catch) ;
