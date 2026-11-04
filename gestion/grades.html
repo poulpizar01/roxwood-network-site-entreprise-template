@@ -445,9 +445,11 @@
           consulter_tous: $('agenda-consulter-tous').checked,
           gerer_tous: $('agenda-gerer-tous').checked,
         };
-        await socle.api(`/api/agenda/droits-grades/${encodeURIComponent(edition)}`, { method: 'PUT', body: droits });
-        await socle.api(`/api/run/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('run-quota').value) || 0 } });
-        await socle.api(`/api/compta/factures/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('facture-quota').value) || 0 } });
+        await Promise.all([
+          socle.api(`/api/agenda/droits-grades/${encodeURIComponent(edition)}`, { method: 'PUT', body: droits }),
+          socle.api(`/api/run/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('run-quota').value) || 0 } }),
+          socle.api(`/api/compta/factures/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('facture-quota').value) || 0 } }),
+        ]);
         const libelle = grades.find(g => g.cle === edition)?.libelle ?? corps.libelle;
         fermer();
         gestion.notifier(gradeCreeEnCours ? `Grade « ${libelle} » créé ✓` : `Grade « ${libelle} » enregistré ✓`);

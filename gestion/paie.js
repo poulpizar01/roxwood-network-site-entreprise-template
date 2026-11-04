@@ -151,11 +151,13 @@ $('formulaire-paie-grade').addEventListener('submit', async ev => {
   ev.preventDefault();
   gestion.message('zone-message-modale-paie', '');
   try {
-    await socle.api(`/api/paie/grades/${encodeURIComponent(EDITION)}/salaire`, {
-      method: 'PUT', body: { salaireActif: $('paie-salaire-actif').checked, salaireFixe: Number($('paie-salaire-fixe').value) || 0 },
-    });
-    await socle.api(`/api/paie/grades/${encodeURIComponent(EDITION)}/paliers/run`, { method: 'PUT', body: { paliers: lirePaliers('run') } });
-    await socle.api(`/api/paie/grades/${encodeURIComponent(EDITION)}/paliers/facture`, { method: 'PUT', body: { paliers: lirePaliers('facture') } });
+    await Promise.all([
+      socle.api(`/api/paie/grades/${encodeURIComponent(EDITION)}/salaire`, {
+        method: 'PUT', body: { salaireActif: $('paie-salaire-actif').checked, salaireFixe: Number($('paie-salaire-fixe').value) || 0 },
+      }),
+      socle.api(`/api/paie/grades/${encodeURIComponent(EDITION)}/paliers/run`, { method: 'PUT', body: { paliers: lirePaliers('run') } }),
+      socle.api(`/api/paie/grades/${encodeURIComponent(EDITION)}/paliers/facture`, { method: 'PUT', body: { paliers: lirePaliers('facture') } }),
+    ]);
     fermerModalePaie();
     gestion.notifier('Paie enregistrée ✓');
     await chargerPaieGrades();

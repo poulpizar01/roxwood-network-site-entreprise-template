@@ -107,6 +107,12 @@ const memoCoque = {
 // panneau. Pas dans le menu lui-même : une liste qui bouge seule n'a rien à faire dans la navigation (et l'Accueil a
 // la sienne). Relu chaque minute, seulement dans un onglet visible ; une erreur passagère garde le dernier affichage.
 // Sans lecture automatique (aria-live) : elle reviendrait sur toutes les pages, à chaque relecture.
+// une seule requête partagée entre l'indicateur du menu et la page (accueil, Mon compte) ; un échec n'est pas gardé
+let servicesP = null;
+const servicesEnCours = (recharger = false) => {
+  if (!servicesP || recharger) servicesP = socle.api('/api/services/en-cours').catch(e => { servicesP = null; throw e; });
+  return servicesP;
+};
 function enService(barre, haut) {
   const declencheurs = [...barre.querySelectorAll('[data-service-indic]'), ...haut.querySelectorAll('[data-service-indic]')];
   const panneau = document.createElement('div');
@@ -178,15 +184,15 @@ function enService(barre, haut) {
     dessiner();
   };
   try { const memo = JSON.parse(sessionStorage.getItem('gestion.service')); if (memo) appliquer(memo); } catch { /* pas de mémo */ }
-  const charger = async () => {
+  const charger = async (recharger = true) => {
     if (document.hidden) return;
     try {
-      const r = await socle.api('/api/services/en-cours');
+      const r = await servicesEnCours(recharger);
       appliquer(r);
       try { sessionStorage.setItem('gestion.service', JSON.stringify(r)); } catch { /* stockage refusé */ }
     } catch { /* erreur passagère : dernier affichage gardé */ }
   };
-  charger();
+  charger(false);
   setInterval(charger, 60_000);
   document.addEventListener('visibilitychange', charger);
 }
@@ -210,6 +216,7 @@ window.gestion = {
   ico,
   ligneEnService,
   ordreEnService,
+  servicesEnCours,
 
   // Tri de colonne pour un tableau ou une liste en grille, réinitialisable sans recharger la page : un premier clic
   // sur une colonne trie en croissant, un second en décroissant, un troisième revient à l'ordre d'origine (aucun

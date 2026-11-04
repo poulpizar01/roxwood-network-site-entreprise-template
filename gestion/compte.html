@@ -106,9 +106,9 @@
     gestion.coque('compte').then(afficher).catch(e => gestion.message('zone-message', e.message));
     socle.api('/api/moi/fiche').then(({ fiche, quota, sanctions }) => { afficherFiche(fiche); afficherQuota(quota); afficherSanctions(sanctions); })
       .catch(e => gestion.message('zone-message', e.message));
-    async function chargerMonService() {
+    async function chargerMonService(recharger = false) {
       try {
-        const { enService } = await socle.api('/api/services/en-cours');
+        const { enService } = await gestion.servicesEnCours(recharger);
         const moi = enService.find(s => s.moi);
         $('section-service').hidden = !moi;
         if (moi) $('service-depuis').textContent = `En service depuis le ${new Date(moi.depuis).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' })}.`;
@@ -117,14 +117,16 @@
     chargerMonService();
     $('terminer-service').addEventListener('click', async () => {
       if (!await gestion.confirmer('Votre service s’arrête à l’instant, même si vous êtes toujours en jeu.', 'Terminer votre service ?', 'Terminer mon service')) return;
-      try { await socle.api('/api/services/terminer', { method: 'POST', body: {} }); gestion.notifier('Service terminé ✓'); chargerMonService(); }
+      try { await socle.api('/api/services/terminer', { method: 'POST', body: {} }); gestion.notifier('Service terminé ✓'); chargerMonService(true); }
       catch (e) { gestion.message('zone-message', e.message); }
     });
     $('form-infos').addEventListener('submit', async e => {
       e.preventDefault();
       try {
-        const moi = await socle.api('/api/moi', { method: 'PATCH', body: { nom: $('nom').value } });
-        if (A_UNE_FICHE) await socle.api('/api/moi/fiche', { method: 'PATCH', body: { telephone: $('infos-telephone').value, rib: $('infos-rib').value } });
+        const [moi] = await Promise.all([
+          socle.api('/api/moi', { method: 'PATCH', body: { nom: $('nom').value } }),
+          A_UNE_FICHE && socle.api('/api/moi/fiche', { method: 'PATCH', body: { telephone: $('infos-telephone').value, rib: $('infos-rib').value } }),
+        ]);
         gestion.message('zone-message', '');
         gestion.notifier('Informations enregistrées.');
         afficher(moi);

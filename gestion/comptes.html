@@ -84,7 +84,7 @@
 
     function identite(c) {
       const nom = c.nom || c.pseudo;
-      const avatar = c.avatar ? `<img class="admin-avatar" src="${echapper(c.avatar)}" alt="">` : `<span class="admin-avatar" aria-hidden="true">${echapper(initiales(nom))}</span>`;
+      const avatar = c.avatar ? `<img class="admin-avatar" src="${echapper(c.avatar)}" alt="" loading="lazy">` : `<span class="admin-avatar" aria-hidden="true">${echapper(initiales(nom))}</span>`;
       const etiquettes = [
         c.proprietaire ? '<span class="puce puce-or">Super-admin</span>' : '',
         c.id === moi.id ? '<span class="puce puce-masquee">Vous</span>' : '',

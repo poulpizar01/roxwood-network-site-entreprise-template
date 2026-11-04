@@ -102,7 +102,7 @@
       const [taches, agenda, service, fiche, run, runAvant, fact, factAvant] = await Promise.allSettled([
         socle.api('/api/accueil/a-traiter'),
         socle.api(`/api/agenda?debut=${aujourdhui}&fin=${dansUneSemaine}`),
-        socle.api('/api/services/en-cours'),
+        gestion.servicesEnCours(),
         socle.api('/api/moi/fiche'),
         ...(equipe ? [`/api/run?semaine=${lundi(aujourdhui)}`, `/api/run?semaine=${avant}`,
           `/api/compta/factures/classement?semaine=${lundi(aujourdhui)}`, `/api/compta/factures/classement?semaine=${avant}`].map(u => socle.api(u)) : []),
