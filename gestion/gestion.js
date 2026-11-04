@@ -24,6 +24,7 @@ const GESTION_NAV = [
   { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'grade', permission: 'grades' },
   { cle: 'comptes', href: 'comptes.html', label: 'Comptes', icone: 'lock', permission: 'comptes' },
   { cle: 'parametres', href: 'parametres.html', label: 'Paramètres', icone: 'gear', permission: 'parametres' },
+  { cle: 'webhooks', href: 'webhooks.html', label: 'Webhooks', icone: 'sync', permission: 'webhooks' },
   { groupe: 'Site' },
   // le site public (même onglet)
   { cle: 'site', href: '/', label: 'Voir le site', icone: 'globe' },

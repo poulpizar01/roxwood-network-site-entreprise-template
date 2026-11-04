@@ -2684,6 +2684,8 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .contrat-acces-etat { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: var(--fs-3); color: var(--text-muted); }
 .contrat-acces-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 10px; }
 .contrat-notes { margin: 0; white-space: pre-line; overflow-wrap: anywhere; color: var(--text-muted); font-size: var(--fs-3); }
+/* contenu brut d'un webhook (gestion/webhooks.html) : jamais de défilement latéral, une ligne trop longue se replie */
+.webhook-contenu { margin: 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg2); color: var(--text-muted); font-size: var(--fs-2); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* formulaire : choix en cartes (partie, rythme, fin), le bouton radio aligné sur la première ligne de son libellé */
 .modale.modale-contrat { max-width: 620px; }

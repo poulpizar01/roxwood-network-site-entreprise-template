@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Webhooks — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — webhooks reçus du bot Discord (permission « webhooks », serveur : socle/routes/webhooks-journal.ts).
+       Le contenu d'un événement traité avec succès est effacé à la réception (socle/routes/webhooks.ts) : seuls
+       ceux en échec gardent leur payload, le temps du diagnostic. -->
+  <main class="admin-contenu">
+    <div class="entete-admin">
+      <div>
+        <h1 style="margin-bottom:2px;">Webhooks</h1>
+        <p style="margin:0;font-size:var(--fs-3);">Événements reçus du bot Discord, pour diagnostiquer un traitement en échec.</p>
+      </div>
+    </div>
+    <div id="zone-message" role="status"></div>
+
+    <div class="comptes-outils">
+      <select id="filtre-type" aria-label="Filtrer par type"><option value="">Tous les types</option></select>
+      <select id="filtre-traite" aria-label="Filtrer par état">
+        <option value="">Tous</option>
+        <option value="non">En échec (non traités)</option>
+        <option value="oui">Traités</option>
+      </select>
+    </div>
+    <div class="carte-table">
+      <table class="table-admin" id="table-webhooks">
+        <thead><tr><th>Type</th><th>Reçu le</th><th>État</th></tr></thead>
+        <tbody id="corps-table-webhooks"></tbody>
+      </table>
+    </div>
+  </main>
+
+<!-- Détail d'un événement : tiroir à droite (plein écran sur téléphone). -->
+<div class="modale-fond tiroir-fond cache" id="tiroir-webhook" data-echap>
+  <div class="tiroir" role="dialog" aria-modal="true" aria-labelledby="tiroir-webhook-titre">
+    <div class="tiroir-entete">
+      <div class="tiroir-identite">
+        <h2 id="tiroir-webhook-titre"></h2>
+        <p class="tiroir-sous-titre" id="tiroir-webhook-sous-titre"></p>
+      </div>
+      <button type="button" id="fermer-tiroir-webhook" aria-label="Fermer">✕</button>
+    </div>
+    <div class="tiroir-corps" id="tiroir-webhook-corps"></div>
+  </div>
+</div>
+
+  <script>
+    let WEBHOOKS = [];
+    const dateHeure = d => new Date(d).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'medium' });
+
+    function ligneWebhook(w) {
+      return `<tr>
+        <td class="cellule-titre"><button type="button" class="table-lien" data-ouvrir-webhook="${w.id}">${echapper(w.type)}</button></td>
+        <td>${dateHeure(w.recuLe)}</td>
+        <td><span class="puce ${w.traite ? 'puce-ok' : 'puce-off'}">${w.traite ? 'Traité' : 'En échec'}</span></td>
+      </tr>`;
+    }
+    function afficher() {
+      document.getElementById('corps-table-webhooks').innerHTML = WEBHOOKS.length
+        ? WEBHOOKS.map(ligneWebhook).join('')
+        : '<tr><td colspan="3"><p class="comptes-vide">Aucun webhook pour ces critères.</p></td></tr>';
+    }
+    async function charger() {
+      document.getElementById('zone-message').textContent = '';
+      try {
+        const params = new URLSearchParams();
+        const type = document.getElementById('filtre-type').value;
+        const traite = document.getElementById('filtre-traite').value;
+        if (type) params.set('type', type);
+        if (traite) params.set('traite', traite);
+        const r = await socle.api(`/api/webhooks${params.toString() ? `?${params}` : ''}`);
+        WEBHOOKS = r.webhooks || [];
+        // types vus, pour peupler le filtre sans dépendre de ce que le bot envoie en ce moment
+        const select = document.getElementById('filtre-type');
+        const actuel = select.value;
+        const types = [...new Set(WEBHOOKS.map(w => w.type))].sort();
+        select.innerHTML = '<option value="">Tous les types</option>' + types.map(t => `<option value="${echapper(t)}"${t === actuel ? ' selected' : ''}>${echapper(t)}</option>`).join('');
+        afficher();
+      } catch (e) { gestion.message('zone-message', `Impossible de charger les webhooks : ${e.message}`); }
+    }
+    document.getElementById('filtre-type').addEventListener('change', charger);
+    document.getElementById('filtre-traite').addEventListener('change', charger);
+
+    // ---- détail (tiroir) ----
+    let OUVREUR_TIROIR = null;
+    document.getElementById('corps-table-webhooks').addEventListener('click', e => {
+      const b = e.target.closest('[data-ouvrir-webhook]');
+      if (!b) return;
+      const w = WEBHOOKS.find(x => x.id === Number(b.dataset.ouvrirWebhook));
+      if (!w) return;
+      OUVREUR_TIROIR = document.activeElement;
+      document.getElementById('tiroir-webhook-titre').textContent = w.type;
+      document.getElementById('tiroir-webhook-sous-titre').innerHTML = `<span>${dateHeure(w.recuLe)}</span><span class="puce ${w.traite ? 'puce-ok' : 'puce-off'}">${w.traite ? 'Traité' : 'En échec'}</span>`;
+      const contenu = w.contenu && Object.keys(w.contenu).length ? JSON.stringify(w.contenu, null, 2) : 'Contenu effacé (événement traité avec succès).';
+      document.getElementById('tiroir-webhook-corps').innerHTML = `<pre class="webhook-contenu">${echapper(contenu)}</pre>`;
+      document.getElementById('tiroir-webhook').classList.remove('cache');
+      document.getElementById('tiroir-webhook-corps').scrollTop = 0;
+      document.getElementById('fermer-tiroir-webhook').focus();
+    });
+    const fermerTiroir = () => {
+      document.getElementById('tiroir-webhook').classList.add('cache');
+      if (OUVREUR_TIROIR?.isConnected) OUVREUR_TIROIR.focus();
+    };
+    document.getElementById('fermer-tiroir-webhook').addEventListener('click', fermerTiroir);
+    document.getElementById('tiroir-webhook').addEventListener('click', e => { if (e.target.id === 'tiroir-webhook') fermerTiroir(); });
+
+    gestion.coque('webhooks').then(charger);
+  </script>
+</body>
+</html>
