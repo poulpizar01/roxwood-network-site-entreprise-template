@@ -1392,6 +1392,9 @@ main.admin-contenu:focus { outline: none; }
 .comptes-filtre span { margin-left: 4px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .comptes-filtre.actif { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .comptes-filtre.actif span { color: inherit; opacity: 0.75; }
+/* plusieurs <select> de filtre côte à côte dans .comptes-outils (ex. webhooks.html) : sans largeur bornée, chacun
+   vaut 100% (d8-select-enveloppe) et occupe sa propre ligne — même recette que .factures-filtres. */
+.filtres-select .d8-select-enveloppe { flex: 1 1 190px; max-width: 260px; }
 .comptes-filtre:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
 .comptes-recherche { position: relative; flex: 0 1 280px; }
 .comptes-recherche .ico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-faint); }
