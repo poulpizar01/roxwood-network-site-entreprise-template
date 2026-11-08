@@ -78,11 +78,20 @@ const ico = nom => `<svg class="ico" aria-hidden="true"><use href="#ico-${nom}">
 // Une personne en service : même ligne dans le panneau du menu et sur l'Accueil (nom, depuis quand, durée) ;
 // la sienne en tête, repérée par « vous » (moi : renvoyé par /api/services/en-cours).
 const heureParis = d => new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+// jour de début en toutes lettres quand ce n'est pas aujourd'hui : un service peut commencer la veille (clôture à 16 h)
+const jourParis = d => new Date(d).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' });
+const depuisParis = d => {
+  const jour = jourParis(d), aujourdhui = jourParis(Date.now()), [a, m, j] = aujourdhui.split('-').map(Number);
+  if (jour === aujourdhui) return heureParis(d);
+  // veille calculée sur le calendrier, pas « maintenant − 24 h » (faux le lendemain d'un changement d'heure)
+  if (jour === new Date(Date.UTC(a, m - 1, j - 1)).toISOString().slice(0, 10)) return `hier ${heureParis(d)}`;
+  return `le ${new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Paris' })} à ${heureParis(d)}`;
+};
 const dureeDepuis = d => { const m = Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
 const ordreEnService = liste => [...liste.filter(p => p.moi), ...liste.filter(p => !p.moi)];
 const ligneEnService = p => `<li${p.moi ? ' class="admin-service-moi"' : ''}>
   <span class="admin-service-nom">${socle.esc(p.nom)}${p.moi ? ' <span class="admin-service-vous">vous</span>' : ''}</span>
-  <span class="admin-service-detail">depuis ${socle.esc(heureParis(p.depuis))} · ${dureeDepuis(p.depuis)}</span></li>`;
+  <span class="admin-service-detail">depuis <time datetime="${socle.esc(new Date(p.depuis).toISOString())}">${socle.esc(depuisParis(p.depuis))}</time> · ${dureeDepuis(p.depuis)}</span></li>`;
 
 // Ce que le menu affiche du compte (nom, avatar, grade, permissions), gardé pour l'onglet : la page suivante dessine
 // son menu sans attendre le serveur. Affichage seulement ; effacé à la déconnexion, et dès que le serveur ne
