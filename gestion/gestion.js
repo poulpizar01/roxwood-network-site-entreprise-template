@@ -79,8 +79,9 @@ const ico = nom => `<svg class="ico" aria-hidden="true"><use href="#ico-${nom}">
 // la sienne en tête, repérée par « vous » (moi : renvoyé par /api/services/en-cours).
 const heureParis = d => new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
 // jour de début en toutes lettres quand ce n'est pas aujourd'hui : un service peut commencer la veille (clôture à 16 h)
-const jourParis = d => new Date(d).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' });
+// gardé dans la fonction : les scripts de page partagent les noms de gestion.js (l'Accueil a son propre jourParis)
 const depuisParis = d => {
+  const jourParis = x => new Date(x).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' });
   const jour = jourParis(d), aujourdhui = jourParis(Date.now()), [a, m, j] = aujourdhui.split('-').map(Number);
   if (jour === aujourdhui) return heureParis(d);
   // veille calculée sur le calendrier, pas « maintenant − 24 h » (faux le lendemain d'un changement d'heure)
