@@ -254,6 +254,21 @@ window.gestion = {
     };
   },
 
+  // Tableau triable complet : enveloppe creerTri() en y ajoutant l'écoute du clic sur l'en-tête (data-tri), posée une
+  // fois pour toutes — ce geste (cycler, réafficher, rendre le focus au bouton trié) était recopié sur chaque page.
+  // rafraichir() doit relire tri.appliquer(liste) et redessiner lignes + en-tête (son bouton() porte l'état courant).
+  tableauTriable(table, comparateurs, rafraichir, defaut) {
+    const tri = this.creerTri(comparateurs, defaut);
+    (typeof table === 'string' ? document.getElementById(table) : table).addEventListener('click', e => {
+      const b = e.target.closest('[data-tri]');
+      if (!b) return;
+      tri.cycler(b.dataset.tri);
+      rafraichir();
+      document.querySelector(`[data-tri="${tri.etat?.cle ?? b.dataset.tri}"]`)?.focus();
+    });
+    return tri;
+  },
+
   // construit la coque autour de <main class="admin-contenu"> et renvoie le compte connecté
   async coque(rubrique) {
     const sprite = document.createElement('div');
@@ -698,6 +713,24 @@ function ameliorerSelect(select, pastille, portee, rechercher) {
 // à appeler avant de recréer des <select> habillés : retire les listes flottantes de l'affichage précédent
 function nettoyerSelectsPortee(portee) {
   document.querySelectorAll(`.d8-select-flottant[data-portee="${portee}"]`).forEach(el => el.remove());
+}
+
+// ---- filtre en liste déroulante ----
+// Remplace le motif recopié sur chaque page (écrire les <option>, puis appeler ameliorerSelect) par un seul appel :
+// pose les options à partir des données (repeuplage compris, sans perdre le choix en cours) et habille le <select>.
+// options : [{ valeur, libelle }]. placeholder (facultatif) : texte de l'option vide (« Tous les types »…).
+function filtreSelect(select, options, { placeholder, pastille, rechercher } = {}) {
+  select = typeof select === 'string' ? document.getElementById(select) : select;
+  const actuel = select.value;
+  nettoyerSelectsPortee(select.id);
+  // un appel précédent a enveloppé le <select> (ameliorerSelect) : le ressortir avant de l'habiller à nouveau,
+  // sinon chaque repeuplage imbrique une enveloppe de plus dans la précédente, jamais retirée
+  const enveloppe = select.closest('.d8-select-enveloppe');
+  if (enveloppe) enveloppe.replaceWith(select);
+  delete select.dataset.ameliore;
+  select.innerHTML = (placeholder !== undefined ? `<option value="">${echapper(placeholder)}</option>` : '')
+    + options.map(o => `<option value="${echapper(String(o.valeur))}"${String(o.valeur) === actuel ? ' selected' : ''}>${echapper(o.libelle)}</option>`).join('');
+  ameliorerSelect(select, pastille, select.id, rechercher);
 }
 
 // ---- dates et heures à la française ----

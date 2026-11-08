@@ -27,16 +27,12 @@
     <div id="zone-message" role="status"></div>
 
     <div class="comptes-outils">
-      <select id="filtre-type" aria-label="Filtrer par type"><option value="">Tous les types</option></select>
-      <select id="filtre-traite" aria-label="Filtrer par état">
-        <option value="">Tous</option>
-        <option value="non">En échec (non traités)</option>
-        <option value="oui">Traités</option>
-      </select>
+      <select id="filtre-type" aria-label="Filtrer par type"></select>
+      <select id="filtre-traite" aria-label="Filtrer par état"></select>
     </div>
     <div class="carte-table">
       <table class="table-admin" id="table-webhooks">
-        <thead><tr><th>Type</th><th>Reçu le</th><th>État</th></tr></thead>
+        <thead><tr id="entete-webhooks"></tr></thead>
         <tbody id="corps-table-webhooks"></tbody>
       </table>
     </div>
@@ -60,6 +56,18 @@
     let WEBHOOKS = [];
     const dateHeure = d => new Date(d).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'medium' });
 
+    // tri des colonnes (en-tête cliquable, gestion.js) : état de tri posé une fois, réappliqué à chaque chargement
+    const TRI_WEBHOOKS = gestion.tableauTriable('table-webhooks', {
+      type: (a, b) => a.type.localeCompare(b.type, 'fr', { sensitivity: 'base' }),
+      recuLe: (a, b) => new Date(a.recuLe) - new Date(b.recuLe),
+      traite: (a, b) => Number(a.traite) - Number(b.traite),
+    }, () => { majEntete(); afficher(); }, { cle: 'recuLe', sens: -1 });
+    function majEntete() {
+      document.getElementById('entete-webhooks').innerHTML =
+        `<th>${TRI_WEBHOOKS.bouton('type', 'Type')}</th><th>${TRI_WEBHOOKS.bouton('recuLe', 'Reçu le')}</th><th>${TRI_WEBHOOKS.bouton('traite', 'État')}</th>`;
+    }
+    majEntete();
+
     function ligneWebhook(w) {
       return `<tr>
         <td class="cellule-titre"><button type="button" class="table-lien" data-ouvrir-webhook="${w.id}">${echapper(w.type)}</button></td>
@@ -68,8 +76,9 @@
       </tr>`;
     }
     function afficher() {
-      document.getElementById('corps-table-webhooks').innerHTML = WEBHOOKS.length
-        ? WEBHOOKS.map(ligneWebhook).join('')
+      const triees = TRI_WEBHOOKS.appliquer(WEBHOOKS);
+      document.getElementById('corps-table-webhooks').innerHTML = triees.length
+        ? triees.map(ligneWebhook).join('')
         : '<tr><td colspan="3"><p class="comptes-vide">Aucun webhook pour ces critères.</p></td></tr>';
     }
     async function charger() {
@@ -83,13 +92,17 @@
         const r = await socle.api(`/api/webhooks${params.toString() ? `?${params}` : ''}`);
         WEBHOOKS = r.webhooks || [];
         // types vus, pour peupler le filtre sans dépendre de ce que le bot envoie en ce moment
-        const select = document.getElementById('filtre-type');
-        const actuel = select.value;
         const types = [...new Set(WEBHOOKS.map(w => w.type))].sort();
-        select.innerHTML = '<option value="">Tous les types</option>' + types.map(t => `<option value="${echapper(t)}"${t === actuel ? ' selected' : ''}>${echapper(t)}</option>`).join('');
+        filtreSelect('filtre-type', types.map(t => ({ valeur: t, libelle: t })), { placeholder: 'Tous les types' });
+        majEntete();
         afficher();
       } catch (e) { gestion.message('zone-message', `Impossible de charger les webhooks : ${e.message}`); }
     }
+    filtreSelect('filtre-type', [], { placeholder: 'Tous les types' });   // reconstruit avec les vrais types au chargement
+    filtreSelect('filtre-traite', [
+      { valeur: 'non', libelle: 'En échec (non traités)' },
+      { valeur: 'oui', libelle: 'Traités' },
+    ], { placeholder: 'Tous' });
     document.getElementById('filtre-type').addEventListener('change', charger);
     document.getElementById('filtre-traite').addEventListener('change', charger);
 
