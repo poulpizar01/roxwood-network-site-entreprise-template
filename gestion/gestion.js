@@ -715,11 +715,14 @@ function nettoyerSelectsPortee(portee) {
   document.querySelectorAll(`.d8-select-flottant[data-portee="${portee}"]`).forEach(el => el.remove());
 }
 
-// ---- filtre en liste déroulante ----
+// ---- remplir et habiller un <select> ----
 // Remplace le motif recopié sur chaque page (écrire les <option>, puis appeler ameliorerSelect) par un seul appel :
 // pose les options à partir des données (repeuplage compris, sans perdre le choix en cours) et habille le <select>.
+// Pour un <select> persistant qu'on repeuple au fil du temps (filtre, ou champ de formulaire rouvert plusieurs fois
+// comme le rôle Discord d'un grade) — pas pour des <select> recréés à chaque rendu (ex. une ligne de tableau par
+// compte) : là, ameliorerSelect() directement sur l'élément neuf reste plus simple, rien à ressortir.
 // options : [{ valeur, libelle }]. placeholder (facultatif) : texte de l'option vide (« Tous les types »…).
-function filtreSelect(select, options, { placeholder, pastille, rechercher } = {}) {
+function remplirSelect(select, options, { placeholder, pastille, rechercher } = {}) {
   select = typeof select === 'string' ? document.getElementById(select) : select;
   const actuel = select.value;
   nettoyerSelectsPortee(select.id);

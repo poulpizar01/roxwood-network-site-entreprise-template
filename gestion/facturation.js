@@ -18,27 +18,19 @@ function formaterJourFr(iso) {
 }
 
 // ---- tri des colonnes du tableau des factures ----
-const TRI_FACTURES = gestion.creerTri({
+const TRI_FACTURES = gestion.tableauTriable("table-factures", {
   date: (a, b) => new Date(a.dateFacture) - new Date(b.dateFacture),
   source: (a, b) => labelSourceFacture(a.source).localeCompare(labelSourceFacture(b.source), "fr", { sensitivity: "base" }),
   client: (a, b) => (a.clientNom || "").localeCompare(b.clientNom || "", "fr", { sensitivity: "base" }),
   numero: (a, b) => (a.numeroFacture || "").localeCompare(b.numeroFacture || "", "fr", { numeric: true }),
   total: (a, b) => a.total - b.total,
   statut: (a, b) => a.statutPaiement.localeCompare(b.statutPaiement, "fr", { sensitivity: "base" }),
-}, { cle: "date", sens: -1 });
+}, () => { afficherFactures(); majEnteteFactures(); }, { cle: "date", sens: -1 });
 function majEnteteFactures() {
   document.getElementById("factures-entete").innerHTML = `<th>${TRI_FACTURES.bouton("date", "Date")}</th><th>${TRI_FACTURES.bouton("source", "Provenance")}</th>
     <th data-titre>${TRI_FACTURES.bouton("client", "Client")}</th><th>${TRI_FACTURES.bouton("numero", "N°")}</th>
     <th style="text-align:right;">${TRI_FACTURES.bouton("total", "Total")}</th><th>${TRI_FACTURES.bouton("statut", "Statut")}</th><th class="col-actions" aria-label="Actions"></th>`;
 }
-document.getElementById("table-factures").addEventListener("click", e => {
-  const bouton = e.target.closest("[data-tri]");
-  if (!bouton) return;
-  TRI_FACTURES.cycler(bouton.dataset.tri);
-  afficherFactures();
-  majEnteteFactures();
-  document.querySelector(`#factures-entete [data-tri="${TRI_FACTURES.etat?.cle ?? bouton.dataset.tri}"]`)?.focus();
-});
 majEnteteFactures();
 
 // Résultat d'une copie : notification en bas de l'écran.

@@ -93,13 +93,13 @@
         WEBHOOKS = r.webhooks || [];
         // types vus, pour peupler le filtre sans dépendre de ce que le bot envoie en ce moment
         const types = [...new Set(WEBHOOKS.map(w => w.type))].sort();
-        filtreSelect('filtre-type', types.map(t => ({ valeur: t, libelle: t })), { placeholder: 'Tous les types' });
+        remplirSelect('filtre-type', types.map(t => ({ valeur: t, libelle: t })), { placeholder: 'Tous les types' });
         majEntete();
         afficher();
       } catch (e) { gestion.message('zone-message', `Impossible de charger les webhooks : ${e.message}`); }
     }
-    filtreSelect('filtre-type', [], { placeholder: 'Tous les types' });   // reconstruit avec les vrais types au chargement
-    filtreSelect('filtre-traite', [
+    remplirSelect('filtre-type', [], { placeholder: 'Tous les types' });   // reconstruit avec les vrais types au chargement
+    remplirSelect('filtre-traite', [
       { valeur: 'non', libelle: 'En échec (non traités)' },
       { valeur: 'oui', libelle: 'Traités' },
     ], { placeholder: 'Tous' });

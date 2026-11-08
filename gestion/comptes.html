@@ -61,13 +61,13 @@
     const rang = cle => { const i = grades.findIndex(g => g.cle === cle); return i < 0 ? grades.length : i; };
     const gerable = c => moi.proprietaire || (!!moi.grade && rang(c.grade?.cle) > rang(moi.grade.cle) && c.id !== moi.id && !c.proprietaire);
     const gradesPossibles = () => grades.filter(g => moi.proprietaire || (moi.grade && rang(g.cle) > rang(moi.grade.cle)));
-    // ---- tri de la liste des membres (clic sur l'en-tête, réinitialisable sans recharger : gestion.creerTri) ----
+    // ---- tri de la liste des membres (clic sur l'en-tête, réinitialisable sans recharger : gestion.tableauTriable) ----
     const comparerNomCompte = (a, b) => (a.nom || a.pseudo).localeCompare(b.nom || b.pseudo, 'fr', { sensitivity: 'base' });
-    const TRI = gestion.creerTri({
+    const TRI = gestion.tableauTriable(document.querySelector('main'), {
       nom: comparerNomCompte,
       grade: (a, b) => rang(a.grade?.cle) - rang(b.grade?.cle) || comparerNomCompte(a, b),
       connexion: (a, b) => new Date(a.connecteLe || 0) - new Date(b.connecteLe || 0),
-    });
+    }, afficher);
     const PARIS = { timeZone: 'Europe/Paris' };
     const dateHeure = d => new Date(d).toLocaleString('fr-FR', { ...PARIS, dateStyle: 'short', timeStyle: 'short' });
     // dernière activité : « il y a 5 min » dans l'heure, « aujourd'hui à 14:30 », sinon la date (jamais « hier »
@@ -184,13 +184,7 @@
     });
 
     document.querySelector('main').addEventListener('click', async e => {
-      const tri = e.target.closest('[data-tri]');
-      if (tri) {
-        TRI.cycler(tri.dataset.tri);
-        afficher();
-        document.querySelector(`[data-tri="${TRI.etat?.cle ?? tri.dataset.tri}"]`)?.focus();
-        return;
-      }
+      if (e.target.closest('[data-tri]')) return;   // géré par gestion.tableauTriable (son propre écouteur sur main)
       const ouvreur = e.target.closest('.comptes-menu-bouton');
       if (ouvreur) { const m = ouvreur.closest('.comptes-menu'); return menuOuvert === m ? fermerMenu(true) : ouvrirMenu(m); }
       const b = e.target.closest('[data-action]'), id = e.target.closest('[data-id]')?.dataset.id;

@@ -324,10 +324,9 @@
       if (roles.length) {
         const id = g?.roleDiscordId ?? '';
         // rôle supprimé sur Discord depuis : gardé dans la liste, signalé
-        const absent = id && !nomRole(id) ? `<option value="${echapper(id)}">Rôle supprimé sur Discord (${echapper(id)})</option>` : '';
-        $('role-liste').innerHTML = '<option value="">Aucun rôle</option>' + absent + roles.map(r => `<option value="${echapper(r.id)}">@${echapper(r.nom)}</option>`).join('');
-        $('role-liste').value = id;
-        ameliorerSelect($('role-liste'));
+        const absent = id && !nomRole(id) ? [{ valeur: id, libelle: `Rôle supprimé sur Discord (${id})` }] : [];
+        remplirSelect('role-liste', [...absent, ...roles.map(r => ({ valeur: r.id, libelle: `@${r.nom}` }))], { placeholder: 'Aucun rôle' });
+        $('role-liste').value = id;   // remplirSelect garde le choix précédent, pas forcément celui de ce grade
       }
       // permissions par domaine, avec leur explication ; seulement celles que l'on détient (le serveur refuserait les autres)
       $('cases').innerHTML = domaines().map(([nom, cles]) => {
