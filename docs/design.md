@@ -74,6 +74,15 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
 - **Bouton « Copier »** : confirme la copie par une notification, sans changer la taille ni le libellé du bouton.
 - **Boutons radio et cases** alignés sur la première ligne de leur libellé.
 - **Notification d'une action réussie** : en bas de l'écran, une seule à la fois (`gestion.notifier`) ; une confirmation affichée en haut de page passe inaperçue quand on a cliqué en bas.
+- **Un glisser-déposer passe par les outils de la coque**, jamais par un `new Sortable` écrit dans la page : `triable()` pour ordonner une liste (poignée, flèches au clavier), `glisserColonnes()` avec `.colonnes-statut` pour faire passer une carte d'une colonne à l'autre (`gestion.js`, `gestion.css`).
+  Vu : deux tableaux par statut réglés chacun à la main ; leurs classes d'état du glissé n'existaient pas en CSS, si bien qu'aucun des deux n'avait de contour pendant le glissé.
+- **Toute la colonne reçoit la carte, et elle garde sa hauteur pendant le glissé.**
+  Vu : seule la pile de cartes comptait (51 px de zone de dépôt pour une colonne vide qui en paraissait 750) ; et quand la carte quittait la colonne la plus remplie, toutes rétrécissaient sous le pointeur, qui ne visait plus rien.
+- **Seule une colonne où le dépôt aboutira s'éclaire** ; relâchée hors de toute colonne, la carte revient à sa place. Une carte ne se réordonne pas dans sa colonne quand l'ordre vient des données (date).
+  Vu : une colonne qui acceptait la carte puis la renvoyait ; des cartes voisines qui sautaient à chaque survol.
+- **La carte traînée est opaque, la place qu'elle laisse n'est qu'un pointillé.**
+  Vu : le clone à 80 % d'opacité (imposé par Sortable en style en ligne) laissait voir le contour des cartes dessous, et l'emplacement gardait sa bordure pleine plus un anneau.
+- **Un glissé ne démarre qu'après quelques pixels, et au doigt après un appui long** ; un bouton posé sur une carte reste un simple clic (`filtreDepart`). Ce qui se fait en glissant se fait aussi au clavier : flèches sur la poignée (`triable()`), commande dans la fiche ou menu « Déplacer vers… » pour des colonnes.
 
 ## 6. Dates, heures, périodes
 

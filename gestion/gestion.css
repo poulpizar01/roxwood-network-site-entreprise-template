@@ -2128,11 +2128,59 @@ main.admin-contenu:focus { outline: none; }
 .comptes-demande-grade { flex: none; }
 .comptes-demande-boutons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+/* ---------- Listes réordonnables (triable(), gestion.js) : glisser-déposé ou flèches sur une poignée — même
+   système partout (Grades et toute liste à ordonner), pour que le geste et les contours restent identiques. .ligne-triable porte le
+   bloc visuel (bordure, fond, coins) qu'une ligne doit avoir pour qu'un glissé se lise comme un seul bloc cohérent,
+   pas des éléments séparés qui se chevauchent ; .liste-fantome/.liste-traine/.liste-choisie sont les états du
+   glissé lui-même, posés par Sortable (onClone resynchronise la valeur d'un champ dans le clone de secours). ---- */
+.ligne-triable { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); transition: border-color var(--transition); }
+.ligne-triable:not(.verrouille):hover { border-color: rgba({{couleur_rvb}}, 0.5); }
+/* emplacement vide pendant le glisser (pas un texte fantôme qui se superpose au clone flottant ci-dessous) */
+.liste-fantome { border-style: dashed; background: var(--bg2); }
+.liste-fantome > * { visibility: hidden; }
+/* pendant un glissé, survoler les autres lignes ne les éclaire pas : chaque transition repeignait la liste à chaque image */
+:has(> .liste-fantome) > .ligne-triable:hover { border-color: var(--border); }
+/* clone qui suit le curseur (forceFallback) : net, surélevé, détaché visuellement de la liste. Sa propre couche
+   (will-change) : Sortable le déplace par transform 2D, sans elle toute la page était repeinte à chaque mouvement. */
+.liste-traine { opacity: 1; background: var(--bg-elevated); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28); cursor: grabbing; will-change: transform; }
+.liste-choisie:not(.liste-traine) { box-shadow: 0 0 0 1px rgba({{couleur_rvb}}, 0.4) inset; }
+
+/* ---------- Colonnes par statut (glisserColonnes(), gestion.js) : un seul composant pour tout tableau par statut
+   (candidatures, demandes à modérer…), glisser-déposer compris, pour que les écrans restent identiques. Les colonnes
+   se replient en pile sur la place réellement mesurée (repeat(auto-fit)), jamais un défilement latéral. Chaque
+   colonne a un fond et toute sa hauteur (align-items: stretch + flex: 1) : c'est sa surface entière qui reçoit une
+   carte — ce que l'œil prend pour la colonne est ce que la souris survole (avant, seule la pile de cartes comptait :
+   51 px pour une colonne vide). Les états du glissé sont précisés ici avec deux classes : une seule (.liste-fantome,
+   ci-dessus) perdait contre le `border` de la carte, déclaré plus bas. Le contenu d'une carte est propre à l'écran ;
+   la carte elle-même porte .carte-statut. ---------- */
+.colonnes-statut { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: stretch; }
+.colonne-statut { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.colonne-statut-titre { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-4); font-weight: 600; padding: 0 2px; }
+.colonne-statut-titre .compte-colonne { font-size: var(--fs-2); font-weight: 500; color: var(--text-faint); }
+.colonne-statut-cartes {
+  flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 140px; padding: 6px;
+  border-radius: calc(var(--radius) + 4px); background: rgba({{couleur_rvb}}, 0.03); transition: background var(--transition), box-shadow var(--transition);
+}
+.colonne-statut-vide { margin: 0; padding: 14px 8px; text-align: center; font-size: var(--fs-2); color: var(--text-faint); }
+.carte-statut {
+  display: block; width: 100%; text-align: left; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card);
+  padding: 12px 14px; font: inherit; color: inherit;
+}
+.colonne-tirable > .carte-statut { cursor: grab; }
+/* colonne qui recevra la carte : celle où se trouve l'emplacement vide, sauf la colonne de départ (rien n'y changerait).
+   En CSS plutôt qu'au survol en JS : l'éclairage suit exactement l'emplacement, sans retard ni clignotement. */
+.colonne-statut-cartes:has(> .liste-fantome):not(.colonne-origine) { background: rgba({{couleur_rvb}}, 0.08); box-shadow: inset 0 0 0 2px var(--accent); }
+.colonne-statut-cartes:has(> .liste-fantome) > .colonne-statut-vide { display: none; }
+/* emplacement de la carte : seulement un pointillé (ni bordure pleine, ni anneau de .liste-choisie, ni marque d'état) */
+.colonne-statut-cartes > .liste-fantome { border: 1px dashed rgba({{couleur_rvb}}, 0.6); background: transparent; box-shadow: none; }
+/* carte qui suit la souris : opaque — Sortable lui impose `opacity: 0.8` en style en ligne, que seul !important
+   dépasse ; translucide, elle laissait voir le contour des cartes dessous */
+.carte-statut.liste-traine { opacity: 1 !important; border-color: rgba({{couleur_rvb}}, 0.5); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); cursor: grabbing; }
+
 /* ---------- Grades (grades.html) : liste ordonnée par glisser-déposer, fenêtre par grade ---------- */
 .grades-poignee-exemple { color: var(--accent-dark); font-weight: 600; }
 .grades-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.grades-ligne { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg2); transition: border-color var(--transition); }
-.grades-ligne:not(.verrouille):hover { border-color: rgba({{couleur_rvb}}, 0.5); }
+.grades-ligne { display: flex; align-items: stretch; }
 .grades-poignee { flex: 0 0 40px; display: flex; align-items: center; justify-content: center; border: 0; border-right: 1px solid var(--border); background: none; color: var(--text-faint); font-size: var(--fs-6); cursor: grab; border-radius: var(--radius) 0 0 var(--radius); }
 button.grades-poignee:hover { color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.08); }
 button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: -2px; }
@@ -2155,12 +2203,6 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 .grades-suite { flex-shrink: 0; display: inline-flex; color: var(--text-faint); font-size: var(--fs-6); }
 .grades-ligne.verrouille .grades-suite { font-size: var(--fs-2); }
 .grades-ligne.verrouille .grades-nom { color: var(--text-muted); }
-/* emplacement vide pendant le glisser (pas un texte fantôme qui se superpose au clone flottant ci-dessous) */
-.grades-fantome { border-style: dashed; background: var(--bg2); }
-.grades-fantome > * { visibility: hidden; }
-/* clone qui suit le curseur (forceFallback) : net, surélevé, détaché visuellement de la liste */
-.grades-traine { opacity: 1; background: var(--bg-elevated); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28); cursor: grabbing; }
-.grades-choisi:not(.grades-traine) { box-shadow: 0 0 0 1px rgba({{couleur_rvb}}, 0.4) inset; }
 .grades-vide { padding: 22px 16px; border: 1px dashed var(--border); border-radius: var(--radius); text-align: center; color: var(--text-faint); }
 .grades-note { margin-top: 14px; }
 

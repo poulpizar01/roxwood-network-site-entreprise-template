@@ -148,7 +148,7 @@
         const n = effectifs?.get(g.cle) ?? null;
         const role = !g.roleDiscordId ? '' : nomRole(g.roleDiscordId) ? `<span class="grades-tag discord">@${echapper(nomRole(g.roleDiscordId))}</span>`
           : roles.length ? '<span class="grades-tag alerte">Rôle supprimé sur Discord</span>' : '<span class="grades-tag discord">Rôle Discord lié</span>';
-        return `<li class="grades-ligne${modifiable ? '' : ' verrouille'}" data-cle="${echapper(g.cle)}">
+        return `<li class="grades-ligne ligne-triable${modifiable ? '' : ' verrouille'}" data-cle="${echapper(g.cle)}">
           ${modifiable ? `<button type="button" class="grades-poignee" aria-label="Déplacer « ${echapper(g.libelle)} » (flèches haut et bas)">⠿</button>` : '<span class="grades-poignee" aria-hidden="true"></span>'}
           <button type="button" class="grades-principal" data-ouvrir ${modifiable ? '' : 'disabled'}>
             <span class="grades-info">
@@ -277,8 +277,8 @@
       actualiserMatriceAgenda();
     });
 
-    // ordre : glisser-déposer (Sortable) ou flèches sur la poignée ; le serveur refuse un ordre qui toucherait un grade
-    // au-dessus du sien, la liste revient alors à l'ordre enregistré
+    // ordre : glisser-déposer ou flèches sur la poignée (triable(), gestion.js) ; le serveur refuse un ordre qui
+    // toucherait un grade au-dessus du sien, la liste revient alors à l'ordre enregistré
     async function enregistrerOrdre(ordre, focusCle) {
       try {
         grades = await socle.api('/api/grades/ordre', { method: 'PUT', body: { ordre } });
@@ -287,22 +287,9 @@
       afficher();
       if (focusCle) document.querySelector(`[data-cle="${CSS.escape(focusCle)}"] .grades-poignee`)?.focus();
     }
-    new Sortable($('liste-grades'), {
-      handle: '.grades-poignee', draggable: '.grades-ligne:not(.verrouille)', animation: 150,
-      // forceFallback : abandonne l'image de glissé native du navigateur (floue, non stylable, qui se superposait
-      // au texte du fantôme laissé dans la liste) au profit d'un clone DOM entièrement géré en CSS (grades-traine).
-      forceFallback: true, fallbackClass: 'grades-traine', dragClass: 'grades-traine', chosenClass: 'grades-choisi',
-      ghostClass: 'grades-fantome',
-      onEnd: ev => { if (ev.oldIndex !== ev.newIndex) enregistrerOrdre([...$('liste-grades').children].map(li => li.dataset.cle)); },
-    });
-    $('liste-grades').addEventListener('keydown', e => {
-      const poignee = e.target.closest('button.grades-poignee');
-      if (!poignee || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-      e.preventDefault();
-      const cle = poignee.closest('[data-cle]').dataset.cle, ordre = grades.map(g => g.cle), i = ordre.indexOf(cle), j = i + (e.key === 'ArrowUp' ? -1 : 1);
-      if (j < 0 || j >= ordre.length || !gerable(grades[j])) return;
-      [ordre[i], ordre[j]] = [ordre[j], ordre[i]];
-      enregistrerOrdre(ordre, cle);
+    triable($('liste-grades'), {
+      ligne: '.grades-ligne:not(.verrouille)', poignee: '.grades-poignee',
+      surReordre: item => enregistrerOrdre([...$('liste-grades').children].map(li => li.dataset.cle), item.dataset.cle),
     });
     $('liste-grades').addEventListener('click', e => {
       const b = e.target.closest('[data-ouvrir]');

@@ -10,7 +10,7 @@ La référence est `docs/design.md` — la seule source. Lis-le en entier à cha
 ## Avant d'écrire
 
 1. Lis `docs/design.md`, puis repère les sections qui concernent ce que tu vas toucher (menu, tableau, champ de date, contenu intégré, texte…).
-2. Regarde si le modèle a déjà l'outil qui applique la règle (`gestion/gestion.js`, `gestion/gestion.css` : `fleche()`, `tablesAdaptatives`, `gestion.confirmer`, `gestion.notifier`, `champDateFr`, `pleinEcran`, `.squelette`…) : reprends-le ou adapte-le plutôt que d'en écrire un autre.
+2. Regarde si le modèle a déjà l'outil qui applique la règle (`gestion/gestion.js`, `gestion/gestion.css` : `fleche()`, `tablesAdaptatives`, `gestion.confirmer`, `gestion.notifier`, `champDateFr`, `pleinEcran`, `triable()`, `glisserColonnes()` et `.colonnes-statut`, `.squelette`…) : reprends-le ou adapte-le plutôt que d'en écrire un autre.
 3. Les règles fixent le comportement, pas l'apparence : garde la direction artistique du site (couleurs, polices, formes, ton). Ne rapproche pas un site du modèle ou d'un autre site au nom d'une règle.
 
 ## Avant de dire que c'est fini

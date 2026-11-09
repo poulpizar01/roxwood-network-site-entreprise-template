@@ -541,6 +541,99 @@ const FLECHES = {
 };
 const fleche = sens => `<svg class="fleche" viewBox="0 0 24 24" aria-hidden="true"><path d="${FLECHES[sens]}"/></svg>`;
 
+// Liste réordonnable (glisser-déposé ou flèches sur une poignée) : un seul système pour toute la gestion (grades et
+// toute liste à ordonner), pour que le geste, les contours pendant le glissé et le clavier restent identiques. Charger
+// /gestion/vendor/Sortable.min.js avant d'appeler cette fonction. Le DOM n'est jamais redessiné ici : Sortable (ou le
+// clavier) déplace le nœud existant, rien d'autre ne change — c'est ce qui rend le geste fluide ; à l'appelant de
+// redessiner si une ligne doit changer d'apparence après coup (ex. renuméroter), jamais pendant le glissé lui-même.
+//   conteneur : élément dont les enfants sont réordonnés.
+//   ligne : sélecteur des éléments déplaçables (le même sens que « draggable » de Sortable : une ligne qui ne doit
+//     pas bouger, ex. verrouillée, s'exclut en l'écrivant ici, ex. '.grades-ligne:not(.verrouille)').
+//   poignee : sélecteur de la poignée (glisser à la souris ; flèches haut/bas au clavier une fois le focus dessus).
+//   surReordre(ligneDeplacee) : appelée après tout réordonnancement, glissé ou clavier — à l'appelant d'enregistrer
+//     le nouvel ordre (en relisant le DOM) et de rendre le focus à la poignée si besoin.
+function triable(conteneur, { ligne, poignee, surReordre }) {
+  new Sortable(conteneur, {
+    handle: poignee, draggable: ligne, animation: 150,
+    // forceFallback : abandonne l'image de glissé native du navigateur (floue, non stylable, qui se superposait au
+    // texte du fantôme laissé dans la liste) au profit d'un clone DOM entièrement géré en CSS (liste-traine).
+    // fallbackOnBody : ce clone est posé à même <body>, pas dans la liste — un ancêtre avec transform ou filtre
+    // enfermerait ce clone position:fixed (décalé, rogné par la fenêtre).
+    forceFallback: true, fallbackOnBody: true, fallbackClass: 'liste-traine', dragClass: 'liste-traine', chosenClass: 'liste-choisie',
+    ghostClass: 'liste-fantome',
+    // le clone de secours (forceFallback) ne reprend que l'attribut value d'un champ, pas la saisie en cours : sans
+    // cette resynchronisation, un point de liste édité se traînait vide ou avec son texte d'origine pendant le glissé.
+    onClone: ev => {
+      const source = ev.item.querySelectorAll('input, textarea, select'), clones = ev.clone.querySelectorAll('input, textarea, select');
+      source.forEach((champ, i) => { if (clones[i]) clones[i].value = champ.value; });
+    },
+    onEnd: ev => { if (ev.oldIndex !== ev.newIndex) surReordre?.(ev.item); },
+  });
+  conteneur.addEventListener('keydown', e => {
+    const p = e.target.closest(poignee);
+    if (!p || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+    const item = p.closest(ligne), items = [...conteneur.querySelectorAll(ligne)];
+    const i = items.indexOf(item), j = i + (e.key === 'ArrowUp' ? -1 : 1);
+    if (i < 0 || j < 0 || j >= items.length) return;
+    e.preventDefault();
+    conteneur.insertBefore(item, e.key === 'ArrowUp' ? items[j] : items[j].nextSibling);
+    p.focus();
+    surReordre?.(item);
+  });
+}
+
+// Tableau en colonnes par statut (une carte par élément : candidatures, demandes à modérer…), glisser-déposé d'une
+// colonne à l'autre : un seul composant, JS (ici) et CSS (.colonnes-statut, gestion.css), pour que le geste et
+// l'affichage restent identiques d'un écran à l'autre. Charger /gestion/vendor/Sortable.min.js avant d'appeler cette
+// fonction. Chaque appelant reconstruit ses colonnes par innerHTML : les instances de l'appel précédent (même
+// sélecteur) sont détruites ici. Seule la colonne d'arrivée compte (l'ordre dans une colonne vient des données, ex. la
+// date) : pas de réordonnancement, qui faisait sauter les cartes et perdre le survol (Sortable ignore une carte en
+// cours d'animation).
+//   conteneur : sélecteur de la grille ; chaque colonne y porte `[data-statut]` et contient ses cartes.
+//   carte : sélecteur des cartes.
+//   filtreDepart : sélecteur (dans une carte) qui ne lance pas de glissé — un bouton posé sur la carte reste un clic.
+//   transitions : { statutDepart: [statutsArrivée…] } — seules ces colonnes s'éclairent et acceptent la carte
+//     (une colonne qui s'éclaire puis renvoie la carte promet un dépôt qui n'a pas lieu).
+//   surDepot(carte, deStatut, versStatut) : après un dépôt dans une autre colonne ; à l'appelant de faire l'appel
+//     serveur puis de recharger (ce qui remet la carte à sa vraie place si l'action est annulée ou échoue).
+const GLISSEURS_COLONNES = new Map();
+function glisserColonnes(conteneur, { carte, filtreDepart, transitions, surDepot }) {
+  (GLISSEURS_COLONNES.get(conteneur) || []).forEach(s => s.destroy());
+  const colonnes = [...document.querySelectorAll(`${conteneur} [data-statut]`)];
+  const instances = colonnes.map(colonne => {
+    const sorties = transitions[colonne.dataset.statut] || [];
+    colonne.classList.toggle('colonne-tirable', sorties.length > 0);
+    return new Sortable(colonne, {
+      draggable: carte, filter: filtreDepart, preventOnFilter: false, sort: false, animation: 150,
+      group: { name: conteneur, pull: sorties.length > 0, put: (vers, de) => (transitions[de.el.dataset.statut] || []).includes(vers.el.dataset.statut) },
+      // seuil avant de lancer un glissé (3 à 5 px conseillés par Sortable) : sans lui, un clic qui tremble à peine
+      // devenait un glissé. Tactile : appui long, sinon poser le doigt sur une carte empêchait de faire défiler la page.
+      fallbackTolerance: 4, delay: 200, delayOnTouchOnly: true, touchStartThreshold: 4,
+      // clone DOM stylé en CSS (pas l'image native, floue), posé à même <body> pour suivre la souris d'une colonne à
+      // l'autre ; mêmes classes que triable(), précisées pour les cartes dans gestion.css (.colonnes-statut).
+      forceFallback: true, fallbackOnBody: true, fallbackClass: 'liste-traine', dragClass: 'liste-traine', chosenClass: 'liste-choisie', ghostClass: 'liste-fantome',
+      // relâchée hors de toute colonne : la carte revient à sa place (sinon elle tombait dans la dernière survolée)
+      revertOnSpill: true,
+      // une fois la carte dans une autre colonne, elle n'y bouge plus d'une carte à l'autre (sort: false ne vaut que
+      // pour la colonne de départ)
+      onMove: ev => ev.dragged.parentNode !== ev.to,
+      // colonne de départ marquée : elle ne s'éclaire pas quand la carte y revient (rien ne se passerait).
+      // Hauteurs figées pendant le glissé : les colonnes prennent celle de la plus remplie ; quand la carte la
+      // quittait, toutes rétrécissaient sous le pointeur, qui se retrouvait hors de la colonne visée.
+      onStart: ev => {
+        ev.from.classList.add('colonne-origine');
+        colonnes.forEach(c => { c.style.minHeight = `${c.offsetHeight}px`; });
+      },
+      onEnd: ev => {
+        ev.from.classList.remove('colonne-origine');
+        colonnes.forEach(c => { c.style.minHeight = ''; });
+        if (ev.from !== ev.to) surDepot(ev.item, ev.from.dataset.statut, ev.to.dataset.statut);
+      },
+    });
+  });
+  GLISSEURS_COLONNES.set(conteneur, instances);
+}
+
 // Plein écran d'un contenu intégré (carte, présentation), sur place : le contenu principal ne s'ouvre jamais dans un
 // autre onglet. Bouton masqué si le navigateur ne le permet pas (certains navigateurs en jeu).
 function pleinEcran(bouton, boite) {
