@@ -66,7 +66,7 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
 - **Une flèche ou un chevron est dessiné (SVG), jamais un caractère** (« ← », « → », « ↗ », « ‹ », « › », « ↑ », « ⌄ »). Un caractère se pose sur la ligne de base et paraît trop bas, surtout à côté de majuscules. Outil : `fleche('gauche' | 'droite' | 'sortie' | 'precedent' | 'suivant' | 'haut' | 'bas')` et `svg.fleche` (`gestion.js`, `gestion.css`). Exception : une flèche dans une phrase (« Paramètres → Liens »), qui se lit comme un mot.
   Vu : à une vingtaine d'endroits — boutons de retour, flèches de photos, tri, fil d'Ariane, menus déroulants.
 - **Le chevron d'un sélecteur est dessiné et centré verticalement**, à distance du bord ; son ouverture ne dépasse jamais de l'écran (s'ouvrir vers le haut près du bas de la fenêtre).
-- **Un bouton nomme l'action** (« Supprimer le grade »), il n'est rouge que si l'action détruit ; un groupe de boutons reste sur une ligne tant que la place le permet.
+- **Un bouton nomme l'action** (« Supprimer le grade »), il n'est rouge que si l'action détruit — sauf « Annuler », toujours rouge, repère constant pour sortir d'une fiche ou d'une fenêtre sans enregistrer ; un groupe de boutons reste sur une ligne tant que la place le permet.
   Vu : « Refuser » qui passait sous « Valider » sans raison de place.
 - **Chaque lien fait ce qu'il promet.** Deux liens vers la même page dans le même bloc font croire à deux actions différentes : le second doit faire autre chose (« Ajouter un rendez-vous » ouvre directement le formulaire, `agenda.html?nouveau=1`) ou disparaître.
 - **Un champ qui ressemble à un champ désactivé ou surligné trompe** : un champ modifiable a l'apparence de tous les autres ; un champ en lecture seule n'a pas l'air d'un champ.

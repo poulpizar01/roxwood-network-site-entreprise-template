@@ -11,7 +11,12 @@ import type { Prisma } from '../generated/prisma/client.js';
 // domaine : titre sous lequel la page Grades range la permission (« Ressources humaines »…) ; sans domaine : « Autres ».
 // Dans un domaine, l'ordre de déclaration est l'ordre affiché : consulter, puis créer et modifier, puis retirer, puis
 // régler (l'ordre dans lequel on accorde des droits). Le libellé se comprend seul, sans répéter le domaine.
-export type Permission = { cle: string; libelle: string; description?: string; domaine?: string };
+// requiert : clés d'autres permissions sans lesquelles celle-ci n'a pas de sens (ex. « modifier » suppose « voir »).
+// La page Grades les coche automatiquement ; le serveur les ajoute aussi d'office à l'enregistrement d'un grade
+// (socle/droits.ts, completerPermissions) : impossible d'accorder l'une sans les autres.
+// sensible : donne accès à des informations ou des réglages qu'on n'étend pas à la légère (données personnelles,
+// comptes, grades…) : la page Grades le signale par un badge, rien de plus (le serveur ne s'en sert pas).
+export type Permission = { cle: string; libelle: string; description?: string; domaine?: string; requiert?: string[]; sensible?: boolean };
 
 // Niveau d'accès d'une page de gestion/ : 'public' (sans connexion), 'connecte' (compte même en attente),
 // 'valide' (compte validé), ou une clé de permission. Une page non déclarée exige un compte validé.

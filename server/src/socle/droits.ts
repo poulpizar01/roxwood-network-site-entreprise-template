@@ -12,10 +12,10 @@ import { permissions as permissionsEntreprise } from '../entreprise/permissions.
 import { fail } from './config.js';
 
 export const PERMISSIONS_SOCLE: Permission[] = [
-  { cle: 'comptes', domaine: 'Équipe et site', libelle: 'Gérer les comptes', description: 'Valider ou refuser les demandes, attribuer un grade, supprimer un compte (sous son propre grade)' },
-  { cle: 'grades', domaine: 'Équipe et site', libelle: 'Gérer les grades', description: 'Créer, ordonner, modifier les grades et leurs permissions (sous son propre grade)' },
-  { cle: 'parametres', domaine: 'Équipe et site', libelle: 'Paramétrer le site', description: 'Régler les liens et réglages du site (page Paramètres)' },
-  { cle: 'webhooks', domaine: 'Équipe et site', libelle: 'Gérer les webhooks', description: 'Configurer les abonnements du bot Discord (clés), et consulter les événements reçus pour diagnostiquer un échec' },
+  { cle: 'comptes', domaine: 'Équipe et site', libelle: 'Gérer les comptes', description: 'Valider ou refuser les demandes, attribuer un grade, supprimer un compte (sous son propre grade)', sensible: true },
+  { cle: 'grades', domaine: 'Équipe et site', libelle: 'Gérer les grades', description: 'Créer, ordonner, modifier les grades et leurs permissions (sous son propre grade)', sensible: true },
+  { cle: 'parametres', domaine: 'Équipe et site', libelle: 'Paramétrer le site', description: 'Régler les liens et réglages du site (page Paramètres)', sensible: true },
+  { cle: 'webhooks', domaine: 'Équipe et site', libelle: 'Gérer les webhooks', description: 'Configurer les abonnements du bot Discord (clés), et consulter les événements reçus pour diagnostiquer un échec', sensible: true },
 ];
 
 // permissions de l'entreprise contrôlées au démarrage : une faute de frappe se voit tout de suite, pas à la première requête
@@ -27,6 +27,26 @@ const cles = permissions.map(p => p.cle);
 const doublon = cles.find((c, i) => cles.indexOf(c) !== i);
 if (doublon) fail(`entreprise/permissions.ts : permission « ${doublon} » déclarée deux fois (ou réservée au socle)`);
 export const CLES_PERMISSIONS = new Set(cles);
+
+const parCle = new Map(permissions.map(p => [p.cle, p]));
+for (const p of permissions) for (const r of p.requiert ?? [])
+  if (!parCle.has(r)) fail(`entreprise/permissions.ts : permission « ${p.cle} » exige « ${r} », introuvable`);
+
+// permissions requises par une permission, en cascade (si « a » exige « b » et « b » exige « c », « a » exige aussi « c »)
+function dependances(cle: string): Set<string> {
+  const vues = new Set<string>(), aTraiter = [cle];
+  while (aTraiter.length) {
+    for (const r of parCle.get(aTraiter.pop()!)?.requiert ?? []) if (!vues.has(r)) { vues.add(r); aTraiter.push(r); }
+  }
+  return vues;
+}
+// liste de permissions complétée par ce qu'elles exigent (enregistrement d'un grade : cocher une permission coche
+// aussi celles qu'elle suppose, même si l'interface a été contournée). Clés inconnues filtrées.
+export function completerPermissions(perms: readonly string[]): string[] {
+  const s = new Set(perms);
+  for (const p of perms) for (const r of dependances(p)) s.add(r);
+  return [...s].filter(p => CLES_PERMISSIONS.has(p));
+}
 
 let grades: Grade[] = [];   // du sommet à la base
 

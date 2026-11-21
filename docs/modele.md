@@ -21,7 +21,7 @@ Ce que le socle apporte, prêt à l'emploi :
 - **Exploitation** : Docker (site, base, sauvegardes quotidiennes), nginx + HTTPS, plusieurs sites sur un même VPS, contrôle de santé, arrêt propre ;
 - **Règles et outils** pour Claude Code : [CLAUDE.md](../CLAUDE.md), commande `/audit`.
 
-Et un **point de départ** côté entreprise, à transformer : une vitrine sobre, une gestion avec connexion, accueil, mon compte, comptes, grades, un agenda complet (événements personnels, d’équipe et par grade, types et droits exacts dans la fiche des grades).
+Et un **point de départ** côté entreprise, à transformer : une vitrine sobre, une gestion avec connexion, accueil, mon compte, comptes, grades, un agenda complet (événements personnels, d’équipe et par grade, types et droits exacts dans la fiche des grades), et un exemple complet de modules métier (RH, sanctions, prises de service, quota, factures, échéanciers, DOT, paie, contrats) — détail de cet exemple dans [ENTREPRISE.md](../ENTREPRISE.md).
 
 En bas de chaque vitrine : la signature **« Développé par Roxwood Network »** (à garder, style dans `socle/signature.css`).
 
