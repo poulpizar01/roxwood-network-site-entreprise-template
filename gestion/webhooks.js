@@ -135,16 +135,18 @@ function rendreFormulaireCle(a) {
       <li><div><strong>Collez la clé secrète affichée par le bot</strong>
         <div class="champ webhooks-cle" style="margin-bottom:0;">
           <input type="password" id="abonnement-cle" autocomplete="off" maxlength="64" aria-describedby="abonnement-cle-aide" aria-label="Clé secrète">
-          <button type="button" class="btn btn-fantome btn-petit" id="bouton-voir-cle" aria-label="Afficher la clé">
+          <button type="button" id="bouton-voir-cle" aria-label="Afficher la clé">
             <svg class="ico" aria-hidden="true"><use href="#ico-eye"></use></svg></button>
         </div>
         <p class="champ-aide" id="abonnement-cle-aide">64 caractères hexadécimaux.</p>
       </div></li>
     </ol>
-    ${existant ? `<fieldset class="champ">
+    ${existant ? `<fieldset class="contrat-choix">
       <legend>Que devient l’ancienne clé ?</legend>
-      <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><input type="radio" name="expiration-ancienne" value="24h" style="width:auto;min-height:0;" checked> Encore valable 24 h</label>
-      <label style="display:flex;align-items:center;gap:8px;"><input type="radio" name="expiration-ancienne" value="immediate" style="width:auto;min-height:0;"> Coupée tout de suite</label>
+      <div class="contrat-choix-options contrat-choix-options--colonne">
+        <label class="contrat-option"><input type="radio" name="expiration-ancienne" value="24h" checked><span><strong>Encore valable 24 h</strong><small>Changement prévu : le temps de retirer l’ancien abonnement dans le bot.</small></span></label>
+        <label class="contrat-option"><input type="radio" name="expiration-ancienne" value="immediate"><span><strong>Coupée tout de suite</strong><small>La clé a pu être vue par quelqu’un d’autre.</small></span></label>
+      </div>
     </fieldset>` : ''}
     <p class="champ-aide">Discord vous demandera de confirmer votre identité avant l’enregistrement.</p>
     <div id="zone-message-tiroir-abonnement"></div>`;
@@ -156,7 +158,7 @@ function ouvrirTiroirConfigurer(type) {
   $t('tiroir-abonnement-titre').textContent = a.etat === 'non_configure' ? `Configurer : ${a.libelle}` : `Remplacer la clé : ${a.libelle}`;
   $t('tiroir-abonnement-sous-titre').textContent = a.type;
   $t('tiroir-abonnement-corps').innerHTML = rendreFormulaireCle(a);
-  $t('tiroir-abonnement-pied').innerHTML = `<button type="button" class="btn btn-fantome" id="annuler-abonnement">Annuler</button>
+  $t('tiroir-abonnement-pied').innerHTML = `<button type="button" class="btn btn-danger" id="annuler-abonnement">Annuler</button>
     <span class="tiroir-pied-espace"></span>
     <button type="button" class="btn btn-or" id="enregistrer-abonnement" data-type="${echapper(a.type)}">${a.etat === 'non_configure' ? 'Enregistrer' : 'Remplacer la clé'}</button>`;
   $t('bouton-voir-cle').addEventListener('click', () => {
