@@ -46,7 +46,7 @@ function menuAbonnement(a) {
     `<button type="button" role="menuitem" data-action="remplacer">${gestion.ico('key')} Remplacer la clé</button>`,
     `<button type="button" role="menuitem" data-action="historique">${gestion.ico('clock')} Historique de la clé</button>`,
     `<button type="button" role="menuitem" data-action="voir-evenements">${gestion.ico('sync')} Voir les événements reçus</button>`,
-    `<button type="button" role="menuitem" class="danger" data-action="retirer">${gestion.ico('trash')} Retirer l’abonnement</button>`,
+    `<button type="button" role="menuitem" class="webhooks-retirer" data-action="retirer">${gestion.ico('trash')} Retirer l’abonnement</button>`,
   ].join('');
   return `<div class="comptes-menu">
     <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(a.libelle)}">${gestion.ico('points')}</button>
