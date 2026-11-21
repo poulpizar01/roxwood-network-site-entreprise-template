@@ -689,9 +689,10 @@ label, .eyebrow-label {
 
 /* ---- badges de statut (point + libellé) ---- */
 .puce { font-size: var(--fs-1); letter-spacing: 0.12em; font-weight: 500; padding: 0 10px; height: 24px; }
-.puce-ok::before, .puce-off::before, .puce-or::before, .puce-masquee::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.puce-ok::before, .puce-off::before, .puce-or::before, .puce-masquee::before, .puce-alerte::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .puce-ok { color: var(--ok); background: var(--ok-soft); }
 .puce-masquee { background: var(--bg3); color: var(--text-faint); }
+.puce-alerte { color: var(--alerte); background: var(--alerte-soft); }
 
 /* ---- vue grille : cartes photo ---- */
 .grille-admin-biens { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 18px; }

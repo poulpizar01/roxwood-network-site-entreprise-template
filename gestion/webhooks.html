@@ -9,36 +9,59 @@
   <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/gestion/gestion.css">
+  <link rel="stylesheet" href="/gestion/webhooks.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
   <title>Webhooks — {{nom}}</title>
 </head>
 <body class="page-agents">
-  <!-- GESTION — webhooks reçus du bot Discord (permission « webhooks », serveur : socle/routes/webhooks-journal.ts).
-       Le contenu d'un événement traité avec succès est effacé à la réception (socle/routes/webhooks.ts) : seuls
-       ceux en échec gardent leur payload, le temps du diagnostic. -->
+  <!-- GESTION — webhooks (permission « webhooks », serveur : socle/routes/webhooks-abonnements.ts et
+       socle/routes/webhooks-journal.ts). Deux onglets : Abonnements (une clé par type d'événement, chiffrée en
+       base) et Événements reçus (journal, pour diagnostiquer un traitement en échec — contenu inchangé). -->
   <main class="admin-contenu">
     <div class="entete-admin">
       <div>
         <h1 style="margin-bottom:2px;">Webhooks</h1>
-        <p style="margin:0;font-size:var(--fs-3);">Événements reçus du bot Discord, pour diagnostiquer un traitement en échec.</p>
+        <p style="margin:0;font-size:var(--fs-3);">Abonnements du bot Discord et événements reçus.</p>
       </div>
     </div>
     <div id="zone-message" role="status"></div>
 
-    <div class="comptes-outils filtres-select">
-      <select id="filtre-type" aria-label="Filtrer par type"></select>
-      <select id="filtre-traite" aria-label="Filtrer par état"></select>
+    <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques des webhooks">
+      <button type="button" class="compta-sous-onglet actif" role="tab" id="onglet-abonnements" aria-selected="true" aria-controls="panneau-abonnements" data-webhooks-onglet="abonnements">
+        <svg class="ico" aria-hidden="true"><use href="#ico-key"></use></svg> Abonnements</button>
+      <button type="button" class="compta-sous-onglet" role="tab" id="onglet-journal" aria-selected="false" aria-controls="panneau-journal" data-webhooks-onglet="journal">
+        <svg class="ico" aria-hidden="true"><use href="#ico-sync"></use></svg> Événements reçus</button>
     </div>
-    <div class="carte-table">
-      <table class="table-admin" id="table-webhooks">
-        <thead><tr id="entete-webhooks"></tr></thead>
-        <tbody id="corps-table-webhooks"></tbody>
-      </table>
-    </div>
+
+    <section id="panneau-abonnements" role="tabpanel" aria-labelledby="onglet-abonnements">
+      <div class="webhooks-adresse">
+        <span>Adresse à donner au bot</span>
+        <code id="adresse-bot">{{url}}/webhooks/bot</code>
+        <button type="button" class="btn btn-fantome btn-petit" id="bouton-copier-adresse">
+          <svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier l’adresse</button>
+      </div>
+      <div class="comptes-liste webhooks-liste">
+        <div class="comptes-entete"><span>Événement</span><span>État</span><span>Dernier événement reçu</span><span></span></div>
+        <div id="liste-abonnements" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section id="panneau-journal" role="tabpanel" aria-labelledby="onglet-journal" class="cache">
+      <div class="comptes-outils filtres-select">
+        <select id="filtre-type" aria-label="Filtrer par type"></select>
+        <select id="filtre-traite" aria-label="Filtrer par état"></select>
+      </div>
+      <div class="carte-table">
+        <table class="table-admin" id="table-webhooks">
+          <thead><tr id="entete-webhooks"></tr></thead>
+          <tbody id="corps-table-webhooks"></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
-<!-- Détail d'un événement : tiroir à droite (plein écran sur téléphone). -->
+<!-- Détail d'un événement reçu : tiroir à droite (plein écran sur téléphone) — inchangé. -->
 <div class="modale-fond tiroir-fond cache" id="tiroir-webhook" data-echap>
   <div class="tiroir" role="dialog" aria-modal="true" aria-labelledby="tiroir-webhook-titre">
     <div class="tiroir-entete">
@@ -52,84 +75,21 @@
   </div>
 </div>
 
-  <script>
-    let WEBHOOKS = [];
-    const dateHeure = d => new Date(d).toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'medium' });
+<!-- Configurer / remplacer la clé d'un abonnement, ou consulter son historique : même tiroir, deux contenus. -->
+<div class="modale-fond tiroir-fond cache" id="tiroir-abonnement" data-echap>
+  <div class="tiroir" role="dialog" aria-modal="true" aria-labelledby="tiroir-abonnement-titre">
+    <div class="tiroir-entete">
+      <div class="tiroir-identite">
+        <h2 id="tiroir-abonnement-titre"></h2>
+        <p class="tiroir-sous-titre" id="tiroir-abonnement-sous-titre"></p>
+      </div>
+      <button type="button" id="fermer-tiroir-abonnement" aria-label="Fermer">✕</button>
+    </div>
+    <div class="tiroir-corps" id="tiroir-abonnement-corps"></div>
+    <div class="tiroir-pied" id="tiroir-abonnement-pied"></div>
+  </div>
+</div>
 
-    // tri des colonnes (en-tête cliquable, gestion.js) : état de tri posé une fois, réappliqué à chaque chargement
-    const TRI_WEBHOOKS = gestion.tableauTriable('table-webhooks', {
-      type: (a, b) => a.type.localeCompare(b.type, 'fr', { sensitivity: 'base' }),
-      recuLe: (a, b) => new Date(a.recuLe) - new Date(b.recuLe),
-      traite: (a, b) => Number(a.traite) - Number(b.traite),
-    }, () => { majEntete(); afficher(); }, { cle: 'recuLe', sens: -1 });
-    function majEntete() {
-      document.getElementById('entete-webhooks').innerHTML =
-        `<th>${TRI_WEBHOOKS.bouton('type', 'Type')}</th><th>${TRI_WEBHOOKS.bouton('recuLe', 'Date')}</th><th>${TRI_WEBHOOKS.bouton('traite', 'État')}</th>`;
-    }
-    majEntete();
-
-    function ligneWebhook(w) {
-      return `<tr>
-        <td class="cellule-titre"><button type="button" class="table-lien" data-ouvrir-webhook="${w.id}">${echapper(w.type)}</button></td>
-        <td>${dateHeure(w.recuLe)}</td>
-        <td><span class="puce ${w.traite ? 'puce-ok' : 'puce-off'}">${w.traite ? 'Traité' : 'En échec'}</span></td>
-      </tr>`;
-    }
-    function afficher() {
-      const triees = TRI_WEBHOOKS.appliquer(WEBHOOKS);
-      document.getElementById('corps-table-webhooks').innerHTML = triees.length
-        ? triees.map(ligneWebhook).join('')
-        : '<tr><td colspan="3"><p class="comptes-vide">Aucun webhook pour ces critères.</p></td></tr>';
-    }
-    async function charger() {
-      document.getElementById('zone-message').textContent = '';
-      try {
-        const params = new URLSearchParams();
-        const type = document.getElementById('filtre-type').value;
-        const traite = document.getElementById('filtre-traite').value;
-        if (type) params.set('type', type);
-        if (traite) params.set('traite', traite);
-        const r = await socle.api(`/api/webhooks${params.toString() ? `?${params}` : ''}`);
-        WEBHOOKS = r.webhooks || [];
-        // types vus, pour peupler le filtre sans dépendre de ce que le bot envoie en ce moment
-        const types = [...new Set(WEBHOOKS.map(w => w.type))].sort();
-        remplirSelect('filtre-type', types.map(t => ({ valeur: t, libelle: t })), { placeholder: 'Tous les types' });
-        majEntete();
-        afficher();
-      } catch (e) { gestion.message('zone-message', `Impossible de charger les webhooks : ${e.message}`); }
-    }
-    remplirSelect('filtre-type', [], { placeholder: 'Tous les types' });   // reconstruit avec les vrais types au chargement
-    remplirSelect('filtre-traite', [
-      { valeur: 'non', libelle: 'En échec (non traités)' },
-      { valeur: 'oui', libelle: 'Traités' },
-    ], { placeholder: 'Tous' });
-    document.getElementById('filtre-type').addEventListener('change', charger);
-    document.getElementById('filtre-traite').addEventListener('change', charger);
-
-    // ---- détail (tiroir) ----
-    let OUVREUR_TIROIR = null;
-    document.getElementById('corps-table-webhooks').addEventListener('click', e => {
-      const b = e.target.closest('[data-ouvrir-webhook]');
-      if (!b) return;
-      const w = WEBHOOKS.find(x => x.id === Number(b.dataset.ouvrirWebhook));
-      if (!w) return;
-      OUVREUR_TIROIR = document.activeElement;
-      document.getElementById('tiroir-webhook-titre').textContent = w.type;
-      document.getElementById('tiroir-webhook-sous-titre').innerHTML = `<span>${dateHeure(w.recuLe)}</span><span class="puce ${w.traite ? 'puce-ok' : 'puce-off'}">${w.traite ? 'Traité' : 'En échec'}</span>`;
-      const contenu = w.contenu && Object.keys(w.contenu).length ? JSON.stringify(w.contenu, null, 2) : 'Contenu effacé (événement traité avec succès).';
-      document.getElementById('tiroir-webhook-corps').innerHTML = `<pre class="webhook-contenu">${echapper(contenu)}</pre>`;
-      document.getElementById('tiroir-webhook').classList.remove('cache');
-      document.getElementById('tiroir-webhook-corps').scrollTop = 0;
-      document.getElementById('fermer-tiroir-webhook').focus();
-    });
-    const fermerTiroir = () => {
-      document.getElementById('tiroir-webhook').classList.add('cache');
-      if (OUVREUR_TIROIR?.isConnected) OUVREUR_TIROIR.focus();
-    };
-    document.getElementById('fermer-tiroir-webhook').addEventListener('click', fermerTiroir);
-    document.getElementById('tiroir-webhook').addEventListener('click', e => { if (e.target.id === 'tiroir-webhook') fermerTiroir(); });
-
-    gestion.coque('webhooks').then(charger);
-  </script>
+  <script src="/gestion/webhooks.js"></script>
 </body>
 </html>
