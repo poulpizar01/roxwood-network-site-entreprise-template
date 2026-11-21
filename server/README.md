@@ -30,6 +30,9 @@ sudo ufw allow OpenSSH && sudo ufw allow 'Nginx Full' && sudo ufw enable
 git clone -b main <depot> <SITE_ID> && cd <SITE_ID>
 cp .env.example .env && chmod 600 .env
 mkdir -m 700 backups                        # sauvegardes de la base : lisibles par vous seul
+# clé maîtresse de chiffrement des clés d'abonnement webhook (secret Docker, jamais régénérée ensuite) : une seule
+# fois, avant le premier démarrage — sans elle, docker compose refuse de démarrer le service app
+mkdir -p secrets && umask 077 && openssl rand -hex 32 > secrets/cle-maitresse
 nano .env                                   # remplir : tout est expliqué dans le fichier
 docker compose up -d --build
 ```
@@ -73,6 +76,7 @@ Le domaine n'est écrit nulle part dans les fichiers : `robots.txt`, `sitemap.xm
 
 ### Au quotidien (dans le dossier du site)
 - Mise à jour après un push sur `main` : `git pull && docker compose up -d --build` (les nouvelles migrations sont appliquées au démarrage), puis `docker image prune -f` pour effacer les anciennes images.
+- Site déjà en place qui met à jour depuis une version antérieure aux abonnements webhook par clé chiffrée (ce paragraphe) : créer `secrets/cle-maitresse` **avant** ce `docker compose up` (sans elle, `app` ne démarre plus, voir « Installer le site » ci-dessus) ; `BOT_WEBHOOK_SECRETS` dans `.env` n'est plus lu (avertissement au démarrage tant qu'il reste) — à retirer du `.env`, après avoir reconfiguré chaque abonnement depuis Webhooks → Abonnements dans la gestion (les clés du bot n'ont pas changé, seulement leur enregistrement côté site).
 - Changer la configuration : modifier `.env`, puis `docker compose up -d`.
 - Logs : `docker logs -f <SITE_ID>-app` (limités à 3 × 10 Mo par service, voir `compose.yaml`).
 - Mémoire et processeur : chaque conteneur a un plafond (site 512 Mo et 1 processeur, base 256 Mo et 1 processeur, sauvegardes 128 Mo). `docker stats` montre la consommation réelle ; pour les ajuster, décommenter `APP_MEMORY`, `DB_MEMORY`… dans `.env`, puis `docker compose up -d`.

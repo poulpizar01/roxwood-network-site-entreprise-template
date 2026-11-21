@@ -52,6 +52,10 @@ services:
         condition: service_healthy
       db-roles:
         condition: service_completed_successfully
+    # clé maîtresse de chiffrement des clés d'abonnement webhook (socle/webhooks-cle.ts) : donnée SEULEMENT à ce
+    # service (jamais db, db-roles, backup) ; fichier local, jamais commité (voir .gitignore et server/README.md)
+    secrets:
+      - cle_maitresse
   db:
     container_name: ${SITE_ID:-site}-db
     mem_limit: ${DB_MEMORY:-256m}
@@ -165,3 +169,9 @@ services:
         done
 volumes:
   db:
+secrets:
+  # à créer une seule fois, avant le premier `docker compose up` (dev comme prod) : mkdir -p secrets && umask 077 &&
+  # openssl rand -hex 32 > secrets/cle-maitresse (voir server/README.md). Jamais régénérée : les clés déjà
+  # enregistrées deviendraient illisibles.
+  cle_maitresse:
+    file: ./secrets/cle-maitresse

@@ -3,18 +3,21 @@
 Le bot [roxwood-network-entreprise](https://github.com/poulpizar01/roxwood-network-entreprise) (sur-couche Discord de Ticket Tool : commandes, recrutement, absences, monitoring FiveM) **pousse** des événements vers les sites qui s'y abonnent. Le site ne l'appelle jamais : il reçoit, vérifie, enregistre et confie l'événement au code de l'entreprise.
 
 ## Mise en place
-1. Sur Discord, panneau **« Monitoring »** du bot → **Ajouter un webhook** : choisir le type d'événement, URL `https://<domaine>/webhooks/bot`.
-2. Le bot affiche le **secret** de l'abonnement **une seule fois** : le copier dans `BOT_WEBHOOK_SECRETS` du `.env` (plusieurs abonnements : secrets séparés par des virgules), puis `docker compose up -d`.
-3. Dans `server/src/entreprise/index.ts`, déclarer le traitement de chaque type reçu dans `webhooks`.
+1. Déclarer le type dans `server/src/entreprise/index.ts` (`entreprise.webhooks`), avec `libelle`, `description` et `traiter` (voir plus bas) : ce qui le fait apparaître dans l'onglet **Abonnements** de `gestion/webhooks.html`.
+2. Sur Discord, panneau **« Monitoring »** du bot → **Ajouter un webhook** : choisir ce type d'événement, URL `https://<domaine>/webhooks/bot` (affichée, avec bouton copier, en tête de l'onglet Abonnements).
+3. Le bot affiche le **secret** de l'abonnement **une seule fois** : le coller dans la gestion, onglet Abonnements → ligne du type → **Configurer** (ou **Remplacer la clé** pour un abonnement déjà relié). Discord demande de confirmer l'identité (connexion de moins de 5 min) avant d'enregistrer.
 
-Les journaux du site disent au démarrage combien d'abonnements sont configurés. `BOT_WEBHOOK_SECRETS` vide : la route répond `503`.
+Chaque type a sa **propre clé**, chiffrée en base (AES-256-GCM, `server/src/socle/webhooks-cle.ts`) avec une clé maîtresse qui vient d'un secret Docker (`secrets/cle-maitresse`, à créer une fois — voir `server/README.md`, jamais dans le dépôt ni dans les sauvegardes) : la clé d'un type n'est jamais acceptée pour l'événement d'un autre type. Remplacer une clé déjà en place propose de garder l'ancienne valable 24 h (reprise en cours côté bot) ou de la couper tout de suite. Historique (qui, quand, quelle empreinte — jamais la clé elle-même) dans l'onglet Abonnements → menu de la ligne → **Historique de la clé**.
+
+La permission qui donne accès à cette page (`webhooks`) est déclarée par le **socle** (comme `comptes` ou `grades`), pas par le site : elle existe pour tous les sites entreprise.
 
 ## Ce que fait le socle (`server/src/socle/routes/webhooks.ts`)
-1. **Signature** : en-tête `X-Signature-256` = HMAC-SHA256 du **corps brut** (hexadécimal), comparé en temps constant à chacun des secrets. Absent ou faux : `401`.
-2. **Forme** : JSON `{ guildId, eventType, payload, sentAt }` ; sinon `400`.
+1. **Forme** : JSON `{ guildId, eventType, payload, sentAt }` ; sinon `400`.
+2. **Fraîcheur** : `sentAt` doit dater de 4 h au plus (tolérance de 5 min dans le futur, pour un léger décalage d'horloge) ; sinon `400`. Un envoi trop ancien n'est jamais traité.
 3. **Serveur Discord** : `guildId` doit être `DISCORD_GUILD_ID` (`403` sinon).
-4. **Une seule fois** : l'empreinte SHA-256 du corps est enregistrée (table `webhooks_recus`, 30 jours ; le corps de l'événement n'y reste que tant que son traitement échoue). Une nouvelle livraison du même corps — le bot réessaie après un échec réseau, un `5xx` ou un `429` — répond `200` sans retraiter.
-5. **Traitement** : `entreprise.webhooks[eventType](événement)`. Réussi : `200`, l'événement est marqué traité. Erreur levée : `500`, l'événement reste non traité et le bot réessaie (1, 2, 4… jusqu'à 30 min, 10 essais). Type sans traitement : `200`, rien d'autre.
+4. **Signature** : en-tête `X-Signature-256` = HMAC-SHA256 du **corps brut** (hexadécimal), comparé en temps constant à la clé de l'abonnement du type reçu (et à l'ancienne clé si son délai de grâce de 24 h n'est pas passé). Absent, faux, ou type sans abonnement configuré : `401`.
+5. **Une seule fois** : l'empreinte SHA-256 du corps est enregistrée (table `webhooks_recus`, 30 jours ; le corps de l'événement n'y reste que tant que son traitement échoue). Une nouvelle livraison du même corps — le bot réessaie après un échec réseau, un `5xx` ou un `429` — répond `200` sans retraiter.
+6. **Traitement** : `entreprise.webhooks[eventType].traiter(événement)`. Réussi : `200`, l'événement est marqué traité. Erreur levée : `500`, l'événement reste non traité et le bot réessaie (1, 2, 4… jusqu'à 30 min, 10 essais). Type sans abonnement configuré : rejeté à l'étape signature, avant d'atteindre `traiter`.
 
 Le site ne renvoie jamais de donnée sur cette route : elle sert à recevoir, pas à lire.
 
@@ -33,10 +36,14 @@ La forme exacte de chaque `payload` est celle du code du bot (`src/services/*Ser
 ```ts
 // server/src/entreprise/index.ts
 webhooks: {
-  'order.updated': async e => {
-    const p = e.payload as { orderId?: string; total?: number; status?: string };
-    if (typeof p.orderId !== 'string') return;               // forme inattendue : ignorer, ne pas planter
-    await prisma.commande.upsert({ where: { idBot: p.orderId }, create: { … }, update: { … } });
+  'order.updated': {
+    libelle: 'Commandes',
+    description: 'Commande validée côté client, puis chaque (re)génération de facture',
+    traiter: async e => {
+      const p = e.payload as { orderId?: string; total?: number; status?: string };
+      if (typeof p.orderId !== 'string') return;             // forme inattendue : ignorer, ne pas planter
+      await prisma.commande.upsert({ where: { idBot: p.orderId }, create: { … }, update: { … } });
+    },
   },
 },
 ```
@@ -48,9 +55,11 @@ webhooks: {
 ## Tester en local
 Le bot ne peut pas joindre `http://localhost`. Simuler un envoi signé :
 ```bash
-# dans .env de dev : BOT_WEBHOOK_SECRETS=secret-de-test-local, puis docker compose up -d
-corps='{"guildId":"","eventType":"absence.updated","payload":{"requesterId":"dev-local","startDate":"2026-10-04T00:00:00Z","endDate":"2026-10-06T00:00:00Z","status":"ACCEPTED"},"sentAt":"2026-10-04T12:00:00Z"}'
-sig=$(printf '%s' "$corps" | openssl dgst -sha256 -hmac 'secret-de-test-local' -hex | sed 's/^.* //')
+# dans la gestion (http://localhost:3000/gestion/webhooks.html), relier l'abonnement « absence.updated » avec la clé
+# de test ci-dessous (64 caractères hexadécimaux : ici 32 fois « ab »)
+cle=$(printf 'ab%.0s' {1..32})
+corps=$(printf '{"guildId":"","eventType":"absence.updated","payload":{"requesterId":"dev-local","startDate":"2026-10-04T00:00:00Z","endDate":"2026-10-06T00:00:00Z","status":"ACCEPTED"},"sentAt":"%s"}' "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+sig=$(printf '%s' "$corps" | openssl dgst -sha256 -hmac "$cle" -hex | sed 's/^.* //')
 curl -i -X POST http://localhost:3000/webhooks/bot -H 'Content-Type: application/json' -H "X-Signature-256: $sig" --data-raw "$corps"
 ```
-En dev sans `DISCORD_GUILD_ID`, le contrôle du serveur Discord est ignoré (`guildId` vide accepté).
+`sentAt` doit être récent (moins de 4 h) : généré au moment de l'appel ci-dessus, pas une date fixe recopiée. En dev sans `DISCORD_GUILD_ID`, le contrôle du serveur Discord est ignoré (`guildId` vide accepté).

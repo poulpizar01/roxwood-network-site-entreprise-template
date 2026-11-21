@@ -4,6 +4,8 @@ server/node_modules/
 .DS_Store
 uploads/
 backups/
+# Clé maîtresse de chiffrement des clés d'abonnement webhook (secret Docker, compose.yaml) : jamais dans le dépôt
+secrets/
 
 # Sauvegardes et dumps de la base (données réelles des employés), où qu'ils soient posés
 *.dump

@@ -51,7 +51,7 @@ Notes de conventions et de pièges pour un agent Claude Code travaillant sur ce 
 
 ## Webhooks du bot Discord entreprise
 
-- Le bot [roxwood-network-entreprise](https://github.com/poulpizar01/roxwood-network-entreprise) pousse des événements signés (`absence.updated`, `order.updated`, `recruitment.updated`, `monitoring.*`, `custom`). Le socle les reçoit sur `POST /webhooks/bot` (`socle/routes/webhooks.ts`) : signature HMAC vérifiée contre `BOT_WEBHOOK_SECRETS`, serveur Discord contrôlé, dédoublonnage des nouvelles tentatives, puis appel de `entreprise.webhooks[type]`. Détail et formes des événements : `docs/webhooks.md`.
+- Le bot [roxwood-network-entreprise](https://github.com/poulpizar01/roxwood-network-entreprise) pousse des événements signés (`absence.updated`, `order.updated`, `recruitment.updated`, `monitoring.*`, `custom`). Le socle les reçoit sur `POST /webhooks/bot` (`socle/routes/webhooks.ts`) : signature HMAC vérifiée contre la clé de l'abonnement propre à ce type (une clé par type, chiffrée en base, configurée depuis `gestion/webhooks.html` → onglet Abonnements, permission `webhooks` ; `socle/webhooks-cle.ts`, `socle/routes/webhooks-abonnements.ts`), fraîcheur de 4 h, serveur Discord contrôlé, dédoublonnage des nouvelles tentatives, puis appel de `entreprise.webhooks[type].traiter`. Détail et formes des événements : `docs/webhooks.md`.
 - Un traitement doit être **idempotent** à l'échelle métier (un même événement métier peut revenir avec un contenu différent : `absence.updated` est renvoyé à chaque changement de statut) et ne jamais faire confiance au contenu au-delà de sa forme (le bot relaie des saisies d'utilisateurs Discord).
 
 ## Sécurité (à préserver)
