@@ -45,9 +45,12 @@ export type Entreprise = {
   pages: Record<string, NiveauPage>;
   // routes Express, sous /api/… (la session n'est ouverte que là) ; chacune protégée par une garde de socle/http.ts
   routes: Router[];
-  // traitement d'un événement du bot, par type (`absence.updated`, `order.updated`, `monitoring.sale`, `custom`…).
-  // Une erreur levée → réponse 500, le bot réessaie plus tard ; un type sans traitement est accepté et ignoré.
-  webhooks?: Record<string, (e: EvenementBot) => Promise<void>>;
+  // Abonnements du bot, par type (`absence.updated`, `order.updated`, `monitoring.sale`, `custom`…) : chacun a sa
+  // propre clé secrète, enregistrée depuis la page Webhooks de la gestion (chiffrée en base, socle/webhooks-cle.ts) —
+  // la clé d'un type n'accepte jamais l'événement d'un autre type. libelle/description affichés dans l'onglet
+  // Abonnements de cette page. Une erreur levée par traiter() → réponse 500, le bot réessaie plus tard ; un type reçu
+  // sans abonnement configuré (ou avec une clé qui ne correspond pas) est refusé avant d'atteindre traiter().
+  webhooks?: Record<string, { libelle: string; description: string; traiter: (e: EvenementBot) => Promise<void> }>;
   // avant la suppression d'un compte (par lui-même ou par la gestion), dans la même transaction : effacer ou anonymiser
   // ce qui lui appartient dans les tables de l'entreprise
   avantSuppressionCompte?: (compteId: number, tx: Prisma.TransactionClient) => Promise<void>;

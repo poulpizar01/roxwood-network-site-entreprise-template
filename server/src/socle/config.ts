@@ -47,10 +47,11 @@ const storagePrefix = env.STORAGE_PREFIX ?? 'site/';
 if (!!storageUrl !== !!env.STORAGE_TOKEN) fail('STORAGE_URL et STORAGE_TOKEN vont ensemble dans .env : remplir les deux, ou aucun');
 if (storageUrl && !/^[\w.-]+(\/[\w.-]+)*\/$/.test(storagePrefix)) fail(`STORAGE_PREFIX dans .env doit être un dossier terminé par « / » (ex. monsite/) : « ${storagePrefix} »`);
 
-// Secrets des abonnements webhook du bot Discord entreprise (un par abonnement, affiché une seule fois par le bot),
-// séparés par des virgules. Un secret court se devine : refusé.
-const webhookSecrets = (env.BOT_WEBHOOK_SECRETS || '').split(',').map(s => s.trim()).filter(Boolean);
-if (webhookSecrets.some(s => s.length < 16)) fail('BOT_WEBHOOK_SECRETS dans .env : chaque secret doit faire 16 caractères au moins (copier celui donné par le bot)');
+// Ancien réglage des abonnements webhook (une liste de secrets dans .env) : retiré, chaque abonnement a maintenant
+// sa propre clé, enregistrée depuis la page Webhooks de la gestion (chiffrée en base, socle/webhooks-cle.ts).
+// Avertissement seulement (pas un blocage), pour qu'un site qui n'a pas encore reconfiguré ses abonnements démarre
+// quand même pendant la bascule.
+if ((env.BOT_WEBHOOK_SECRETS || '').trim()) console.warn('BOT_WEBHOOK_SECRETS dans .env n’est plus utilisé : reconfigurer chaque abonnement depuis la page Webhooks de la gestion, puis retirer cette variable du .env.');
 
 // Super-admins : IDs Discord qui se connectent directement, avec tous les droits (compte.proprietaire), sans devoir
 // appartenir au serveur Discord de l'entreprise — remplace l'ancienne notion de « propriétaire du serveur Discord ».
@@ -102,7 +103,6 @@ export const config = {
     prefix: storagePrefix,
     dir: env.UPLOAD_DIR || join(root, 'uploads'),
   },
-  webhookSecrets,
   superAdmins,
   folkos: {
     hote: folkosHote,           // vide : FolkOS désactivé

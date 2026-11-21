@@ -9,6 +9,7 @@ declare module 'express-session' {
   interface SessionData {
     compteId: number;
     oauthState: string;
+    oauthNext?: string;   // retour après connexion Discord (auth.ts), ex. vers un tiroir qui exige une reconfirmation
   }
 }
 declare module 'express-serve-static-core' {

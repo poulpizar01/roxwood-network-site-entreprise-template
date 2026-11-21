@@ -1,7 +1,6 @@
 // ENTREPRISE — routes des membres en service (/api/services/…) : indicateur du menu et Accueil, état de la réception
 // dans Paramètres (logique : entreprise/services.ts ; les services arrivent du bot, événement monitoring.duty).
 import { Router } from 'express';
-import { config } from '../../socle/config.js';
 import { prisma } from '../../socle/db.js';
 import { peut } from '../../socle/droits.js';
 import { body, intParam, permission, valide } from '../../socle/http.js';
@@ -24,13 +23,15 @@ services.get('/api/services/en-cours', ...valide, async (req, res) => {
 
 // état de la réception (Paramètres) : dernier événement reçu du bot, anomalies récentes
 services.get('/api/services/etat', ...permission('parametres'), async (_req, res) => {
-  const [etat, anomalies, enService] = await Promise.all([
+  const [etat, anomalies, enService, abonnement] = await Promise.all([
     prisma.serviceEtat.findUnique({ where: { id: 1 } }),
     prisma.service.findMany({ where: { anomalie: { not: '' } }, orderBy: [{ majLe: 'desc' }, { id: 'desc' }], take: 10, select: { employeNom: true, debut: true, fin: true, causeFin: true, anomalie: true } }),
     prisma.service.count({ where: { fin: null } }),
+    // abonnement du type monitoring.duty configuré depuis la page Webhooks (gestion/webhooks.html)
+    prisma.abonnementWebhook.findUnique({ where: { type: 'monitoring.duty' } }),
   ]);
   res.json({
-    abonnementPossible: config.webhookSecrets.length > 0,
+    abonnementPossible: !!abonnement,
     dernierRecu: etat?.derniereLecture ?? null, recus: etat?.nbReconnus ?? 0, enService, anomalies,
   });
 });

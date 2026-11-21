@@ -1,8 +1,9 @@
-// SOCLE — réception des webhooks du bot Discord entreprise (roxwood-network-entreprise, panneau « Monitoring »).
-// Le bot signe chaque envoi : en-tête X-Signature-256 = HMAC-SHA256 du corps brut (hex), avec le secret propre à
-// l'abonnement. Ici : signature vérifiée en temps constant contre chaque secret de BOT_WEBHOOK_SECRETS, serveur Discord
-// contrôlé, événement enregistré une seule fois (empreinte du corps : une nouvelle tentative du bot n'est pas traitée deux
-// fois), puis confié au traitement que déclare l'entreprise (entreprise/index.ts → webhooks).
+// SOCLE — réception des webhooks du bot Discord entreprise (roxwood-network-entreprise, panneau « Monitoring »).
+// Le bot signe chaque envoi : en-tête X-Signature-256 = HMAC-SHA256 du corps brut (hex), avec la clé de l'abonnement
+// propre au type reçu (une clé par type, chiffrée en base — gestion/webhooks.html, routes/webhooks-abonnements.ts).
+// Ici : type lu, fraîcheur vérifiée, signature vérifiée en temps constant contre la (ou les, pendant un remplacement)
+// clé(s) de ce type, serveur Discord contrôlé, événement enregistré une seule fois (empreinte du corps : une
+// nouvelle tentative du bot n'est pas traitée deux fois), puis confié au traitement que déclare l'entreprise.
 // Route d'ingestion uniquement : elle ne renvoie jamais de donnée.
 import crypto from 'node:crypto';
 import express, { Router } from 'express';
@@ -12,6 +13,7 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { limits } from '../limites.js';
 import type { EvenementBot } from '../contrat.js';
 import { entreprise } from '../../entreprise/index.js';
+import { dechiffrer } from '../webhooks-cle.js';
 
 export const webhooks = Router();
 
@@ -20,11 +22,34 @@ export const webhooks = Router();
 // tenu de la création de la ligne jusqu'à son marquage traité, pas seulement sur l'insertion
 const empreintesEnCours = new Set<string>();
 
-const signatureValide = (corps: Buffer, recue: string): boolean => {
-  if (!/^[0-9a-f]{64}$/i.test(recue)) return false;
+// Fenêtre de fraîcheur : un envoi trop ancien (rejoué, horloge du bot désynchronisée) n'est pas traité. Une petite
+// tolérance dans le futur couvre un léger décalage d'horloge entre les deux machines.
+const FRAICHEUR_MS = 4 * 3600_000, TOLERANCE_AVENIR_MS = 5 * 60_000;
+export const sentAtFrais = (sentAt: string): boolean => {
+  const t = Date.parse(sentAt);
+  return Number.isFinite(t) && Date.now() - t <= FRAICHEUR_MS && t - Date.now() <= TOLERANCE_AVENIR_MS;
+};
+
+// clés en clair utilisables pour ce type : la clé active, et l'ancienne si son délai de grâce (remplacement sans
+// coupure) n'est pas passé. Déchiffrées à la demande, jamais gardées au-delà de la requête.
+async function clesDuType(type: string): Promise<string[]> {
+  const a = await prisma.abonnementWebhook.findUnique({ where: { type } });
+  if (!a) return [];
+  const cles: string[] = [];
+  const active = dechiffrer({ chiffre: a.cleChiffree, nonce: a.cleNonce, empreinte: a.cleEmpreinte }, type);
+  if (active) cles.push(active);
+  if (a.ancienneCleChiffree && a.ancienneCleNonce && a.ancienneCleEmpreinte && a.ancienneExpireLe && a.ancienneExpireLe > new Date()) {
+    const ancienne = dechiffrer({ chiffre: a.ancienneCleChiffree, nonce: a.ancienneCleNonce, empreinte: a.ancienneCleEmpreinte }, type);
+    if (ancienne) cles.push(ancienne);
+  }
+  return cles;
+}
+
+const signatureValide = (corps: Buffer, recue: string, cles: string[]): boolean => {
+  if (!/^[0-9a-f]{64}$/i.test(recue) || !cles.length) return false;
   const attendue = Buffer.from(recue.toLowerCase(), 'hex');
-  // chaque secret est essayé, sans s'arrêter au premier : le temps de réponse ne dit pas lequel a servi
-  return config.webhookSecrets.reduce((ok, secret) =>
+  // chaque clé utilisable est essayée, sans s'arrêter à la première : le temps de réponse ne dit pas laquelle a servi
+  return cles.reduce((ok, secret) =>
     crypto.timingSafeEqual(crypto.createHmac('sha256', secret).update(corps).digest(), attendue) || ok, false);
 };
 
@@ -34,15 +59,19 @@ const estEvenement = (v: unknown): v is EvenementBot =>
 
 // corps brut (la signature porte sur les octets reçus, pas sur un JSON relu) ; 1 Mo : le bot n'envoie jamais d'image
 webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, limit: '1mb' }), async (req, res) => {
-  if (!config.webhookSecrets.length) { res.status(503).json({ error: 'webhooks non configurés' }); return; }
   const corps = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
-  if (!signatureValide(corps, String(req.get('x-signature-256') ?? ''))) { res.status(401).json({ error: 'signature refusée' }); return; }
 
   let e: unknown;
   try { e = JSON.parse(corps.toString('utf8')); } catch { res.status(400).json({ error: 'corps illisible' }); return; }
   if (!estEvenement(e)) { res.status(400).json({ error: 'événement mal formé' }); return; }
-  // un abonnement d'un autre serveur Discord (secret réutilisé, configuration croisée) n'a rien à faire ici
+  if (!sentAtFrais(e.sentAt)) { res.status(400).json({ error: 'événement trop ancien' }); return; }
+  // un abonnement d'un autre serveur Discord (configuration croisée) n'a rien à faire ici
   if (config.discord.guildId && e.guildId !== config.discord.guildId) { res.status(403).json({ error: 'serveur Discord inattendu' }); return; }
+
+  // signature vérifiée après avoir lu le type (une clé par type) : le corps n'est pas davantage « cru » qu'avant,
+  // seulement lu un instant plus tôt — de toute façon rejeté si la signature ne correspond pas à ce type précis.
+  const cles = await clesDuType(e.eventType);
+  if (!signatureValide(corps, String(req.get('x-signature-256') ?? ''), cles)) { res.status(401).json({ error: 'signature refusée' }); return; }
 
   const empreinte = crypto.createHash('sha256').update(corps).digest('hex');
   let recu = await prisma.webhookRecu.findUnique({ where: { empreinte } });
@@ -60,8 +89,8 @@ webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, 
   if (empreintesEnCours.has(empreinte)) { res.json({ ok: true, deja: true }); return; }
   empreintesEnCours.add(empreinte);
 
-  const traitement = entreprise.webhooks?.[e.eventType];
-  try { if (traitement) await traitement(e); }
+  const abonnement = entreprise.webhooks?.[e.eventType];
+  try { if (abonnement) await abonnement.traiter(e); }
   catch (err) {
     // 500 : le bot réessaiera (erreur transitoire de son point de vue) ; l'événement reste enregistré, non traité
     console.error(`Webhook ${e.eventType} : échec du traitement`, err);

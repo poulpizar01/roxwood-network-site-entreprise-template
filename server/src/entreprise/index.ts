@@ -52,18 +52,14 @@ export const entreprise: Entreprise = {
   // page Paramètres (socle) : liens et réglages de ce site, déclarés dans parametres.ts
   parametres: PARAMETRES,
 
-  // événements du bot Discord entreprise (docs/webhooks.md) : un traitement par type d'événement reçu
+  // événements du bot Discord entreprise (docs/webhooks.md) : un traitement par type d'événement reçu, libelle et
+  // description affichés dans l'onglet Abonnements de gestion/webhooks.html
   webhooks: {
-    // candidatures acceptées → fiches RH
-    'recruitment.updated': recevoirCandidature,
-    // prises et fins de service (journaux FiveM lus par le bot) : indicateur « En service » et Accueil
-    'monitoring.duty': recevoirDuty,
-    // vente d'objet en jeu annoncée dans le salon de monitoring (table runs, entreprise/run.ts)
-    'monitoring.sale': recevoirRun,
-    // factures (table factures, entreprise/facture.ts) : commande boutique validée/régénérée, et paiement constaté
-    // en jeu par le monitoring FiveM
-    'order.updated': recevoirFactureCommande,
-    'monitoring.invoice': recevoirFactureMonitoring,
+    'recruitment.updated': { libelle: 'Candidatures', description: 'Candidature acceptée sur Discord → fiche RH', traiter: recevoirCandidature },
+    'monitoring.duty': { libelle: 'Prises de service', description: 'Prise et fin de service (journaux FiveM lus par le bot) : indicateur « En service » et Accueil', traiter: recevoirDuty },
+    'monitoring.sale': { libelle: 'Ventes', description: 'Vente d’objet en jeu annoncée dans le salon de monitoring', traiter: recevoirRun },
+    'order.updated': { libelle: 'Commandes', description: 'Commande boutique validée côté client, puis chaque (re)génération de facture', traiter: recevoirFactureCommande },
+    'monitoring.invoice': { libelle: 'Paiements', description: 'Paiement constaté en jeu par le monitoring FiveM', traiter: recevoirFactureMonitoring },
   },
 
   // Factures et comptabilité restent (historique de la paie), détachées du compte. Son agenda personnel et ses

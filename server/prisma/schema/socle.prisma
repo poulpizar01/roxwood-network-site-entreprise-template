@@ -40,6 +40,8 @@ model Compte {
   validePar Compte?  @relation("Validations", fields: [valideParId], references: [id], onDelete: SetNull)
   valides   Compte[] @relation("Validations")
 
+  historiqueWebhooks HistoriqueAbonnementWebhook[]
+
   @@index([gradeCle])
   @@map("comptes")
 }
@@ -79,6 +81,43 @@ model WebhookRecu {
 
   @@index([recuLe])
   @@map("webhooks_recus")
+}
+
+// Abonnement du bot Discord entreprise pour un type d'événement (contrat : entreprise.webhooks). Une clé par type,
+// chiffrée en base (AES-256-GCM, socle/webhooks-cle.ts) : jamais revue en clair après son enregistrement, seule son
+// empreinte est gardée pour la distinguer dans l'historique. Remplacement sans coupure : l'ancienne clé, si elle a
+// encore un délai de grâce (ancienneExpireLe), reste acceptée par socle/routes/webhooks.ts jusqu'à son expiration.
+// type sans relation Prisma : propre à l'entreprise (ses clés de entreprise.webhooks), un seul site par base.
+model AbonnementWebhook {
+  type                 String    @id @db.VarChar(64)
+  cleChiffree          String    @map("cle_chiffree") @db.Text
+  cleNonce             String    @map("cle_nonce") @db.VarChar(24)
+  cleEmpreinte         String    @map("cle_empreinte") @db.VarChar(12)
+  ancienneCleChiffree  String?   @map("ancienne_cle_chiffree") @db.Text
+  ancienneCleNonce     String?   @map("ancienne_cle_nonce") @db.VarChar(24)
+  ancienneCleEmpreinte String?   @map("ancienne_cle_empreinte") @db.VarChar(12)
+  ancienneExpireLe     DateTime? @map("ancienne_expire_le") @db.Timestamptz(6)
+  majLe                DateTime  @updatedAt @map("maj_le") @db.Timestamptz(6)
+
+  @@map("abonnements_webhooks")
+}
+
+// Historique des clés d'un abonnement (qui, quand, quelle action) : jamais la clé elle-même, seule son empreinte.
+// acteurNom : nom ou pseudo figé au moment de l'action, lisible même si le compte est supprimé depuis (compteId
+// retombe alors à null, onDelete: SetNull — l'historique n'est pas une donnée propre au compte à effacer avec lui).
+model HistoriqueAbonnementWebhook {
+  id         Int      @id @default(autoincrement())
+  type       String   @db.VarChar(64)
+  action     String   @db.VarChar(20) // 'creation' | 'remplacement' | 'retrait'
+  empreinte  String?  @map("empreinte") @db.VarChar(12) // de la nouvelle clé ; absente pour un retrait
+  compteId   Int?     @map("compte_id")
+  acteurNom  String   @map("acteur_nom") @db.VarChar(64)
+  horodateLe DateTime @default(now()) @map("horodate_le") @db.Timestamptz(6)
+
+  compte Compte? @relation(fields: [compteId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@map("historique_abonnements_webhooks")
 }
 
 // Sessions de connexion (gérées par connect-pg-simple, déclarées ici pour les migrations)

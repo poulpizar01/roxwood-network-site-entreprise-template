@@ -22,6 +22,7 @@ import { grades } from './socle/routes/grades.js';
 import { declarerParametres, parametres } from './socle/parametres.js';
 import { webhooks } from './socle/routes/webhooks.js';
 import { webhooksJournal } from './socle/routes/webhooks-journal.js';
+import { webhooksAbonnements } from './socle/routes/webhooks-abonnements.js';
 import type { NiveauPage } from './socle/contrat.js';
 import { entreprise } from './entreprise/index.js';
 
@@ -84,7 +85,7 @@ app.use(['/api', '/auth'], (req, res, next) => {
 
 app.use('/auth', limits.auth);
 app.use('/api', limits.api);
-app.use(auth, comptes, grades, parametres, webhooksJournal, ...entreprise.routes);
+app.use(auth, comptes, grades, parametres, webhooksJournal, webhooksAbonnements, ...entreprise.routes);
 // adresse d'API inconnue : 404 en JSON (pas la page 404 du site)
 app.use('/api', (_req, res) => { res.status(404).json({ error: 'introuvable' }); });
 
@@ -170,7 +171,7 @@ const onError: ErrorRequestHandler = (err, _req, res, _next) => {
 app.use(onError);
 
 console.log(`Stockage des images : ${storage.kind === 'cdn' ? 'CDN' : storage.kind === 'local' ? `local, dev uniquement (${storage.dir})` : 'aucun (envoi désactivé)'}`);
-console.log(`Webhooks du bot : ${config.webhookSecrets.length ? `${config.webhookSecrets.length} abonnement(s)` : 'désactivés (BOT_WEBHOOK_SECRETS vide)'}`);
+console.log('Webhooks du bot : abonnements gérés depuis gestion/webhooks.html (permission « webhooks »)');
 const serveur = app.listen(config.port, '0.0.0.0', () => console.log(`${site.nom} en écoute sur le port ${config.port} (${config.baseUrl})`));
 
 // Arrêt demandé par Docker (mise à jour, redémarrage) : plus de nouvelle requête, celles en cours se terminent, puis la

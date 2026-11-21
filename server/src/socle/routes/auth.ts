@@ -18,6 +18,10 @@ type GuildMember = { nick: string | null; roles: string[] };
 
 export const auth = Router();
 
+// chemin du site seulement (ni //autre.site, ni /\autre.site) : utilisé par ?next= (reconfirmation Discord récente
+// depuis un tiroir, connexion IG) pour ne jamais rediriger ailleurs que sur ce site
+const CHEMIN_SUR = /^\/(?![/\\])[^\s\\]*$/;
+
 // nouvelle session à chaque connexion (évite la fixation de session), puis rattachement du compte
 const ouvrirSession = (req: Request, compteId: number) => new Promise<void>((ok, ko) =>
   req.session.regenerate(err => { if (err) ko(err); else { req.session.compteId = compteId; ok(); } }));
@@ -29,13 +33,15 @@ const requeteLocale = (req: Request) =>
   /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(req.headers.host ?? '') && !req.headers['x-forwarded-for'] && !req.headers['x-forwarded-host'];
 
 auth.get('/auth/discord', async (req, res) => {
+  // ?next= : retour après connexion (reconfirmation Discord récente depuis un tiroir, ex. gestion/webhooks.html)
+  const next = typeof req.query.next === 'string' && CHEMIN_SUR.test(req.query.next) ? req.query.next : undefined;
   if (config.devLogin) {
     if (!requeteLocale(req)) { res.status(403).send('Connexion de dev réservée à la machine locale.'); return; }
     // dev : ?compte=<ID Discord> ouvre la session d'un compte existant, pour essayer chaque niveau d'accès
     const autre = typeof req.query.compte === 'string' ? await prisma.compte.findUnique({ where: { discordId: req.query.compte } }) : null;
     if (autre) {
       await ouvrirSession(req, autre.id);
-      res.redirect(autre.statut === 'valide' ? PAGE_ACCUEIL : PAGE_ATTENTE);
+      res.redirect(autre.statut === 'valide' ? (next || PAGE_ACCUEIL) : PAGE_ATTENTE);
       return;
     }
     const c = await prisma.compte.upsert({
@@ -44,11 +50,12 @@ auth.get('/auth/discord', async (req, res) => {
       update: { proprietaire: true, connecteLe: new Date() },
     });
     await ouvrirSession(req, c.id);
-    res.redirect(PAGE_ACCUEIL);
+    res.redirect(next || PAGE_ACCUEIL);
     return;
   }
   const state = crypto.randomBytes(16).toString('hex');
   req.session.oauthState = state;
+  if (next) req.session.oauthNext = next; else delete req.session.oauthNext;
   const url = new URL(`${DISCORD_API}/oauth2/authorize`);
   url.search = new URLSearchParams({ client_id: config.discord.clientId, redirect_uri: REDIRECT_URI, response_type: 'code', scope: SCOPES, state, prompt: 'none' }).toString();
   res.redirect(url.toString());
@@ -60,6 +67,8 @@ auth.get('/auth/discord/callback', async (req, res) => {
     // state obligatoire : sans connexion lancée depuis ce navigateur (rien en session), un retour forgé est refusé
     if (error || typeof code !== 'string' || typeof state !== 'string' || !state || state !== req.session.oauthState) { res.redirect(`${PAGE_CONNEXION}?erreur=oauth`); return; }
     delete req.session.oauthState;
+    const next = req.session.oauthNext;   // lu avant ouvrirSession() : elle régénère la session (fixation), qui l'efface
+    delete req.session.oauthNext;
 
     // 1. code → jeton (10 s au plus par appel : un Discord qui ne répond pas ne laisse pas la connexion pendue)
     const delai = () => AbortSignal.timeout(10000);
@@ -118,7 +127,7 @@ auth.get('/auth/discord/callback', async (req, res) => {
     });
 
     await ouvrirSession(req, c.id);
-    res.redirect(c.statut === 'valide' ? PAGE_ACCUEIL : PAGE_ATTENTE);
+    res.redirect(c.statut !== 'valide' ? PAGE_ATTENTE : (next || PAGE_ACCUEIL));
   } catch (e) {
     console.error(e);
     res.redirect(`${PAGE_CONNEXION}?erreur=serveur`);
@@ -158,9 +167,8 @@ auth.get('/auth/folkos', async (req, res) => {
     if (!c.connecteLe || c.quitteLe || Date.now() - c.connecteLe.getTime() > DISCORD_RECENT_MS) { echec('discord'); return; }
     await ouvrirSession(req, c.id);
     if (c.statut !== 'valide') { res.redirect(PAGE_ATTENTE); return; }
-    // ?next= : un chemin du site seulement (ni //autre.site, ni /\autre.site)
     const next = typeof req.query.next === 'string' ? req.query.next : '';
-    res.redirect(/^\/(?![/\\])[^\s\\]*$/.test(next) ? next : PAGE_ACCUEIL);
+    res.redirect(CHEMIN_SUR.test(next) ? next : PAGE_ACCUEIL);
   } catch (e) {
     console.error(e);
     echec('serveur');
