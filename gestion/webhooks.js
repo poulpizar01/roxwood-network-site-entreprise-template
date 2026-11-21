@@ -46,7 +46,7 @@ function menuAbonnement(a) {
     `<button type="button" role="menuitem" data-action="remplacer">${gestion.ico('key')} Remplacer la clé</button>`,
     `<button type="button" role="menuitem" data-action="historique">${gestion.ico('clock')} Historique de la clé</button>`,
     `<button type="button" role="menuitem" data-action="voir-evenements">${gestion.ico('sync')} Voir les événements reçus</button>`,
-    `<button type="button" role="menuitem" class="webhooks-retirer" data-action="retirer">${gestion.ico('trash')} Retirer l’abonnement</button>`,
+    `<button type="button" role="menuitem" class="danger" data-action="retirer">${gestion.ico('trash')} Retirer l’abonnement</button>`,
   ].join('');
   return `<div class="comptes-menu">
     <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(a.libelle)}">${gestion.ico('points')}</button>
@@ -228,7 +228,7 @@ document.getElementById('liste-abonnements').addEventListener('click', async e =
   else if (action.dataset.action === 'historique') ouvrirTiroirHistorique(type);
   else if (action.dataset.action === 'voir-evenements') allerAuJournal(type);
   else if (action.dataset.action === 'retirer') {
-    if (!await gestion.confirmer(`Le site refusera désormais les événements « ${a.type} ». Retirez aussi l’abonnement côté bot (panneau Monitoring), sinon il réessaiera pendant quelques heures.`, 'Retirer cet abonnement ?', 'Retirer l’abonnement')) return;
+    if (!await gestion.confirmer(`Le site refusera désormais les événements « ${a.type} ». Retirez aussi l’abonnement côté bot (panneau Monitoring), sinon il réessaiera pendant quelques heures.`, 'Retirer cet abonnement ?', 'Retirer l’abonnement', { danger: false })) return;
     try { await socle.api(`/api/webhooks/abonnements/${encodeURIComponent(type)}`, { method: 'DELETE' }); gestion.notifier('Abonnement retiré.'); await chargerAbonnements(); }
     catch (err) { gestion.message('zone-message', err.message); }
   }

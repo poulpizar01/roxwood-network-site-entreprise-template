@@ -10,9 +10,6 @@
 .webhooks-dernier { font-size: var(--fs-3); color: var(--text-muted); }
 .webhooks-dernier button { display: block; padding: 0; margin-top: 2px; border: 0; background: none; font: inherit; font-size: var(--fs-2); color: var(--erreur); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
-/* « Retirer l'abonnement » du menu ⋮ : couleur d'accent, pas rouge (retirer n'efface aucune donnée, juste la liaison) */
-.comptes-menu-liste [role="menuitem"].webhooks-retirer, .comptes-menu-liste [role="menuitem"].webhooks-retirer .ico { color: var(--accent); }
-
 /* étapes numérotées (tiroir Configurer / Remplacer la clé) */
 .webhooks-etapes { list-style: none; margin: 0 0 18px; padding: 0; counter-reset: e; display: grid; gap: 18px; }
 .webhooks-etapes li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; counter-increment: e; }
