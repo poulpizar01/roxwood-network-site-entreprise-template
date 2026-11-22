@@ -29,7 +29,8 @@
   },
   "overrides": {
     "mysql2": "^3.24.5",
-    "deepmerge-ts": "^8.0.2"
+    "deepmerge-ts": "^8.0.2",
+    "effect": "3.22.5"
   },
   "devDependencies": {
     "@types/connect-pg-simple": "^7.0.3",

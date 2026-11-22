@@ -41,7 +41,8 @@ export const securityHeaders = helmet({
       'style-src': ["'self'", "'unsafe-inline'", ...viaFolkos],
       'font-src': ["'self'"],
       'img-src': ["'self'", 'data:', 'blob:', 'https://cdn.discordapp.com', ...(config.storage.url ? [new URL(config.storage.url).origin] : []), ...origines(entreprise.csp?.img), ...viaFolkos],
-      'connect-src': ["'self'", ...origines(entreprise.csp?.connect), ...viaFolkos],
+      // https://external-iframe : l'API du jeu (/typing, /leave…), appelée par fbfa-game.js et par socle/folkos.js ; n'existe que dans FiveM
+      'connect-src': ["'self'", ...origines(entreprise.csp?.connect), ...viaFolkos, ...(folkos ? ['https://external-iframe'] : [])],
       ...(entreprise.csp?.frame?.length && { 'frame-src': ["'self'", ...origines(entreprise.csp.frame)] }),
       'form-action': ["'self'"],
       'frame-ancestors': folkos ? ["'self'", folkos, ...CADRES_FIVEM, ...cadres] : ["'none'"],
@@ -51,6 +52,9 @@ export const securityHeaders = helmet({
   strictTransportSecurity: https ? { maxAge: 31536000 } : false,
   // X-Frame-Options ne connaît pas de liste d'ancêtres : avec FolkOS, il contredirait frame-ancestors (page blanche)
   ...(folkos && { xFrameOptions: false }),
+  // « same-origin » et non le « no-referrer » de helmet : avec no-referrer, un formulaire part avec « Origin: null » dans le
+  // navigateur du jeu (docs/guide-dev-fbfa.md, B7), et le contrôle d'origine du serveur le refuserait
+  referrerPolicy: { policy: 'same-origin' },
   crossOriginEmbedderPolicy: false,
 });
 

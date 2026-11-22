@@ -2,6 +2,30 @@
    <script src="/socle/socle.js"></script> puis, dans les scripts de la page : socle.api(), socle.esc(), socle.moi()…
    Aucune mise en forme ici : l'apparence de chaque site est libre (theme.css, gestion/gestion.css). */
 (() => {
+  // Navigateur du jeu (page dans un cadre) : un POST peut y partir avec « Origin: null », que le serveur n'accepte qu'avec le
+  // jeton de la session (server/src/socle/csrf.ts, docs/guide-dev-fbfa.md B7). Toute requête qui modifie quelque chose vers
+  // l'API du site le porte, que la page passe par socle.api() ou par fetch() (envoi de fichier). Hors cadre : rien ne change.
+  let enCadre = false;
+  try { enCadre = window.self !== window.top; } catch { enCadre = true; }
+  if (enCadre) {
+    const fetchNatif = window.fetch.bind(window);
+    let jetonP = null;
+    const jeton = () => (jetonP ??= fetchNatif('/api/csrf', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(r => (r.ok ? r.json() : null)).then(d => d?.csrf || null).catch(() => null));
+    window.fetch = async (entree, init = {}) => {
+      const requete = entree instanceof Request ? entree : null;
+      const methode = String(init.method || requete?.method || 'GET').toUpperCase();
+      let url;
+      try { url = new URL(requete ? requete.url : entree, location.href); } catch { return fetchNatif(entree, init); }
+      if (methode === 'GET' || methode === 'HEAD' || url.origin !== location.origin || !/^\/(api|auth)\//.test(url.pathname) || url.pathname === '/api/csrf') return fetchNatif(entree, init);
+      const t = await jeton();
+      if (!t) return fetchNatif(entree, init);
+      const entetes = new Headers(init.headers || requete?.headers);
+      entetes.set('X-CSRF-Token', t);
+      return fetchNatif(entree, { ...init, headers: entetes });
+    };
+  }
+
   // nom du site (site.json), lu dans la page : <meta name="application-name" content="{{nom}}">.
   // Jamais de {{…}} dans une chaîne JavaScript : une apostrophe dans la valeur casserait le script.
   const nomSite = document.querySelector('meta[name="application-name"]')?.content || '';

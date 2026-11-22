@@ -10,6 +10,7 @@ declare module 'express-session' {
     compteId: number;
     oauthState: string;
     oauthNext?: string;   // retour après connexion Discord (auth.ts), ex. vers un tiroir qui exige une reconfirmation
+    csrf?: string;        // jeton de la session, exigé des requêtes à « Origin: null » du navigateur du jeu (csrf.ts)
   }
 }
 declare module 'express-serve-static-core' {

@@ -6,6 +6,7 @@ import { prisma } from '../db.js';
 import { tousLesGrades } from '../droits.js';
 import { gradeALaConnexion } from '../grade-connexion.js';
 import { gradesImposes } from '../grades-imposes.js';
+import { arrivee, cheminSur, noncesFolkos } from '../folkos-sso.js';
 
 const DISCORD_API = 'https://discord.com/api/v10';
 const REDIRECT_URI = `${config.baseUrl}/auth/discord/callback`;
@@ -142,19 +143,27 @@ auth.get('/auth/discord/callback', async (req, res) => {
 const DISCORD_RECENT_MS = 30 * 24 * 3600 * 1000;
 auth.get('/auth/folkos', async (req, res) => {
   const sso = config.folkos.sso;
+  // le jeu garde volontiers une vieille version de la page d'arrivée : jamais de cache, échecs compris (B8.7)
+  res.set('Cache-Control', 'no-store, max-age=0');
   const echec = (code: string) => res.redirect(`${PAGE_CONNEXION}?erreur=folkos-${code}`);
   if (!sso) { echec('config'); return; }
   const ticket = req.query.folkos_ticket;
   if (typeof ticket !== 'string' || !ticket || ticket.length > 2048) { echec('ticket'); return; }
   let identite: { discord_id?: unknown } | undefined;
   try {
+    // « nonces » : les cookies secrets posés par FolkOS avec le ticket, qui lient celui-ci au navigateur qui l'a reçu
+    // (B8.5). Obligatoire : sans eux, le validateur refuse (nonce_required). Jamais journalisés ni renvoyés au navigateur.
     const r = await fetch(`${sso.base}/sso/verify`, {
       method: 'POST', signal: AbortSignal.timeout(10000),
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ client_id: sso.clientId, client_secret: sso.clientSecret, token: ticket }),
+      body: JSON.stringify({ client_id: sso.clientId, client_secret: sso.clientSecret, token: ticket, nonces: noncesFolkos(req.headers.cookie, sso.clientId) }),
     });
-    const data = await r.json().catch(() => null) as { valid?: unknown; identity?: { discord_id?: unknown } } | null;
-    if (!r.ok || data?.valid !== true || !data.identity) { echec('ticket'); return; }
+    const data = await r.json().catch(() => null) as { valid?: unknown; identity?: { discord_id?: unknown }; error?: unknown; nonce_check?: unknown } | null;
+    if (!r.ok || data?.valid !== true || !data.identity) {
+      // statut, erreur et nonce_check seulement : de quoi diagnostiquer, jamais le ticket ni les nonces
+      console.warn('[FolkOS] refus :', r.status, data?.error, data?.nonce_check);
+      echec('ticket'); return;
+    }
     identite = data.identity;
   } catch { echec('reseau'); return; }
   // jamais `sub` (sa forme change selon le chemin d'entrée) : l'ID Discord, en texte
@@ -166,9 +175,8 @@ auth.get('/auth/folkos', async (req, res) => {
     // parti du serveur Discord depuis (vu par le bot, synchro-discord.ts) : refusé aussi, sans attendre les 30 jours
     if (!c.connecteLe || c.quitteLe || Date.now() - c.connecteLe.getTime() > DISCORD_RECENT_MS) { echec('discord'); return; }
     await ouvrirSession(req, c.id);
-    if (c.statut !== 'valide') { res.redirect(PAGE_ATTENTE); return; }
-    const next = typeof req.query.next === 'string' ? req.query.next : '';
-    res.redirect(CHEMIN_SUR.test(next) ? next : PAGE_ACCUEIL);
+    if (c.statut !== 'valide') { res.redirect(arrivee(PAGE_ATTENTE)); return; }
+    res.redirect(arrivee(cheminSur(req.query.next, PAGE_ACCUEIL)));
   } catch (e) {
     console.error(e);
     echec('serveur');

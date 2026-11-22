@@ -27,6 +27,7 @@ import { aide } from './socle/routes/aide.js';
 import { declarerNiveauPage } from './socle/aide.js';
 import type { NiveauPage } from './socle/contrat.js';
 import { entreprise } from './entreprise/index.js';
+import { nouveauJetonCsrf, origineAcceptee } from './socle/csrf.js';
 
 await Promise.all([chargerGrades(), chargerReglages()]);
 declarerParametres(entreprise.parametres);   // avant demarrage(), qui peut lire un paramètre
@@ -78,12 +79,18 @@ app.use(['/api', '/auth'], (_req, res, next) => { res.set('Cache-Control', 'no-s
 // les autres sites, pas un voisin du même domaine (a.exemple.fr → b.exemple.fr), qui pourrait sinon agir au nom d'un
 // compte ; avec FolkOS (cookie SameSite=None), ce contrôle est la seule barrière. Le navigateur joint toujours l'en-tête
 // Origin à ces requêtes ; absent (curl, script), rien à craindre.
+// En jeu, le navigateur de FiveM peut envoyer « Origin: null » : accepté seulement avec le jeton de la session (csrf.ts),
+// et seulement quand l'ordinateur en jeu est configuré.
 const origine = new URL(config.baseUrl).origin;
 app.use(['/api', '/auth'], (req, res, next) => {
-  const recue = req.get('origin');
-  if (req.method === 'GET' || req.method === 'HEAD' || !recue || recue === origine) next();
+  if (origineAcceptee({
+    methode: req.method, origineRecue: req.get('origin'), origineSite: origine,
+    jetonSession: req.session?.csrf, jetonRecu: req.get('x-csrf-token'), jetonAutorise: !!config.folkos.hote,
+  })) next();
   else res.status(403).json({ error: 'origine refusée' });
 });
+// jeton de la session pour socle.js (lu une fois par page, ajouté aux requêtes qui modifient quelque chose)
+app.get('/api/csrf', (req, res) => { req.session.csrf ??= nouveauJetonCsrf(); res.json({ csrf: req.session.csrf }); });
 
 app.use('/auth', limits.auth);
 app.use('/api', limits.api);
