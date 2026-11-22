@@ -7,6 +7,7 @@ const GESTION_NAV = [
   // « Mon compte » n'est pas une rubrique : on y va par le compte en bas du menu (ou l'avatar de la barre du haut)
   { cle: 'accueil', href: 'accueil.html', label: 'Accueil', icone: 'home' },
   { cle: 'agenda', href: 'agenda.html', label: 'Agenda', icone: 'calendar' },
+  { cle: 'aide', href: 'aide.html', label: 'Aide', icone: 'aide' },
   { groupe: 'Équipe' },
   { cle: 'quota', href: 'quota.html', label: 'Quota', icone: 'chart', permission: 'rh-voir' },
   { cle: 'beneficiaires', href: 'beneficiaires.html', label: 'Clients', icone: 'carte', permission: 'contrats-beneficiaires' },
@@ -72,6 +73,9 @@ const GESTION_ICONES = {
   upload: '<path d="M12 16V4M7 9l5-5 5 5M4 20h16"/>',
   download: '<path d="M12 4v12M7 11l5 5 5-5M4 20h16"/>',
   points: '<circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/>',
+  aide: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.6v.4"/><path d="M12 16.9h.01"/>',
+  cle: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
 };
 const ico = nom => `<svg class="ico" aria-hidden="true"><use href="#ico-${nom}"></use></svg>`;
 
@@ -207,6 +211,189 @@ function enService(barre, haut) {
   document.addEventListener('visibilitychange', charger);
 }
 
+// ---------------------------------------------------------------------------------------------------------------------
+// Aide en ligne : recherche rapide (Ctrl K / Cmd K / « / »), bouton « ? » de chaque page (articles de la rubrique en
+// cours), lecture d'un article (socle/aide.ts : html déjà filtré par permission, passages réservés déjà bandeautés).
+// Schémas : jamais dessinés ici — un registre (gestion.enregistrerSchemas) rempli par chaque page concernée ; sans
+// schéma déclaré pour une figure, elle reste vide (docs/aide.md : aucun dessin inventé).
+// ---------------------------------------------------------------------------------------------------------------------
+const SCHEMAS_AIDE = {};
+function remplirSchemas(racine) {
+  racine.querySelectorAll('[data-schema]').forEach(fig => {
+    const cible = fig.querySelector('[data-schema-svg]');
+    const svg = SCHEMAS_AIDE[fig.dataset.schema];
+    if (cible && svg) cible.innerHTML = svg;
+  });
+}
+// Entoure un instant l'élément réel que l'aide vient de citer (data-zone="<nom>", posé par la page elle-même) : lien
+// entre l'explication et l'écran, sans visite guidée (D13). Rien si la page ne porte pas cette zone.
+function surlignerZone(nom) {
+  if (!nom) return;
+  let el;
+  try { el = document.querySelector(`[data-zone="${CSS.escape(nom)}"]`); } catch { return; }
+  if (!el) return;
+  el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  el.classList.add('surbrillance');
+  setTimeout(() => el.classList.remove('surbrillance'), 2000);
+}
+
+let aideIndexP = null;
+const indexAide = () => (aideIndexP ??= socle.api('/api/aide').then(r => r.articles).catch(e => { aideIndexP = null; throw e; }));
+const chercherAide = q => socle.api(`/api/aide?q=${encodeURIComponent(q)}`).then(r => r.resultats);
+const articleAide = slug => socle.api(`/api/aide/${encodeURIComponent(slug)}`);
+
+// Rendu d'un article dans un conteneur : figures remplies, zone citée surlignée au clic sur un repère de légende.
+function dessinerArticle(conteneur, article) {
+  conteneur.innerHTML = article.html;
+  remplirSchemas(conteneur);
+}
+
+// Fenêtre à focus piégé (palette de recherche ou tiroir d'aide) : même geste que gestion.confirmer (Échap ferme et
+// rend le focus, Tab boucle dedans), factorisé ici parce que les deux en ont besoin.
+function piegerFocus(fond, premier) {
+  const avant = document.activeElement;
+  const fermer = () => { document.removeEventListener('keydown', clavier, true); fond.remove(); verrouillerDefilement(false); avant?.focus?.(); };
+  const clavier = e => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermer(); return; }
+    if (e.key !== 'Tab') return;
+    const f = [...fond.querySelectorAll('button, a[href], input, [tabindex]:not([tabindex="-1"])')].filter(el => !el.disabled && el.offsetParent);
+    if (!f.length) return;
+    const i = f.indexOf(document.activeElement);
+    if (e.shiftKey ? (i <= 0) : (i === f.length - 1 || i === -1)) { e.preventDefault(); (e.shiftKey ? f.at(-1) : f[0]).focus(); }
+  };
+  document.addEventListener('keydown', clavier, true);
+  fond.addEventListener('click', e => { if (e.target === fond) fermer(); });
+  verrouillerDefilement(true);
+  (premier || fond.querySelector('button, a[href], input'))?.focus();
+  return fermer;
+}
+
+function normaliserRecherche(v) { return v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+
+// Tiroir (classes .tiroir/.tiroir-fond communes, gestion.css) : liste des articles de la rubrique en cours, ou un
+// article ouvert (avec retour à la liste). rubrique : celle passée à gestion.coque().
+function ouvrirAide(rubrique, articleInitial) {
+  const fond = document.createElement('div');
+  fond.className = 'tiroir-fond modale-fond';
+  fond.innerHTML = `<aside class="tiroir" role="dialog" aria-modal="true" aria-labelledby="aide-tiroir-titre">
+    <div class="tiroir-entete">
+      <button type="button" class="admin-icone-bouton" data-aide-retour hidden aria-label="Revenir à la liste">${fleche('precedent')}</button>
+      <div class="tiroir-identite"><h2 id="aide-tiroir-titre">Aide</h2></div>
+      <button type="button" aria-label="Fermer" data-aide-fermer>${ico('fermer')}</button>
+    </div>
+    <div class="tiroir-corps" data-aide-corps></div>
+    <div class="tiroir-pied" data-aide-pied hidden></div>
+  </aside>`;
+  document.body.append(fond);
+  const corps = fond.querySelector('[data-aide-corps]');
+  const pied = fond.querySelector('[data-aide-pied]');
+  const titre = fond.querySelector('#aide-tiroir-titre');
+  const retour = fond.querySelector('[data-aide-retour]');
+  const fermer = piegerFocus(fond);
+  fond.querySelector('[data-aide-fermer]').addEventListener('click', fermer);
+
+  async function vueListe() {
+    retour.hidden = true;
+    titre.textContent = 'Aide de cette page';
+    pied.hidden = true;
+    corps.innerHTML = '<p class="aide-chargement">Chargement…</p>';
+    let articles;
+    try { articles = (await indexAide()).filter(a => a.rubrique === rubrique); }
+    catch { corps.innerHTML = '<p>L’aide n’a pas pu se charger.</p>'; return; }
+    corps.innerHTML = articles.length
+      ? `<ul class="tiroir-liens">${articles.map(a => `<li><button type="button" class="tiroir-lien" data-slug="${echapper(a.slug)}">
+          ${ico('aide')}<span>${echapper(a.titre)}</span>${fleche('droite')}</button></li>`).join('')}</ul>`
+      : '<p class="etat-vide-texte">Pas encore d’article pour cette page.</p>';
+    corps.querySelectorAll('[data-slug]').forEach(b => b.addEventListener('click', () => vueArticle(b.dataset.slug)));
+  }
+  async function vueArticle(slug) {
+    retour.hidden = false;
+    pied.hidden = false;
+    corps.innerHTML = '<p class="aide-chargement">Chargement…</p>';
+    let article;
+    try { article = await articleAide(slug); }
+    catch { corps.innerHTML = '<p>Cet article n’a pas pu se charger.</p>'; return; }
+    if (!article) { corps.innerHTML = '<p>Cet article n’est pas accessible.</p>'; return; }
+    titre.textContent = article.titre;
+    dessinerArticle(corps, article);
+    pied.innerHTML = `<a class="btn btn-fantome" href="${echapper(article.rubrique)}.html">Ouvrir la page${fleche('droite')}</a>
+      <button type="button" class="btn btn-fantome" data-aide-copier>Copier le lien</button>`;
+    pied.querySelector('[data-aide-copier]').addEventListener('click', async () => {
+      if (await copierTexte(`${location.origin}/gestion/aide.html#${slug}`)) notifier('Lien copié.');
+    });
+  }
+  retour.addEventListener('click', vueListe);
+  if (articleInitial) vueArticle(articleInitial); else vueListe();
+}
+
+// Palette de recherche (Ctrl K / Cmd K / « / » hors d'un champ) : pages du menu accessibles + articles de l'aide,
+// dans une seule liste ; Entrée ouvre la page ou l'article (D6).
+function ouvrirPaletteAide(pagesVisibles) {
+  const fond = document.createElement('div');
+  fond.className = 'modale-fond aide-palette-fond';
+  fond.innerHTML = `<div class="modale aide-palette" role="dialog" aria-modal="true" aria-label="Rechercher">
+    <div class="aide-palette-champ">${ico('search')}<input type="search" placeholder="Chercher une page ou un article" aria-label="Chercher dans l’aide">
+      <kbd>Échap</kbd></div>
+    <div class="aide-palette-resultats" role="listbox"></div>
+  </div>`;
+  document.body.append(fond);
+  const champ = fond.querySelector('input');
+  const liste = fond.querySelector('.aide-palette-resultats');
+  const fermer = piegerFocus(fond, champ);
+  let resultats = [], index = -1, requete = 0;
+
+  const page = l => ({ type: 'page', slug: l.href.replace(/\.html$/, ''), titre: l.label, extrait: '', href: l.href });
+  const article = a => ({ type: 'article', slug: a.slug, titre: a.titre, extrait: a.extrait || '', rubrique: a.rubrique });
+
+  function dessiner() {
+    liste.innerHTML = resultats.length ? resultats.map((r, i) => `
+      <button type="button" role="option" class="aide-palette-resultat${i === index ? ' survole' : ''}" aria-selected="${i === index}" data-i="${i}">
+        ${ico(r.type === 'page' ? 'grid' : 'aide')}<span><b>${echapper(r.titre)}</b>${r.extrait ? `<small>${echapper(r.extrait)}</small>` : ''}</span>
+      </button>`).join('') : '<p class="etat-vide-texte">Aucun résultat.</p>';
+    liste.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => choisir(Number(b.dataset.i))));
+  }
+  function choisir(i) {
+    const r = resultats[i];
+    if (!r) return;
+    fermer();
+    if (r.type === 'page') location.href = r.href;
+    else ouvrirAide(r.rubrique || '', r.slug);
+  }
+  async function relire() {
+    const requeteCourante = ++requete;
+    const q = champ.value.trim();
+    const q2 = normaliserRecherche(q);
+    const pagesCorrespondantes = q ? pagesVisibles.filter(l => normaliserRecherche(l.label).includes(q2)) : pagesVisibles;
+    let articles = [];
+    try { articles = q ? await chercherAide(q) : (await indexAide()).slice(0, 8); }
+    catch { /* recherche indisponible : les pages seules suffisent déjà à naviguer */ }
+    if (requeteCourante !== requete) return;   // une saisie plus récente a déjà relancé une recherche
+    resultats = [...pagesCorrespondantes.map(page), ...articles.map(article)];
+    index = resultats.length ? 0 : -1;
+    dessiner();
+  }
+  champ.addEventListener('input', () => { clearTimeout(champ._t); champ._t = setTimeout(relire, 150); });
+  fond.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); index = Math.min(index + 1, resultats.length - 1); dessiner(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); index = Math.max(index - 1, 0); dessiner(); }
+    else if (e.key === 'Enter') { e.preventDefault(); choisir(index); }
+  });
+  relire();
+}
+
+// Posé une fois par page (coque) : bouton « ? » → tiroir de la rubrique ; Ctrl K / Cmd K / « / » → palette.
+function aideCoque(moi, rubrique, barre, haut) {
+  const pagesVisibles = GESTION_NAV.filter(l => !l.groupe && l.cle !== 'aide' && (!l.permission || socle.peut(moi, l.permission)));
+  for (const b of [...barre.querySelectorAll('[data-aide-ouvrir]'), ...haut.querySelectorAll('[data-aide-ouvrir]')]) {
+    b.addEventListener('click', () => ouvrirAide(rubrique));
+  }
+  document.addEventListener('keydown', e => {
+    const dansChamp = /^(input|textarea|select)$/i.test(e.target.tagName) || e.target.isContentEditable;
+    if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ouvrirPaletteAide(pagesVisibles); }
+    else if (e.key === '/' && !dansChamp) { e.preventDefault(); ouvrirPaletteAide(pagesVisibles); }
+  });
+}
+
 // Menu : une seule zone qui défile (la navigation), et seulement quand l'écran est trop bas. Un fondu en haut ou en bas
 // signale ce qui est caché (la barre de défilement n'apparaît qu'au survol) ; la rubrique en cours est amenée en vue.
 function indiceDefilement(nav) {
@@ -227,6 +414,15 @@ window.gestion = {
   ligneEnService,
   ordreEnService,
   servicesEnCours,
+
+  // Aide en ligne (docs/aide.md). enregistrerSchemas({ 'nom-du-schema': '<svg …>…</svg>' }) : une page déclare les
+  // dessins fidèles qu'elle porte (jamais de schéma inventé par défaut). surlignerZone('nom') entoure un instant
+  // l'élément réel portant data-zone="nom" sur la page en cours.
+  enregistrerSchemas(objet) { Object.assign(SCHEMAS_AIDE, objet); },
+  surlignerZone,
+  ouvrirAide,
+  indexAide,
+  articleAide,
 
   // Tri de colonne pour un tableau ou une liste en grille, réinitialisable sans recharger la page : un premier clic
   // sur une colonne trie en croissant, un second en décroissant, un troisième revient à l'ordre d'origine (aucun
@@ -290,6 +486,7 @@ window.gestion = {
       <div class="admin-bas">
         <button type="button" class="admin-service-indic cache" data-service-indic aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-en-service">
           <span class="pastille-service" aria-hidden="true"></span><span data-service-texte>En service</span>${ico('chevron')}</button>
+        <button type="button" class="admin-icone-bouton" data-aide-ouvrir aria-haspopup="dialog" aria-label="Aide de cette page">${ico('aide')}</button>
         <div class="admin-compte" data-compte></div>
       </div>`;
     // téléphone et tablette : barre du haut, la barre latérale entière s'ouvre en tiroir (compte et déconnexion compris)
@@ -300,6 +497,7 @@ window.gestion = {
       <a href="accueil.html" class="admin-barre-haut-logo admin-marque">${marque}</a>
       <button type="button" class="admin-service-indic admin-service-indic--haut cache" data-service-indic="court" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-en-service">
         <span class="pastille-service" aria-hidden="true"></span><span data-service-texte></span></button>
+      <button type="button" class="admin-icone-bouton" data-aide-ouvrir aria-haspopup="dialog" aria-label="Aide de cette page">${ico('aide')}</button>
       <a href="compte.html" class="admin-barre-haut-compte" data-avatar aria-label="Mon compte"></a>`;
     const dessiner = (moi) => {
       // un groupe sans aucune rubrique visible n'est pas affiché
@@ -365,6 +563,7 @@ window.gestion = {
     catch (e) { memoCoque.effacer(); erreurDeChargement(main, e); throw e; }
     if (JSON.stringify(memoCoque.ecrire(moi)) !== JSON.stringify(memo)) dessiner(moi);
     enService(barre, haut);
+    aideCoque(moi, rubrique, barre, haut);
     indiceDefilement(barre.querySelector('.admin-nav'));
     tablesAdaptatives(main);
     return moi;
@@ -540,6 +739,7 @@ const FLECHES = {
   deplier: 'M6 9l6 6 6-6', hautbas: 'M8 9l4-4 4 4M8 15l4 4 4-4',
 };
 const fleche = sens => `<svg class="fleche" viewBox="0 0 24 24" aria-hidden="true"><path d="${FLECHES[sens]}"/></svg>`;
+window.gestion.fleche = fleche;   // exposé ici (déclaré après window.gestion : une flèche dessinée, jamais un caractère)
 
 // Liste réordonnable (glisser-déposé ou flèches sur une poignée) : un seul système pour toute la gestion (grades et
 // toute liste à ordonner), pour que le geste, les contours pendant le glissé et le clavier restent identiques. Charger

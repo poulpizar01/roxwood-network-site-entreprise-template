@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Aide — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — aide en ligne (docs/aide.md). Niveau d'accès forcé par le socle (« connecte », server/src/index.ts) :
+       lisible avant même la validation du compte (Premiers pas). Contenu : /api/aide, filtré par le serveur selon les
+       droits du compte — cette page n'affiche donc que ce qu'elle a reçu, jamais un article masqué côté client. -->
+  <main class="admin-contenu">
+    <div class="entete-admin">
+      <div>
+        <h1 style="margin-bottom:2px;">Aide</h1>
+        <p style="margin:0;font-size:var(--fs-3);">Les gestes du quotidien, expliqués page par page.</p>
+      </div>
+    </div>
+    <div id="zone-message"></div>
+
+    <!-- rempli en script : l'icône de recherche dépend du sprite posé par gestion.coque() -->
+    <button type="button" class="aide-recherche" id="aide-recherche-bouton">Chercher une page ou un article</button>
+
+    <div id="aide-rubriques" class="aide-rubriques" aria-busy="true"></div>
+  </main>
+
+  <script>
+    gestion.coque('aide').then(async moi => {
+      document.getElementById('aide-recherche-bouton').innerHTML =
+        `${gestion.ico('search')}<span>Chercher une page ou un article</span><kbd>Ctrl</kbd> <kbd>K</kbd>`;
+      document.getElementById('aide-recherche-bouton').addEventListener('click', () => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }));
+      });
+
+      // Rubriques affichées = groupes du menu (GESTION_NAV n'est pas exposé hors de gestion.js : on part donc des
+      // pages réellement accessibles à ce compte, données par la coque — socle.peut() revérifie côté client ce que
+      // le serveur a déjà tranché) et des articles reçus pour chacune (déjà filtrés par le serveur).
+      let articles;
+      try { articles = await gestion.indexAide(); }
+      catch (e) { document.getElementById('aide-rubriques').innerHTML = `<p class="etat-vide-texte">${socle.esc(e.message)}</p>`; return; }
+      const parPage = new Map();
+      for (const a of articles) {
+        if (!parPage.has(a.rubrique)) parPage.set(a.rubrique, []);
+        parPage.get(a.rubrique).push(a);
+      }
+      const zone = document.getElementById('aide-rubriques');
+      zone.setAttribute('aria-busy', 'false');
+      if (!parPage.size) { zone.innerHTML = '<p class="etat-vide-texte">Aucun article d’aide pour le moment.</p>'; return; }
+      zone.innerHTML = [...parPage.entries()].map(([page, liste]) => `
+        <section class="aide-rubrique" aria-labelledby="aide-rubrique-${socle.esc(page)}">
+          <h2 id="aide-rubrique-${socle.esc(page)}">${gestion.ico('aide')}${socle.esc(libellePage(page))}</h2>
+          <ul>${liste.map(a => `<li><a href="aide.html#${socle.esc(a.slug)}" data-slug="${socle.esc(a.slug)}">${socle.esc(a.titre)}${gestion.fleche('droite')}</a></li>`).join('')}</ul>
+        </section>`).join('');
+      zone.querySelectorAll('[data-slug]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); gestion.ouvrirAide(a.closest('section').id.replace('aide-rubrique-', ''), a.dataset.slug); }));
+
+      // lien direct (#slug, copié depuis « Copier le lien ») : ouvre l'article sans qu'on ait à chercher sa page
+      if (location.hash) {
+        const slug = decodeURIComponent(location.hash.slice(1));
+        const trouve = articles.find(a => a.slug === slug);
+        if (trouve) gestion.ouvrirAide(trouve.rubrique, slug);
+      }
+    });
+    // nom lisible d'une page à partir de son nom de fichier (fallback si jamais introuvable dans le menu affiché)
+    // pages imposées par le socle (CLAUDE.md), absentes du menu : leur nom n'est donc écrit qu'ici
+    const PAGES_SOCLE = { index: 'Se connecter', attente: 'Compte en attente', compte: 'Mon compte' };
+    function libellePage(page) {
+      if (PAGES_SOCLE[page]) return PAGES_SOCLE[page];
+      const lien = document.querySelector(`.admin-nav a[href="${page}.html"], .admin-nav a[href="${page}"]`);
+      return lien?.querySelector('span')?.textContent || page.charAt(0).toUpperCase() + page.slice(1);
+    }
+  </script>
+</body>
+</html>

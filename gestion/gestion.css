@@ -2796,3 +2796,134 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .beneficiaires-carte-titre p { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 4px 0 0; font-size: var(--fs-2); color: var(--text-muted); }
 .beneficiaires-carte .contrat-personnes { columns: 2 210px; }
 .contrat-personnes li.beneficiaire-trouve { margin: 0 -6px; padding-left: 6px; padding-right: 6px; border-radius: 4px; background: rgba({{couleur_rvb}}, 0.16); font-weight: 600; }
+
+/* ======== Aide en ligne (gestion/aide.html, gestion.js : aideCoque, ouvrirAide, ouvrirPaletteAide) ========
+   Classes posées par le serveur (socle/aide.ts) dans le HTML d'un article, à garder en phase avec son rendu,
+   et celles de la palette et du tiroir ci-dessous. */
+.etat-vide-texte { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
+.aide-chargement { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
+
+/* ---- contenu d'un article : lu dans .tiroir-corps (tiroir) ou .aide-article (page aide.html) ---- */
+.tiroir-corps h3, .aide-article h3 { margin: 22px 0 10px; font-size: var(--fs-5); }
+.tiroir-corps h3:first-child, .aide-article h3:first-child { margin-top: 0; }
+.tiroir-corps p, .aide-article p { margin: 0 0 10px; }
+.tiroir-corps ul, .aide-article ul { margin: 0 0 10px; padding-left: 1.2em; }
+
+.tiroir-corps .etapes, .aide-article .etapes { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; counter-reset: etape; }
+.tiroir-corps .etapes li, .aide-article .etapes li { display: flex; gap: 12px; position: relative; padding-bottom: 16px; counter-increment: etape; }
+.tiroir-corps .etapes li:not(:last-child)::before, .aide-article .etapes li:not(:last-child)::before {
+  content: ""; position: absolute; left: 13px; top: 28px; bottom: 2px; width: 2px; background: var(--border-light);
+}
+.tiroir-corps .etapes .num, .aide-article .etapes .num {
+  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--accent);
+  color: var(--accent-dark); display: grid; place-items: center; font-weight: 700; font-size: var(--fs-1); background: var(--bg-card);
+}
+.tiroir-corps .etapes .num::before, .aide-article .etapes .num::before { content: counter(etape); }
+.tiroir-corps .etapes b, .aide-article .etapes b { display: block; font-size: var(--fs-3); }
+.tiroir-corps .etapes .d, .aide-article .etapes .d { font-size: var(--fs-2); color: var(--text-muted); }
+
+.tiroir-corps .cycle, .aide-article .cycle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+.tiroir-corps .cycle .etat, .aide-article .cycle .etat {
+  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; font-size: var(--fs-2); background: var(--bg2);
+}
+.tiroir-corps .cycle .fl, .aide-article .cycle .fl { width: 20px; height: 2px; background: var(--border-light); flex: 0 0 auto; }
+
+.tiroir-corps .encart, .aide-article .encart {
+  display: flex; gap: 10px; border-radius: var(--radius-sm); padding: 12px 14px; margin: 10px 0; font-size: var(--fs-2);
+}
+.tiroir-corps .encart .ico, .aide-article .encart .ico { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; }
+.tiroir-corps .encart p, .aide-article .encart p { margin: 0; }
+.tiroir-corps .encart b, .aide-article .encart b { display: block; margin-bottom: 2px; }
+.tiroir-corps .encart.attention, .aide-article .encart.attention { background: var(--alerte-soft); color: var(--text); }
+.tiroir-corps .encart.attention .ico, .aide-article .encart.attention .ico { color: var(--alerte); }
+.tiroir-corps .encart.info, .aide-article .encart.info { background: var(--bg2); color: var(--text-muted); }
+.tiroir-corps .encart.info .ico, .aide-article .encart.info .ico { color: var(--accent-dark); }
+
+.tiroir-corps .reserve, .aide-article .reserve { border: 1px dashed var(--border-light); border-radius: var(--radius-sm); padding: 10px 14px 2px; margin: 10px 0; }
+.tiroir-corps .reserve .lib, .aide-article .reserve .lib {
+  display: flex; align-items: center; gap: 6px; font-size: var(--fs-1); color: var(--text-faint); margin-bottom: 6px;
+}
+.tiroir-corps .reserve .lib .ico, .aide-article .reserve .lib .ico { width: 14px; height: 14px; }
+
+.tiroir-corps .chemin, .aide-article .chemin { display: inline-flex; align-items: center; gap: 4px; font-size: 0.95em; }
+.tiroir-corps .chemin span, .aide-article .chemin span { background: var(--bg2); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; }
+.tiroir-corps .chemin .ico-ch, .aide-article .chemin .ico-ch { width: 11px; height: 11px; color: var(--text-faint); }
+
+.tiroir-corps .kbd, .aide-article .kbd {
+  font: 600 0.85em/1.4 var(--body); border: 1px solid var(--border-light); border-bottom-width: 2px; border-radius: 5px;
+  padding: 0 6px; color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.08);
+}
+.tiroir-corps .ui-btn, .aide-article .ui-btn {
+  display: inline-flex; align-items: center; font: 600 0.9em/1.6 var(--body); border-radius: var(--rayon-xs);
+  padding: 0 8px; background: var(--accent); color: var(--on-accent); vertical-align: 1px;
+}
+.tiroir-corps .ui-btn-sec, .aide-article .ui-btn-sec { background: var(--bg2); color: var(--text); border: 1px solid var(--border); }
+
+.tiroir-corps .figure, .aide-article .figure { margin: 12px 0; }
+.tiroir-corps .sui, .aide-article .sui {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 80px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.tiroir-corps .sui:empty::after, .aide-article .sui:empty::after { content: "Schéma à venir"; color: var(--text-faint); font-size: var(--fs-1); padding: 20px; }
+.tiroir-corps .sui svg, .aide-article .sui svg { width: 100%; height: auto; display: block; }
+.tiroir-corps .legende-sui, .aide-article .legende-sui { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-2); }
+.tiroir-corps .legende-sui li, .aide-article .legende-sui li { display: flex; gap: 8px; align-items: flex-start; }
+.tiroir-corps .legende-sui b, .aide-article .legende-sui b { font-weight: 600; }
+.tiroir-corps .rep, .aide-article .rep {
+  flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent);
+  font: 700 11px/18px var(--body); text-align: center;
+}
+
+/* zone réelle de la page citée par l'aide (tiroir, data-zone) : brièvement entourée (gestion.js, surlignerZone) */
+.surbrillance { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-sm); transition: outline-color 0.2s; }
+
+/* ---- liste des articles d'une page, dans le tiroir ---- */
+.tiroir-liens { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tiroir-lien {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px; background: var(--bg2); color: var(--text); font: inherit; cursor: pointer;
+}
+.tiroir-lien:hover, .tiroir-lien:focus-visible { border-color: var(--border-light); background: var(--bg-card); }
+.tiroir-lien span { flex: 1; font-size: var(--fs-3); }
+.tiroir-lien .ico { flex: 0 0 auto; width: 16px; height: 16px; color: var(--text-faint); }
+.tiroir-lien .fleche { flex: 0 0 auto; width: 14px; height: 14px; color: var(--text-faint); }
+
+/* ---- palette de recherche (Ctrl K / Cmd K / « / ») ---- */
+.aide-palette-fond { align-items: flex-start; padding-top: 10vh; }
+.aide-palette { max-width: 620px; padding: 0; overflow: hidden; }
+.aide-palette-champ { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.aide-palette-champ .ico { flex: 0 0 auto; width: 18px; height: 18px; color: var(--text-faint); }
+.aide-palette-champ input { flex: 1; border: 0; background: none; font: inherit; font-size: var(--fs-5); color: var(--text); outline: none; }
+.aide-palette-champ kbd {
+  flex: 0 0 auto; font: 600 var(--fs-1)/1.4 var(--body); border: 1px solid var(--border-light); border-bottom-width: 2px;
+  border-radius: 5px; padding: 1px 7px; color: var(--text-faint); background: var(--bg2);
+}
+.aide-palette-resultats { max-height: 60vh; overflow-y: auto; padding: 8px; }
+.aide-palette-resultat {
+  width: 100%; display: flex; align-items: flex-start; gap: 12px; text-align: left; border: 0; border-radius: var(--radius-sm);
+  padding: 10px 12px; background: none; color: var(--text); font: inherit; cursor: pointer;
+}
+.aide-palette-resultat .ico { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; color: var(--text-faint); }
+.aide-palette-resultat b { display: block; font-size: var(--fs-3); font-weight: 600; }
+.aide-palette-resultat small { display: block; font-size: var(--fs-1); color: var(--text-faint); margin-top: 2px; }
+.aide-palette-resultat.survole, .aide-palette-resultat:hover, .aide-palette-resultat:focus-visible { background: var(--bg2); }
+
+/* ---- page gestion/aide.html (styles propres à la page : barre de recherche, grille de rubriques) ---- */
+.aide-recherche {
+  display: flex; align-items: center; gap: 10px; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-card); margin-bottom: 24px; cursor: pointer; color: var(--text-faint);
+}
+.aide-recherche .ico { width: 18px; height: 18px; }
+.aide-recherche span { flex: 1; text-align: left; font-size: var(--fs-4); }
+.aide-recherche kbd {
+  font: 600 var(--fs-1)/1.4 var(--body); border: 1px solid var(--border-light); border-bottom-width: 2px; border-radius: 5px;
+  padding: 1px 7px; background: var(--bg2);
+}
+.aide-rubriques { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.aide-rubrique { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.aide-rubrique h2 { margin: 0; font-size: var(--fs-5); display: flex; align-items: center; gap: 8px; }
+.aide-rubrique h2 .ico { width: 18px; height: 18px; color: var(--accent-dark); }
+.aide-rubrique ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.aide-rubrique a { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: var(--fs-2); color: var(--text-muted); }
+.aide-rubrique a:hover, .aide-rubrique a:focus-visible { color: var(--text); }
+.aide-rubrique a .fleche { width: 12px; height: 12px; flex: 0 0 auto; }

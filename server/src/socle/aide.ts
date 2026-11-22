@@ -78,7 +78,7 @@ function rendreBloc(type: string, arg: string, lignes: string[]): { html: string
   if (type === 'attention' || type === 'info') {
     const icone = type === 'attention' ? 'alerte' : 'info';
     const titre = type === 'attention' && arg ? `<b>${echapper(arg)}</b>` : '';
-    return { html: `<div class="encart ${type}"><svg class="ico ico-${icone}" aria-hidden="true"></svg><div>${titre}${lignes.map(l => `<p>${inline(l)}</p>`).join('')}</div></div>`, texte: `${arg} ${lignes.map(texteSeul).join(' ')}` };
+    return { html: `<div class="encart ${type}"><svg class="ico" aria-hidden="true"><use href="#ico-${icone}"></use></svg><div>${titre}${lignes.map(l => `<p>${inline(l)}</p>`).join('')}</div></div>`, texte: `${arg} ${lignes.map(texteSeul).join(' ')}` };
   }
   if (type === 'schema') {
     const legende = lignes.filter(Boolean).map(l => {
@@ -214,7 +214,7 @@ function filtrerChunks(compte: Compte | null, chunks: Chunk[]): Chunk[] {
   return chunks.filter(c => c.permission === null || (!!compte && peut(compte, c.permission)))
     .map(c => c.permission === null ? c : {
       ...c,
-      html: `<div class="reserve"><div class="lib"><svg class="ico ico-cle" aria-hidden="true"></svg>Visible parce que vous avez « ${echapper(permissionLibelle(c.permission))} »</div>${c.html}</div>`,
+      html: `<div class="reserve"><div class="lib"><svg class="ico" aria-hidden="true"><use href="#ico-cle"></use></svg>Visible parce que vous avez « ${echapper(permissionLibelle(c.permission))} »</div>${c.html}</div>`,
     });
 }
 
