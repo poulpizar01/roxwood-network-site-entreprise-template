@@ -150,3 +150,13 @@ test('cycle de statut : sous-titres, légende de flèche, état à part', () => 
   assert.match(html, /facturer<\/span>/);       // légende de la première flèche seulement
   assert.equal((html.match(/class="fl"/g) ?? []).length, 2);
 });
+
+test('étape dont la suite commence par une virgule : une seule phrase en gras, jamais une virgule en tête de ligne', () => {
+  _chargerArticlesDepuis({
+    virgule: ['---', 'titre: Virgule', 'rubrique: accueil', '---', '::: etapes', '**Dans « Créer un poste »**, saisissez le nom', '**Cliquez sur** [Ajouter]', ':::'].join('\n'),
+  });
+  const html = articleAide(VALIDE, 'virgule')?.html ?? '';
+  assert.match(html, /<b>Dans « Créer un poste », saisissez le nom<\/b>/);
+  assert.doesNotMatch(html, /class="d">,/);
+  assert.match(html, /<span class="d"><span class="ui-btn">Ajouter<\/span><\/span>/);
+});

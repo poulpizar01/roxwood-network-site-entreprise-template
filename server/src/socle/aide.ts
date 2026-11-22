@@ -70,13 +70,19 @@ function inline(ligneBrute: string): string {
 }
 const texteSeul = (ligneBrute: string): string => ligneBrute.replace(/[*`[\]{}]/g, '').replace(/chemin:|›/g, ' ');
 
+const echapperTitre = (v: string): string => v.replace(/[\[\]{}*`]/g, '');   // le titre en gras ne porte pas de balisage
+
 // --- blocs : ::: si <permission>, ::: etapes, ::: cycle, ::: attention <titre>, ::: info ---------------------------
 function rendreBloc(type: string, arg: string, lignes: string[]): { html: string; texte: string; schema?: string; etapes?: string[] } {
   const corps = lignes.join('\n');
   if (type === 'etapes') {
     const items = lignes.filter(Boolean).map(l => {
       const m = /^\*\*([^*]+)\*\*\s*(.*)$/.exec(l.trim());
-      return m ? `<li><span class="num"></span><div><b>${echapper(m[1])}</b><span class="d">${inline(m[2])}</span></div></li>` : `<li><div>${inline(l)}</div></li>`;
+      if (!m) return `<li><div>${inline(l)}</div></li>`;
+      // « **Dans « Créer un poste »**, saisissez… » : une suite qui commence par une ponctuation prolonge la phrase du titre,
+      // elle ne se met pas dessous (elle commencerait par une virgule)
+      if (/^[,;:.]/.test(m[2])) return `<li><span class="num"></span><div><b>${inline(echapperTitre(m[1]) + m[2])}</b></div></li>`;
+      return `<li><span class="num"></span><div><b>${echapper(m[1])}</b><span class="d">${inline(m[2])}</span></div></li>`;
     });
     const titres = lignes.filter(Boolean).map(l => texteSeul(l).replace(/\s+/g, ' ').trim());
     return { html: `<ol class="etapes">${items.join('')}</ol>`, texte: lignes.map(texteSeul).join(' '), etapes: titres };
