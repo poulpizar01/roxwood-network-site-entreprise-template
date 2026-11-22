@@ -21,22 +21,29 @@ const exigerSession: RequestHandler = (req, res, next) => {
   else res.status(401).json({ error: 'non-connecte' });
 };
 
-// charge le compte courant et exige qu'il soit validé
-const exigerValide: RequestHandler = async (req, res, next) => {
+// charge le compte courant, quel que soit son statut (attente comprise)
+const chargerCompte: RequestHandler = async (req, res, next) => {
   const c = await prisma.compte.findUnique({ where: { id: req.session.compteId } });
   if (!c) { req.session.destroy(() => res.status(401).json({ error: 'non-connecte' })); return; }
-  if (c.statut !== 'valide') { res.status(403).json({ error: 'attente', statut: c.statut }); return; }
   req.compte = c;
   next();
 };
+// + exige qu'il soit validé
+const exigerValide: RequestHandler = (req, res, next) => {
+  if (req.compte.statut !== 'valide') { res.status(403).json({ error: 'attente', statut: req.compte.statut }); return; }
+  next();
+};
 
-// connecte : session ouverte (compte éventuellement en attente) ; valide : compte validé ; permission : + la permission
+// connecte : session ouverte (compte éventuellement en attente) ; avecCompte : + req.compte chargé, attente acceptée
+// (aide en ligne, D9 : les articles « Premiers pas » restent lisibles avant validation) ; valide : compte validé ;
+// permission : + la permission
 export const connecte = [exigerSession];
-export const valide = [exigerSession, exigerValide];
+export const avecCompte = [exigerSession, chargerCompte];
+export const valide = [exigerSession, chargerCompte, exigerValide];
 export function permission(cle: string): RequestHandler[] {
   // vérifiée au démarrage (l'appel a lieu à la déclaration des routes) : une faute de frappe ne laisse pas une route ouverte à tous
   if (!CLES_PERMISSIONS.has(cle)) throw new Error(`permission('${cle}') : permission inconnue, à déclarer dans entreprise/permissions.ts`);
-  return [exigerSession, exigerValide, (req, res, next) => {
+  return [exigerSession, chargerCompte, exigerValide, (req, res, next) => {
     if (peut(req.compte, cle)) next();
     else res.status(403).json({ error: 'interdit', permission: cle });
   }];

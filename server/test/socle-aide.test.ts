@@ -1,0 +1,83 @@
+// SOCLE — Aide en ligne (src/socle/aide.ts) : un article ou un passage réservé à une permission ne doit jamais
+// atteindre un compte qui ne l'a pas — c'est un contrôle de sécurité, pas un simple affichage.
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { _chargerArticlesDepuis, articleAide, chercherAide, declarerNiveauPage, indexAide } from '../src/socle/aide.js';
+import type { Compte } from '../src/generated/prisma/client.js';
+
+declarerNiveauPage({ accueil: 'valide', facturation: 'factures', vitrine: 'connecte', index: 'public' });
+
+// Un compte sans grade a un jeu de permissions vide tant qu'aucun grade n'est chargé en base (droits.ts, module non
+// sollicité ici) : il sert à tester « sans la permission ». proprietaire: true contourne tout (super-admin).
+const compte = (statut: string, proprietaire = false): Compte => ({ statut, proprietaire, gradeCle: null } as unknown as Compte);
+const VALIDE = compte('valide');
+const ATTENTE = compte('attente');
+const PROPRIETAIRE = compte('valide', true);
+
+test('article sur une page « valide » : exige un compte validé, rien de plus', () => {
+  _chargerArticlesDepuis({ accueil: '---\ntitre: Vue d’ensemble\nrubrique: accueil\n---\nTexte visible de tous les comptes validés.' });
+  assert.ok(articleAide(VALIDE, 'accueil'));
+  assert.equal(articleAide(ATTENTE, 'accueil'), null);
+  assert.equal(articleAide(null, 'accueil'), null);
+});
+
+test('article sur une page « connecte » (D9) : lisible avant validation', () => {
+  _chargerArticlesDepuis({ bienvenue: '---\ntitre: Bienvenue\nrubrique: vitrine\n---\nPremiers pas.' });
+  assert.ok(articleAide(ATTENTE, 'bienvenue'));
+  assert.equal(articleAide(null, 'bienvenue'), null);
+});
+
+test('article sur une page à permission : hérite du niveau de la page (D3)', () => {
+  _chargerArticlesDepuis({ facturer: '---\ntitre: Facturer\nrubrique: facturation\n---\nTexte.' });
+  assert.equal(articleAide(VALIDE, 'facturer'), null);       // compte validé mais sans la permission « factures »
+  assert.ok(articleAide(PROPRIETAIRE, 'facturer'));          // le super-admin a tout
+});
+
+test('permission en en-tête surcharge celle de la page (D3)', () => {
+  _chargerArticlesDepuis({ reserve: '---\ntitre: Réglages avancés\nrubrique: accueil\npermission: factures\n---\nTexte.' });
+  assert.equal(articleAide(VALIDE, 'reserve'), null);        // accueil est « valide », mais l'article exige « factures »
+  assert.ok(articleAide(PROPRIETAIRE, 'reserve'));
+});
+
+test('passage réservé (::: si) retiré du HTML, jamais seulement masqué (D2, D8)', () => {
+  _chargerArticlesDepuis({
+    mixte: ['---', 'titre: Mixte', 'rubrique: accueil', '---',
+      'Visible de tous.', '',
+      '::: si factures', 'Visible seulement avec « Gérer les factures ».', ':::', ''].join('\n'),
+  });
+  const pourValide = articleAide(VALIDE, 'mixte')!;
+  assert.match(pourValide.html, /Visible de tous/);
+  assert.doesNotMatch(pourValide.html, /Visible seulement/);   // jamais envoyé, pas seulement caché par du CSS
+
+  const pourProprio = articleAide(PROPRIETAIRE, 'mixte')!;
+  assert.match(pourProprio.html, /Visible seulement/);
+  assert.match(pourProprio.html, /Visible parce que vous avez/);   // bandeau D8
+});
+
+test('index : seuls les articles accessibles au compte apparaissent', () => {
+  _chargerArticlesDepuis({
+    publique: '---\ntitre: Publique\nrubrique: vitrine\n---\nTexte.',
+    privee: '---\ntitre: Privée\nrubrique: facturation\n---\nTexte.',
+  });
+  const vu = indexAide(ATTENTE).map(a => a.slug);
+  assert.deepEqual(vu, ['publique']);
+  assert.deepEqual(indexAide(PROPRIETAIRE).map(a => a.slug).sort(), ['privee', 'publique']);
+});
+
+test('recherche : ignore les accents, ne porte jamais sur un passage réservé', () => {
+  _chargerArticlesDepuis({
+    echeance: ['---', 'titre: Facturer une échéance', 'rubrique: accueil', 'mots-cles: échéancier, contrat', '---',
+      'Texte ordinaire.', '', '::: si factures', 'Cliquez sur Facturer la sélection.', ':::', ''].join('\n'),
+  });
+  assert.equal(chercherAide(VALIDE, 'echeance').length, 1);                 // « echeance » trouve « échéance » (titre)
+  assert.equal(chercherAide(VALIDE, 'facturer la selection').length, 0);    // passage réservé : absent pour ce compte
+  assert.equal(chercherAide(PROPRIETAIRE, 'facturer la selection').length, 1);
+});
+
+test('article inconnu ou rubrique non déclarée : 404 plutôt qu’une erreur', () => {
+  _chargerArticlesDepuis({});
+  assert.equal(articleAide(PROPRIETAIRE, 'inexistant'), null);
+  _chargerArticlesDepuis({ orpheline: '---\ntitre: Orpheline\nrubrique: page-qui-nexiste-pas\n---\nTexte.' });
+  assert.ok(articleAide(VALIDE, 'orpheline'));                 // rubrique inconnue : exige un compte validé, par défaut
+  assert.equal(articleAide(ATTENTE, 'orpheline'), null);
+});

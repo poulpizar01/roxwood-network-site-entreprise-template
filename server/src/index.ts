@@ -23,6 +23,8 @@ import { declarerParametres, parametres } from './socle/parametres.js';
 import { webhooks } from './socle/routes/webhooks.js';
 import { webhooksJournal } from './socle/routes/webhooks-journal.js';
 import { webhooksAbonnements } from './socle/routes/webhooks-abonnements.js';
+import { aide } from './socle/routes/aide.js';
+import { declarerNiveauPage } from './socle/aide.js';
 import type { NiveauPage } from './socle/contrat.js';
 import { entreprise } from './entreprise/index.js';
 
@@ -85,7 +87,7 @@ app.use(['/api', '/auth'], (req, res, next) => {
 
 app.use('/auth', limits.auth);
 app.use('/api', limits.api);
-app.use(auth, comptes, grades, parametres, webhooksJournal, webhooksAbonnements, ...entreprise.routes);
+app.use(auth, comptes, grades, parametres, webhooksJournal, webhooksAbonnements, aide, ...entreprise.routes);
 // adresse d'API inconnue : 404 en JSON (pas la page 404 du site)
 app.use('/api', (_req, res) => { res.status(404).json({ error: 'introuvable' }); });
 
@@ -105,10 +107,11 @@ app.use((req, res, next) => {
 // Pages de gestion/ : envoyées seulement à qui y a droit, selon les mêmes règles que l'API. Sinon la page n'est jamais
 // envoyée : pas connecté → connexion ; compte pas encore validé → attente ; droits insuffisants → refuse.html (403).
 // Niveaux : ceux du socle ci-dessous, puis ceux que déclare l'entreprise ; une page non déclarée exige un compte validé.
-const NIVEAU_PAGE: Record<string, NiveauPage> = { parametres: 'parametres', webhooks: 'webhooks', ...entreprise.pages, index: 'public', refuse: 'public', attente: 'connecte' };
+const NIVEAU_PAGE: Record<string, NiveauPage> = { parametres: 'parametres', webhooks: 'webhooks', ...entreprise.pages, index: 'public', refuse: 'public', attente: 'connecte', aide: 'connecte' };
 for (const [page, niveau] of Object.entries(NIVEAU_PAGE)) {
   if (!['public', 'connecte', 'valide'].includes(niveau) && !CLES_PERMISSIONS.has(niveau)) throw new Error(`entreprise.pages : niveau inconnu « ${niveau} » pour la page ${page}`);
 }
+declarerNiveauPage(NIVEAU_PAGE);   // l'aide en ligne hérite du même niveau que la page qu'un article décrit (D3)
 // La page est déduite du chemin tel que le serveur de fichiers le lira : décodé, normalisé, sans casse (compt%65s.html,
 // //comptes.html, Comptes.html sur un disque Windows désignent tous comptes.html).
 const pageDemandee = (chemin: string): string | null => {
