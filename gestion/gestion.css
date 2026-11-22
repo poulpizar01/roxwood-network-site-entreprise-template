@@ -3018,3 +3018,9 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 @media (max-width: 900px) { .aide-barre-art { display: flex; } .aide-ariane, .aide-cote { display: none; } .aide-art-tete h1 { font-size: 24px; } }
 a.aide-pas { color: inherit; text-decoration: none; }
 a.aide-pas:hover b, a.aide-pas:focus-visible b { text-decoration: underline; }
+
+/* figure : de l'air avant les étapes, légende alignée sur le haut du dessin, légende de figure collée à lui */
+.tiroir-corps .figure, .aide-article .figure { margin: 6px 0 22px; align-items: start; }
+.tiroir-corps .figure + .aide-cap, .aide-article .figure + .aide-cap { margin: -14px 0 22px; }
+.tiroir-corps .legende-sui, .aide-article .legende-sui { padding-top: 2px; }
+.aide-article h3 { scroll-margin-top: 16px; }

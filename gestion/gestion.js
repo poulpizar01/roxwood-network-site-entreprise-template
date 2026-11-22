@@ -257,7 +257,9 @@ function poserReperesFigure(fig) {
     const b = el.getBBox();
     const rep = document.createElement('span');
     rep.className = 'rep'; rep.setAttribute('aria-hidden', 'true'); rep.textContent = n;
-    rep.style.left = `${((b.x + b.width / 2 - vb.x) / vb.width) * 100}%`;
+    // un champ ou un bouton large porte son libellé au centre : le repère se pose vers son bord droit, pas dessus
+    const large = b.width > vb.width * 0.3;
+    rep.style.left = `${((large ? b.x + b.width - Math.min(22, b.width / 4) : b.x + b.width / 2) - vb.x) / vb.width * 100}%`;
     rep.style.top = `${((b.y + b.height / 2 - vb.y) / vb.height) * 100}%`;
     sui.append(rep);
   });
@@ -303,7 +305,13 @@ function voirAussiHtml(article) {
 }
 // schémas remplis, légende cliquable (entoure la zone réelle si la page en cours la porte et qu'elle est visible),
 // « Voir aussi » branchés sur ouvrirArticle(slug)
-function brancherArticle(conteneur, ouvrirArticle) {
+const memeTitre = (a, b) => normaliserRecherche(a).trim() === normaliserRecherche(b).trim();
+function retirerTitreDouble(conteneur, article) {
+  const h = conteneur.querySelector('h3');
+  if (h && memeTitre(h.textContent, article.titre)) h.remove();
+}
+function brancherArticle(conteneur, ouvrirArticle, article) {
+  if (article) retirerTitreDouble(conteneur, article);
   remplirSchemas(conteneur);
   // Rien si la zone n'est pas sur la page en cours (article lu depuis une autre page) ni si elle est cachée (fenêtre pas
   // encore ouverte, onglet non actif) : un repère cliquable qui ne ferait rien serait trompeur.
@@ -320,14 +328,14 @@ function brancherArticle(conteneur, ouvrirArticle) {
 }
 function dessinerArticle(conteneur, article, ouvrirArticle) {
   conteneur.innerHTML = teteArticle(article) + article.html + voirAussiHtml(article);
-  brancherArticle(conteneur, ouvrirArticle);
+  brancherArticle(conteneur, ouvrirArticle, article);
 }
 // Page d'un article (aide.html#slug) : fil d'Ariane, colonne de lecture, volet « Dans cet article » + actions (M2) ;
 // sur téléphone, barre du haut propre à l'article (M5).
 function articlePage(conteneur, article, ouvrirArticle, retour) {
   const toc = [
     ...(article.html.includes('class="figure"') ? [{ id: 'aide-schema', texte: 'Le schéma' }] : []),
-    ...article.intertitres,
+    ...article.intertitres.filter(i => !memeTitre(i.texte, article.titre)),
     ...(article.voirAussi.length ? [{ id: 'aide-voir-aussi', texte: 'Voir aussi' }] : []),
   ];
   const page = ligneMenu(article.rubrique);
@@ -342,7 +350,7 @@ function articlePage(conteneur, article, ouvrirArticle, retour) {
           <button type="button" class="btn btn-fantome" data-aide-copier>${ico('link')}Copier le lien</button></div>
       </aside></div>`;
   const corps = conteneur.querySelector('.aide-article');
-  brancherArticle(corps, ouvrirArticle);
+  brancherArticle(corps, ouvrirArticle, article);
   corps.querySelector('.figure')?.setAttribute('id', 'aide-schema');
   conteneur.querySelectorAll('[data-aide-retour]').forEach(b => b.addEventListener('click', retour));
   conteneur.querySelectorAll('[data-aide-copier]').forEach(b => b.addEventListener('click', async () => {
