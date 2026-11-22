@@ -81,7 +81,7 @@ function rendreBloc(type: string, arg: string, lignes: string[]): { html: string
       if (!m) return `<li><div>${inline(l)}</div></li>`;
       // « **Dans « Créer un poste »**, saisissez… » : une suite qui commence par une ponctuation prolonge la phrase du titre,
       // elle ne se met pas dessous (elle commencerait par une virgule)
-      if (/^[,;:.]/.test(m[2])) return `<li><span class="num"></span><div><b>${inline(echapperTitre(m[1]) + m[2])}</b></div></li>`;
+      if (/^[,;:.]/.test(m[2])) return `<li><span class="num"></span><div><b>${inline(echapperTitre(m[1]) + (m[2].startsWith(':') ? ' ' : '') + m[2])}</b></div></li>`;
       return `<li><span class="num"></span><div><b>${echapper(m[1])}</b><span class="d">${inline(m[2])}</span></div></li>`;
     });
     const titres = lignes.filter(Boolean).map(l => texteSeul(l).replace(/\s+/g, ' ').trim());
