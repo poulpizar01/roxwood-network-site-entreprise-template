@@ -32,21 +32,24 @@ const parCle = new Map(permissions.map(p => [p.cle, p]));
 for (const p of permissions) for (const r of p.requiert ?? [])
   if (!parCle.has(r)) fail(`entreprise/permissions.ts : permission « ${p.cle} » exige « ${r} », introuvable`);
 
-// permissions requises par une permission, en cascade (si « a » exige « b » et « b » exige « c », « a » exige aussi « c »)
-function dependances(cle: string): Set<string> {
-  const vues = new Set<string>(), aTraiter = [cle];
-  while (aTraiter.length) {
-    for (const r of parCle.get(aTraiter.pop()!)?.requiert ?? []) if (!vues.has(r)) { vues.add(r); aTraiter.push(r); }
-  }
-  return vues;
-}
 // liste de permissions complétée par ce qu'elles exigent (enregistrement d'un grade : cocher une permission coche
-// aussi celles qu'elle suppose, même si l'interface a été contournée). Clés inconnues filtrées.
-export function completerPermissions(perms: readonly string[]): string[] {
+// aussi celles qu'elle suppose, même si l'interface a été contournée), en cascade (si « a » exige « b » et « b » exige
+// « c », « a » exige aussi « c »). Clés inconnues de la table filtrées. Pure (table en paramètre) : testable sans dépendre
+// des permissions de l'entreprise.
+export function completerSelon(perms: readonly string[], table: readonly Permission[]): string[] {
+  const parClePerm = new Map(table.map(p => [p.cle, p]));
+  const dependances = (cle: string): Set<string> => {
+    const vues = new Set<string>(), aTraiter = [cle];
+    while (aTraiter.length) {
+      for (const r of parClePerm.get(aTraiter.pop()!)?.requiert ?? []) if (!vues.has(r)) { vues.add(r); aTraiter.push(r); }
+    }
+    return vues;
+  };
   const s = new Set(perms);
   for (const p of perms) for (const r of dependances(p)) s.add(r);
-  return [...s].filter(p => CLES_PERMISSIONS.has(p));
+  return [...s].filter(p => parClePerm.has(p));
 }
+export const completerPermissions = (perms: readonly string[]): string[] => completerSelon(perms, permissions);
 
 let grades: Grade[] = [];   // du sommet à la base
 

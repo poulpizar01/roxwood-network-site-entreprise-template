@@ -3028,3 +3028,58 @@ a.aide-pas:hover b, a.aide-pas:focus-visible b { text-decoration: underline; }
 .tiroir-corps .figure + .aide-cap, .aide-article .figure + .aide-cap { margin: -14px 0 22px; }
 .tiroir-corps .legende-sui, .aide-article .legende-sui { padding-top: 2px; }
 .aide-article h3 { scroll-margin-top: 16px; }
+
+
+/* ======== Page Grades (gestion/grades.html) : fiche d'un grade en tiroir à onglets, interrupteurs, aperçu ======== */
+/* interrupteur (.d8-switch) plutôt qu'une case : une permission est un bouton on/off, pas un choix dans une liste —
+   Aligné sur la première ligne du libellé (docs/design.md §5), comme la case qu'il remplace. */
+.grade-permission .d8-switch { margin-top: 1px; }
+/* overflow-x: auto plutôt que hidden : si la grille ne tient vraiment pas (nom de grade très long, fenêtre étroite
+   entre deux largeurs), elle défile plutôt que de couper une colonne (souvent celle des actions) sans rien dire.
+   overflow-y: hidden explicite (sinon overflow-x: auto seul force aussi overflow-y à « auto », cf. .grade-onglets). */
+.grade-agenda-matrice { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.grade-agenda-entete, .grade-agenda-ligne { display: grid; grid-template-columns: minmax(140px, 1.4fr) repeat(3, minmax(100px, 1fr)); align-items: center; gap: 4px; padding: 6px 10px; }
+/* bouton rouge posé sur .btn-fantome : sans ça, le survol bleu du bouton fantôme l'emportait (texte rouge sur fond bleu) */
+.btn.grade-supprimer:hover { background: var(--erreur-soft); border-color: var(--erreur); color: var(--erreur); }
+/* ---- fiche d'un grade en tiroir (grades.html) : liste à gauche, tiroir à droite, par onglets — remplace l'ancienne
+   modale. Les classes .grade-* ci-dessus (identité, domaine, permission, agenda) sont réutilisées telles quelles. */
+/* 900px, pas la largeur générique de .tiroir (560px) : la grille de droits d'agenda (4 colonnes, minimum 540px de
+   contenu) venait respirer dans l'ancienne modale (max-width 920px) ; à 760px elle était trop serrée. */
+.tiroir-grade { width: min(900px, 100%); }
+/* même reset que .modale-grade : un <label> ou une <legend> y est normal, pas en majuscules (règle générale, label {}
+) */
+.tiroir-grade label, .tiroir-grade legend { text-transform: none; letter-spacing: 0; }
+.tiroir-grade .champ label small { font-weight: 400; color: var(--text-faint); }
+/* flex: 0 0 auto comme .tiroir-entete et .tiroir-pied : sans lui, un onglet au contenu long (Permissions) pouvait
+   le faire céder de la place dans la colonne du tiroir et le réduire presque à rien. */
+/* overflow-y: hidden explicite : sans lui, poser overflow-x: auto seul force aussi overflow-y à « auto » (règle de la
+   spec CSS, les deux doivent être précisés) et une barre verticale inutile s'incrustait à droite du bandeau. */
+.grade-onglets { flex: 0 0 auto; display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; padding: 10px 24px 0; border-bottom: 1px solid var(--border); scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent; }
+.grade-onglets::-webkit-scrollbar { height: 6px; }
+.grade-onglets::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba({{couleur_rvb}}, 0.36); }
+.compta-sous-onglets, .run-onglets, .grade-onglets { gap: 4px; border-bottom: 1px solid var(--border); }
+.compta-sous-onglet, .run-onglet, .grade-onglet {
+  margin-bottom: -1px; padding: 10px 12px; border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: none; color: var(--text-muted); font-size: var(--fs-3); white-space: nowrap; flex: 0 0 auto;
+}
+.compta-sous-onglet:hover, .run-onglet:hover, .grade-onglet:hover { color: var(--text); border-bottom-color: var(--border-light); }
+.compta-sous-onglet.actif, .run-onglet.actif, .grade-onglet.actif { background: none; color: var(--text); border-bottom-color: var(--accent); }
+.compta-sous-onglet.actif .ico, .run-onglet.actif .ico, .grade-onglet.actif .ico { color: var(--accent); }
+.tiroir-grade [data-panneau] { padding-top: 16px; }
+/* recherche d'une permission (page longue sous Ressources humaines) : champ standard, résultats filtrés en JS */
+.grade-recherche input[type="search"] { max-width: 360px; }
+/* droit qui donne accès à des informations sensibles (RIB, comptes, grades…) : signalé, jamais caché */
+.grade-sensible { display: inline-flex; align-items: center; height: 18px; padding: 0 7px; margin-left: 6px; border-radius: 999px; background: var(--alerte-soft); color: var(--alerte); font-size: var(--fs-1); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; vertical-align: 1px; }
+.grade-requiert { color: var(--accent-dark); }
+/* aperçu (onglet Aperçu) : mêmes lignes que la liste des grades, simple affichage sans poignée ni flèche */
+#apercu-menu .grades-principal { cursor: default; }
+/* détail de l'aperçu (ce que le grade peut faire, par domaine) : même texte que .grade-permission, sans interrupteur */
+.apercu-droit { margin: 0; padding: 6px 10px; }
+.apercu-droit strong { display: block; font-weight: 500; color: var(--text); font-size: var(--fs-3); }
+.apercu-droit small { display: block; font-size: var(--fs-2); color: var(--text-faint); }
+/* vue d'ensemble (lecture seule) : une permission par ligne, les grades qui la portent en étiquettes — jamais une
+   grille rôles × permissions, qui défilerait de côté sur un petit écran (docs/design.md §4) */
+.vue-ensemble-ligne { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.vue-ensemble-ligne:last-child { border-bottom: 0; }
+.vue-ensemble-ligne > div:first-child { flex: 1 1 240px; min-width: 0; }
+.vue-ensemble-ligne .grades-tags { flex: 1 1 260px; }

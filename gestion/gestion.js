@@ -577,6 +577,13 @@ window.gestion = {
   ordreEnService,
   servicesEnCours,
 
+  // rubriques visibles du menu pour un filtre de permission donné (coque, et l'aperçu d'un grade dans grades.html) :
+  // regroupées sous leur titre, un groupe sans aucune rubrique visible n'apparaît pas.
+  rubriques(peutFn) {
+    const visibles = GESTION_NAV.filter(l => l.groupe || !l.permission || peutFn(l.permission));
+    return visibles.filter((l, i) => !l.groupe || (visibles[i + 1] && !visibles[i + 1].groupe));
+  },
+
   // Aide en ligne (docs/aide.md). enregistrerSchemas({ 'nom-du-schema': '<svg …>…</svg>' }) : une page déclare les
   // dessins fidèles qu'elle porte (jamais de schéma inventé par défaut). surlignerZone('nom') entoure un instant
   // l'élément réel portant data-zone="nom" sur la page en cours.
@@ -668,8 +675,7 @@ window.gestion = {
       <a href="compte.html" class="admin-barre-haut-compte" data-avatar aria-label="Mon compte"></a>`;
     const dessiner = (moi) => {
       // un groupe sans aucune rubrique visible n'est pas affiché
-      const visibles = GESTION_NAV.filter(l => l.groupe || !l.permission || socle.peut(moi, l.permission));
-      barre.querySelector('.admin-nav').innerHTML = visibles.filter((l, i) => !l.groupe || (visibles[i + 1] && !visibles[i + 1].groupe)).map(l => l.groupe
+      barre.querySelector('.admin-nav').innerHTML = gestion.rubriques(cle => socle.peut(moi, cle)).map(l => l.groupe
         ? `<p class="admin-nav-groupe">${socle.esc(l.groupe)}</p>`
         : `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`).join('');
       const nom = moi.nom || moi.pseudo;
