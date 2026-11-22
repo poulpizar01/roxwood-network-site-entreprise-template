@@ -3016,3 +3016,5 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .aide-barre-art { display: none; align-items: center; gap: 10px; margin: 0 0 14px; font-weight: 650; }
 .aide-barre-art span { flex: 1; }
 @media (max-width: 900px) { .aide-barre-art { display: flex; } .aide-ariane, .aide-cote { display: none; } .aide-art-tete h1 { font-size: 24px; } }
+a.aide-pas { color: inherit; text-decoration: none; }
+a.aide-pas:hover b, a.aide-pas:focus-visible b { text-decoration: underline; }
