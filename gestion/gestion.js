@@ -513,7 +513,7 @@ function ouvrirPaletteAide(pagesVisibles) {
         : (await indexAide()).filter(a => a.type === 'article').sort((a, b) => Number(b.suggestion) - Number(a.suggestion)).slice(0, 4);
     } catch { /* recherche indisponible : les pages seules suffisent déjà à naviguer */ }
     if (requeteCourante !== requete) return;   // une saisie plus récente a déjà relancé une recherche
-    const pages = (q ? pagesVisibles.filter(l => normaliserRecherche(l.label).includes(q2) || articles.some(a => a.rubrique === l.cle)) : pagesVisibles.slice(0, 3))
+    const pages = (q ? pagesVisibles.filter(l => normaliserRecherche(l.label).includes(q2) || articles.some(a => a.rubrique === l.cle && a.dansTitre)) : pagesVisibles.slice(0, 3))
       .slice(0, 4).map(l => {
         const trouve = q ? articles.find(a => a.rubrique === l.cle && a.extrait) : null;
         return { groupe: 'Aller à', type: 'page', cle: l.cle, titre: l.label, href: l.href, icone: l.icone, detailHtml: trouve ? marquer(trouve.extrait, q) : '' };

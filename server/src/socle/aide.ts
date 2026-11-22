@@ -45,6 +45,9 @@ export function declarerSynonymes(carte: Record<string, string[]> = {}): void { 
 const normaliser = (v: string): string =>
   v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+// même longueur que le texte d'origine (accents retirés, minuscules) : sert à retrouver une position pour un extrait lisible
+const normaliserSimple = (v: string): string => v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
 const echapper = (v: string): string =>
   v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -75,7 +78,7 @@ function rendreBloc(type: string, arg: string, lignes: string[]): { html: string
       const m = /^\*\*([^*]+)\*\*\s*(.*)$/.exec(l.trim());
       return m ? `<li><span class="num"></span><div><b>${echapper(m[1])}</b><span class="d">${inline(m[2])}</span></div></li>` : `<li><div>${inline(l)}</div></li>`;
     });
-    const titres = lignes.map(l => /^\*\*([^*]+)\*\*/.exec(l.trim())?.[1]).filter((t): t is string => !!t);
+    const titres = lignes.filter(Boolean).map(l => texteSeul(l).replace(/\s+/g, ' ').trim());
     return { html: `<ol class="etapes">${items.join('')}</ol>`, texte: lignes.map(texteSeul).join(' '), etapes: titres };
   }
   if (type === 'cycle') {
@@ -304,7 +307,7 @@ export function articleAide(compte: Compte | null, slug: string): ArticleFiltre 
   };
 }
 
-type Resultat = { slug: string; titre: string; rubrique: string; extrait: string; type: 'article' | 'faq'; schema: string | null; etapes: string[]; reperes: Repere[]; score: number };
+type Resultat = { slug: string; titre: string; rubrique: string; extrait: string; type: 'article' | 'faq'; schema: string | null; etapes: string[]; reperes: Repere[]; zone: string; dansTitre: boolean; score: number };
 export function chercherAide(compte: Compte | null, q: string): Resultat[] {
   actualiser();
   const requete = normaliser(q);
@@ -319,14 +322,21 @@ export function chercherAide(compte: Compte | null, q: string): Resultat[] {
     const clesTexte = normaliser(a.motsCles.join(' '));
     let score = 0;
     let extrait = '';
+    let dansTitre = false;
+    const brut = visibles.map(c => c.texte ?? '').join(' ');
+    const brutSimple = normaliserSimple(brut);
     for (const mot of mots) {
       if (!mot) continue;
-      if (titreTexte.includes(mot)) score += 6;
-      if (clesTexte.includes(mot)) score += 4;
+      if (titreTexte.includes(mot)) { score += 6; dansTitre = true; }
+      if (clesTexte.includes(mot)) { score += 4; dansTitre = true; }
       const pos = corpsTexte.indexOf(mot);
-      if (pos >= 0) { score += 1; if (!extrait) extrait = corpsTexte.slice(Math.max(0, pos - 40), pos + 80); }
+      if (pos >= 0) {
+        score += 1;
+        const p = brutSimple.indexOf(mot);   // l'extrait se découpe dans le texte d'origine (accents, majuscules)
+        if (!extrait && p >= 0) extrait = brut.slice(Math.max(0, p - 40), p + 80).trim();
+      }
     }
-    if (score > 0) resultats.push({ slug: a.slug, titre: a.titre, rubrique: a.rubrique, extrait: extrait || corpsTexte.slice(0, 120), type: a.type, reperes: a.reperes, ...metaVisible(visibles), score });
+    if (score > 0) resultats.push({ slug: a.slug, titre: a.titre, rubrique: a.rubrique, extrait: extrait || brut.slice(0, 120), type: a.type, reperes: a.reperes, zone: a.zone, dansTitre, ...metaVisible(visibles), score });
   }
   return resultats.sort((x, y) => y.score - x.score).slice(0, 20);
 }

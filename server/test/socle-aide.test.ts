@@ -110,7 +110,7 @@ test('schéma et étapes d’aperçu : lus dans les passages visibles seulement,
       '::: si factures', '::: schema secret', '1 Secret : réservé', ':::', ':::'].join('\n'),
   });
   const visible = indexAide(VALIDE).find(a => a.slug === 'apercu');
-  assert.deepEqual(visible?.etapes, ['Ouvrez', 'Cliquez']);
+  assert.deepEqual(visible?.etapes, ['Ouvrez la ligne', 'Cliquez ici']);
   assert.equal(visible?.schema, 'liste');
   assert.equal(visible?.type, 'faq');
   assert.equal(visible?.suggestion, true);
