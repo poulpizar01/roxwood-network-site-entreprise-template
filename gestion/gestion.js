@@ -257,10 +257,9 @@ function poserReperesFigure(fig) {
     const b = el.getBBox();
     const rep = document.createElement('span');
     rep.className = 'rep'; rep.setAttribute('aria-hidden', 'true'); rep.textContent = n;
-    // un champ ou un bouton large porte son libellé au centre : le repère se pose vers son bord droit, pas dessus
-    const large = b.width > vb.width * 0.3;
-    rep.style.left = `${((large ? b.x + b.width - Math.min(22, b.width / 4) : b.x + b.width / 2) - vb.x) / vb.width * 100}%`;
-    rep.style.top = `${((b.y + b.height / 2 - vb.y) / vb.height) * 100}%`;
+    // le repère se pose sur l'angle haut-droit de l'élément (jamais au centre : il cacherait son libellé)
+    rep.style.left = `${((b.x + b.width - Math.min(10, b.width / 3)) - vb.x) / vb.width * 100}%`;
+    rep.style.top = `${(b.y - vb.y) / vb.height * 100}%`;
     sui.append(rep);
   });
 }
