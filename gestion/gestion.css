@@ -62,17 +62,18 @@ html.defilement-bloque body { overflow: visible; }
 }
 
 /* ======== changement de page, flèches, titres, intitulés ======== */
-/* Changement de page : un seul mouvement, sur le contenu seulement (l'en-tête du site et le menu de l'espace agents ne
-   bougent pas). Au départ, le contenu s'estompe (layout.js, transitionsDePage) ; à l'arrivée, il reprend depuis le même
-   niveau, avec une légère montée : jamais de page vide entre les deux (elle faisait un flash). « backwards » : passé l'entrée, l'animation ne fige plus l'opacité (le départ peut l'effacer)
-   et ne laisse aucune transformation (sinon un élément fixe du contenu se placerait par rapport à lui). */
-@keyframes d8-entree { from { opacity: 0.35; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-.admin-contenu, body > section, body > main, body > .pied-page { animation: d8-entree 240ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
-body.page-sortie .admin-contenu, body.page-sortie > section, body.page-sortie > main, body.page-sortie > .pied-page { opacity: 0.35; transition: opacity 130ms ease-in; }
-@media (prefers-reduced-motion: reduce) {
-  .admin-contenu, body > section, body > main, body > .pied-page { animation: none; }
-  body.page-sortie .admin-contenu, body.page-sortie > section, body.page-sortie > main, body.page-sortie > .pied-page { opacity: 1; transition: none; }
-}
+/* Changement de page : transition native du navigateur (View Transitions, Chromium 126+ ; ailleurs, changement sans
+   animation). Le menu (barre latérale, barre du haut) a son propre nom : il reste immobile, seul le contenu se fond dans
+   la page suivante, sans page pâle ni clignement. Courte, pour ne jamais retarder l'affichage. */
+@view-transition { navigation: auto; }
+.admin-barre-laterale { view-transition-name: menu-lateral; }
+.admin-barre-haut { view-transition-name: menu-haut; }
+::view-transition-group(root) { animation-duration: 160ms; }
+::view-transition-old(root), ::view-transition-new(root) { animation-timing-function: ease-out; }
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+/* Place de la barre de défilement toujours réservée : ni saut de 12 px d'une page courte à une page longue, ni
+   largeur du contenu qui change quand une fenêtre bloque le défilement (les tableaux repassaient en cartes et inversement). */
+html { scrollbar-gutter: stable; }
 
 /* Flèche dessinée (layout.js, fleche()) : centrée sur le texte, à sa taille et à sa couleur. Dans un bouton, un
    écart à la place de l'espace (un bouton aligne ses éléments, l'espace y disparaît). */
@@ -158,18 +159,20 @@ label, .eyebrow-label {
   content: "";
   position: absolute;
   top: 0;
-  left: -130%;
+  left: 0;
+  transform: translateX(-130%);
+  will-change: transform;
   width: 55%;
   height: 100%;
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
-  transition: left 0.5s ease;
+  transition: transform 0.5s ease;
   pointer-events: none;
 }
 .btn-or:hover {
   transform: translateY(-1px);
   filter: brightness(1.06);
 }
-.btn-or:hover::after { left: 140%; }
+.btn-or:hover::after { transform: translateX(255%); }
 @media (prefers-reduced-motion: reduce) {
   .btn-or::after { transition: none; }
 }
@@ -2683,6 +2686,15 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 }
 @media (prefers-reduced-motion: no-preference) { .tiroir { animation: tiroir-entree 220ms ease-out backwards; } }
 @keyframes tiroir-entree { from { transform: translateX(40px); opacity: 0; } }
+/* Fermeture animée, symétrique de l'ouverture : un tiroir déjà dans la page se masque par la classe « cache » (global :
+   display none, donc aucune sortie possible). Ici il reste affiché mais invisible et inerte — fond qui s'estompe, tiroir
+   qui glisse vers la droite — et visibility ne passe à « hidden » qu'à la fin (focus et lecteurs d'écran n'y entrent plus).
+   Un tiroir créé par le script (aide) reçoit « sortie » avant d'être retiré (retirerAnime, gestion.js). */
+.tiroir-fond { transition: opacity 180ms ease-out, visibility 0s; }
+.tiroir-fond .tiroir { transition: transform 180ms ease-out; }
+.tiroir-fond.cache, .tiroir-fond.sortie { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 180ms ease-in, visibility 0s 180ms; }
+.tiroir-fond.cache { display: flex !important; }
+.tiroir-fond.cache .tiroir, .tiroir-fond.sortie .tiroir { transform: translateX(40px); transition: transform 180ms ease-in; }
 .tiroir-entete { flex: 0 0 auto; display: flex; align-items: flex-start; gap: 14px; padding: 22px 24px 16px; border-bottom: 1px solid var(--border); }
 .tiroir-entete .admin-avatar { flex: 0 0 auto; width: 44px; height: 44px; font-size: var(--fs-4); }
 .tiroir-identite { flex: 1; min-width: 0; }

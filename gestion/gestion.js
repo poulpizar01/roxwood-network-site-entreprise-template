@@ -364,14 +364,26 @@ function articlePage(conteneur, article, ouvrirArticle, retour) {
     for (const a of liens) { const el = document.getElementById(a.dataset.toc); if (el && el.getBoundingClientRect().top < 140) actif = a; }
     liens.forEach(a => a.classList.toggle('on', a === actif));
   };
+  // un seul écouteur à la fois : l'article précédent n'est plus à l'écran, son suivi de défilement ne doit pas continuer
+  if (suiviDefilementAide) removeEventListener('scroll', suiviDefilementAide);
+  suiviDefilementAide = maj;
   addEventListener('scroll', maj, { passive: true });
 }
+let suiviDefilementAide = null;
 
 // Fenêtre à focus piégé (palette de recherche ou tiroir d'aide) : même geste que gestion.confirmer (Échap ferme et
 // rend le focus, Tab boucle dedans), factorisé ici parce que les deux en ont besoin.
+// Retire une fenêtre créée par le script après sa sortie animée (classe « sortie », gestion.css) ; tout de suite si la
+// personne a demandé de réduire les animations. Le temps d'animation est celui de .tiroir-fond (180 ms).
+function retirerAnime(fond) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { fond.remove(); return; }
+  fond.classList.add('sortie');
+  setTimeout(() => fond.remove(), 190);
+}
+
 function piegerFocus(fond, premier) {
   const avant = document.activeElement;
-  const fermer = () => { document.removeEventListener('keydown', clavier, true); fond.remove(); verrouillerDefilement(false); avant?.focus?.(); };
+  const fermer = () => { document.removeEventListener('keydown', clavier, true); retirerAnime(fond); verrouillerDefilement(false); avant?.focus?.(); };
   const clavier = e => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermer(); return; }
     if (e.key !== 'Tab') return;
