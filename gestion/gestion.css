@@ -2802,6 +2802,10 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
    et celles de la palette et du tiroir ci-dessous. */
 .etat-vide-texte { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
 .aide-chargement { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
+/* .tiroir-entete (partagée, ex. Contrats) aligne ses enfants en haut : juste pour une fiche à sous-titre, plus
+   haute que son bouton. Le bandeau de l'aide n'a qu'un titre sur une ligne ; en haut, son centre restait au-dessus
+   de celui du chevron « retour » (bouton 36 px, titre ~23 px) — ici, les deux sont toujours centrés l'un sur l'autre. */
+.aide-tiroir .tiroir-entete { align-items: center; }
 
 /* ---- contenu d'un article : lu dans .tiroir-corps (tiroir) ou .aide-article (page aide.html) ---- */
 .tiroir-corps h3, .aide-article h3 { margin: 22px 0 10px; font-size: var(--fs-5); }

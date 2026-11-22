@@ -287,7 +287,7 @@ function normaliserRecherche(v) { return v.normalize('NFD').replace(/[̀-ͯ]/g, 
 function ouvrirAide(rubrique, articleInitial) {
   const fond = document.createElement('div');
   fond.className = 'tiroir-fond modale-fond';
-  fond.innerHTML = `<aside class="tiroir" role="dialog" aria-modal="true" aria-labelledby="aide-tiroir-titre">
+  fond.innerHTML = `<aside class="tiroir aide-tiroir" role="dialog" aria-modal="true" aria-labelledby="aide-tiroir-titre">
     <div class="tiroir-entete">
       <button type="button" class="admin-icone-bouton" data-aide-retour hidden aria-label="Revenir à la liste">${fleche('precedent')}</button>
       <div class="tiroir-identite"><h2 id="aide-tiroir-titre">Aide</h2></div>
