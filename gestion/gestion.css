@@ -26,7 +26,8 @@ html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); line-height: 1.6; overflow-x: hidden; font-variant-numeric: lining-nums; }
 [hidden] { display: none !important; }
 /* posée tant qu'une fenêtre (.modale-fond) reste ouverte : gestion.js, verrouillerDefilement() */
-html.defilement-bloque, html.defilement-bloque body { overflow: hidden; }
+/* html seul : un overflow:hidden sur body en ferait le conteneur de défilement du menu collant (sticky), qui partirait avec la page défilée */
+html.defilement-bloque { overflow: hidden; }
 
 /* ======== base : défilement, focus, mouvement réduit ======== */
 /* Barres de défilement aux couleurs du site, partout (page, menus, listes, fenêtres) : pilule dorée discrète sur fond
