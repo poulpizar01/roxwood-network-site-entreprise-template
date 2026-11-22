@@ -3,6 +3,13 @@
    déroulants habillés, dates et heures à la française, notifications, fenêtres). Chaque page appelle
    gestion.coque('<rubrique>') après socle.js ; le menu est décrit une seule fois ici.
    permission : la rubrique n'apparaît qu'à qui la détient (le serveur applique la même règle : entreprise/index.ts → pages). */
+
+// Schémas de l'aide en ligne (docs/aide.md) : un article peut être lu depuis n'importe quelle page (recherche
+// Ctrl K, page Aide), pas seulement celle qui le concerne — ses schémas doivent donc être connus de partout, pas
+// seulement enregistrés par la page d'origine. Un seul fichier les rassemble tous (gestion/schemas-aide.js,
+// entreprise, absent du modèle) ; chargé ici, une fois, sur chaque page. Une erreur 404 si le site n'en a pas
+// encore (ou pas du tout) reste silencieuse : aucun schéma n'apparaît, la figure reste vide, rien ne casse.
+(() => { const s = document.createElement('script'); s.src = '/gestion/schemas-aide.js'; s.async = false; document.head.appendChild(s); })();
 const GESTION_NAV = [
   // « Mon compte » n'est pas une rubrique : on y va par le compte en bas du menu (ou l'avatar de la barre du haut)
   { cle: 'accueil', href: 'accueil.html', label: 'Accueil', icone: 'home' },
