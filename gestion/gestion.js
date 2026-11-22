@@ -13,8 +13,8 @@
 const GESTION_NAV = [
   // « Mon compte » n'est pas une rubrique : on y va par le compte en bas du menu (ou l'avatar de la barre du haut)
   { cle: 'accueil', href: 'accueil.html', label: 'Accueil', icone: 'home' },
-  { cle: 'agenda', href: 'agenda.html', label: 'Agenda', icone: 'calendar' },
   { cle: 'aide', href: 'aide.html', label: 'Aide', icone: 'aide' },
+  { cle: 'agenda', href: 'agenda.html', label: 'Agenda', icone: 'calendar' },
   { groupe: 'Équipe' },
   { cle: 'quota', href: 'quota.html', label: 'Quota', icone: 'chart', permission: 'rh-voir' },
   { cle: 'beneficiaires', href: 'beneficiaires.html', label: 'Clients', icone: 'carte', permission: 'contrats-beneficiaires' },
@@ -548,9 +548,7 @@ function ouvrirPaletteAide(pagesVisibles) {
 // Posé une fois par page (coque) : bouton « ? » → tiroir de la rubrique ; Ctrl K / Cmd K / « / » → palette.
 function aideCoque(moi, rubrique, barre, haut) {
   const pages = pagesMenu(moi);
-  for (const b of [...barre.querySelectorAll('[data-aide-ouvrir]'), ...haut.querySelectorAll('[data-aide-ouvrir]')]) {
-    b.addEventListener('click', () => ouvrirAide(rubrique));
-  }
+  for (const zone of [barre, haut]) zone.addEventListener('click', e => { if (e.target.closest('[data-aide-ouvrir]')) ouvrirAide(rubrique); });
   document.addEventListener('keydown', e => {
     const dansChamp = /^(input|textarea|select)$/i.test(e.target.tagName) || e.target.isContentEditable;
     if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ouvrirPaletteAide(pages); }
@@ -656,7 +654,6 @@ window.gestion = {
       <div class="admin-bas">
         <button type="button" class="admin-service-indic cache" data-service-indic aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-en-service">
           <span class="pastille-service" aria-hidden="true"></span><span data-service-texte>En service</span>${ico('chevron')}</button>
-        <button type="button" class="admin-icone-bouton" data-aide-ouvrir aria-haspopup="dialog" aria-label="Aide de cette page">${ico('aide')}</button>
         <div class="admin-compte" data-compte></div>
       </div>`;
     // téléphone et tablette : barre du haut, la barre latérale entière s'ouvre en tiroir (compte et déconnexion compris)
@@ -667,7 +664,7 @@ window.gestion = {
       <a href="accueil.html" class="admin-barre-haut-logo admin-marque">${marque}</a>
       <button type="button" class="admin-service-indic admin-service-indic--haut cache" data-service-indic="court" aria-haspopup="dialog" aria-expanded="false" aria-controls="menu-en-service">
         <span class="pastille-service" aria-hidden="true"></span><span data-service-texte></span></button>
-      <button type="button" class="admin-icone-bouton" data-aide-ouvrir aria-haspopup="dialog" aria-label="Aide de cette page">${ico('aide')}</button>
+      <button type="button" class="admin-icone-bouton" data-aide-ouvrir aria-haspopup="dialog" title="Aide de cette page" aria-label="Aide de cette page">${ico('aide')}</button>
       <a href="compte.html" class="admin-barre-haut-compte" data-avatar aria-label="Mon compte"></a>`;
     const dessiner = (moi) => {
       // un groupe sans aucune rubrique visible n'est pas affiché
@@ -681,6 +678,7 @@ window.gestion = {
       const ici = rubrique === 'compte';
       barre.querySelector('[data-compte]').innerHTML = `<a class="admin-compte-lien${ici ? ' actif' : ''}" href="compte.html"${ici ? ' aria-current="page"' : ''} aria-label="Mon compte : ${socle.esc(nom)}">${avatar}
         <div class="admin-compte-texte"><strong>${socle.esc(nom)}</strong><span class="admin-compte-grade">${socle.esc(grade)}</span></div></a>
+        <button type="button" class="admin-icone-bouton" data-aide-ouvrir aria-haspopup="dialog" title="Aide de cette page" aria-label="Aide de cette page">${ico('aide')}</button>
         <button type="button" class="admin-icone-bouton" data-deconnexion title="Se déconnecter" aria-label="Se déconnecter">${ico('logout')}</button>`;
       haut.querySelector('[data-avatar]').innerHTML = avatar;
     };
