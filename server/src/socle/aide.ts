@@ -162,7 +162,10 @@ function lireEntete(brut: string): { entete: Record<string, string>; corps: stri
   return { entete, corps: m[2] };
 }
 
-function construireArticle(slug: string, brut: string): Article | null {
+function construireArticle(slug: string, brutSource: string): Article | null {
+  // fins de ligne normalisées avant toute chose : un article édité ou extrait sur Windows revient en CRLF (vu au
+  // premier article réel, se-connecter.md, après un `git merge` dans un site), ce qui casse l'en-tête (---\n…).
+  const brut = brutSource.replace(/\r\n/g, '\n');
   const { entete, corps } = lireEntete(brut);
   if (!entete.titre || !entete.rubrique) { console.warn(`aide : « ${slug} » ignoré (titre et rubrique obligatoires en en-tête)`); return null; }
   const { chunks, intertitres } = rendreCorps(corps);

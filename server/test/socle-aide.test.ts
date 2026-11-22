@@ -74,6 +74,13 @@ test('recherche : ignore les accents, ne porte jamais sur un passage réservé',
   assert.equal(chercherAide(PROPRIETAIRE, 'facturer la selection').length, 1);
 });
 
+test('fins de ligne CRLF (checkout Windows) : l’en-tête se lit quand même', () => {
+  _chargerArticlesDepuis({ crlf: '---\r\ntitre: Se connecter\r\nrubrique: accueil\r\n---\r\nTexte.\r\n' });
+  const a = articleAide(VALIDE, 'crlf');
+  assert.ok(a, 'article ignoré : en-tête mal lue sur un fichier CRLF');
+  assert.equal(a!.titre, 'Se connecter');
+});
+
 test('article inconnu ou rubrique non déclarée : 404 plutôt qu’une erreur', () => {
   _chargerArticlesDepuis({});
   assert.equal(articleAide(PROPRIETAIRE, 'inexistant'), null);
