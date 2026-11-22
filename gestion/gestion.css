@@ -2798,149 +2798,220 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .contrat-personnes li.beneficiaire-trouve { margin: 0 -6px; padding-left: 6px; padding-right: 6px; border-radius: 4px; background: rgba({{couleur_rvb}}, 0.16); font-weight: 600; }
 
 /* ======== Aide en ligne (gestion/aide.html, gestion.js : aideCoque, ouvrirAide, ouvrirPaletteAide) ========
-   Classes posées par le serveur (socle/aide.ts) dans le HTML d'un article, à garder en phase avec son rendu,
-   et celles de la palette et du tiroir ci-dessous. */
-.etat-vide-texte { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
-.aide-chargement { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
-/* .tiroir-entete (partagée, ex. Contrats) aligne ses enfants en haut : juste pour une fiche à sous-titre, plus
-   haute que son bouton. Le bandeau de l'aide n'a qu'un titre sur une ligne ; en haut, son centre restait au-dessus
-   de celui du chevron « retour » (bouton 36 px, titre ~23 px) — ici, les deux sont toujours centrés l'un sur l'autre. */
+   Reprise des maquettes V2 (artifact « Aide en ligne ») : M1 page Aide, M2 article, M3 recherche avec aperçu, M4 tiroir
+   de la page, M5 téléphone. Les noms de jetons de la maquette (--g-*) sont ici ceux du thème : fond --bg, carte --bg2,
+   chip --bg3, filet --border, accent --accent / --accent-dark (clair), ok / alerte / erreur.
+   Classes posées par le serveur (socle/aide.ts) dans le HTML d'un article : à garder en phase avec son rendu. */
+.etat-vide-texte, .aide-chargement { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
 .aide-tiroir .tiroir-entete { align-items: center; }
 
+/* ---- schéma simplifié (SUI) : trame + trait, repères numérotés posés sur les zones ---- */
+.sui {
+  position: relative; color: var(--accent-dark); overflow: hidden; border-radius: 10px;
+  background-color: color-mix(in srgb, var(--accent) 7%, var(--bg));
+  background-image: linear-gradient(rgba({{couleur_rvb}}, 0.09) 1px, transparent 1px), linear-gradient(90deg, rgba({{couleur_rvb}}, 0.09) 1px, transparent 1px);
+  background-size: 14px 14px; border: 1px solid rgba({{couleur_rvb}}, 0.28);
+}
+.sui svg { display: block; width: 100%; height: auto; }
+.sui text { fill: currentColor; font-family: var(--body); }
+.sui:empty::after { content: "Schéma à venir"; display: block; color: var(--text-faint); font-size: var(--fs-1); padding: 20px; text-align: center; }
+.rep {
+  position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: var(--accent); color: var(--on-accent);
+  font: 700 12px/24px var(--body); text-align: center; box-shadow: 0 0 0 4px rgba({{couleur_rvb}}, 0.28), 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+.rep.a { background: var(--alerte); color: #1a1200; box-shadow: 0 0 0 4px rgba(255, 176, 32, 0.25), 0 4px 10px rgba(0, 0, 0, 0.5); }
+.legende-sui .rep, .aide-lien-art .rep { position: static; margin: 0; flex: 0 0 auto; width: 22px; height: 22px; line-height: 22px; font-size: 11px; box-shadow: none; }
+
 /* ---- contenu d'un article : lu dans .tiroir-corps (tiroir) ou .aide-article (page aide.html) ---- */
-.tiroir-corps h3, .aide-article h3 { margin: 22px 0 10px; font-size: var(--fs-5); }
+.tiroir-corps h3, .aide-article h3 { margin: 26px 0 10px; font-family: var(--display); font-size: 18px; font-weight: 750; line-height: 1.12; }
 .tiroir-corps h3:first-child, .aide-article h3:first-child { margin-top: 0; }
-.tiroir-corps p, .aide-article p { margin: 0 0 10px; }
+.tiroir-corps p, .aide-article p { margin: 0 0 10px; color: var(--text); max-width: 64ch; }
 .tiroir-corps ul, .aide-article ul { margin: 0 0 10px; padding-left: 1.2em; }
+.aide-cap { font-size: var(--fs-1); color: var(--text-faint); margin: 6px 0 0; }
 
-.tiroir-corps .etapes, .aide-article .etapes { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; counter-reset: etape; }
-.tiroir-corps .etapes li, .aide-article .etapes li { display: flex; gap: 12px; position: relative; padding-bottom: 16px; counter-increment: etape; }
-.tiroir-corps .etapes li:not(:last-child)::before, .aide-article .etapes li:not(:last-child)::before {
-  content: ""; position: absolute; left: 13px; top: 28px; bottom: 2px; width: 2px; background: var(--border-light);
-}
-.tiroir-corps .etapes .num, .aide-article .etapes .num {
-  flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--accent);
-  color: var(--accent-dark); display: grid; place-items: center; font-weight: 700; font-size: var(--fs-1); background: var(--bg-card);
-}
-.tiroir-corps .etapes .num::before, .aide-article .etapes .num::before { content: counter(etape); }
-.tiroir-corps .etapes b, .aide-article .etapes b { display: block; font-size: var(--fs-3); }
-.tiroir-corps .etapes .d, .aide-article .etapes .d { font-size: var(--fs-2); color: var(--text-muted); }
-
-.tiroir-corps .cycle, .aide-article .cycle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
-.tiroir-corps .cycle .etat, .aide-article .cycle .etat {
-  border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; font-size: var(--fs-2); background: var(--bg2);
-}
-.tiroir-corps .cycle .fl, .aide-article .cycle .fl { width: 20px; height: 2px; background: var(--border-light); flex: 0 0 auto; }
-
-.tiroir-corps .encart, .aide-article .encart {
-  display: flex; gap: 10px; border-radius: var(--radius-sm); padding: 12px 14px; margin: 10px 0; font-size: var(--fs-2);
-}
-.tiroir-corps .encart .ico, .aide-article .encart .ico { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; }
-.tiroir-corps .encart p, .aide-article .encart p { margin: 0; }
-.tiroir-corps .encart b, .aide-article .encart b { display: block; margin-bottom: 2px; }
-.tiroir-corps .encart.attention, .aide-article .encart.attention { background: var(--alerte-soft); color: var(--text); }
-.tiroir-corps .encart.attention .ico, .aide-article .encart.attention .ico { color: var(--alerte); }
-.tiroir-corps .encart.info, .aide-article .encart.info { background: var(--bg2); color: var(--text-muted); }
-.tiroir-corps .encart.info .ico, .aide-article .encart.info .ico { color: var(--accent-dark); }
-
-.tiroir-corps .reserve, .aide-article .reserve { border: 1px dashed var(--border-light); border-radius: var(--radius-sm); padding: 10px 14px 2px; margin: 10px 0; }
-.tiroir-corps .reserve .lib, .aide-article .reserve .lib {
-  display: flex; align-items: center; gap: 6px; font-size: var(--fs-1); color: var(--text-faint); margin-bottom: 6px;
-}
-.tiroir-corps .reserve .lib .ico, .aide-article .reserve .lib .ico { width: 14px; height: 14px; }
-
-.tiroir-corps .chemin, .aide-article .chemin { display: inline-flex; align-items: center; gap: 4px; font-size: 0.95em; }
-.tiroir-corps .chemin span, .aide-article .chemin span { background: var(--bg2); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; }
-.tiroir-corps .chemin .ico-ch, .aide-article .chemin .ico-ch { width: 11px; height: 11px; color: var(--text-faint); }
-
-.tiroir-corps .kbd, .aide-article .kbd {
-  font: 600 0.85em/1.4 var(--body); border: 1px solid var(--border-light); border-bottom-width: 2px; border-radius: 5px;
-  padding: 0 6px; color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.08);
-}
-.tiroir-corps .ui-btn, .aide-article .ui-btn {
-  display: inline-flex; align-items: center; font: 600 0.9em/1.6 var(--body); border-radius: var(--rayon-xs);
-  padding: 0 8px; background: var(--accent); color: var(--on-accent); vertical-align: 1px;
-}
-.tiroir-corps .ui-btn-sec, .aide-article .ui-btn-sec { background: var(--bg2); color: var(--text); border: 1px solid var(--border); }
-
-/* Le schéma et sa légende forment un seul bloc, visuellement distinct du texte (fond, cadre, coins arrondis) : sans
-   ça, la légende (chiffres ronds) se confondait avec les étapes juste en dessous (mêmes chiffres ronds), comme si
-   c'était une seule liste continue. Marge large de part et d'autre pour la détacher du texte qui l'entoure. */
-.tiroir-corps .figure, .aide-article .figure {
-  margin: 20px 0; padding: 14px 16px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
-}
-.tiroir-corps .sui, .aide-article .sui {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 80px;
-  display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--accent-dark);
-}
-.tiroir-corps .sui:empty::after, .aide-article .sui:empty::after { content: "Schéma à venir"; color: var(--text-faint); font-size: var(--fs-1); padding: 20px; }
-.tiroir-corps .sui svg, .aide-article .sui svg { width: 100%; height: auto; display: block; }
-.tiroir-corps .sui text, .aide-article .sui text { fill: currentColor; font-family: var(--body); }
-.tiroir-corps .legende-sui, .aide-article .legende-sui {
-  list-style: none; margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border);
-  display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-1); color: var(--text-muted);
-}
-.tiroir-corps .legende-sui li, .aide-article .legende-sui li { display: flex; gap: 8px; align-items: flex-start; }
+.tiroir-corps .figure, .aide-article .figure { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; align-items: center; margin: 6px 0 4px; }
+.tiroir-corps .legende-sui, .aide-article .legende-sui { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--text); }
+.tiroir-corps .legende-sui li, .aide-article .legende-sui li { display: flex; gap: 9px; align-items: flex-start; }
 .tiroir-corps .legende-sui b, .aide-article .legende-sui b { font-weight: 600; color: var(--text); }
 .legende-cliquable { cursor: pointer; border-radius: var(--radius-sm); padding: 4px 6px; margin: -4px -6px; }
-.legende-cliquable:hover, .legende-cliquable:focus-visible { background: var(--bg-card); }
-/* petit repère de légende (caption) : volontairement discret, pour ne pas se confondre avec les grands chiffres
-   ronds des étapes (.etapes .num) juste en dessous */
-.tiroir-corps .rep, .aide-article .rep {
-  flex: 0 0 auto; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--border-light);
-  color: var(--text-muted); font: 600 10px/13px var(--body); text-align: center; margin-top: 1px;
+.legende-cliquable:hover, .legende-cliquable:focus-visible { background: var(--bg2); }
+.tiroir-corps .figure { grid-template-columns: 1fr; }
+
+.tiroir-corps .etapes, .aide-article .etapes { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; counter-reset: etape; }
+.tiroir-corps .etapes li, .aide-article .etapes li { display: grid; grid-template-columns: 34px 1fr; gap: 12px; position: relative; padding-bottom: 16px; counter-increment: etape; }
+.tiroir-corps .etapes li:not(:last-child)::before, .aide-article .etapes li:not(:last-child)::before {
+  content: ""; position: absolute; left: 16px; top: 30px; bottom: 2px; width: 2px; background: rgba({{couleur_rvb}}, 0.3);
+}
+.tiroir-corps .etapes .num, .aide-article .etapes .num {
+  width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent-dark); display: grid; place-items: center;
+  font-weight: 750; font-size: 13px; background: var(--bg);
+}
+.tiroir-corps .etapes .num::before, .aide-article .etapes .num::before { content: counter(etape); }
+.tiroir-corps .etapes b, .aide-article .etapes b { display: block; font-size: 14.5px; margin-top: 5px; }
+.tiroir-corps .etapes .d, .aide-article .etapes .d { font-size: 13.5px; color: var(--text); }
+
+.tiroir-corps .ui-btn, .aide-article .ui-btn {
+  display: inline-flex; align-items: center; gap: 5px; font: 600 12.5px/1.6 var(--body); border-radius: 6px; padding: 1px 8px;
+  background: var(--accent); color: var(--on-accent); vertical-align: 1px; white-space: nowrap;
+}
+.tiroir-corps .ui-btn-sec, .aide-article .ui-btn-sec { background: var(--bg3); color: var(--text); border: 1px solid rgba(255, 255, 255, 0.16); }
+.tiroir-corps .chemin, .aide-article .chemin { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; vertical-align: 1px; flex-wrap: wrap; }
+.tiroir-corps .chemin span, .aide-article .chemin span { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 0 7px; }
+.tiroir-corps .chemin .ico-ch, .aide-article .chemin .ico-ch { width: 11px; height: 11px; color: var(--text-faint); }
+.tiroir-corps .kbd, .aide-article .kbd, .aide-pal .kbd {
+  font: 600 11px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px;
+  color: var(--text-faint); background: var(--bg3);
 }
 
-/* zone réelle de la page citée par l'aide (tiroir, data-zone) : brièvement entourée (gestion.js, surlignerZone) */
-.surbrillance { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-sm); transition: outline-color 0.2s; }
+.tiroir-corps .cycle, .aide-article .cycle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.tiroir-corps .cycle .etat, .aide-article .cycle .etat { display: flex; flex-direction: column; gap: 2px; border-radius: 9px; padding: 8px 12px; border: 1px solid var(--border); background: var(--bg3); min-width: 112px; }
+.tiroir-corps .cycle .etat b, .aide-article .cycle .etat b { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.tiroir-corps .cycle .etat b::before, .aide-article .cycle .etat b::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c, #888); flex: 0 0 auto; }
+.tiroir-corps .cycle .etat small, .aide-article .cycle .etat small { font-size: 11.5px; color: var(--text-faint); }
+.tiroir-corps .cycle .etat-a-part, .aide-article .cycle .etat-a-part { margin-left: auto; }
+.tiroir-corps .cycle .fl, .aide-article .cycle .fl { color: var(--text-faint); display: flex; flex-direction: column; align-items: center; font-size: 11px; gap: 0; }
+.tiroir-corps .cycle .fl svg, .aide-article .cycle .fl svg { width: 34px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 
-/* ---- liste des articles d'une page, dans le tiroir ---- */
-.tiroir-liens { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.tiroir-lien {
-  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 10px 12px; background: var(--bg2); color: var(--text); font: inherit; cursor: pointer;
-}
-.tiroir-lien:hover, .tiroir-lien:focus-visible { border-color: var(--border-light); background: var(--bg-card); }
-.tiroir-lien span { flex: 1; font-size: var(--fs-3); }
-.tiroir-lien .ico { flex: 0 0 auto; width: 16px; height: 16px; color: var(--text-faint); }
-.tiroir-lien .fleche { flex: 0 0 auto; width: 14px; height: 14px; color: var(--text-faint); }
+.tiroir-corps .encart, .aide-article .encart { display: grid; grid-template-columns: 28px 1fr; gap: 10px; border-radius: 10px; padding: 11px 14px; margin: 12px 0; font-size: 13.5px; }
+.tiroir-corps .encart .ico, .aide-article .encart .ico { width: 20px; height: 20px; }
+.tiroir-corps .encart p, .aide-article .encart p { margin: 0; }
+.tiroir-corps .encart b, .aide-article .encart b { display: block; font-size: 13.5px; }
+.tiroir-corps .encart.attention, .aide-article .encart.attention { background: var(--alerte-soft); border: 1px solid rgba(255, 176, 32, 0.3); color: var(--text); }
+.tiroir-corps .encart.attention .ico, .aide-article .encart.attention .ico { color: var(--alerte); }
+.tiroir-corps .encart.info, .aide-article .encart.info { background: var(--bg2); border: 1px solid var(--border); color: var(--text); }
+.tiroir-corps .encart.info .ico, .aide-article .encart.info .ico { color: var(--accent-dark); }
 
-/* ---- palette de recherche (Ctrl K / Cmd K / « / ») ---- */
-.aide-palette-fond { align-items: flex-start; padding-top: 10vh; }
-.aide-palette { max-width: 620px; padding: 0; overflow: hidden; }
-.aide-palette-champ { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
-.aide-palette-champ .ico { flex: 0 0 auto; width: 18px; height: 18px; color: var(--text-faint); }
-.aide-palette-champ input { flex: 1; border: 0; background: none; font: inherit; font-size: var(--fs-5); color: var(--text); outline: none; }
-.aide-palette-champ kbd {
-  flex: 0 0 auto; font: 600 var(--fs-1)/1.4 var(--body); border: 1px solid var(--border-light); border-bottom-width: 2px;
-  border-radius: 5px; padding: 1px 7px; color: var(--text-faint); background: var(--bg2);
-}
-.aide-palette-resultats { max-height: 60vh; overflow-y: auto; padding: 8px; }
-.aide-palette-resultat {
-  width: 100%; display: flex; align-items: flex-start; gap: 12px; text-align: left; border: 0; border-radius: var(--radius-sm);
-  padding: 10px 12px; background: none; color: var(--text); font: inherit; cursor: pointer;
-}
-.aide-palette-resultat .ico { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; color: var(--text-faint); }
-.aide-palette-resultat b { display: block; font-size: var(--fs-3); font-weight: 600; }
-.aide-palette-resultat small { display: block; font-size: var(--fs-1); color: var(--text-faint); margin-top: 2px; }
-.aide-palette-resultat.survole, .aide-palette-resultat:hover, .aide-palette-resultat:focus-visible { background: var(--bg2); }
+.tiroir-corps .reserve, .aide-article .reserve { border: 1px dashed rgba({{couleur_rvb}}, 0.5); background: rgba({{couleur_rvb}}, 0.06); border-radius: 12px; padding: 12px 16px 4px; margin: 14px 0; }
+.tiroir-corps .reserve .lib, .aide-article .reserve .lib { font-size: 12px; color: var(--accent-dark); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-weight: 600; }
+.tiroir-corps .reserve .lib .ico, .aide-article .reserve .lib .ico { width: 14px; height: 14px; }
 
-/* ---- page gestion/aide.html (styles propres à la page : barre de recherche, grille de rubriques) ---- */
-.aide-recherche {
-  display: flex; align-items: center; gap: 10px; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius);
-  background: var(--bg-card); margin-bottom: 24px; cursor: pointer; color: var(--text-faint);
-}
-.aide-recherche .ico { width: 18px; height: 18px; }
-.aide-recherche span { flex: 1; text-align: left; font-size: var(--fs-4); }
-.aide-recherche kbd {
-  font: 600 var(--fs-1)/1.4 var(--body); border: 1px solid var(--border-light); border-bottom-width: 2px; border-radius: 5px;
-  padding: 1px 7px; background: var(--bg2);
-}
-.aide-rubriques { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-.aide-rubrique { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
-.aide-rubrique h2 { margin: 0; font-size: var(--fs-5); display: flex; align-items: center; gap: 8px; }
-.aide-rubrique h2 .ico { width: 18px; height: 18px; color: var(--accent-dark); }
-.aide-rubrique ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.aide-rubrique a { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: var(--fs-2); color: var(--text-muted); }
-.aide-rubrique a:hover, .aide-rubrique a:focus-visible { color: var(--text); }
-.aide-rubrique a .fleche { width: 12px; height: 12px; flex: 0 0 auto; }
+/* tête d'article : pastille d'icône, titre, pastilles « Vous pouvez… » calculées, durée */
+.aide-art-tete { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
+.aide-art-ic { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 12px; background: var(--accent-soft); border: 1px solid rgba({{couleur_rvb}}, 0.35); display: grid; place-items: center; color: var(--accent-dark); }
+.aide-art-ic .ico { width: 22px; height: 22px; }
+.aide-art-tete h1, .aide-art-tete h2 { margin: 0; font-family: var(--display); font-stretch: 82%; font-size: 32px; font-weight: 800; line-height: 1.05; }
+.aide-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.aide-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; color: var(--text-faint); }
+.aide-chip.ok { color: var(--ok); border-color: rgba(62, 207, 142, 0.35); background: var(--ok-soft); }
+.aide-chip .ico { width: 13px; height: 13px; }
+.aide-ariane { font-size: 12.5px; color: var(--text-faint); display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.aide-ariane a { color: inherit; }
+.aide-ariane .fleche { width: 12px; height: 12px; }
+
+/* « Voir aussi » */
+.aide-voir { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 8px; }
+.aide-voir-carte { display: grid; grid-template-columns: 86px 1fr; gap: 12px; align-items: center; background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 8px; font-size: 13.5px; color: var(--text); text-align: left; font-family: inherit; cursor: pointer; }
+.aide-voir-carte:hover, .aide-voir-carte:focus-visible { border-color: var(--border-light); }
+.aide-voir-carte .sui { height: 54px; border-radius: 7px; }
+.aide-voir-carte .sui svg { height: 100%; }
+.aide-voir-carte small { display: block; color: var(--text-faint); font-size: 12px; }
+
+/* page d'un article (aide.html#slug) : colonne + volet de droite */
+.aide-art { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 36px; }
+.aide-cote { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 16px; }
+.aide-cote .tit { font-size: 12.5px; font-weight: 650; color: var(--text-faint); margin-bottom: 6px; }
+.aide-toc { font-size: 13px; border-left: 2px solid var(--border); }
+.aide-toc a { display: block; padding: 4px 0 4px 12px; color: var(--text-faint); margin-left: -2px; border-left: 2px solid transparent; }
+.aide-toc a.on { color: var(--accent-dark); border-left-color: var(--accent); }
+.aide-utile { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
+.aide-utile .btn { justify-content: center; }
+
+/* ---- tiroir de la page (M4) : schéma de la page, articles numérotés sur le schéma, autres articles ---- */
+.aide-tiroir-corps { display: flex; flex-direction: column; gap: 10px; }
+.aide-tiroir-ic { width: 32px; height: 32px; border-radius: 9px; flex: 0 0 auto; background: var(--accent-soft); border: 1px solid rgba({{couleur_rvb}}, 0.35); display: grid; place-items: center; color: var(--accent-dark); }
+.aide-tiroir-ic .ico { width: 17px; height: 17px; }
+.aide-lien-art { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; font: inherit; font-size: 13.5px; background: var(--bg3); color: var(--text); text-align: left; cursor: pointer; }
+.aide-lien-art > span:not(.rep) { flex: 1; }
+.aide-lien-art:hover, .aide-lien-art:focus-visible { border-color: var(--border-light); }
+.aide-lien-art .ico, .aide-lien-art .fleche { flex: 0 0 auto; width: 16px; height: 16px; color: var(--text-faint); }
+.aide-etiq { font-size: 13px; font-weight: 650; color: var(--text-faint); margin: 26px 0 10px; display: flex; align-items: center; gap: 10px; }
+.aide-etiq::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.aide-tiroir-corps .aide-etiq { margin: 6px 0 0; }
+.aide-tiroir-pied { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-faint); }
+.aide-tiroir-pied .ico { width: 16px; height: 16px; }
+
+/* ---- recherche (M3) ---- */
+.aide-palette-fond { align-items: flex-start; padding-top: 46px; background: rgba(4, 5, 9, 0.74); }
+.aide-pal { width: min(820px, 94vw); background: var(--bg2); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 14px; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65); overflow: hidden; padding: 0; }
+.aide-pal-champ { display: flex; align-items: center; gap: 10px; padding: 15px 16px; border-bottom: 1px solid var(--border); color: var(--text); }
+.aide-pal-champ .ico { flex: 0 0 auto; width: 19px; height: 19px; color: var(--text-faint); }
+.aide-pal-champ input { flex: 1; border: 0; background: none; font: inherit; font-size: 15px; color: var(--text); outline: none; min-width: 0; }
+.aide-pal-corps { display: grid; grid-template-columns: 1fr 330px; }
+.aide-pal-liste { padding: 6px 0; border-right: 1px solid var(--border); max-height: 62vh; overflow-y: auto; }
+.aide-res-gr { font-size: 12px; font-weight: 650; color: var(--text-faint); padding: 9px 16px 4px; }
+.aide-res { width: 100%; display: flex; gap: 11px; padding: 8px 16px; align-items: center; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.aide-res.sel { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+.aide-res .ic { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; background: var(--bg3); display: grid; place-items: center; color: var(--accent-dark); }
+.aide-res .ic .ico { width: 17px; height: 17px; }
+.aide-res b { font-weight: 600; font-size: 14px; display: block; }
+.aide-res small { font-size: 12.5px; color: var(--text-faint); display: block; }
+.aide-res .act { margin-left: auto; font-size: 11.5px; color: var(--text-faint); flex: 0 0 auto; }
+.aide-pal mark { background: rgba({{couleur_rvb}}, 0.35); color: var(--text); border-radius: 2px; padding: 0 1px; }
+.aide-apercu { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.aide-apercu .sui { height: 130px; }
+.aide-apercu .sui svg { height: 100%; }
+.aide-apercu b { font-size: 15px; }
+.aide-apercu ol { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text); }
+.aide-pal-pied { display: flex; gap: 16px; padding: 9px 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-faint); }
+@media (max-width: 900px) { .aide-pal-corps { grid-template-columns: 1fr; } .aide-apercu { display: none; } .aide-pal-liste { border-right: 0; } }
+
+/* ---- page gestion/aide.html (M1) ---- */
+.aide-haut { display: grid; grid-template-columns: 1.35fr 1fr; gap: 22px; align-items: stretch; }
+.aide-haut h1 { font-family: var(--display); font-stretch: 80%; font-size: 36px; font-weight: 800; margin: 0 0 4px; line-height: 1.05; }
+.aide-sous { font-size: 13px; color: var(--text-faint); margin: 0 0 14px; }
+.aide-recherche { display: flex; align-items: center; gap: 10px; background: var(--bg2); border: 1px solid var(--text-faint); border-radius: 10px; padding: 12px 14px; font-size: 15px; color: var(--text-faint); width: 100%; cursor: pointer; font-family: inherit; }
+.aide-recherche .ico { width: 19px; height: 19px; flex: 0 0 auto; }
+.aide-recherche span { flex: 1; text-align: left; }
+.aide-recherche kbd { font: 600 11px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text-faint); background: var(--bg3); }
+.aide-suggest { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.aide-suggest button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; color: var(--text); background: none; cursor: pointer; }
+.aide-suggest button:hover, .aide-suggest button:focus-visible { border-color: var(--border-light); }
+.aide-suggest .ico { width: 14px; height: 14px; color: var(--accent-dark); }
+.aide-poste { background: linear-gradient(160deg, var(--accent-soft), var(--bg2) 70%); border: 1px solid rgba({{couleur_rvb}}, 0.3); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.aide-poste-l1 { display: flex; align-items: center; gap: 10px; }
+.aide-poste-av { width: 38px; height: 38px; border-radius: 50%; background: var(--bg3); display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: 0 0 auto; }
+.aide-poste b { font-size: 15px; }
+.aide-grade { font-size: 11.5px; font-weight: 700; color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.25); border: 1px solid rgba({{couleur_rvb}}, 0.4); border-radius: 999px; padding: 1px 9px; }
+.aide-droits { display: flex; gap: 6px; flex-wrap: wrap; }
+.aide-droits span { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid var(--border); border-radius: 7px; padding: 3px 8px; background: rgba(255, 255, 255, 0.03); }
+.aide-droits .ico { width: 14px; height: 14px; color: var(--accent-dark); }
+
+/* « Votre prise de poste » (parcours en étapes, rempli par le site — gestion/aide-poste.js) */
+.aide-parcours { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 10px 14px; }
+.aide-pas { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; position: relative; padding: 0 6px; }
+.aide-pas::before { content: ""; position: absolute; top: 15px; left: -50%; width: 100%; height: 2px; background: var(--ok); z-index: 0; }
+.aide-pas:first-child::before { display: none; }
+.aide-pas.att::before { background: linear-gradient(90deg, var(--ok), var(--alerte)); }
+.aide-pas.fut::before { background: var(--border); }
+.aide-pas .pt { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--ok); color: #06170f; position: relative; z-index: 1; }
+.aide-pas.att .pt { background: var(--alerte); color: #1a1200; }
+.aide-pas.fut .pt { background: var(--bg3); color: var(--text-faint); border: 1px solid var(--border); }
+.aide-pas .pt .ico { width: 17px; height: 17px; }
+.aide-pas b { font-size: 13px; }
+.aide-pas small { font-size: 12px; color: var(--text-faint); }
+.aide-pas.att small { color: var(--alerte); }
+
+.aide-rubriques { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.aide-rub { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; text-align: left; font: inherit; color: var(--text); padding: 0; cursor: pointer; }
+.aide-rub:hover, .aide-rub:focus-visible { border-color: var(--border-light); }
+.aide-rub .sui { border: 0; border-bottom: 1px solid rgba({{couleur_rvb}}, 0.22); border-radius: 0; height: 96px; }
+.aide-rub .sui svg { height: 100%; }
+.aide-rub .sui-icone { display: grid; place-items: center; color: var(--accent-dark); }
+.aide-rub .sui-icone .ico { width: 40px; height: 40px; stroke-width: 1.3; }
+.aide-rub .c { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.aide-rub h2 { margin: 0; font-family: var(--display); font-size: 16px; font-weight: 750; display: flex; align-items: center; gap: 8px; }
+.aide-rub h2 .ico { color: var(--accent-dark); width: 17px; height: 17px; }
+.aide-rub ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+.aide-rub li { padding: 3px 0; display: flex; gap: 7px; align-items: center; color: var(--text); }
+.aide-rub li .fleche { width: 13px; height: 13px; color: var(--text-faint); flex: 0 0 auto; }
+.aide-rub .n { font-size: 12.5px; color: var(--accent-dark); margin-top: auto; display: flex; align-items: center; gap: 4px; }
+.aide-rub .n .fleche { width: 13px; height: 13px; }
+@media (max-width: 1100px) { .aide-rubriques { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 900px) { .aide-haut, .aide-art { grid-template-columns: 1fr; } .aide-cote { position: static; } .aide-parcours { grid-template-columns: repeat(5, 1fr); padding: 12px 2px 10px; } .aide-pas b { font-size: 11.5px; } .aide-pas .pt { width: 26px; height: 26px; } .aide-pas::before { top: 12px; } }
+@media (max-width: 560px) { .aide-rubriques { grid-template-columns: 1fr 1fr; gap: 10px; } .aide-rub .sui { height: 62px; } .aide-rub h2 { font-size: 14px; } .aide-rub .c { padding: 9px 10px 10px; } .aide-rub ul { display: none; } .aide-haut h1 { font-size: 28px; } .aide-voir, .tiroir-corps .figure, .aide-article .figure { grid-template-columns: 1fr; } }
+.aide-voir-carte .sui:empty::after, .aide-rub .sui:empty::after { content: none; }
+.aide-tiroir-pied .kbd { font: 600 11px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text-faint); background: var(--bg3); }
+/* M5 : sur téléphone, barre du haut propre à l'article (retour à l'aide, lien) à la place du fil d'Ariane */
+.aide-barre-art { display: none; align-items: center; gap: 10px; margin: 0 0 14px; font-weight: 650; }
+.aide-barre-art span { flex: 1; }
+@media (max-width: 900px) { .aide-barre-art { display: flex; } .aide-ariane, .aide-cote { display: none; } .aide-art-tete h1 { font-size: 24px; } }

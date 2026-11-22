@@ -15,14 +15,21 @@ import type { NiveauPage } from './contrat.js';
 import { config } from './config.js';
 import { peut, permissions as toutesLesPermissions } from './droits.js';
 
-type Chunk = { permission: string | null; html: string; texte: string };
+type Chunk = { permission: string | null; html: string; texte: string; schema?: string; etapes?: string[] };
 type Intertitre = { id: string; texte: string };
+// position d'un repère sur le schéma de la page, en % (x, y) ; a : repère d'attention (ambre)
+export type Repere = { x: number; y: number; a: boolean };
 export type Article = {
   slug: string; titre: string; rubrique: string; motsCles: string[]; permission?: string;
+  type: 'article' | 'faq'; suggestion: boolean; voirAussi: string[]; reperes: Repere[]; zone: string;
   chunks: Chunk[]; intertitres: Intertitre[];
 };
-export type ArticleFiltre = { slug: string; titre: string; rubrique: string; html: string; intertitres: Intertitre[] };
-export type ArticleResume = { slug: string; titre: string; rubrique: string; extrait: string };
+// schema / etapes : lus dans les passages visibles seulement (un schéma ou une étape d'un « si » réservé ne fuit jamais)
+export type ArticleResume = { slug: string; titre: string; rubrique: string; extrait: string; type: 'article' | 'faq'; suggestion: boolean; schema: string | null; etapes: string[]; reperes: Repere[]; zone: string };
+export type ArticleFiltre = {
+  slug: string; titre: string; rubrique: string; html: string; intertitres: Intertitre[]; type: 'article' | 'faq'; reperes: Repere[];
+  minutes: number; pastilles: string[]; voirAussi: { slug: string; titre: string; rubrique: string; schema: string | null }[];
+};
 
 let niveauPage: Record<string, NiveauPage> = {};
 // transmis par index.ts une fois NIVEAU_PAGE construit (mêmes règles que l'accès aux pages de gestion/)
@@ -61,19 +68,36 @@ function inline(ligneBrute: string): string {
 const texteSeul = (ligneBrute: string): string => ligneBrute.replace(/[*`[\]{}]/g, '').replace(/chemin:|›/g, ' ');
 
 // --- blocs : ::: si <permission>, ::: etapes, ::: cycle, ::: attention <titre>, ::: info ---------------------------
-function rendreBloc(type: string, arg: string, lignes: string[]): { html: string; texte: string } {
+function rendreBloc(type: string, arg: string, lignes: string[]): { html: string; texte: string; schema?: string; etapes?: string[] } {
   const corps = lignes.join('\n');
   if (type === 'etapes') {
     const items = lignes.filter(Boolean).map(l => {
       const m = /^\*\*([^*]+)\*\*\s*(.*)$/.exec(l.trim());
       return m ? `<li><span class="num"></span><div><b>${echapper(m[1])}</b><span class="d">${inline(m[2])}</span></div></li>` : `<li><div>${inline(l)}</div></li>`;
     });
-    return { html: `<ol class="etapes">${items.join('')}</ol>`, texte: lignes.map(texteSeul).join(' ') };
+    const titres = lignes.map(l => /^\*\*([^*]+)\*\*/.exec(l.trim())?.[1]).filter((t): t is string => !!t);
+    return { html: `<ol class="etapes">${items.join('')}</ol>`, texte: lignes.map(texteSeul).join(' '), etapes: titres };
   }
   if (type === 'cycle') {
-    const etats = (arg || lignes.join(' ')).split('>').map(e => e.trim()).filter(Boolean);
-    const html = etats.map((e, i) => `<div class="etat">${echapper(e)}</div>${i < etats.length - 1 ? '<span class="fl" aria-hidden="true"></span>' : ''}`).join('');
-    return { html: `<div class="cycle">${html}</div>`, texte: etats.join(' ') };
+    // « À venir (pas encore facturée) > ~facturer > Facturée (facture émise) | Annulée (retour à « À venir ») » :
+    // « (…) » = sous-titre de l'état, « ~mot » = légende de la flèche qui suit, « | » = état à part, sans flèche.
+    const [principal, ...parts] = (arg || lignes.join(' ')).split('|');
+    const COULEURS = ['accent', 'alerte', 'ok'];
+    const carte = (e: string, i: number, aPart = false) => {
+      const m = /^([^(]+?)\s*(?:\((.*)\))?$/.exec(e.trim());
+      const couleur = aPart ? 'var(--erreur)' : `var(--${COULEURS[i % COULEURS.length] === 'accent' ? 'accent-dark' : COULEURS[i % COULEURS.length]})`;
+      return `<div class="etat${aPart ? ' etat-a-part' : ''}" style="--c:${couleur}"><b>${echapper(m?.[1] ?? e)}</b>${m?.[2] ? `<small>${echapper(m[2])}</small>` : ''}</div>`;
+    };
+    const jetons = principal.split('>').map(e => e.trim()).filter(Boolean);
+    let html = '', etat = 0, etiquette = '';
+    for (let k = 0; k < jetons.length; k++) {
+      if (jetons[k].startsWith('~')) { etiquette = jetons[k].slice(1).trim(); continue; }
+      if (etat > 0) html += `<span class="fl" aria-hidden="true"><svg viewBox="0 0 34 14"><path d="M2 7h28M24 2l6 5-6 5"/></svg>${etiquette ? echapper(etiquette) : ''}</span>`;
+      etiquette = '';
+      html += carte(jetons[k], etat++);
+    }
+    html += parts.map(e => carte(e, 0, true)).join('');
+    return { html: `<div class="cycle">${html}</div>`, texte: `${principal} ${parts.join(' ')}`.replace(/[>~|()]/g, ' ') };
   }
   if (type === 'attention' || type === 'info') {
     const icone = type === 'attention' ? 'alerte' : 'info';
@@ -92,7 +116,9 @@ function rendreBloc(type: string, arg: string, lignes: string[]): { html: string
     }).join('');
     // le SVG réel de la page (fidèle à l'écran) est fourni par la coque (gestion.js, registre des schémas par page) :
     // le socle ne fait que réserver la zone et poser la légende, jamais de dessin inventé.
-    return { html: `<div class="figure" data-schema="${echapper(arg)}"><div class="sui" data-schema-svg></div><ol class="legende-sui">${legende}</ol></div>`, texte: lignes.map(texteSeul).join(' ') };
+    const [nomSchema, ...legendeSchema] = arg.split('|');
+    const cap = legendeSchema.join('|').trim();
+    return { html: `<div class="figure" data-schema="${echapper(nomSchema.trim())}"><div class="sui" data-schema-svg></div><ol class="legende-sui">${legende}</ol></div>${cap ? `<p class="aide-cap">${echapper(cap)}</p>` : ''}`, texte: lignes.map(texteSeul).join(' '), schema: nomSchema.trim() };
   }
   return { html: `<p>${corps.split('\n').map(inline).join('<br>')}</p>`, texte: lignes.map(texteSeul).join(' ') };
 }
@@ -105,7 +131,7 @@ function rendreCorps(corps: string): { chunks: Chunk[]; intertitres: Intertitre[
   let permissionCourante: string | null = null;
   let paragraphe: string[] = [];
   let liste: string[] = [];
-  const ajouter = (html: string, texte: string) => chunks.push({ permission: permissionCourante, html, texte });
+  const ajouter = (html: string, texte: string, extra: { schema?: string; etapes?: string[] } = {}) => chunks.push({ permission: permissionCourante, html, texte, ...extra });
   const viderParagraphe = () => { if (paragraphe.length) { ajouter(`<p>${paragraphe.map(inline).join(' ')}</p>`, paragraphe.map(texteSeul).join(' ')); paragraphe = []; } };
   const viderListe = () => { if (liste.length) { ajouter(`<ul>${liste.map(l => `<li>${inline(l)}</li>`).join('')}</ul>`, liste.map(texteSeul).join(' ')); liste = []; } };
 
@@ -135,8 +161,8 @@ function rendreCorps(corps: string): { chunks: Chunk[]; intertitres: Intertitre[
       const sousLignes: string[] = [];
       i++;
       while (i < lignes.length && lignes[i].trim() !== ':::') { sousLignes.push(lignes[i]); i++; }
-      const { html, texte } = rendreBloc(type, arg, sousLignes);
-      ajouter(html, texte);
+      const { html, texte, schema, etapes } = rendreBloc(type, arg, sousLignes);
+      ajouter(html, texte, { schema, etapes });
       i++; continue;
     }
     if (/^##\s+/.test(trim)) {
@@ -167,6 +193,12 @@ function lireEntete(brut: string): { entete: Record<string, string>; corps: stri
   return { entete, corps: m[2] };
 }
 
+// « reperes: 84,13; 50,44! » : un repère par étape de l'article, sur le schéma de la page (rubrique) ; « ! » = ambre
+function lireReperes(brut: string): Repere[] {
+  return brut.split(';').map(v => /^\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*(!?)\s*$/.exec(v)).filter((m): m is RegExpExecArray => !!m)
+    .map(m => ({ x: Number(m[1]), y: Number(m[2]), a: !!m[3] }));
+}
+
 function construireArticle(slug: string, brutSource: string): Article | null {
   // fins de ligne normalisées avant toute chose : un article édité ou extrait sur Windows revient en CRLF (vu au
   // premier article réel, se-connecter.md, après un `git merge` dans un site), ce qui casse l'en-tête (---\n…).
@@ -178,6 +210,11 @@ function construireArticle(slug: string, brutSource: string): Article | null {
     slug, titre: entete.titre, rubrique: entete.rubrique,
     motsCles: (entete['mots-cles'] || '').split(',').map(m => m.trim()).filter(Boolean),
     permission: entete.permission || undefined,
+    type: entete.type === 'faq' ? 'faq' : 'article',
+    suggestion: /^(oui|true|1)$/i.test(entete.suggestion || ''),
+    reperes: lireReperes(entete.reperes || ''),
+    zone: /^[a-z0-9-]+$/.test(entete.zone || '') ? entete.zone : '',
+    voirAussi: (entete['voir-aussi'] || '').split(',').map(v => v.trim()).filter(Boolean),
     chunks, intertitres,
   };
 }
@@ -229,13 +266,28 @@ function filtrerChunks(compte: Compte | null, chunks: Chunk[]): Chunk[] {
 // relu à chaque requête en dev (un article modifié s'affiche aussitôt, comme site.ts) ; mis en cache en production
 function actualiser(): void { if (!config.production && !figePourTest) chargerArticles(); }
 
+const metaVisible = (visibles: Chunk[]) => ({
+  schema: visibles.find(c => c.schema)?.schema ?? null,
+  etapes: (visibles.find(c => c.etapes?.length)?.etapes ?? []).slice(0, 5),
+});
+const premiereMinuscule = (v: string): string => v.charAt(0).toLowerCase() + v.slice(1);
+
 export function indexAide(compte: Compte | null): ArticleResume[] {
   actualiser();
   return [...articles.values()].filter(a => accesArticle(compte, a)).map(a => {
     const visibles = filtrerChunks(compte, a.chunks);
     const texte = visibles.map(c => c.texte ?? '').join(' ');
-    return { slug: a.slug, titre: a.titre, rubrique: a.rubrique, extrait: texte.slice(0, 160) };
+    return { slug: a.slug, titre: a.titre, rubrique: a.rubrique, extrait: texte.slice(0, 160), type: a.type, suggestion: a.suggestion, reperes: a.reperes, zone: a.zone, ...metaVisible(visibles) };
   });
+}
+
+// « Vous pouvez … » : permissions que l'article cite (celle de sa page, celles de ses passages réservés) et que le
+// lecteur détient — calculées, jamais écrites par le rédacteur. Les niveaux « public / connecte / valide » n'en sont pas.
+function pastillesDe(compte: Compte | null, a: Article): string[] {
+  if (!compte) return [];
+  const niveau = a.permission ?? niveauPage[a.rubrique];
+  const cles = [niveau, ...a.chunks.map(c => c.permission)].filter((c): c is string => !!c && !['public', 'connecte', 'valide'].includes(c));
+  return [...new Set(cles)].filter(c => peut(compte, c)).map(c => `Vous pouvez ${premiereMinuscule(permissionLibelle(c))}`);
 }
 
 export function articleAide(compte: Compte | null, slug: string): ArticleFiltre | null {
@@ -243,10 +295,16 @@ export function articleAide(compte: Compte | null, slug: string): ArticleFiltre 
   const a = articles.get(slug);
   if (!a || !accesArticle(compte, a)) return null;
   const visibles = filtrerChunks(compte, a.chunks);
-  return { slug: a.slug, titre: a.titre, rubrique: a.rubrique, html: visibles.map(c => c.html).join(''), intertitres: a.intertitres };
+  const mots = visibles.map(c => c.texte ?? '').join(' ').split(/\s+/).filter(Boolean).length;
+  const voirAussi = a.voirAussi.map(s => articles.get(s)).filter((v): v is Article => !!v && accesArticle(compte, v))
+    .map(v => ({ slug: v.slug, titre: v.titre, rubrique: v.rubrique, schema: metaVisible(filtrerChunks(compte, v.chunks)).schema }));
+  return {
+    slug: a.slug, titre: a.titre, rubrique: a.rubrique, html: visibles.map(c => c.html).join(''), intertitres: a.intertitres,
+    type: a.type, reperes: a.reperes, minutes: Math.max(1, Math.ceil(mots / 180)), pastilles: pastillesDe(compte, a), voirAussi,
+  };
 }
 
-type Resultat = { slug: string; titre: string; rubrique: string; extrait: string; score: number };
+type Resultat = { slug: string; titre: string; rubrique: string; extrait: string; type: 'article' | 'faq'; schema: string | null; etapes: string[]; reperes: Repere[]; score: number };
 export function chercherAide(compte: Compte | null, q: string): Resultat[] {
   actualiser();
   const requete = normaliser(q);
@@ -268,7 +326,7 @@ export function chercherAide(compte: Compte | null, q: string): Resultat[] {
       const pos = corpsTexte.indexOf(mot);
       if (pos >= 0) { score += 1; if (!extrait) extrait = corpsTexte.slice(Math.max(0, pos - 40), pos + 80); }
     }
-    if (score > 0) resultats.push({ slug: a.slug, titre: a.titre, rubrique: a.rubrique, extrait: extrait || corpsTexte.slice(0, 120), score });
+    if (score > 0) resultats.push({ slug: a.slug, titre: a.titre, rubrique: a.rubrique, extrait: extrait || corpsTexte.slice(0, 120), type: a.type, reperes: a.reperes, ...metaVisible(visibles), score });
   }
   return resultats.sort((x, y) => y.score - x.score).slice(0, 20);
 }

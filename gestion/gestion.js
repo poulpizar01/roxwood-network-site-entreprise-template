@@ -83,6 +83,9 @@ const GESTION_ICONES = {
   aide: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.6v.4"/><path d="M12 16.9h.01"/>',
   cle: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  doc: '<path d="M7 3h7l4 4v14H7z"/><path d="M10 12h5M10 16h5"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
 };
 const ico = nom => `<svg class="ico" aria-hidden="true"><use href="#ico-${nom}"></use></svg>`;
 
@@ -219,27 +222,63 @@ function enService(barre, haut) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// Aide en ligne : recherche rapide (Ctrl K / Cmd K / « / »), bouton « ? » de chaque page (articles de la rubrique en
-// cours), lecture d'un article (socle/aide.ts : html déjà filtré par permission, passages réservés déjà bandeautés).
-// Schémas : jamais dessinés ici — un registre (gestion.enregistrerSchemas) rempli par chaque page concernée ; sans
-// schéma déclaré pour une figure, elle reste vide (docs/aide.md : aucun dessin inventé).
+// Aide en ligne (maquettes V2 : M1 page Aide, M2 article, M3 recherche avec aperçu, M4 tiroir de la page, M5 téléphone).
+// Articles : socle/aide.ts (html déjà filtré par permission, passages réservés déjà bandeautés). Schémas : jamais
+// dessinés ici — registre gestion.enregistrerSchemas() rempli par gestion/schemas-aide.js : « <nom> » pour le dessin
+// d'un geste, « page-<rubrique> » pour la vue d'ensemble d'une page (tiroir, aperçu de recherche, vignettes). Sans
+// schéma déclaré, la zone reste vide (docs/aide.md : aucun dessin inventé).
 // ---------------------------------------------------------------------------------------------------------------------
 const SCHEMAS_AIDE = {};
+const RUBRIQUES_SANS_MENU = { index: 'Se connecter', attente: 'Compte en attente', compte: 'Mon compte', aide: 'Aide', faq: 'Questions fréquentes' };
+const ligneMenu = cle => GESTION_NAV.find(l => l.cle === cle);
+const libelleRubrique = cle => RUBRIQUES_SANS_MENU[cle] || ligneMenu(cle)?.label || cle.charAt(0).toUpperCase() + cle.slice(1);
+const iconeRubrique = cle => ligneMenu(cle)?.icone || (cle === 'compte' ? 'user' : 'aide');
+const schemaPage = cle => SCHEMAS_AIDE[`page-${cle}`] || '';
+// vignette : le dessin remplit son cadre (recadré, jamais déformé)
+const miniature = svg => svg.replace('<svg ', '<svg preserveAspectRatio="xMidYMid slice" ');
+const reperesHtml = reperes => reperes.map((r, i) => `<span class="rep${r.a ? ' a' : ''}" style="left:${r.x}%;top:${r.y}%" aria-hidden="true">${i + 1}</span>`).join('');
+const suiPage = (cle, reperes = []) => schemaPage(cle) ? `<div class="sui">${schemaPage(cle)}${reperesHtml(reperes)}</div>` : '';
+
+// pages du menu que ce compte peut ouvrir (hors Aide) : même règle que la barre latérale
+function pagesMenu(moi) {
+  return GESTION_NAV.filter(l => !l.groupe && l.cle !== 'aide' && l.cle !== 'site' && (!l.permission || socle.peut(moi, l.permission)));
+}
+
+// Repères d'une figure : le numéro N de la légende se pose au centre de l'élément [data-repere="N"] (ou de la zone
+// [data-zone="cle"] de la légende) du dessin — le rédacteur ne place rien à la main.
+function poserReperesFigure(fig) {
+  const sui = fig.querySelector('.sui'), svg = sui?.querySelector('svg');
+  if (!svg || !svg.viewBox?.baseVal?.width) return;
+  const vb = svg.viewBox.baseVal;
+  fig.querySelectorAll('.legende-sui li').forEach(li => {
+    const n = li.querySelector('.rep')?.textContent, cle = li.dataset.zoneRef;
+    const el = svg.querySelector(`[data-repere="${n}"]`) || (cle && svg.querySelector(`[data-zone="${CSS.escape(cle)}"]`));
+    if (!el) return;
+    const b = el.getBBox();
+    const rep = document.createElement('span');
+    rep.className = 'rep'; rep.setAttribute('aria-hidden', 'true'); rep.textContent = n;
+    rep.style.left = `${((b.x + b.width / 2 - vb.x) / vb.width) * 100}%`;
+    rep.style.top = `${((b.y + b.height / 2 - vb.y) / vb.height) * 100}%`;
+    sui.append(rep);
+  });
+}
 function remplirSchemas(racine) {
   racine.querySelectorAll('[data-schema]').forEach(fig => {
     const cible = fig.querySelector('[data-schema-svg]');
     const svg = SCHEMAS_AIDE[fig.dataset.schema];
-    if (cible && svg) cible.innerHTML = svg;
+    if (!cible || !svg) return;
+    cible.innerHTML = svg;
+    poserReperesFigure(fig);
   });
 }
 // Entoure un instant l'élément réel que l'aide vient de citer (data-zone="<nom>", posé par la page elle-même) : lien
 // entre l'explication et l'écran, sans visite guidée (D13). Rien si la page ne porte pas cette zone.
-function surlignerZone(nom) {
+function surlignerZone(nom, defiler = true) {
   if (!nom) return;
   let el;
   try { el = document.querySelector(`[data-zone="${CSS.escape(nom)}"]`); } catch { return; }
-  if (!el) return;
-  el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  if (!el || !el.offsetParent) return;
+  if (defiler) el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   el.classList.add('surbrillance');
   setTimeout(() => el.classList.remove('surbrillance'), 2000);
 }
@@ -249,13 +288,25 @@ const indexAide = () => (aideIndexP ??= socle.api('/api/aide').then(r => r.artic
 const chercherAide = q => socle.api(`/api/aide?q=${encodeURIComponent(q)}`).then(r => r.resultats);
 const articleAide = slug => socle.api(`/api/aide/${encodeURIComponent(slug)}`);
 
-// Rendu d'un article dans un conteneur : figures remplies, zone citée surlignée au clic sur un repère de légende.
-function dessinerArticle(conteneur, article) {
-  conteneur.innerHTML = article.html;
+// ---- article (M2) : tête (pastille d'icône, titre, « Vous pouvez… » calculées, durée), corps, « Voir aussi » ----
+function teteArticle(article, niveau = 'h2') {
+  const chips = article.pastilles.map(p => `<span class="aide-chip ok">${ico('check')}${echapper(p)}</span>`).join('')
+    + `<span class="aide-chip">${ico('clock')}${article.minutes} min</span>`;
+  return `<div class="aide-art-tete"><span class="aide-art-ic">${ico(iconeRubrique(article.rubrique))}</span>
+    <div><${niveau}>${echapper(article.titre)}</${niveau}><div class="aide-meta">${chips}</div></div></div>`;
+}
+function voirAussiHtml(article) {
+  if (!article.voirAussi.length) return '';
+  return `<h3 id="aide-voir-aussi">Voir aussi</h3><div class="aide-voir">${article.voirAussi.map(v => `
+    <button type="button" class="aide-voir-carte" data-voir="${echapper(v.slug)}"><div class="sui">${schemaPage(v.rubrique) ? miniature(schemaPage(v.rubrique)) : ''}</div>
+      <div>${echapper(v.titre)}<small>${echapper(libelleRubrique(v.rubrique))}</small></div></button>`).join('')}</div>`;
+}
+// schémas remplis, légende cliquable (entoure la zone réelle si la page en cours la porte et qu'elle est visible),
+// « Voir aussi » branchés sur ouvrirArticle(slug)
+function brancherArticle(conteneur, ouvrirArticle) {
   remplirSchemas(conteneur);
-  // légende d'un schéma : clic → entoure la zone réelle si la page en cours la porte, visible à l'écran (D13).
-  // Rien si elle n'y est pas (article lu depuis une autre page, zone pas encore marquée) ni si elle est cachée
-  // (fenêtre pas encore ouverte, onglet non actif) : un repère cliquable qui ne ferait rien serait trompeur.
+  // Rien si la zone n'est pas sur la page en cours (article lu depuis une autre page) ni si elle est cachée (fenêtre pas
+  // encore ouverte, onglet non actif) : un repère cliquable qui ne ferait rien serait trompeur.
   conteneur.querySelectorAll('[data-zone-ref]').forEach(li => {
     const cible = document.querySelector(`[data-zone="${CSS.escape(li.dataset.zoneRef)}"]`);
     if (!cible || !cible.offsetParent) return;
@@ -265,6 +316,47 @@ function dessinerArticle(conteneur, article) {
     li.addEventListener('click', () => surlignerZone(li.dataset.zoneRef));
     li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); surlignerZone(li.dataset.zoneRef); } });
   });
+  conteneur.querySelectorAll('[data-voir]').forEach(b => b.addEventListener('click', () => ouvrirArticle?.(b.dataset.voir)));
+}
+function dessinerArticle(conteneur, article, ouvrirArticle) {
+  conteneur.innerHTML = teteArticle(article) + article.html + voirAussiHtml(article);
+  brancherArticle(conteneur, ouvrirArticle);
+}
+// Page d'un article (aide.html#slug) : fil d'Ariane, colonne de lecture, volet « Dans cet article » + actions (M2) ;
+// sur téléphone, barre du haut propre à l'article (M5).
+function articlePage(conteneur, article, ouvrirArticle, retour) {
+  const toc = [
+    ...(article.html.includes('class="figure"') ? [{ id: 'aide-schema', texte: 'Le schéma' }] : []),
+    ...article.intertitres,
+    ...(article.voirAussi.length ? [{ id: 'aide-voir-aussi', texte: 'Voir aussi' }] : []),
+  ];
+  const page = ligneMenu(article.rubrique);
+  conteneur.innerHTML = `
+    <div class="aide-barre-art"><button type="button" class="admin-icone-bouton" data-aide-retour aria-label="Retour à l’aide">${fleche('precedent')}</button>
+      <span>Aide</span><button type="button" class="admin-icone-bouton" data-aide-copier aria-label="Copier le lien">${ico('link')}</button></div>
+    <nav class="aide-ariane" aria-label="Fil d’Ariane"><a href="aide.html">Aide</a>${fleche('suivant')}<span>${echapper(libelleRubrique(article.rubrique))}</span></nav>
+    <div class="aide-art"><article class="aide-article">${teteArticle(article, 'h1')}${article.html}${voirAussiHtml(article)}</article>
+      <aside class="aide-cote">
+        <div><div class="tit">Dans cet article</div><nav class="aide-toc" aria-label="Dans cet article">${toc.map((t, i) => `<a href="#${echapper(t.id)}" data-toc="${echapper(t.id)}"${i === 0 ? ' class="on"' : ''}>${echapper(t.texte)}</a>`).join('')}</nav></div>
+        <div class="aide-utile">${page ? `<a class="btn btn-or" href="${echapper(page.href)}">Ouvrir ${echapper(page.label)}${fleche('suivant')}</a>` : ''}
+          <button type="button" class="btn btn-fantome" data-aide-copier>${ico('link')}Copier le lien</button></div>
+      </aside></div>`;
+  const corps = conteneur.querySelector('.aide-article');
+  brancherArticle(corps, ouvrirArticle);
+  corps.querySelector('.figure')?.setAttribute('id', 'aide-schema');
+  conteneur.querySelectorAll('[data-aide-retour]').forEach(b => b.addEventListener('click', retour));
+  conteneur.querySelectorAll('[data-aide-copier]').forEach(b => b.addEventListener('click', async () => {
+    if (await copierTexte(`${location.origin}/gestion/aide.html#${article.slug}`)) notifier('Lien copié.');
+  }));
+  // lien de la table des matières : défile jusqu'à la section sans changer l'adresse (elle porte le slug de l'article)
+  const liens = [...conteneur.querySelectorAll('[data-toc]')];
+  liens.forEach(a => a.addEventListener('click', e => { e.preventDefault(); document.getElementById(a.dataset.toc)?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }));
+  const maj = () => {
+    let actif = liens[0];
+    for (const a of liens) { const el = document.getElementById(a.dataset.toc); if (el && el.getBoundingClientRect().top < 140) actif = a; }
+    liens.forEach(a => a.classList.toggle('on', a === actif));
+  };
+  addEventListener('scroll', maj, { passive: true });
 }
 
 // Fenêtre à focus piégé (palette de recherche ou tiroir d'aide) : même geste que gestion.confirmer (Échap ferme et
@@ -289,14 +381,15 @@ function piegerFocus(fond, premier) {
 
 function normaliserRecherche(v) { return v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
 
-// Tiroir (classes .tiroir/.tiroir-fond communes, gestion.css) : liste des articles de la rubrique en cours, ou un
-// article ouvert (avec retour à la liste). rubrique : celle passée à gestion.coque().
+// ---- tiroir de la page (M4) : schéma de la page avec un repère par article, articles numérotés, autres articles ----
+// rubrique : celle passée à gestion.coque() ; « faq » : toutes les questions fréquentes.
 function ouvrirAide(rubrique, articleInitial) {
   const fond = document.createElement('div');
   fond.className = 'tiroir-fond modale-fond';
   fond.innerHTML = `<aside class="tiroir aide-tiroir" role="dialog" aria-modal="true" aria-labelledby="aide-tiroir-titre">
     <div class="tiroir-entete">
       <button type="button" class="admin-icone-bouton" data-aide-retour hidden aria-label="Revenir à la liste">${fleche('precedent')}</button>
+      <span class="aide-tiroir-ic" data-aide-ic>${ico(iconeRubrique(rubrique))}</span>
       <div class="tiroir-identite"><h2 id="aide-tiroir-titre">Aide</h2></div>
       <button type="button" aria-label="Fermer" data-aide-fermer>${ico('fermer')}</button>
     </div>
@@ -308,34 +401,53 @@ function ouvrirAide(rubrique, articleInitial) {
   const pied = fond.querySelector('[data-aide-pied]');
   const titre = fond.querySelector('#aide-tiroir-titre');
   const retour = fond.querySelector('[data-aide-retour]');
+  const pastille = fond.querySelector('[data-aide-ic]');
   const fermer = piegerFocus(fond);
   fond.querySelector('[data-aide-fermer]').addEventListener('click', fermer);
+  const titreRubrique = r => `Aide · ${libelleRubrique(r)}`;
 
   async function vueListe() {
-    retour.hidden = true;
-    titre.textContent = 'Aide de cette page';
-    pied.hidden = true;
+    retour.hidden = true; pastille.hidden = false;
+    pastille.innerHTML = ico(iconeRubrique(rubrique));
+    titre.textContent = rubrique ? titreRubrique(rubrique) : 'Aide';
+    pied.hidden = false;
+    pied.innerHTML = `<div class="aide-tiroir-pied">${ico('search')}Toute l’aide : <span class="kbd">Ctrl</span> <span class="kbd">K</span></div>`;
     corps.innerHTML = '<p class="aide-chargement">Chargement…</p>';
     let articles;
-    try { articles = (await indexAide()).filter(a => a.rubrique === rubrique); }
+    try { articles = (await indexAide()).filter(a => rubrique === 'faq' ? a.type === 'faq' : a.rubrique === rubrique); }
     catch { corps.innerHTML = '<p>L’aide n’a pas pu se charger.</p>'; return; }
-    corps.innerHTML = articles.length
-      ? `<ul class="tiroir-liens">${articles.map(a => `<li><button type="button" class="tiroir-lien" data-slug="${echapper(a.slug)}">
-          ${ico('aide')}<span>${echapper(a.titre)}</span>${fleche('droite')}</button></li>`).join('')}</ul>`
-      : '<p class="etat-vide-texte">Pas encore d’article pour cette page.</p>';
-    corps.querySelectorAll('[data-slug]').forEach(b => b.addEventListener('click', () => vueArticle(b.dataset.slug)));
+    if (!articles.length) { corps.innerHTML = '<p class="etat-vide-texte">Pas encore d’article pour cette page.</p>'; return; }
+    // repère sur le schéma : le premier de l'article (front matter « reperes ») ; sans schéma de la page, liste simple
+    const numerotes = schemaPage(rubrique) ? articles.filter(a => a.type === 'article' && a.reperes[0]) : [];
+    const autres = articles.filter(a => !numerotes.includes(a));
+    const lien = (a, contenu) => `<button type="button" class="aide-lien-art" data-slug="${echapper(a.slug)}"${a.zone ? ` data-zone-aide="${echapper(a.zone)}"` : ''}>${contenu}<span>${echapper(a.titre)}</span>${fleche('suivant')}</button>`;
+    corps.innerHTML = `<div class="aide-tiroir-corps">
+      ${numerotes.length ? suiPage(rubrique, numerotes.map(a => a.reperes[0])) : ''}
+      ${numerotes.map((a, i) => lien(a, `<span class="rep">${i + 1}</span>`)).join('')}
+      ${autres.length && numerotes.length ? '<div class="aide-etiq">Aussi sur cette page</div>' : ''}
+      ${autres.map(a => lien(a, ico(a.type === 'faq' ? 'aide' : 'doc'))).join('')}
+    </div>`;
+    corps.querySelectorAll('[data-slug]').forEach(b => {
+      b.addEventListener('click', () => vueArticle(b.dataset.slug));
+      // survol ou focus clavier : entoure le vrai bouton sur la page (écran large seulement, D13)
+      const zone = b.dataset.zoneAide;
+      if (zone) {
+        const montrer = () => { if (matchMedia('(min-width: 1024px)').matches) surlignerZone(zone, false); };
+        b.addEventListener('mouseenter', montrer); b.addEventListener('focus', montrer);
+      }
+    });
   }
   async function vueArticle(slug) {
-    retour.hidden = false;
+    retour.hidden = false; pastille.hidden = true;
     pied.hidden = false;
     corps.innerHTML = '<p class="aide-chargement">Chargement…</p>';
     let article;
     try { article = await articleAide(slug); }
     catch { corps.innerHTML = '<p>Cet article n’a pas pu se charger.</p>'; return; }
     if (!article) { corps.innerHTML = '<p>Cet article n’est pas accessible.</p>'; return; }
-    titre.textContent = article.titre;
-    dessinerArticle(corps, article);
-    pied.innerHTML = `<a class="btn btn-fantome" href="${echapper(article.rubrique)}.html">Ouvrir la page${fleche('droite')}</a>
+    titre.textContent = titreRubrique(article.rubrique);
+    dessinerArticle(corps, article, vueArticle);
+    pied.innerHTML = `<a class="btn btn-fantome" href="${echapper(ligneMenu(article.rubrique)?.href || `${article.rubrique}.html`)}">Ouvrir la page${fleche('droite')}</a>
       <button type="button" class="btn btn-fantome" data-aide-copier>Copier le lien</button>`;
     pied.querySelector('[data-aide-copier]').addEventListener('click', async () => {
       if (await copierTexte(`${location.origin}/gestion/aide.html#${slug}`)) notifier('Lien copié.');
@@ -345,31 +457,45 @@ function ouvrirAide(rubrique, articleInitial) {
   if (articleInitial) vueArticle(articleInitial); else vueListe();
 }
 
-// Palette de recherche (Ctrl K / Cmd K / « / » hors d'un champ) : pages du menu accessibles + articles de l'aide,
-// dans une seule liste ; Entrée ouvre la page ou l'article (D6).
+// ---- recherche (M3) : Ctrl K / Cmd K / « / » hors d'un champ. « Aller à » (pages) puis « Aide » (articles, questions) ;
+// à droite, aperçu du résultat choisi (schéma de la page avec les repères de ses étapes, étapes) — D12 ----
 function ouvrirPaletteAide(pagesVisibles) {
   const fond = document.createElement('div');
   fond.className = 'modale-fond aide-palette-fond';
-  fond.innerHTML = `<div class="modale aide-palette" role="dialog" aria-modal="true" aria-label="Rechercher">
-    <div class="aide-palette-champ">${ico('search')}<input type="search" placeholder="Chercher une page ou un article" aria-label="Chercher dans l’aide">
-      <kbd>Échap</kbd></div>
-    <div class="aide-palette-resultats" role="listbox"></div>
+  fond.innerHTML = `<div class="modale aide-pal" role="dialog" aria-modal="true" aria-label="Rechercher">
+    <div class="aide-pal-champ">${ico('search')}<input type="search" placeholder="Chercher un geste, une page, une question" aria-label="Chercher dans l’aide" autocomplete="off"><span class="kbd">Échap</span></div>
+    <div class="aide-pal-corps"><div class="aide-pal-liste" role="listbox" aria-label="Résultats"></div><div class="aide-apercu" aria-live="polite"></div></div>
+    <div class="aide-pal-pied"><span><span class="kbd">↑</span> <span class="kbd">↓</span> choisir</span><span><span class="kbd">Entrée</span> ouvrir</span><span><span class="kbd">Échap</span> fermer</span></div>
   </div>`;
   document.body.append(fond);
   const champ = fond.querySelector('input');
-  const liste = fond.querySelector('.aide-palette-resultats');
+  const liste = fond.querySelector('.aide-pal-liste');
+  const apercu = fond.querySelector('.aide-apercu');
   const fermer = piegerFocus(fond, champ);
   let resultats = [], index = -1, requete = 0;
 
-  const page = l => ({ type: 'page', slug: l.href.replace(/\.html$/, ''), titre: l.label, extrait: '', href: l.href });
-  const article = a => ({ type: 'article', slug: a.slug, titre: a.titre, extrait: a.extrait || '', rubrique: a.rubrique });
-
-  function dessiner() {
-    liste.innerHTML = resultats.length ? resultats.map((r, i) => `
-      <button type="button" role="option" class="aide-palette-resultat${i === index ? ' survole' : ''}" aria-selected="${i === index}" data-i="${i}">
-        ${ico(r.type === 'page' ? 'grid' : 'aide')}<span><b>${echapper(r.titre)}</b>${r.extrait ? `<small>${echapper(r.extrait)}</small>` : ''}</span>
-      </button>`).join('') : '<p class="etat-vide-texte">Aucun résultat.</p>';
+  const marquer = (texte, q) => {
+    const i = q ? normaliserRecherche(texte).indexOf(normaliserRecherche(q)) : -1;
+    return i < 0 ? echapper(texte) : `${echapper(texte.slice(0, i))}<mark>${echapper(texte.slice(i, i + q.length))}</mark>${echapper(texte.slice(i + q.length))}`;
+  };
+  function dessiner(q) {
+    let groupe = '';
+    liste.innerHTML = resultats.length ? resultats.map((r, i) => {
+      const entete = r.groupe !== groupe ? `<div class="aide-res-gr">${echapper(groupe = r.groupe)}</div>` : '';
+      return `${entete}<button type="button" role="option" class="aide-res${i === index ? ' sel' : ''}" aria-selected="${i === index}" data-i="${i}">
+        <span class="ic">${ico(r.icone)}</span><span><b>${marquer(r.titre, q)}</b><small>${r.detailHtml}</small></span>
+        <span class="act">${i === index ? '<span class="kbd">Entrée</span>' : r.type === 'page' ? 'Page' : ''}</span></button>`;
+    }).join('') : '<p class="etat-vide-texte">Aucun résultat.</p>';
     liste.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => choisir(Number(b.dataset.i))));
+    liste.querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
+    dessinerApercu();
+  }
+  function dessinerApercu() {
+    const r = resultats[index];
+    if (!r) { apercu.innerHTML = ''; return; }
+    if (r.type === 'page') { apercu.innerHTML = `${suiPage(r.cle)}<b>${echapper(r.titre)}</b>`; return; }
+    if (r.type === 'faq' || !r.etapes.length) { apercu.innerHTML = `<b>${echapper(r.titre)}</b><p>${echapper(r.extrait)}</p>`; return; }
+    apercu.innerHTML = `${suiPage(r.rubrique, r.reperes)}<b>${echapper(r.titre)}</b><ol>${r.etapes.slice(0, 4).map(e => `<li>${echapper(e)}</li>`).join('')}</ol>`;
   }
   function choisir(i) {
     const r = resultats[i];
@@ -380,21 +506,32 @@ function ouvrirPaletteAide(pagesVisibles) {
   }
   async function relire() {
     const requeteCourante = ++requete;
-    const q = champ.value.trim();
-    const q2 = normaliserRecherche(q);
-    const pagesCorrespondantes = q ? pagesVisibles.filter(l => normaliserRecherche(l.label).includes(q2)) : pagesVisibles;
+    const q = champ.value.trim(), q2 = normaliserRecherche(q);
     let articles = [];
-    try { articles = q ? await chercherAide(q) : (await indexAide()).slice(0, 8); }
-    catch { /* recherche indisponible : les pages seules suffisent déjà à naviguer */ }
+    try {
+      articles = q ? await chercherAide(q)
+        : (await indexAide()).filter(a => a.type === 'article').sort((a, b) => Number(b.suggestion) - Number(a.suggestion)).slice(0, 4);
+    } catch { /* recherche indisponible : les pages seules suffisent déjà à naviguer */ }
     if (requeteCourante !== requete) return;   // une saisie plus récente a déjà relancé une recherche
-    resultats = [...pagesCorrespondantes.map(page), ...articles.map(article)];
-    index = resultats.length ? 0 : -1;
-    dessiner();
+    const pages = (q ? pagesVisibles.filter(l => normaliserRecherche(l.label).includes(q2) || articles.some(a => a.rubrique === l.cle)) : pagesVisibles.slice(0, 3))
+      .slice(0, 4).map(l => {
+        const trouve = q ? articles.find(a => a.rubrique === l.cle && a.extrait) : null;
+        return { groupe: 'Aller à', type: 'page', cle: l.cle, titre: l.label, href: l.href, icone: l.icone, detailHtml: trouve ? marquer(trouve.extrait, q) : '' };
+      });
+    const aide = articles.map(a => ({
+      groupe: 'Aide', type: a.type, slug: a.slug, rubrique: a.rubrique, titre: a.titre, extrait: a.extrait || '', etapes: a.etapes || [], reperes: a.reperes || [],
+      icone: a.type === 'faq' ? 'aide' : 'doc',
+      detailHtml: a.type === 'faq' ? 'Question fréquente'
+        : `${echapper(libelleRubrique(a.rubrique))} · ${normaliserRecherche(a.titre).includes(q2) || !a.extrait ? `${(a.etapes || []).length} étape${(a.etapes || []).length > 1 ? 's' : ''}` : marquer(a.extrait, q)}`,
+    })).sort((x, y) => (x.type === 'faq') - (y.type === 'faq'));
+    resultats = [...pages, ...aide];
+    index = resultats.length ? Math.max(0, resultats.findIndex(r => r.type !== 'page')) : -1;
+    dessiner(q);
   }
   champ.addEventListener('input', () => { clearTimeout(champ._t); champ._t = setTimeout(relire, 150); });
   fond.addEventListener('keydown', e => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); index = Math.min(index + 1, resultats.length - 1); dessiner(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); index = Math.max(index - 1, 0); dessiner(); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); index = Math.min(index + 1, resultats.length - 1); dessiner(champ.value.trim()); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); index = Math.max(index - 1, 0); dessiner(champ.value.trim()); }
     else if (e.key === 'Enter') { e.preventDefault(); choisir(index); }
   });
   relire();
@@ -402,14 +539,14 @@ function ouvrirPaletteAide(pagesVisibles) {
 
 // Posé une fois par page (coque) : bouton « ? » → tiroir de la rubrique ; Ctrl K / Cmd K / « / » → palette.
 function aideCoque(moi, rubrique, barre, haut) {
-  const pagesVisibles = GESTION_NAV.filter(l => !l.groupe && l.cle !== 'aide' && (!l.permission || socle.peut(moi, l.permission)));
+  const pages = pagesMenu(moi);
   for (const b of [...barre.querySelectorAll('[data-aide-ouvrir]'), ...haut.querySelectorAll('[data-aide-ouvrir]')]) {
     b.addEventListener('click', () => ouvrirAide(rubrique));
   }
   document.addEventListener('keydown', e => {
     const dansChamp = /^(input|textarea|select)$/i.test(e.target.tagName) || e.target.isContentEditable;
-    if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ouvrirPaletteAide(pagesVisibles); }
-    else if (e.key === '/' && !dansChamp) { e.preventDefault(); ouvrirPaletteAide(pagesVisibles); }
+    if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ouvrirPaletteAide(pages); }
+    else if (e.key === '/' && !dansChamp) { e.preventDefault(); ouvrirPaletteAide(pages); }
   });
 }
 
@@ -442,6 +579,12 @@ window.gestion = {
   ouvrirAide,
   indexAide,
   articleAide,
+  articlePage,
+  pagesMenu,
+  libelleRubrique,
+  iconeRubrique,
+  schemaPage,
+  miniature,
 
   // Tri de colonne pour un tableau ou une liste en grille, réinitialisable sans recharger la page : un premier clic
   // sur une colonne trie en croissant, un second en décroissant, un troisième revient à l'ordre d'origine (aucun

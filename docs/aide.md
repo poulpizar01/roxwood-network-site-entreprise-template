@@ -97,3 +97,23 @@ La gestion est réservée à l'équipe. Connectez-vous avec votre compte Discord
 Pas encore membre du serveur Discord de l'entreprise ? Demandez l'invitation à un responsable.
 :::
 ```
+
+## Page Aide, tiroir, recherche : ce que l'article déclare (maquettes V2)
+
+En-tête facultatif d'un article, en plus de `titre`, `rubrique`, `mots-cles`, `permission` :
+
+| Clé | Rôle |
+|---|---|
+| `type: faq` | une question fréquente (`titre` = la question, corps = la réponse) : listée dans la carte « Questions fréquentes » de la page Aide |
+| `suggestion: oui` | l'article est proposé en pastille sous la barre de recherche de la page Aide (4 au plus) |
+| `voir-aussi: slug-a, slug-b` | cartes « Voir aussi » en bas de l'article (seuls les articles que le lecteur peut ouvrir) |
+| `reperes: 84,13; 50,44!` | un repère par étape, en % sur le schéma de la page (`page-<rubrique>`) : le premier numérote l'article dans le tiroir, tous apparaissent dans l'aperçu de la recherche ; `!` = repère d'attention (ambre) |
+| `zone: nouvelle-facture` | zone (`data-zone`) de la vraie page entourée quand on survole l'article dans le tiroir (écran large) |
+
+Calculés, jamais écrits : les pastilles « Vous pouvez… » (permissions de la page et des passages réservés que le lecteur détient) et la durée de lecture.
+
+Schémas : `gestion/schemas-aide.js` enregistre `<nom>` (le dessin d'un geste, utilisé par `::: schema <nom>`) et `page-<rubrique>` (vue d'ensemble de la page : tiroir, vignette de la page Aide, aperçu de la recherche, « Voir aussi »). Les repères de la légende d'un geste se posent seuls : le numéro N se place au centre de l'élément `data-repere="N"` du dessin (ou de la zone `data-zone="cle"` de la légende). `::: schema nom | Légende du schéma` ajoute une légende sous la figure.
+
+`::: cycle À venir (sous-titre) > ~légende de flèche > Facturée | Annulée (à part)` : `(…)` sous-titre de l'état, `~mot` légende de la flèche suivante, `|` état à part (rouge, sans flèche).
+
+« Votre prise de poste » (page Aide) : `gestion/aide-poste.js` du site définit `gestion.aidePoste = async moi => '<div class="aide-parcours">…</div>'` ; sans définition, rien n'est affiché.

@@ -101,3 +101,52 @@ test('article inconnu ou rubrique non déclarée : 404 plutôt qu’une erreur',
   assert.ok(articleAide(VALIDE, 'orpheline'));                 // rubrique inconnue : exige un compte validé, par défaut
   assert.equal(articleAide(ATTENTE, 'orpheline'), null);
 });
+
+test('schéma et étapes d’aperçu : lus dans les passages visibles seulement, jamais dans un « si » réservé', () => {
+  _chargerArticlesDepuis({
+    apercu: ['---', 'titre: Aperçu', 'rubrique: accueil', 'type: faq', 'suggestion: oui', '---',
+      '::: schema liste', '1 Liste : les lignes', ':::', '',
+      '::: etapes', '**Ouvrez** la ligne', '**Cliquez** ici', ':::', '',
+      '::: si factures', '::: schema secret', '1 Secret : réservé', ':::', ':::'].join('\n'),
+  });
+  const visible = indexAide(VALIDE).find(a => a.slug === 'apercu');
+  assert.deepEqual(visible?.etapes, ['Ouvrez', 'Cliquez']);
+  assert.equal(visible?.schema, 'liste');
+  assert.equal(visible?.type, 'faq');
+  assert.equal(visible?.suggestion, true);
+  assert.equal(JSON.stringify(articleAide(VALIDE, 'apercu')).includes('secret'), false);
+});
+
+test('pastilles « Vous pouvez… » : calculées d’après les droits du lecteur, jamais écrites', () => {
+  _chargerArticlesDepuis({
+    facturer: ['---', 'titre: Facturer', 'rubrique: facturation', '---', 'Texte.', '::: si factures', 'Réservé.', ':::'].join('\n'),
+    simple: '---\ntitre: Simple\nrubrique: accueil\n---\nTexte.',
+  });
+  assert.equal(articleAide(PROPRIETAIRE, 'facturer')?.pastilles.length, 1);   // « factures » cité deux fois, une seule pastille
+  assert.match(articleAide(PROPRIETAIRE, 'facturer')?.pastilles[0] ?? '', /^Vous pouvez /);
+  assert.deepEqual(articleAide(VALIDE, 'simple')?.pastilles, []);              // niveau « valide » : pas une permission
+});
+
+test('« Voir aussi » : seuls les articles que le lecteur peut ouvrir, durée de lecture au moins une minute', () => {
+  _chargerArticlesDepuis({
+    a: '---\ntitre: A\nrubrique: accueil\nvoir-aussi: b, c, absent\n---\nTexte.',
+    b: '---\ntitre: B\nrubrique: accueil\n---\nTexte.',
+    c: '---\ntitre: C\nrubrique: facturation\n---\nTexte.',
+  });
+  const art = articleAide(VALIDE, 'a');
+  assert.deepEqual(art?.voirAussi.map(v => v.slug), ['b']);   // c exige « factures », absent n'existe pas
+  assert.equal(art?.minutes, 1);
+});
+
+test('cycle de statut : sous-titres, légende de flèche, état à part', () => {
+  _chargerArticlesDepuis({
+    cycle: ['---', 'titre: Cycle', 'rubrique: accueil', '---',
+      '::: cycle À venir (pas encore facturée) > ~facturer > Facturée (facture émise) > Réglée | Annulée (retour à « À venir »)', ':::'].join('\n'),
+  });
+  const html = articleAide(VALIDE, 'cycle')?.html ?? '';
+  assert.equal((html.match(/class="etat"/g) ?? []).length, 3);
+  assert.match(html, /etat-a-part/);
+  assert.match(html, /<small>pas encore facturée<\/small>/);
+  assert.match(html, /facturer<\/span>/);       // légende de la première flèche seulement
+  assert.equal((html.match(/class="fl"/g) ?? []).length, 2);
+});

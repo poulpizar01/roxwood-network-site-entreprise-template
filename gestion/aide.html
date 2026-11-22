@@ -11,71 +11,105 @@
   <link rel="stylesheet" href="/gestion/gestion.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
+  <script src="/gestion/aide-poste.js"></script>
   <title>Aide — {{nom}}</title>
 </head>
 <body class="page-agents">
-  <!-- GESTION — aide en ligne (docs/aide.md). Niveau d'accès forcé par le socle (« connecte », server/src/index.ts) :
-       lisible avant même la validation du compte (Premiers pas). Contenu : /api/aide, filtré par le serveur selon les
-       droits du compte — cette page n'affiche donc que ce qu'elle a reçu, jamais un article masqué côté client. -->
+  <!-- GESTION — aide en ligne (docs/aide.md), maquettes M1 (accueil de l'aide) et M2 (article, #slug). Niveau d'accès
+       forcé par le socle (« connecte », server/src/index.ts) : lisible avant même la validation du compte (Premiers
+       pas). Contenu : /api/aide, filtré par le serveur selon les droits du compte — cette page n'affiche donc que ce
+       qu'elle a reçu, jamais un article masqué côté client. -->
   <main class="admin-contenu">
-    <div class="entete-admin">
-      <div>
-        <h1 style="margin-bottom:2px;">Aide</h1>
-        <p style="margin:0;font-size:var(--fs-3);">Les gestes du quotidien, expliqués page par page.</p>
-      </div>
-    </div>
     <div id="zone-message"></div>
 
-    <!-- rempli en script : l'icône de recherche dépend du sprite posé par gestion.coque() -->
-    <button type="button" class="aide-recherche" id="aide-recherche-bouton">Chercher une page ou un article</button>
+    <div id="aide-accueil" aria-busy="true">
+      <div class="aide-haut">
+        <div>
+          <h1>Aide</h1>
+          <p class="aide-sous">Les gestes du quotidien, expliqués page par page.</p>
+          <button type="button" class="aide-recherche" id="aide-recherche-bouton"></button>
+          <div class="aide-suggest" id="aide-suggest"></div>
+        </div>
+        <div class="aide-poste" id="aide-poste"></div>
+      </div>
+      <div id="aide-prise-poste"></div>
+      <div class="aide-etiq" id="aide-etiq-pages" hidden>Par page</div>
+      <div id="aide-rubriques" class="aide-rubriques"></div>
+    </div>
 
-    <div id="aide-rubriques" class="aide-rubriques" aria-busy="true"></div>
+    <div id="aide-article" hidden></div>
   </main>
 
   <script>
     gestion.coque('aide').then(async moi => {
-      document.getElementById('aide-recherche-bouton').innerHTML =
-        `${gestion.ico('search')}<span>Chercher une page ou un article</span><kbd>Ctrl</kbd> <kbd>K</kbd>`;
-      document.getElementById('aide-recherche-bouton').addEventListener('click', () => {
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }));
-      });
-
-      // Rubriques affichées = groupes du menu (GESTION_NAV n'est pas exposé hors de gestion.js : on part donc des
-      // pages réellement accessibles à ce compte, données par la coque — socle.peut() revérifie côté client ce que
-      // le serveur a déjà tranché) et des articles reçus pour chacune (déjà filtrés par le serveur).
+      const $ = id => document.getElementById(id);
+      const { ico, fleche, libelleRubrique, iconeRubrique, schemaPage, miniature } = gestion;
       let articles;
       try { articles = await gestion.indexAide(); }
-      catch (e) { document.getElementById('aide-rubriques').innerHTML = `<p class="etat-vide-texte">${socle.esc(e.message)}</p>`; return; }
+      catch (e) { $('aide-rubriques').innerHTML = `<p class="etat-vide-texte">${socle.esc(e.message)}</p>`; return; }
+
+      // ---- M1 : recherche, suggestions, votre poste, prise de poste, rubriques ----
+      $('aide-recherche-bouton').innerHTML = `${ico('search')}<span>Chercher un geste, une page, une question</span><kbd>Ctrl</kbd><kbd>K</kbd>`;
+      $('aide-recherche-bouton').addEventListener('click', () => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true }));
+      });
+      const suggestions = articles.filter(a => a.suggestion && a.type === 'article').slice(0, 4);
+      $('aide-suggest').innerHTML = suggestions.map(a => `<button type="button" data-slug="${socle.esc(a.slug)}">${ico(iconeRubrique(a.rubrique))}${socle.esc(a.titre)}</button>`).join('');
+      $('aide-suggest').querySelectorAll('[data-slug]').forEach(b => b.addEventListener('click', () => { location.hash = b.dataset.slug; }));
+
+      const pages = gestion.pagesMenu(moi);
+      const nom = moi.nom || moi.pseudo || '';
+      const grade = moi.grade?.libelle || (moi.proprietaire ? 'Super-admin' : 'Sans grade');
+      const initiales = nom.split(/\s+/).filter(Boolean).slice(0, 2).map(m => m[0]).join('').toUpperCase();
+      $('aide-poste').innerHTML = `
+        <div class="aide-poste-l1"><span class="aide-poste-av" aria-hidden="true">${socle.esc(initiales)}</span><div><b>${socle.esc(nom)}</b><br><span class="aide-grade">${socle.esc(grade)}</span></div></div>
+        <div class="aide-sous" style="margin:0">Votre grade vous ouvre ces pages ; l’aide ne vous montre que celles-ci.</div>
+        <div class="aide-droits">${pages.slice(0, 5).map(l => `<span>${ico(l.icone)}${socle.esc(l.label)}</span>`).join('')}${pages.length > 5 ? `<span>+${pages.length - 5}</span>` : ''}</div>`;
+
+      // « Votre prise de poste » : le site la fournit s'il le souhaite (gestion/aide-poste.js, gestion.aidePoste)
+      Promise.resolve(gestion.aidePoste?.(moi)).then(html => {
+        if (html) $('aide-prise-poste').innerHTML = `<div class="aide-etiq">Votre prise de poste</div>${html}`;
+      }).catch(() => { /* un parcours qui ne se charge pas ne doit jamais empêcher de lire l'aide */ });
+
+      // une carte par page (ordre du menu), puis les questions fréquentes
+      const ordre = [...pages.map(l => l.cle), 'compte', 'index', 'attente'];
       const parPage = new Map();
-      for (const a of articles) {
+      for (const a of articles.filter(x => x.type === 'article')) {
         if (!parPage.has(a.rubrique)) parPage.set(a.rubrique, []);
         parPage.get(a.rubrique).push(a);
       }
-      const zone = document.getElementById('aide-rubriques');
-      zone.setAttribute('aria-busy', 'false');
-      if (!parPage.size) { zone.innerHTML = '<p class="etat-vide-texte">Aucun article d’aide pour le moment.</p>'; return; }
-      zone.innerHTML = [...parPage.entries()].map(([page, liste]) => `
-        <section class="aide-rubrique" aria-labelledby="aide-rubrique-${socle.esc(page)}">
-          <h2 id="aide-rubrique-${socle.esc(page)}">${gestion.ico('aide')}${socle.esc(libellePage(page))}</h2>
-          <ul>${liste.map(a => `<li><a href="aide.html#${socle.esc(a.slug)}" data-slug="${socle.esc(a.slug)}">${socle.esc(a.titre)}${gestion.fleche('droite')}</a></li>`).join('')}</ul>
-        </section>`).join('');
-      zone.querySelectorAll('[data-slug]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); gestion.ouvrirAide(a.closest('section').id.replace('aide-rubrique-', ''), a.dataset.slug); }));
+      const cles = [...parPage.keys()].sort((x, y) => (ordre.indexOf(x) + 1 || 99) - (ordre.indexOf(y) + 1 || 99));
+      const faq = articles.filter(a => a.type === 'faq');
+      const carte = (cle, titre, liste, compte, icone, avecIcone) => `
+        <button type="button" class="aide-rub" data-rub="${socle.esc(cle)}">
+          ${schemaPage(cle) && cle !== 'faq' ? `<div class="sui">${miniature(schemaPage(cle))}</div>` : `<div class="sui sui-icone">${ico(icone)}</div>`}
+          <div class="c"><h2>${avecIcone ? ico(icone) : ''}${socle.esc(titre)}</h2>
+            <ul>${liste.slice(0, 2).map(a => `<li>${fleche('suivant')}${socle.esc(a.titre)}</li>`).join('')}</ul>
+            <span class="n">${compte} ${fleche('suivant')}</span></div>
+        </button>`;
+      $('aide-rubriques').innerHTML = cles.map(cle => carte(cle, libelleRubrique(cle), parPage.get(cle), `${parPage.get(cle).length} article${parPage.get(cle).length > 1 ? 's' : ''}`, iconeRubrique(cle), true)).join('')
+        + (faq.length ? carte('faq', 'Questions fréquentes', faq, `${faq.length} question${faq.length > 1 ? 's' : ''}`, 'aide', false) : '');
+      $('aide-etiq-pages').hidden = !$('aide-rubriques').children.length;
+      if (!$('aide-rubriques').children.length) $('aide-rubriques').innerHTML = '<p class="etat-vide-texte">Aucun article d’aide pour le moment.</p>';
+      $('aide-rubriques').querySelectorAll('[data-rub]').forEach(b => b.addEventListener('click', () => gestion.ouvrirAide(b.dataset.rub)));
+      $('aide-accueil').setAttribute('aria-busy', 'false');
 
-      // lien direct (#slug, copié depuis « Copier le lien ») : ouvre l'article sans qu'on ait à chercher sa page
-      if (location.hash) {
+      // ---- M2 : un article (aide.html#slug) ----
+      async function route() {
         const slug = decodeURIComponent(location.hash.slice(1));
-        const trouve = articles.find(a => a.slug === slug);
-        if (trouve) gestion.ouvrirAide(trouve.rubrique, slug);
+        const zone = $('aide-article');
+        if (!slug) { zone.hidden = true; zone.innerHTML = ''; $('aide-accueil').hidden = false; document.title = `Aide — ${document.querySelector('meta[name="application-name"]').content}`; return; }
+        let article = null;
+        try { article = await gestion.articleAide(slug); } catch { /* introuvable : retour à l'accueil de l'aide */ }
+        if (!article) { gestion.notifier('Cet article n’est pas accessible.', 'erreur'); history.replaceState(null, '', location.pathname); return route(); }
+        $('aide-accueil').hidden = true; zone.hidden = false;
+        gestion.articlePage(zone, article, s => { location.hash = s; }, () => { location.hash = ''; });
+        document.title = `${article.titre} — Aide`;
+        scrollTo(0, 0);
       }
+      addEventListener('hashchange', route);
+      route();
     });
-    // nom lisible d'une page à partir de son nom de fichier (fallback si jamais introuvable dans le menu affiché)
-    // pages imposées par le socle (CLAUDE.md), absentes du menu : leur nom n'est donc écrit qu'ici
-    const PAGES_SOCLE = { index: 'Se connecter', attente: 'Compte en attente', compte: 'Mon compte' };
-    function libellePage(page) {
-      if (PAGES_SOCLE[page]) return PAGES_SOCLE[page];
-      const lien = document.querySelector(`.admin-nav a[href="${page}.html"], .admin-nav a[href="${page}"]`);
-      return lien?.querySelector('span')?.textContent || page.charAt(0).toUpperCase() + page.slice(1);
-    }
   </script>
 </body>
 </html>
