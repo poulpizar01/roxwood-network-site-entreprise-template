@@ -2802,12 +2802,13 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
    de la page, M5 téléphone. Les noms de jetons de la maquette (--g-*) sont ici ceux du thème : fond --bg, carte --bg2,
    chip --bg3, filet --border, accent --accent / --accent-dark (clair), ok / alerte / erreur.
    Classes posées par le serveur (socle/aide.ts) dans le HTML d'un article : à garder en phase avec son rendu. */
+:root { --aide-clair: color-mix(in srgb, var(--accent) 62%, var(--text)); }   /* « accent clair » des maquettes : l'accent tiré vers la couleur du texte */
 .etat-vide-texte, .aide-chargement { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
 .aide-tiroir .tiroir-entete { align-items: center; }
 
 /* ---- schéma simplifié (SUI) : trame + trait, repères numérotés posés sur les zones ---- */
 .sui {
-  position: relative; color: var(--accent-dark); overflow: hidden; border-radius: 10px;
+  position: relative; color: var(--aide-clair); overflow: hidden; border-radius: 10px;
   background-color: color-mix(in srgb, var(--accent) 7%, var(--bg));
   background-image: linear-gradient(rgba({{couleur_rvb}}, 0.09) 1px, transparent 1px), linear-gradient(90deg, rgba({{couleur_rvb}}, 0.09) 1px, transparent 1px);
   background-size: 14px 14px; border: 1px solid rgba({{couleur_rvb}}, 0.28);
@@ -2843,7 +2844,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
   content: ""; position: absolute; left: 16px; top: 30px; bottom: 2px; width: 2px; background: rgba({{couleur_rvb}}, 0.3);
 }
 .tiroir-corps .etapes .num, .aide-article .etapes .num {
-  width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--accent); color: var(--accent-dark); display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--accent); color: var(--aide-clair); display: grid; place-items: center;
   font-weight: 750; font-size: 13px; background: var(--bg);
 }
 .tiroir-corps .etapes .num::before, .aide-article .etapes .num::before { content: counter(etape); }
@@ -2879,15 +2880,15 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .tiroir-corps .encart.attention, .aide-article .encart.attention { background: var(--alerte-soft); border: 1px solid rgba(255, 176, 32, 0.3); color: var(--text); }
 .tiroir-corps .encart.attention .ico, .aide-article .encart.attention .ico { color: var(--alerte); }
 .tiroir-corps .encart.info, .aide-article .encart.info { background: var(--bg2); border: 1px solid var(--border); color: var(--text); }
-.tiroir-corps .encart.info .ico, .aide-article .encart.info .ico { color: var(--accent-dark); }
+.tiroir-corps .encart.info .ico, .aide-article .encart.info .ico { color: var(--aide-clair); }
 
 .tiroir-corps .reserve, .aide-article .reserve { border: 1px dashed rgba({{couleur_rvb}}, 0.5); background: rgba({{couleur_rvb}}, 0.06); border-radius: 12px; padding: 12px 16px 4px; margin: 14px 0; }
-.tiroir-corps .reserve .lib, .aide-article .reserve .lib { font-size: 12px; color: var(--accent-dark); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-weight: 600; }
+.tiroir-corps .reserve .lib, .aide-article .reserve .lib { font-size: 12px; color: var(--aide-clair); display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-weight: 600; }
 .tiroir-corps .reserve .lib .ico, .aide-article .reserve .lib .ico { width: 14px; height: 14px; }
 
 /* tête d'article : pastille d'icône, titre, pastilles « Vous pouvez… » calculées, durée */
 .aide-art-tete { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 16px; }
-.aide-art-ic { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 12px; background: var(--accent-soft); border: 1px solid rgba({{couleur_rvb}}, 0.35); display: grid; place-items: center; color: var(--accent-dark); }
+.aide-art-ic { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 12px; background: var(--accent-soft); border: 1px solid rgba({{couleur_rvb}}, 0.35); display: grid; place-items: center; color: var(--aide-clair); }
 .aide-art-ic .ico { width: 22px; height: 22px; }
 .aide-art-tete h1, .aide-art-tete h2 { margin: 0; font-family: var(--display); font-stretch: 82%; font-size: 32px; font-weight: 800; line-height: 1.05; }
 .aide-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
@@ -2912,13 +2913,13 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .aide-cote .tit { font-size: 12.5px; font-weight: 650; color: var(--text-faint); margin-bottom: 6px; }
 .aide-toc { font-size: 13px; border-left: 2px solid var(--border); }
 .aide-toc a { display: block; padding: 4px 0 4px 12px; color: var(--text-faint); margin-left: -2px; border-left: 2px solid transparent; }
-.aide-toc a.on { color: var(--accent-dark); border-left-color: var(--accent); }
+.aide-toc a.on { color: var(--aide-clair); border-left-color: var(--accent); }
 .aide-utile { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
 .aide-utile .btn { justify-content: center; }
 
 /* ---- tiroir de la page (M4) : schéma de la page, articles numérotés sur le schéma, autres articles ---- */
 .aide-tiroir-corps { display: flex; flex-direction: column; gap: 10px; }
-.aide-tiroir-ic { width: 32px; height: 32px; border-radius: 9px; flex: 0 0 auto; background: var(--accent-soft); border: 1px solid rgba({{couleur_rvb}}, 0.35); display: grid; place-items: center; color: var(--accent-dark); }
+.aide-tiroir-ic { width: 32px; height: 32px; border-radius: 9px; flex: 0 0 auto; background: var(--accent-soft); border: 1px solid rgba({{couleur_rvb}}, 0.35); display: grid; place-items: center; color: var(--aide-clair); }
 .aide-tiroir-ic .ico { width: 17px; height: 17px; }
 .aide-lien-art { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; font: inherit; font-size: 13.5px; background: var(--bg3); color: var(--text); text-align: left; cursor: pointer; }
 .aide-lien-art > span:not(.rep) { flex: 1; }
@@ -2941,7 +2942,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .aide-res-gr { font-size: 12px; font-weight: 650; color: var(--text-faint); padding: 9px 16px 4px; }
 .aide-res { width: 100%; display: flex; gap: 11px; padding: 8px 16px; align-items: center; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .aide-res.sel { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
-.aide-res .ic { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; background: var(--bg3); display: grid; place-items: center; color: var(--accent-dark); }
+.aide-res .ic { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 8px; background: var(--bg3); display: grid; place-items: center; color: var(--aide-clair); }
 .aide-res .ic .ico { width: 17px; height: 17px; }
 .aide-res b { font-weight: 600; font-size: 14px; display: block; }
 .aide-res small { font-size: 12.5px; color: var(--text-faint); display: block; }
@@ -2966,15 +2967,15 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .aide-suggest { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .aide-suggest button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; color: var(--text); background: none; cursor: pointer; }
 .aide-suggest button:hover, .aide-suggest button:focus-visible { border-color: var(--border-light); }
-.aide-suggest .ico { width: 14px; height: 14px; color: var(--accent-dark); }
+.aide-suggest .ico { width: 14px; height: 14px; color: var(--aide-clair); }
 .aide-poste { background: linear-gradient(160deg, var(--accent-soft), var(--bg2) 70%); border: 1px solid rgba({{couleur_rvb}}, 0.3); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
 .aide-poste-l1 { display: flex; align-items: center; gap: 10px; }
 .aide-poste-av { width: 38px; height: 38px; border-radius: 50%; background: var(--bg3); display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: 0 0 auto; }
 .aide-poste b { font-size: 15px; }
-.aide-grade { font-size: 11.5px; font-weight: 700; color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.25); border: 1px solid rgba({{couleur_rvb}}, 0.4); border-radius: 999px; padding: 1px 9px; }
+.aide-grade { font-size: 11.5px; font-weight: 700; color: color-mix(in srgb, var(--accent) 35%, var(--text)); background: rgba({{couleur_rvb}}, 0.25); border: 1px solid rgba({{couleur_rvb}}, 0.4); border-radius: 999px; padding: 1px 9px; }
 .aide-droits { display: flex; gap: 6px; flex-wrap: wrap; }
 .aide-droits span { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid var(--border); border-radius: 7px; padding: 3px 8px; background: rgba(255, 255, 255, 0.03); }
-.aide-droits .ico { width: 14px; height: 14px; color: var(--accent-dark); }
+.aide-droits .ico { width: 14px; height: 14px; color: var(--aide-clair); }
 
 /* « Votre prise de poste » (parcours en étapes, rempli par le site — gestion/aide-poste.js) */
 .aide-parcours { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 10px 14px; }
@@ -2996,15 +2997,15 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .aide-rub:hover, .aide-rub:focus-visible { border-color: var(--border-light); }
 .aide-rub .sui { border: 0; border-bottom: 1px solid rgba({{couleur_rvb}}, 0.22); border-radius: 0; height: 96px; }
 .aide-rub .sui svg { height: 100%; }
-.aide-rub .sui-icone { display: grid; place-items: center; color: var(--accent-dark); }
+.aide-rub .sui-icone { display: grid; place-items: center; color: var(--aide-clair); }
 .aide-rub .sui-icone .ico { width: 40px; height: 40px; stroke-width: 1.3; }
 .aide-rub .c { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
 .aide-rub h2 { margin: 0; font-family: var(--display); font-size: 16px; font-weight: 750; display: flex; align-items: center; gap: 8px; }
-.aide-rub h2 .ico { color: var(--accent-dark); width: 17px; height: 17px; }
+.aide-rub h2 .ico { color: var(--aide-clair); width: 17px; height: 17px; }
 .aide-rub ul { list-style: none; margin: 0; padding: 0; font-size: 13px; }
 .aide-rub li { padding: 3px 0; display: flex; gap: 7px; align-items: center; color: var(--text); }
 .aide-rub li .fleche { width: 13px; height: 13px; color: var(--text-faint); flex: 0 0 auto; }
-.aide-rub .n { font-size: 12.5px; color: var(--accent-dark); margin-top: auto; display: flex; align-items: center; gap: 4px; }
+.aide-rub .n { font-size: 12.5px; color: var(--aide-clair); margin-top: auto; display: flex; align-items: center; gap: 4px; }
 .aide-rub .n .fleche { width: 13px; height: 13px; }
 @media (max-width: 1100px) { .aide-rubriques { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 900px) { .aide-haut, .aide-art { grid-template-columns: 1fr; } .aide-cote { position: static; } .aide-parcours { grid-template-columns: repeat(5, 1fr); padding: 12px 2px 10px; } .aide-pas b { font-size: 11.5px; } .aide-pas .pt { width: 26px; height: 26px; } .aide-pas::before { top: 12px; } }
