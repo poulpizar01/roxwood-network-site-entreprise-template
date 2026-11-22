@@ -246,6 +246,16 @@ const articleAide = slug => socle.api(`/api/aide/${encodeURIComponent(slug)}`);
 function dessinerArticle(conteneur, article) {
   conteneur.innerHTML = article.html;
   remplirSchemas(conteneur);
+  // légende d'un schéma : clic → entoure la zone réelle si la page en cours la porte (D13). Rien si elle n'y est pas
+  // (article lu depuis une autre page, ou zone pas encore marquée) : pas d'indice trompeur.
+  conteneur.querySelectorAll('[data-zone-ref]').forEach(li => {
+    if (!document.querySelector(`[data-zone="${CSS.escape(li.dataset.zoneRef)}"]`)) return;
+    li.classList.add('legende-cliquable');
+    li.tabIndex = 0;
+    li.setAttribute('role', 'button');
+    li.addEventListener('click', () => surlignerZone(li.dataset.zoneRef));
+    li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); surlignerZone(li.dataset.zoneRef); } });
+  });
 }
 
 // Fenêtre à focus piégé (palette de recherche ou tiroir d'aide) : même geste que gestion.confirmer (Échap ferme et

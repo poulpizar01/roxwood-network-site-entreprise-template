@@ -81,9 +81,11 @@ function rendreBloc(type: string, arg: string, lignes: string[]): { html: string
     return { html: `<div class="encart ${type}"><svg class="ico" aria-hidden="true"><use href="#ico-${icone}"></use></svg><div>${titre}${lignes.map(l => `<p>${inline(l)}</p>`).join('')}</div></div>`, texte: `${arg} ${lignes.map(texteSeul).join(' ')}` };
   }
   if (type === 'schema') {
+    // le nom (ex. « terminer ») sert aussi de référence de zone : si la page réelle porte data-zone="terminer", la
+    // coque entoure cet élément quand on clique la légende (D13) — rien ne se passe sinon (zone non déclarée ici).
     const legende = lignes.filter(Boolean).map(l => {
       const m = /^(\d+)\s+([^:]+):\s*(.*)$/.exec(l.trim());
-      return m ? `<li><span class="rep">${m[1]}</span><span><b>${echapper(m[2].trim())}</b> ${inline(m[3])}</span></li>` : '';
+      return m ? `<li data-zone-ref="${echapper(m[2].trim())}"><span class="rep">${m[1]}</span><span><b>${echapper(m[2].trim())}</b> ${inline(m[3])}</span></li>` : '';
     }).join('');
     // le SVG réel de la page (fidèle à l'écran) est fourni par la coque (gestion.js, registre des schémas par page) :
     // le socle ne fait que réserver la zone et poser la légende, jamais de dessin inventé.
