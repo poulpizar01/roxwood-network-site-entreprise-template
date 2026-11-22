@@ -292,7 +292,7 @@ const articleAide = slug => socle.api(`/api/aide/${encodeURIComponent(slug)}`);
 // ---- article (M2) : tête (pastille d'icône, titre, « Vous pouvez… » calculées, durée), corps, « Voir aussi » ----
 function teteArticle(article, niveau = 'h2') {
   const chips = article.pastilles.map(p => `<span class="aide-chip ok">${ico('check')}${echapper(p)}</span>`).join('')
-    + `<span class="aide-chip">${ico('clock')}${article.minutes} min</span>`;
+    + (article.type === 'faq' ? '' : `<span class="aide-chip">${ico('clock')}${article.minutes} min</span>`);
   return `<div class="aide-art-tete"><span class="aide-art-ic">${ico(iconeRubrique(article.rubrique))}</span>
     <div><${niveau}>${echapper(article.titre)}</${niveau}><div class="aide-meta">${chips}</div></div></div>`;
 }
@@ -337,14 +337,15 @@ function articlePage(conteneur, article, ouvrirArticle, retour) {
     ...article.intertitres.filter(i => !memeTitre(i.texte, article.titre)),
     ...(article.voirAussi.length ? [{ id: 'aide-voir-aussi', texte: 'Voir aussi' }] : []),
   ];
-  const page = ligneMenu(article.rubrique);
+  // « Mon compte » n'est pas dans le menu : sa page s'ouvre quand même (hors Aide et hors rubriques sans page)
+  const page = ligneMenu(article.rubrique) || (['compte'].includes(article.rubrique) ? { href: `${article.rubrique}.html`, label: libelleRubrique(article.rubrique) } : null);
   conteneur.innerHTML = `
     <div class="aide-barre-art"><button type="button" class="admin-icone-bouton" data-aide-retour aria-label="Retour à l’aide">${fleche('precedent')}</button>
       <span>Aide</span><button type="button" class="admin-icone-bouton" data-aide-copier aria-label="Copier le lien">${ico('link')}</button></div>
     <nav class="aide-ariane" aria-label="Fil d’Ariane"><a href="aide.html">Aide</a>${fleche('suivant')}<span>${echapper(libelleRubrique(article.rubrique))}</span></nav>
     <div class="aide-art"><article class="aide-article">${teteArticle(article, 'h1')}${article.html}${voirAussiHtml(article)}</article>
       <aside class="aide-cote">
-        <div><div class="tit">Dans cet article</div><nav class="aide-toc" aria-label="Dans cet article">${toc.map((t, i) => `<a href="#${echapper(t.id)}" data-toc="${echapper(t.id)}"${i === 0 ? ' class="on"' : ''}>${echapper(t.texte)}</a>`).join('')}</nav></div>
+        ${toc.length ? `<div><div class="tit">Dans cet article</div><nav class="aide-toc" aria-label="Dans cet article">${toc.map((t, i) => `<a href="#${echapper(t.id)}" data-toc="${echapper(t.id)}"${i === 0 ? ' class="on"' : ''}>${echapper(t.texte)}</a>`).join('')}</nav></div>` : ''}
         <div class="aide-utile">${page ? `<a class="btn btn-or" href="${echapper(page.href)}">Ouvrir ${echapper(page.label)}${fleche('suivant')}</a>` : ''}
           <button type="button" class="btn btn-fantome" data-aide-copier>${ico('link')}Copier le lien</button></div>
       </aside></div>`;
