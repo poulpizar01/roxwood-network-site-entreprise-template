@@ -246,10 +246,12 @@ const articleAide = slug => socle.api(`/api/aide/${encodeURIComponent(slug)}`);
 function dessinerArticle(conteneur, article) {
   conteneur.innerHTML = article.html;
   remplirSchemas(conteneur);
-  // légende d'un schéma : clic → entoure la zone réelle si la page en cours la porte (D13). Rien si elle n'y est pas
-  // (article lu depuis une autre page, ou zone pas encore marquée) : pas d'indice trompeur.
+  // légende d'un schéma : clic → entoure la zone réelle si la page en cours la porte, visible à l'écran (D13).
+  // Rien si elle n'y est pas (article lu depuis une autre page, zone pas encore marquée) ni si elle est cachée
+  // (fenêtre pas encore ouverte, onglet non actif) : un repère cliquable qui ne ferait rien serait trompeur.
   conteneur.querySelectorAll('[data-zone-ref]').forEach(li => {
-    if (!document.querySelector(`[data-zone="${CSS.escape(li.dataset.zoneRef)}"]`)) return;
+    const cible = document.querySelector(`[data-zone="${CSS.escape(li.dataset.zoneRef)}"]`);
+    if (!cible || !cible.offsetParent) return;
     li.classList.add('legende-cliquable');
     li.tabIndex = 0;
     li.setAttribute('role', 'button');
