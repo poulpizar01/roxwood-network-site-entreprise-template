@@ -56,7 +56,7 @@ La base de prod démarre **vide** (rien n'est repris du dev). Dans cet ordre :
 4. **Paramètres** (permission « Paramètres du site ») : liens et réglages de l'entreprise, onglet par onglet — rien de tout cela ne va dans le `.env`. Un réglage Discord (rôle, salon, catégorie) se choisit par son nom quand le bot est relié.
 5. **Comptabilité → Rémunération** (si le site garde le module commun) : salaire de chaque grade, versé ou coupé, et taux horaire.
 6. Webhooks du bot (si l'entreprise utilise [roxwood-network-entreprise](https://github.com/poulpizar01/roxwood-network-entreprise)) : voir [docs/webhooks.md](../docs/webhooks.md).
-7. **Ordinateur en jeu** (si le site y est affiché) : `FOLKOS_*` dans `.env`, et l'adresse `https://<domaine>/auth/folkos` à déclarer à l'opérateur FolkOS ; cahier des charges de l'opérateur et ce que le site doit vérifier : [docs/folkos.md](../docs/folkos.md).
+7. **Ordinateur en jeu** (si le site y est affiché) : `FOLKOS_*` dans `.env` (chez Flashback FA : `FOLKOS_CADRES=https://*.fbfa.fr https://fbfa.fr`), et l'adresse `https://<domaine>/auth/folkos` à déclarer à l'opérateur FolkOS, au lieu du `/api/folkos` de ses exemples. Pour la connexion « IG » : `BASE_URL` sous `*.fbfa.fr` (le cookie secret du ticket n'est envoyé qu'à ce domaine) et le scope **`discord`** accordé au client SSO (le compte est retrouvé par son ID Discord ; les autres scopes ne servent pas). Après la mise en ligne, une connexion en jeu refusée se lit dans `docker logs <SITE_ID>-app` (`[FolkOS] refus`, champ `nonce_check`). Cahier des charges de l'opérateur et ce que le site doit vérifier : [docs/folkos.md](../docs/folkos.md).
 
 **Chaque site écrit son guide d'installation pas à pas** (`deploy/INSTALLATION.md`, pour la personne qui installe) : qui fournit quoi, valeurs de chaque variable, droits du bot, réglages à faire dans l'espace agents, vérifications avec le résultat attendu, et une liste de contrôle finale. Ce fichier-ci reste générique.
 
@@ -68,7 +68,7 @@ La base de prod démarre **vide** (rien n'est repris du dev). Dans cet ordre :
 - [ ] redirection Discord ajoutée ; bot invité sur le serveur avec les droits que le site demande
 - [ ] `SUPER_ADMIN_DISCORD_IDS` renseigné ; ce compte connecté en premier ; grades créés et liés à leurs rôles
 - [ ] Paramètres renseignés ; réglages propres au site faits (voir son `deploy/INSTALLATION.md`)
-- [ ] webhooks du bot et ordinateur en jeu déclarés, si utilisés
+- [ ] webhooks du bot et ordinateur en jeu déclarés, si utilisés (en jeu : `BASE_URL` sous `*.fbfa.fr`, scope `discord`, `/auth/folkos` déclaré, une connexion IG réussie sans `[FolkOS] refus` dans les journaux)
 - [ ] envoi d'une image testé (stockage) ; affichage dans l'ordinateur en jeu testé, si utilisé
 - [ ] première sauvegarde présente dans `backups/` ; copie hors du serveur en place
 
