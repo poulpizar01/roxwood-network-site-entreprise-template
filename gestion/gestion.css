@@ -2859,21 +2859,32 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 }
 .tiroir-corps .ui-btn-sec, .aide-article .ui-btn-sec { background: var(--bg2); color: var(--text); border: 1px solid var(--border); }
 
-.tiroir-corps .figure, .aide-article .figure { margin: 12px 0; }
+/* Le schéma et sa légende forment un seul bloc, visuellement distinct du texte (fond, cadre, coins arrondis) : sans
+   ça, la légende (chiffres ronds) se confondait avec les étapes juste en dessous (mêmes chiffres ronds), comme si
+   c'était une seule liste continue. Marge large de part et d'autre pour la détacher du texte qui l'entoure. */
+.tiroir-corps .figure, .aide-article .figure {
+  margin: 20px 0; padding: 14px 16px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+}
 .tiroir-corps .sui, .aide-article .sui {
-  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 80px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); min-height: 80px;
   display: flex; align-items: center; justify-content: center; overflow: hidden; color: var(--accent-dark);
 }
 .tiroir-corps .sui:empty::after, .aide-article .sui:empty::after { content: "Schéma à venir"; color: var(--text-faint); font-size: var(--fs-1); padding: 20px; }
 .tiroir-corps .sui svg, .aide-article .sui svg { width: 100%; height: auto; display: block; }
-.tiroir-corps .legende-sui, .aide-article .legende-sui { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-2); }
+.tiroir-corps .sui text, .aide-article .sui text { fill: currentColor; font-family: var(--body); }
+.tiroir-corps .legende-sui, .aide-article .legende-sui {
+  list-style: none; margin: 12px 0 0; padding: 10px 0 0; border-top: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-1); color: var(--text-muted);
+}
 .tiroir-corps .legende-sui li, .aide-article .legende-sui li { display: flex; gap: 8px; align-items: flex-start; }
-.tiroir-corps .legende-sui b, .aide-article .legende-sui b { font-weight: 600; }
+.tiroir-corps .legende-sui b, .aide-article .legende-sui b { font-weight: 600; color: var(--text); }
 .legende-cliquable { cursor: pointer; border-radius: var(--radius-sm); padding: 4px 6px; margin: -4px -6px; }
-.legende-cliquable:hover, .legende-cliquable:focus-visible { background: var(--bg2); }
+.legende-cliquable:hover, .legende-cliquable:focus-visible { background: var(--bg-card); }
+/* petit repère de légende (caption) : volontairement discret, pour ne pas se confondre avec les grands chiffres
+   ronds des étapes (.etapes .num) juste en dessous */
 .tiroir-corps .rep, .aide-article .rep {
-  flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: var(--on-accent);
-  font: 700 11px/18px var(--body); text-align: center;
+  flex: 0 0 auto; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--border-light);
+  color: var(--text-muted); font: 600 10px/13px var(--body); text-align: center; margin-top: 1px;
 }
 
 /* zone réelle de la page citée par l'aide (tiroir, data-zone) : brièvement entourée (gestion.js, surlignerZone) */

@@ -44,10 +44,29 @@ Texte ordinaire, avec :
 | `cycle` | une ligne `État A > État B > État C` | les états d'un statut, dans l'ordre |
 | `attention <titre>` | texte | encadré d'avertissement (ce qui ne se rattrape pas) |
 | `info` | texte | encadré d'information neutre |
-| `schema <nom>` | lignes `N nom : description` | réserve la figure et pose la légende numérotée ; le dessin lui-même vient du registre de schémas de la coque (`gestion.js`), jamais inventé par un article |
+| `schema <nom>` | lignes `N [cle] Libellé : description` | réserve la figure et pose la légende numérotée ; le dessin lui-même vient du registre de schémas de la coque (`gestion.js`), jamais inventé par un article |
 
 Un « si » ne s'imbrique pas dans un autre « si » (perdrait sa propre permission) : si le besoin se présente,
 corriger `rendreCorps` plutôt que de le contourner.
+
+### Légende d'un schéma : `[cle]` facultative, `Libellé` toujours une phrase lisible
+
+```
+::: schema compte
+1 [terminer-service] Terminer votre service : bouton [Terminer mon service]
+2 Votre identité : nom, grade, matricule
+:::
+```
+
+- `[cle]` (facultative, entre crochets) : référence de zone — si la page réelle porte `data-zone="cle"` sur
+  l'élément concerné, la légende devient cliquable et entoure cet élément (D13, `surlignerZone`). Jamais affichée.
+  Sans elle, la ligne reste une légende ordinaire, non cliquable.
+- `Libellé` est **toujours une phrase que la personne qui lit comprend** (« Terminer votre service »), jamais
+  l'identifiant technique de la zone (« terminer-service ») : les deux sont volontairement séparés.
+- Dans le schéma (SVG) lui-même : un texte **fixe à l'écran** (titre de champ, texte d'un bouton, nom d'une
+  rubrique) peut être écrit en dur, puisqu'il est vérifié sur la page réelle et identique pour tout le monde.
+  Une donnée propre à la personne connectée (son nom, son grade, une valeur saisie) reste un bloc abstrait,
+  jamais un exemple inventé affiché comme si c'était une vraie donnée.
 
 ## Fidélité — règle absolue
 

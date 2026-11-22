@@ -81,6 +81,19 @@ test('fins de ligne CRLF (checkout Windows) : l’en-tête se lit quand même', 
   assert.equal(a!.titre, 'Se connecter');
 });
 
+test('légende d’un schéma : [cle] facultative pour la zone, jamais affichée (le libellé reste une phrase lisible)', () => {
+  _chargerArticlesDepuis({
+    s: ['---', 'titre: Essai', 'rubrique: accueil', '---',
+      '::: schema accueil', '1 [terminer-service] Terminer le service : bouton [Terminer mon service]', '2 Coordonnées : votre fiche', ':::', ''].join('\n'),
+  });
+  const html = articleAide(VALIDE, 's')!.html;
+  assert.match(html, /data-zone-ref="terminer-service"/);
+  assert.match(html, /<b>Terminer le service<\/b>/);
+  assert.doesNotMatch(html, /terminer-service</);   // la clé interne ne doit jamais apparaître comme texte lisible
+  assert.match(html, /<b>Coordonnées<\/b>/);         // sans [cle] : pas de data-zone-ref, mais un libellé normal
+  assert.doesNotMatch(html, /data-zone-ref="Coordonnées"/);
+});
+
 test('article inconnu ou rubrique non déclarée : 404 plutôt qu’une erreur', () => {
   _chargerArticlesDepuis({});
   assert.equal(articleAide(PROPRIETAIRE, 'inexistant'), null);
