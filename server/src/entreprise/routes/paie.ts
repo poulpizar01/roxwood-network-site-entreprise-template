@@ -14,8 +14,9 @@ import { jourValide } from '../texte.js';
 
 export const paie = Router();
 const gerer = permission('paie');
+const voir = permission('paie-voir');
 
-paie.get('/api/paie/grades', ...gerer, async (_req, res) => { res.json({ grades: await paieGrades() }); });
+paie.get('/api/paie/grades', ...voir, async (_req, res) => { res.json({ grades: await paieGrades() }); });
 
 paie.put('/api/paie/grades/:grade/salaire', ...gerer, traiter(async (req, res) => {
   const grade = String(req.params.grade);
@@ -54,10 +55,10 @@ paie.put('/api/paie/grades/:grade/paliers/:domaine', ...gerer, traiter(async (re
   res.json({ ok: true });
 }));
 
-paie.get('/api/paie/employes', ...gerer, async (_req, res) => { res.json({ employes: await employesPourSimulateur() }); });
+paie.get('/api/paie/employes', ...voir, async (_req, res) => { res.json({ employes: await employesPourSimulateur() }); });
 
 // simulateur : grade+runs+factures saisis à la main, ou employeId(+semaine) pour reprendre ses vraies données
-paie.get('/api/paie/simuler', ...gerer, traiter(async (req, res) => {
+paie.get('/api/paie/simuler', ...voir, traiter(async (req, res) => {
   const q = req.query;
   const grades = await paieGrades();
   let gradeCle: string, runs: number, factures: number, source: 'manuel' | 'reel', debutSemaine: string | null = null;

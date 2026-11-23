@@ -37,12 +37,12 @@ export const entreprise: Entreprise = {
     sanctions: 'rh-sanctions-voir',
     services: 'rh-voir',
     quota: 'rh-voir',
-    dot: 'compta',
-    contrats: 'contrats',
+    dot: 'compta-voir',
+    contrats: 'contrats-voir',
     beneficiaires: 'contrats-beneficiaires',
     'contrat-client': 'public',   // espace du client lui-même, par lien à jeton (sans compte) — routes/contrats.ts
-    facturation: 'factures',
-    paie: 'paie',
+    facturation: 'factures-voir',
+    paie: 'paie-voir',
     parametres: 'parametres',
   },
 

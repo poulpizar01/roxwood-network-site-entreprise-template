@@ -28,8 +28,8 @@
           <p style="margin:0;font-size:var(--fs-3);">Contrats passés avec d’autres entreprises : réparations, soins, prestations…</p>
         </div>
         <div class="contrats-entete-actions">
-          <button type="button" class="btn btn-fantome" id="bouton-types-contrat">Types de contrat</button>
-          <button type="button" class="btn btn-or" id="bouton-nouveau-contrat"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouveau contrat</button>
+          <button type="button" class="btn btn-fantome" data-exige="contrats" id="bouton-types-contrat">Types de contrat</button>
+          <button type="button" class="btn btn-or" data-exige="contrats" id="bouton-nouveau-contrat"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouveau contrat</button>
         </div>
       </div>
       <div id="zone-message-contrats" role="status"></div>
@@ -123,7 +123,7 @@
       <p class="champ-aide" id="contrat-fin-aide">Sans date de fin, le contrat est reconduit chaque semaine jusqu’à ce que vous y mettiez fin.</p>
       <div class="champ"><label for="contrat-notes">Notes <small>facultatif</small></label><textarea id="contrat-notes" maxlength="500" rows="3"></textarea></div>
       <div class="modale-boutons">
-        <button type="submit" class="btn btn-or" id="bouton-enregistrer-contrat">Ajouter</button>
+        <button type="submit" class="btn btn-or" data-exige="contrats" id="bouton-enregistrer-contrat">Ajouter</button>
       </div>
     </form>
   </div>

@@ -40,10 +40,10 @@
           </div>
           <div class="dot-actions-releve">
             <select id="tablette-semaine" aria-label="Semaine du relevé"></select>
-            <button type="button" class="btn btn-or" id="bouton-importer-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-upload"></use></svg> Importer</button>
+            <button type="button" class="btn btn-or" data-exige="compta" id="bouton-importer-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-upload"></use></svg> Importer</button>
             <button type="button" class="btn btn-fantome cache" id="bouton-copier-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
             <!-- action d’effacement : après l’action principale, en bouton discret -->
-            <button type="button" class="btn btn-fantome cache" id="bouton-reinitialiser-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Réinitialiser</button>
+            <button type="button" class="btn btn-fantome cache" data-exige="compta" id="bouton-reinitialiser-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Réinitialiser</button>
           </div>
         </div>
         <div id="zone-message-tablette"></div>
@@ -77,7 +77,7 @@
               <span class="run-touche" aria-hidden="true"><kbd>T</kbd> cette semaine</span>
               <button type="button" class="run-fleche run-fleche--apres" id="dot-semaine-suivante" aria-label="Semaine suivante"><svg class="ico" aria-hidden="true"><use href="#ico-chevron"></use></svg></button>
             </div>
-            <button type="button" class="btn btn-or" id="bouton-valider-declaration">Valider la déclaration</button>
+            <button type="button" class="btn btn-or" data-exige="compta" id="bouton-valider-declaration">Valider la déclaration</button>
           </div>
         </div>
         <div id="dot-bandeau-verrouillee" class="dot-bandeau cache" role="status"></div>
@@ -102,7 +102,7 @@
               <p class="champ-aide">Relevé en jeu avant de déclarer : il fixe le taux de richesse.</p>
               <div class="dot-solde-ligne">
                 <input type="number" id="dot-solde-bancaire" min="0" step="1" inputmode="numeric" autocomplete="off">
-                <button type="submit" class="btn btn-fantome">Enregistrer</button>
+                <button type="submit" class="btn btn-fantome" data-exige="compta">Enregistrer</button>
               </div>
             </form>
             <h4 class="dot-sous-titre">Plafonds de la tranche</h4>
@@ -121,7 +121,7 @@
               <h3 class="compta-titre" id="dot-titre-journal">Mouvements de la semaine</h3>
               <p class="compta-aide">Recettes hors Tablettes, dépenses déductibles et retraits : chaque ajout entre aussitôt dans le calcul.</p>
             </div>
-            <button type="button" class="btn btn-or" id="bouton-nouvelle-ecriture"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un mouvement</button>
+            <button type="button" class="btn btn-or" data-exige="compta" id="bouton-nouvelle-ecriture"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un mouvement</button>
           </div>
           <div class="dot-journal-outils">
             <div class="segment-mode" role="group" aria-label="Type de mouvement affiché" id="dot-filtres-journal">
@@ -132,7 +132,7 @@
             </div>
             <div class="dot-journal-actions">
               <button type="button" class="btn btn-fantome btn-petit" id="bouton-copier-ecritures"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier</button>
-              <button type="button" class="btn btn-fantome btn-petit cache" id="bouton-reinitialiser-ecritures"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> <span id="libelle-reinitialiser-ecritures">Tout effacer</span></button>
+              <button type="button" class="btn btn-fantome btn-petit cache" data-exige="compta" id="bouton-reinitialiser-ecritures"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> <span id="libelle-reinitialiser-ecritures">Tout effacer</span></button>
             </div>
           </div>
           <div class="carte-table">
@@ -162,7 +162,7 @@
               <h3 class="compta-titre" id="dot-titre-salaries">Tableau des salariés</h3>
               <p class="compta-aide" id="dot-salaries-resume">Run et facture : quotas réels de la semaine. Vente et CA total réalisé : relevé Tablettes. Heures : service du bot, sans anomalie (RH → Services). Salaire : fixe du grade, palier atteint et paie à l'heure. Prime : à saisir ici.</p>
             </div>
-            <button type="button" class="btn btn-fantome cache" id="bouton-publier-fiches">Publier les fiches de paie</button>
+            <button type="button" class="btn btn-fantome cache" data-exige="compta" id="bouton-publier-fiches">Publier les fiches de paie</button>
             <button type="button" class="btn btn-or" id="bouton-copier-salaries"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
           </div>
           <details class="dot-aide-repliable">

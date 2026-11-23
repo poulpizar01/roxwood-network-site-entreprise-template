@@ -42,6 +42,8 @@ let MOI, GRADES_ORDRE = [], PAIE_GRADES = [], EMPLOYES_SIM = [], EDITION = null,
 // rang d'un grade (0 = sommet) ; même règle que le serveur (socle/droits.ts) et que la page Grades
 const rang = cle => { const i = GRADES_ORDRE.findIndex(g => g.cle === cle); return i < 0 ? GRADES_ORDRE.length : i; };
 const gerable = cle => MOI.proprietaire || (!!MOI.grade && rang(cle) > rang(MOI.grade.cle));
+// modifiable : la permission « paie » et un grade sous le sien ; sinon la fenêtre de ce grade s'ouvre en lecture seule
+const modifiable = cle => socle.peut(MOI, 'paie') && gerable(cle);
 
 // ---------------------------------------------------------------------------
 // sous-onglets Grades / Simulateur
@@ -63,7 +65,7 @@ const couleurDe = cle => GRADES_ORDRE.find(g => g.cle === cle)?.couleur || '#8a9
 
 function afficherGrades() {
   $('liste-paie-grades').innerHTML = PAIE_GRADES.length ? PAIE_GRADES.map(g => {
-    const peut = gerable(g.cle);
+    const peut = modifiable(g.cle);
     const tagSalaire = g.salaireActif
       ? `<span class="grades-tag accent">${formaterArgent(g.salaireFixe)} / semaine</span>`
       : `<span class="grades-tag">Pas de salaire de base</span>`;
@@ -74,13 +76,13 @@ function afficherGrades() {
       ? `<span class="grades-tag accent">${pluriel(g.paliersFacture.length, 'palier')} facture</span>`
       : `<span class="grades-tag">Aucun palier facture</span>`;
     return `<li class="grades-ligne${peut ? '' : ' verrouille'}" data-cle="${echapper(g.cle)}">
-      <button type="button" class="grades-principal" data-ouvrir-paie ${peut ? '' : 'disabled'}>
+      <button type="button" class="grades-principal" data-ouvrir-paie>
         <span class="grades-info">
           <span class="pastille-grade" style="background:${echapper(couleurDe(g.cle))}"></span>
           <span class="grades-nom">${echapper(g.libelle)}</span>
           <span class="grades-tags">${tagSalaire}${tagRun}${tagFacture}</span>
         </span>
-        <span class="grades-suite" aria-hidden="true">${peut ? fleche('suivant') : 'Au-dessus de vous'}</span>
+        <span class="grades-suite" aria-hidden="true">${peut || !socle.peut(MOI, 'paie') ? fleche('suivant') : 'Au-dessus de vous : lecture seule'}</span>
       </button>
     </li>`;
   }).join('') : '<li class="grades-vide">Aucun grade pour le moment.</li>';
@@ -126,7 +128,7 @@ $('formulaire-paie-grade').addEventListener('input', ev => {
 
 function ouvrirModalePaie(cle) {
   const g = PAIE_GRADES.find(x => x.cle === cle);
-  if (!g || !gerable(cle)) return;
+  if (!g) return;
   EDITION = cle;
   $('paie-pastille-titre').style.background = couleurDe(cle);
   $('paie-titre-texte').textContent = `Paie — ${g.libelle}`;
@@ -139,6 +141,10 @@ function ouvrirModalePaie(cle) {
   g.paliersFacture.forEach(p => ajouterLignePalier('facture', p.seuil, p.prime));
   apercuPaliers('run');
   apercuPaliers('facture');
+  // lecture seule : champs et boutons de palier bloqués (l'enregistrement est masqué par data-exige, le serveur refuse de toute façon)
+  const lecture = !modifiable(cle);
+  $('formulaire-paie-grade').querySelectorAll('input, button[data-ajouter-palier], .facture-article-retirer').forEach(el => { el.disabled = lecture || (el.id === 'paie-salaire-fixe' && !g.salaireActif); });
+  $('enregistrer-paie').classList.toggle('cache', lecture);
   gestion.message('zone-message-modale-paie', '');
   $('modale-paie-grade').classList.remove('cache');
 }

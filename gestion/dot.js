@@ -41,6 +41,9 @@ function decalerSemaineDot(iso, sens) {
 }
 const DOT_SEMAINE_COURANTE = lundiDeDot(jourParisISODot(new Date()));
 let DOT_SEMAINE = DOT_SEMAINE_COURANTE;
+// écriture (permission compta) ; sans elle la page se lit seulement : commandes masquées par la coque (data-exige), champs
+// de saisie en lecture seule ici
+let PEUT_GERER_DOT = false;
 // semaine du relevé Tablettes affiché (chaque relevé appartient à une semaine) ; la semaine en cours par défaut
 let TABLETTE_SEMAINE = DOT_SEMAINE_COURANTE;
 const dateCourteDot = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -290,7 +293,7 @@ async function chargerDotSalaries() {
             <td class="dot-montant"><strong>${formaterArgentStats(a.caTotalRealise)}</strong></td>
             <td class="dot-montant">${a.heuresServiceMinutes ? `${Math.floor(a.heuresServiceMinutes / 60)}h${String(a.heuresServiceMinutes % 60).padStart(2, "0")}` : "—"}</td>
             <td class="dot-montant" data-plafond="salaire"><strong data-valeur-plafond>${formaterArgentStats(a.salaireTotal)}</strong><span class="visuellement-cache" data-texte-plafond></span></td>
-            <td class="dot-montant" data-plafond="prime">${verrouillee
+            <td class="dot-montant" data-plafond="prime">${verrouillee || !PEUT_GERER_DOT
               ? `<strong>${formaterArgentStats(a.prime)}</strong>`
               : `<input type="number" class="table-input dot-prime" min="0" step="1" inputmode="numeric" value="${a.prime}" data-prime-employe="${a.employeId}" aria-label="Prime de ${echapper(a.nom)}">`}<span class="visuellement-cache" data-texte-plafond></span></td>
           </tr>`).join("")
@@ -301,7 +304,7 @@ async function chargerDotSalaries() {
     if (verrouillee) {
       corps.querySelectorAll("tr[data-employe]").forEach(tr => {
         const a = DOT_SALARIES.find(x => String(x.employeId) === tr.dataset.employe);
-        tr.insertAdjacentHTML("beforeend", `<td class="dot-col-paye"><input type="checkbox" data-paye-employe="${a.employeId}" aria-label="Fiche de paie réglée : ${echapper(a.nom)}"${a.paye ? " checked" : ""}></td>`);
+        tr.insertAdjacentHTML("beforeend", `<td class="dot-col-paye"><input type="checkbox" data-paye-employe="${a.employeId}" aria-label="Fiche de paie réglée : ${echapper(a.nom)}"${a.paye ? " checked" : ""}${PEUT_GERER_DOT ? "" : " disabled"}></td>`);
       });
       corps.querySelectorAll("[data-paye-employe]").forEach(c => c.addEventListener("change", () => marquerPaye(c)));
     }
@@ -431,7 +434,7 @@ function rendreEcrituresDot() {
           <td>${echapper(e.justificatif)}</td>
           <td><span class="dot-tag dot-tag--${echapper(e.type)}">${t.libelle}</span></td>
           <td class="dot-montant">${e.type === "recette" ? "+ " : "− "}${formaterArgentStats(e.montant)}</td>
-          <td class="col-actions">${ECRITURES_VERROUILLEES ? "" : `<button type="button" class="actions-icone actions-icone--erreur" data-ecriture-supprimer="${e.id}" title="Supprimer" aria-label="Supprimer le mouvement « ${echapper(e.justificatif)} »">${gestion.ico("trash")}</button>`}</td>
+          <td class="col-actions">${ECRITURES_VERROUILLEES ? "" : `<button type="button" class="actions-icone actions-icone--erreur" data-exige="compta" data-ecriture-supprimer="${e.id}" title="Supprimer" aria-label="Supprimer le mouvement « ${echapper(e.justificatif)} »">${gestion.ico("trash")}</button>`}</td>
         </tr>`;
     }).join("")
     : `<tr><td colspan="5" class="champ-aide">${vide}</td></tr>`;
@@ -695,7 +698,7 @@ async function chargerTablette() {
     document.getElementById("bouton-copier-tablette").classList.remove("cache");
     afficherSyntheseTablette(reponse.import, reponse.ca_brut);
     const table = document.getElementById("table-tablette");
-    table.innerHTML = rendreTableCompta(reponse.import.colonnes, reponse.import.lignes, !verrouillee);
+    table.innerHTML = rendreTableCompta(reponse.import.colonnes, reponse.import.lignes, PEUT_GERER_DOT && !verrouillee);
     table.querySelectorAll("[data-index]").forEach((btn) => {
       btn.addEventListener("click", () => supprimerLigneTablette(Number(btn.dataset.index), btn.dataset.nom));
     });
@@ -923,4 +926,9 @@ new ResizeObserver(() => {
   if (w && Math.abs(w - GRAPHIQUE_LARGEUR) >= 2) dessinerGraphiqueDot();
 }).observe(document.getElementById("dot-graphique"));
 
-gestion.coque('dot').then(() => { remplirSemainesTablette(); chargerTablette(); });
+gestion.coque('dot').then(moi => {
+  PEUT_GERER_DOT = socle.peut(moi, 'compta');
+  document.getElementById('dot-solde-bancaire').readOnly = !PEUT_GERER_DOT;
+  remplirSemainesTablette();
+  chargerTablette();
+});

@@ -23,10 +23,10 @@ const GESTION_NAV = [
   { cle: 'sanctions', href: 'sanctions.html', label: 'Sanctions', icone: 'alerte', permission: 'rh-sanctions-voir' },
   { cle: 'services', href: 'services.html', label: 'Anomalies', icone: 'clock', permission: 'rh-voir' },
   { groupe: 'Comptabilité' },
-  { cle: 'facturation', href: 'facturation.html', label: 'Facturation', icone: 'receipt', permission: 'factures' },
-  { cle: 'contrats', href: 'contrats.html', label: 'Contrats', icone: 'archive', permission: 'contrats' },
-  { cle: 'paie', href: 'paie.html', label: 'Paie', icone: 'coins', permission: 'paie' },
-  { cle: 'dot', href: 'dot.html', label: 'DOT', icone: 'calc', permission: 'compta' },
+  { cle: 'facturation', href: 'facturation.html', label: 'Facturation', icone: 'receipt', permission: 'factures-voir' },
+  { cle: 'contrats', href: 'contrats.html', label: 'Contrats', icone: 'archive', permission: 'contrats-voir' },
+  { cle: 'paie', href: 'paie.html', label: 'Paie', icone: 'coins', permission: 'paie-voir' },
+  { cle: 'dot', href: 'dot.html', label: 'DOT', icone: 'calc', permission: 'compta-voir' },
   // réglages, en dernier : on y vient rarement, ils ne passent pas avant le travail de tous les jours
   { groupe: 'Administration' },
   { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'grade', permission: 'grades' },
@@ -126,6 +126,9 @@ const memoCoque = {
     try { sessionStorage.removeItem(this.cle); sessionStorage.removeItem('gestion.service'); } catch { /* rien à effacer */ }
   },
 };
+
+// Permissions « agir » dont les commandes se masquent pour qui n'a que la lecture (data-exige, voir dessiner())
+const DROITS_ECRITURE = ['factures', 'contrats', 'compta', 'paie'];
 
 // « En service » : un indicateur (bas du menu sur écran large, barre du haut sur téléphone) qui ouvre la liste dans un
 // panneau. Pas dans le menu lui-même : une liste qui bouge seule n'a rien à faire dans la navigation (et l'Accueil a
@@ -707,6 +710,9 @@ window.gestion = {
       <button type="button" class="admin-icone-bouton" data-aide-ouvrir aria-haspopup="dialog" title="Aide de cette page" aria-label="Aide de cette page">${ico('aide')}</button>
       <a href="compte.html" class="admin-barre-haut-compte" data-avatar aria-label="Mon compte"></a>`;
     const dessiner = (moi) => {
+      // une page est ouverte par la permission « voir » ; ses commandes d'écriture (data-exige="clé") se masquent pour qui
+      // n'a pas la permission « agir » (gestion.css, body.sans-<clé>) : le serveur refuse l'écriture de toute façon
+      for (const cle of DROITS_ECRITURE) document.body.classList.toggle(`sans-${cle}`, !socle.peut(moi, cle));
       // un groupe sans aucune rubrique visible n'est pas affiché
       barre.querySelector('.admin-nav').innerHTML = gestion.rubriques(cle => socle.peut(moi, cle)).map(l => l.groupe
         ? `<p class="admin-nav-groupe">${socle.esc(l.groupe)}</p>`

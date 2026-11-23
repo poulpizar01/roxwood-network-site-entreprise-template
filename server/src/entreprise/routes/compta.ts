@@ -22,6 +22,8 @@ import { jourValide, versDate } from '../texte.js';
 export const compta = Router();
 const gerer = permission('compta');
 const gererFactures = permission('factures');
+const voirFactures = permission('factures-voir');
+const voirDot = permission('compta-voir');
 
 // ---------- relevé Tablettes ----------
 // Le navigateur découpe le tableau collé en colonnes et en lignes ; le serveur revalide ce résultat (jamais de
@@ -37,7 +39,7 @@ const semaineEcriture = (valeur: unknown): string => {
   return semaineDemandee(valeur);
 };
 
-compta.get('/api/compta/tablettes', ...gerer, async (req, res) => {
+compta.get('/api/compta/tablettes', ...voirDot, async (req, res) => {
   const semaine = semaineDemandee(req.query.semaine);
   const r = await dernierReleve(semaine);
   res.json({
@@ -100,7 +102,7 @@ compta.delete('/api/compta/tablettes', ...gerer, traiter(async (req, res) => {
 
 // ---------- mouvements de la DOT (recette exceptionnelle, dépense déductible, retrait), un journal par semaine ----------
 // Un mouvement ne se crée, ne se supprime ni ne se réinitialise que sur une semaine non verrouillée (jamais future).
-compta.get('/api/compta/dot/ecritures', ...gerer, async (req, res) => {
+compta.get('/api/compta/dot/ecritures', ...voirDot, async (req, res) => {
   const semaine = semaineDemandee(req.query.semaine);
   const declaree = await prisma.declarationDot.findUnique({ where: { semaine: semaineDate(semaine) }, select: { ecritures: true } });
   res.json({ semaine, verrouillee: !!declaree, ecritures: declaree ? declaree.ecritures : await ecrituresBrutes(semaine) });
@@ -154,7 +156,7 @@ async function avecAuteurs<T extends { compteId: number | null }>(lignes: T[]) {
   return lignes.map(l => ({ ...l, saisiePar: l.compteId != null ? parId.get(l.compteId) ?? null : null }));
 }
 
-compta.get('/api/compta/factures', ...gererFactures, async (req, res) => {
+compta.get('/api/compta/factures', ...voirFactures, async (req, res) => {
   const source = String(req.query.source ?? '');
   const factures = await prisma.facture.findMany({
     where: SOURCES_FACTURE.includes(source) ? { source } : undefined,
@@ -187,7 +189,7 @@ compta.put('/api/compta/factures/quotas/:grade', ...permission('grades'), traite
   res.json({ ok: true });
 }));
 
-compta.get('/api/compta/factures/:id', ...gererFactures, async (req, res) => {
+compta.get('/api/compta/factures/:id', ...voirFactures, async (req, res) => {
   const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
   if (!f) { res.status(404).json({ error: 'Facture introuvable.' }); return; }
   const avoir = await prisma.facture.findFirst({ where: { avoirDeId: f.id }, select: { id: true } });
@@ -355,7 +357,7 @@ compta.post('/api/compta/factures/:id/avoir', ...gererFactures, traiter(async (r
 
 // barème d'imposition de la DOT (dot_bareme_imposition) et barème de l'impôt sur la richesse (dot_bareme_richesse) :
 // fixés par l'organisme du serveur RP, affichés en lecture pour que la Direction comprenne les plafonds et taux appliqués.
-compta.get('/api/compta/dot/bareme', ...gerer, async (_req, res) => {
+compta.get('/api/compta/dot/bareme', ...voirDot, async (_req, res) => {
   const [tranches, tranchesRichesse] = await Promise.all([
     prisma.baremeImposition.findMany({ orderBy: { seuilMin: 'asc' } }),
     prisma.baremeRichesse.findMany({ orderBy: { seuilMin: 'asc' } }),
@@ -376,7 +378,7 @@ compta.put('/api/compta/dot/solde-bancaire', ...gerer, traiter(async (req, res) 
 }));
 
 // ---------- tableau des salariés (à coller dans le document de la DOT) ----------
-compta.get('/api/compta/dot/salaries', ...gerer, async (req, res) => {
+compta.get('/api/compta/dot/salaries', ...voirDot, async (req, res) => {
   const semaine = semaineDemandee(req.query.semaine);
   const declaree = await prisma.declarationDot.findUnique({ where: { semaine: semaineDate(semaine) }, select: { salaries: true, publieeLe: true } });
   if (!declaree) { res.json({ ...await salariesDot(semaine), semaine, verrouillee: false }); return; }
@@ -392,7 +394,7 @@ compta.get('/api/compta/dot/salaries', ...gerer, async (req, res) => {
 // « Publier » : les fiches de paie de la semaine (déjà verrouillée) deviennent visibles dans « Mon compte » de chaque
 // employé. « Payé » : coché ensuite, employé par employé.
 // évolution sur 12 semaines (résumés figés des semaines verrouillées, calcul en direct pour les autres)
-compta.get('/api/compta/dot/graphique', ...gerer, async (req, res) => { res.json(await graphiqueDot(semaineDemandee(req.query.semaine))); });
+compta.get('/api/compta/dot/graphique', ...voirDot, async (req, res) => { res.json(await graphiqueDot(semaineDemandee(req.query.semaine))); });
 
 compta.post('/api/compta/dot/publier', ...gerer, traiter(async (req, res) => {
   const semaine = semaineDemandee(body(req).semaine);
@@ -424,7 +426,7 @@ compta.put('/api/compta/dot/salaries/:employeId/prime', ...gerer, traiter(async 
 // ---------- résumé DOT ----------
 // Semaine demandée (?semaine=AAAA-MM-JJ, lundi le plus proche, jamais future) : si elle est verrouillée, son résumé
 // figé est renvoyé tel quel (aucun recalcul) ; sinon il est calculé à l'instant à partir de l'état actuel.
-compta.get('/api/compta/dot/resume', ...gerer, async (req, res) => {
+compta.get('/api/compta/dot/resume', ...voirDot, async (req, res) => {
   const semaine = semaineDemandee(req.query.semaine);
   const declaree = await prisma.declarationDot.findUnique({ where: { semaine: semaineDate(semaine) } });
   if (declaree) {

@@ -15,8 +15,9 @@ import { Refus, traiter } from '../refus.js';
 
 export const contrats = Router();
 const gerer = permission('contrats');
+const voir = permission('contrats-voir');
 
-contrats.get('/api/contrats', ...gerer, async (_req, res) => {
+contrats.get('/api/contrats', ...voir, async (_req, res) => {
   res.json({ contrats: await listerContrats(), types: await listeTypesContrat(), joursAcces: joursAccesContrats() });
 });
 

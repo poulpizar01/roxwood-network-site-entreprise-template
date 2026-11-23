@@ -14,7 +14,7 @@ const S1 = '2020-01-06', S2 = '2020-01-13', S_VERROUILLEE = '2020-01-20';   // t
 let srv: ReturnType<ReturnType<typeof express>['listen']>, url = '';
 
 before(async () => {
-  await prisma.grade.create({ data: { cle: 'zz-test-dot', libelle: 'Test DOT', position: 910, permissions: ['compta'] } });
+  await prisma.grade.create({ data: { cle: 'zz-test-dot', libelle: 'Test DOT', position: 910, permissions: ['compta-voir', 'compta'] } });
   await chargerGrades();
   const acteur = await prisma.compte.create({ data: { discordId: '990000000000000401', pseudo: 'zz-test-dot', statut: 'valide', gradeCle: 'zz-test-dot' } });
   await prisma.declarationDot.create({ data: { semaine: new Date(`${S_VERROUILLEE}T00:00:00Z`), statut: 'validee', resume: {}, salaries: {}, ecritures: [] } });

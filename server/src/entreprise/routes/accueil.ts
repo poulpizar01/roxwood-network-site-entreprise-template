@@ -25,7 +25,7 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
     const n = await prisma.arriveeBot.count({ where: { resultat: { in: EN_SUSPENS } } });
     if (n) taches.push({ cle: 'candidatures', nombre: n, texte: `${pluriel(n, 'candidature')} à traiter`, lien: 'rh.html#rh-bot' });
   }
-  if (peut(c, 'factures')) {
+  if (peut(c, 'factures-voir')) {
     // semaine en cours seulement : Facturation n'affiche qu'une semaine à la fois, le lien doit montrer ce qu'il compte
     // mêmes statuts que la catégorie « En attente » de Facturation (facturation.js, CATEGORIES_STATUT)
     const n = await prisma.facture.count({ where: { statutPaiement: { in: ['EN_ATTENTE', 'UNPAID'] }, dateFacture: { gte: debutSemaineParis() } } });

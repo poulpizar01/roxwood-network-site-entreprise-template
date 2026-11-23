@@ -226,12 +226,12 @@ function sectionAcces(c) {
     ${c.accesActif
       ? `<p class="contrat-acces-etat"><span class="puce puce-ok">Lien actif</span>${c.statut === 'termine' ? ' en lecture seule pour le client' : ''}</p>
          <div class="contrat-acces-actions">
-           <button type="button" class="btn btn-fantome" data-copier-acces><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le lien</button>
-           <button type="button" class="btn btn-fantome grade-supprimer" data-revoquer-acces>Révoquer le lien</button>
+           <button type="button" class="btn btn-fantome" data-exige="contrats" data-copier-acces><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le lien</button>
+           <button type="button" class="btn btn-fantome grade-supprimer" data-exige="contrats" data-revoquer-acces>Révoquer le lien</button>
          </div>`
       : `<p class="champ-aide">Un lien personnel, sans compte, pour que le client remplisse sa liste de bénéficiaires.</p>
          <div class="contrat-acces-actions">
-           <button type="button" class="btn btn-fantome" data-donner-acces><svg class="ico" aria-hidden="true"><use href="#ico-key"></use></svg> Créer et copier le lien</button>
+           <button type="button" class="btn btn-fantome" data-exige="contrats" data-donner-acces><svg class="ico" aria-hidden="true"><use href="#ico-key"></use></svg> Créer et copier le lien</button>
          </div>`}
     <p class="champ-aide">${jours}${lienParametres}</p>
   </section>`;
@@ -250,12 +250,12 @@ function dessinerTiroir() {
     + (c.notes ? `<section class="tiroir-section" aria-labelledby="titre-notes-contrat"><h3 id="titre-notes-contrat">Notes</h3><p class="contrat-notes">${echapper(c.notes)}</p></section>` : '');
   // l'action destructive à gauche, loin de la bulle flottante ; les autres à droite
   $c('tiroir-contrat-pied').innerHTML = `
-    <button type="button" class="btn btn-fantome grade-supprimer" data-supprimer-contrat>Supprimer</button>
+    <button type="button" class="btn btn-fantome grade-supprimer" data-exige="contrats" data-supprimer-contrat>Supprimer</button>
     <span class="tiroir-pied-espace"></span>
     ${c.statut === 'termine'
-      ? '<button type="button" class="btn btn-fantome" data-reprendre-contrat>Reprendre le contrat</button>'
-      : '<button type="button" class="btn btn-fantome" data-terminer-contrat>Mettre fin au contrat</button>'}
-    <button type="button" class="btn btn-or" data-modifier-contrat>${gestion.ico('pencil')} Modifier</button>`;
+      ? '<button type="button" class="btn btn-fantome" data-exige="contrats" data-reprendre-contrat>Reprendre le contrat</button>'
+      : '<button type="button" class="btn btn-fantome" data-exige="contrats" data-terminer-contrat>Mettre fin au contrat</button>'}
+    <button type="button" class="btn btn-or" data-exige="contrats" data-modifier-contrat>${gestion.ico('pencil')} Modifier</button>`;
 }
 function ouvrirTiroir(id) {
   CONTRAT_OUVERT = id;
@@ -454,13 +454,13 @@ function dessinerTypesContrat() {
           <div class="champ types-couleur"><label for="type-contrat-couleur-${Number(t.id)}">Couleur</label><input type="color" id="type-contrat-couleur-${Number(t.id)}" value="${echapper(t.couleur)}" data-champ="couleur"></div>
         </div>
         <div class="types-actions">
-          <button type="button" class="btn btn-or" data-enregistrer-type>Enregistrer</button>
+          <button type="button" class="btn btn-or" data-exige="contrats" data-enregistrer-type>Enregistrer</button>
           <button type="button" class="btn btn-fantome" data-annuler-edition>Annuler</button>
         </div>` : `
         <div class="types-identite"><span class="types-pastille" style="background:${echapper(t.couleur)}" aria-hidden="true"></span><strong>${echapper(t.nom)}</strong></div>
         <div class="types-actions">
-          <button type="button" class="btn btn-fantome" data-modifier-type>Modifier</button>
-          <button type="button" class="types-supprimer" data-supprimer>Supprimer</button>
+          <button type="button" class="btn btn-fantome" data-exige="contrats" data-modifier-type>Modifier</button>
+          <button type="button" class="types-supprimer" data-exige="contrats" data-supprimer>Supprimer</button>
         </div>`}
     </li>`).join('') : '<li class="types-vide">Aucun type créé. Ajoutez-en un ci-dessous.</li>';
   const libres = PALETTE_TYPES_CONTRAT.filter(c => !types.some(t => t.couleur === c));

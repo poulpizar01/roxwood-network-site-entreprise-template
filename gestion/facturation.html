@@ -25,7 +25,7 @@
           <h1 style="margin-bottom:2px;">Facturation</h1>
           <p style="margin:0;font-size:var(--fs-3);">Commande Discord et facture constatée en jeu (reçues du bot), et saisie à la main.</p>
         </div>
-        <button type="button" class="btn btn-or" id="bouton-nouvelle-facture"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouvelle facture</button>
+        <button type="button" class="btn btn-or" data-exige="factures" id="bouton-nouvelle-facture"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouvelle facture</button>
       </div>
       <div id="zone-message-factures"></div>
 
@@ -152,7 +152,7 @@
           <div id="facture-articles-edition">
             <div class="facture-articles-entete" aria-hidden="true"><span>Article</span><span>Qté</span><span>Prix unitaire</span></div>
             <div id="facture-articles"></div>
-            <button type="button" class="btn btn-fantome facture-article-ajouter" id="bouton-ajouter-article">
+            <button type="button" class="btn btn-fantome facture-article-ajouter" data-exige="factures" id="bouton-ajouter-article">
               <svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un article
             </button>
           </div>
@@ -183,8 +183,8 @@
         </div>
       </div>
       <div class="facture-pied pied-centre" id="facture-pied">
-        <button type="button" class="btn btn-danger cache pied-secondaire" id="bouton-supprimer-facture"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Supprimer</button>
-        <button type="submit" class="btn btn-or pied-principal" id="bouton-facture-enregistrer">Ajouter</button>
+        <button type="button" class="btn btn-danger cache pied-secondaire" data-exige="factures" id="bouton-supprimer-facture"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Supprimer</button>
+        <button type="submit" class="btn btn-or pied-principal" data-exige="factures" id="bouton-facture-enregistrer">Ajouter</button>
       </div>
     </form>
   </div>

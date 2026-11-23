@@ -226,11 +226,11 @@ function menuLigneFacture(f) {
     for (const statut of ["EN_ATTENTE", "PAYEE", "ANNULEE"]) {
       if (statut === f.statutPaiement) continue;
       const a = STATUTS_FACTURE_MANUELLE[statut];
-      items.push(`<button type="button" role="menuitem" data-facture-statut="${f.id}" data-statut-cible="${statut}">${gestion.ico(a.icone)} ${a.libelle}</button>`);
+      items.push(`<button type="button" role="menuitem" data-exige="factures" data-facture-statut="${f.id}" data-statut-cible="${statut}">${gestion.ico(a.icone)} ${a.libelle}</button>`);
     }
   }
   if (["PAID", "PAYEE"].includes(f.statutPaiement) && !f.avoirDeId && !f.avoirEmis) {
-    items.push(`<button type="button" role="menuitem" data-facture-avoir="${f.id}">${gestion.ico("receipt")} Créer un avoir</button>`);
+    items.push(`<button type="button" role="menuitem" data-exige="factures" data-facture-avoir="${f.id}">${gestion.ico("receipt")} Créer un avoir</button>`);
   }
   items.push(`<button type="button" role="menuitem" data-facture-apercu="${f.id}">${gestion.ico("sheet")} Aperçu de la facture</button>`);
   const nom = echapper(f.numeroFacture ? `la facture ${f.numeroFacture}` : `la facture n° ${f.id}`);
@@ -502,7 +502,7 @@ function creerLigneArticle(a) {
     <input type="text" class="facture-article-nom" maxlength="200" autocomplete="off" placeholder="Description" aria-label="Description de l'article" value="${echapper(a?.name || "")}">
     <input type="number" class="facture-article-qte" min="1" step="1" value="${Number.isInteger(a?.quantity) && a.quantity > 0 ? a.quantity : 1}" aria-label="Quantité">
     <div class="champ-dollar"><input type="number" class="facture-article-prix" min="0" step="1" value="${Number(a?.unitPrice) || 0}" aria-label="Prix unitaire"></div>
-    <button type="button" class="facture-article-retirer" aria-label="Retirer cet article"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg></button>`;
+    <button type="button" class="facture-article-retirer" data-exige="factures" aria-label="Retirer cet article"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg></button>`;
   return ligne;
 }
 function ajouterLigneArticle(focus, a) {

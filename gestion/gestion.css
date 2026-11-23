@@ -3190,3 +3190,9 @@ a.aide-pas:hover b, a.aide-pas:focus-visible b { text-decoration: underline; }
   .dot-repere { padding: 10px 12px; }
   .dot-repere strong { font-size: 18px; }
 }
+
+/* commandes d'écriture masquées pour qui n'a que la permission « voir » (classes posées par la coque, gestion.js) */
+body.sans-factures [data-exige="factures"] { display: none !important; }
+body.sans-contrats [data-exige="contrats"] { display: none !important; }
+body.sans-compta [data-exige="compta"] { display: none !important; }
+body.sans-paie [data-exige="paie"] { display: none !important; }
