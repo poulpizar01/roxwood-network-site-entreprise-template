@@ -196,7 +196,10 @@ export async function construireEtVerrouiller(iso: string, compteId: number | nu
     const avant = JSON.stringify(await ecrituresBrutes(iso));
     salaries = await salariesDot(iso);
     [resume, ecritures] = await Promise.all([resumeDot(iso, salaries), ecrituresBrutes(iso)]);
-    if (JSON.stringify(ecritures) === avant || essai >= 2) break;
+    if (JSON.stringify(ecritures) === avant) break;
+    // toujours en mouvement au troisième essai : on ne fige pas un résumé qui ne correspond plus à ses mouvements
+    // (le verrouillage automatique réessaie le lendemain)
+    if (essai >= 2) throw new Refus('Des mouvements ont été saisis pendant le calcul : réessayez dans un instant.', 409);
   }
   try {
     await prisma.declarationDot.create({ data: { semaine: semaineDate(iso), statut, compteId, resume, salaries, ecritures } });

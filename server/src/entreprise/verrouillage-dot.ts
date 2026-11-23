@@ -1,6 +1,7 @@
 // ENTREPRISE — verrouillage automatique de la déclaration DOT : si personne n'a cliqué « Valider la déclaration »
 // avant la fin de sa semaine, elle est figée seule (sans compte associé) dès que la semaine suivante commence — pour
-// que l'historique ne reste jamais indéfiniment modifiable faute d'y avoir pensé.
+// que l'historique ne reste pas modifiable faute d'y avoir pensé. Il prolonge ce qui est verrouillé : une semaine
+// ancienne restée ouverte avant la dernière validation à la main n'est jamais figée toute seule (la valider à la main).
 import { prisma } from '../socle/db.js';
 import { construireEtVerrouiller, estVerrouillee, semaineCourante } from './dot.js';
 import { semainesARattraper } from './stats/verrouillage.js';

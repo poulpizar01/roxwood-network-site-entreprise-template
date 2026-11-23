@@ -182,7 +182,10 @@ rh.patch('/api/rh/employes/:id', ...voir, exiger('modifier', 'Vous n’avez pas 
   if (champs.idUnique && champs.idUnique !== existante.idUnique) champs.idProvisoire = false;
   if (!Object.keys(champs).length) throw new Refus('Rien à modifier.');
   const apres = { discordId: champs.discordId !== undefined ? champs.discordId : existante.discordId, gradeCle: champs.gradeCle ?? existante.gradeCle, statut: champs.statut ?? existante.statut };
-  if (apres.statut === 'actif') await verifierDroitsDuCompte(req, apres.discordId, apres.gradeCle);
+  if (apres.statut === 'actif') {
+    if (existante.statut !== 'actif') gradeExistePourReactivation(apres.gradeCle);   // réactivation par le champ Statut
+    await verifierDroitsDuCompte(req, apres.discordId, apres.gradeCle);
+  }
   await verifierUnicite(champs, id);
   await prisma.employe.update({ where: { id }, data: champs }).catch(refusUnicite);
   await actualiserGrades([existante.discordId, apres.discordId]);   // l'ancien compte relié perd le grade de la fiche
@@ -224,7 +227,12 @@ rh.put('/api/rh/bot/reglages', ...voir, exiger('parametrer', 'Vous n’avez pas 
 }));
 rh.post('/api/rh/bot/arrivees/:id/traiter', ...voir, exiger('creer', 'Vous n’avez pas le droit d’ajouter un employé.'), traiter(async (req, res) => {
   // la fiche sera créée au grade d'arrivée : comme une création à la main, il doit être sous celui de l'approbateur
-  verifierHierarchie(req.compte, null, await reglage('rh.grade_arrivee'));
+  const gradeArrivee = await reglage('rh.grade_arrivee');
+  verifierHierarchie(req.compte, null, gradeArrivee);
+  // et comme une création à la main : ni sa propre fiche, ni le grade d'un compte supérieur déjà relié à ce Discord
+  const arrivee = await prisma.arriveeBot.findUnique({ where: { id: intParam(req, 'id') }, select: { discordId: true } });
+  pasSaPropreFiche(req, arrivee?.discordId);
+  if (gradeArrivee) await verifierDroitsDuCompte(req, arrivee?.discordId, gradeArrivee);
   const r = await traiterEnSuspens(intParam(req, 'id'));
   res.json({ ok: r.resultat !== 'refusee', ...r });
 }));

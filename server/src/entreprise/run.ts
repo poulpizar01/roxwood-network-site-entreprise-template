@@ -8,7 +8,7 @@ import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { entierRegle } from './parametres.js';
 import { nomComplet } from './rh.js';
-import { debutSemaineParis, jourDeSemaineParis, normaliserPseudo } from './texte.js';
+import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -19,13 +19,15 @@ export async function recevoirRun(e: EvenementBot): Promise<void> {
   // forme inattendue : ignorée (la renvoyer ne la rendrait pas valide), mais consignée — si le bot change de format,
   // c'est la seule trace qui le dira
   if (!p || typeof p !== 'object' || !parsed || typeof parsed !== 'object') {
-    console.warn('[run] événement monitoring.sale ignoré : forme inattendue', JSON.stringify(p).slice(0, 300));
+    // seules les clés sont journalisées : la valeur peut porter des données personnelles (pseudo, description)
+    console.warn('[run] événement monitoring.sale ignoré : forme inattendue', p && typeof p === 'object' ? Object.keys(p) : typeof p);
     return;
   }
   const discordId = texte(p.playerDiscord, 22);
   const nom = texte(p.playerName, 120).replace(/[`*_<>@]/g, '');
-  const employe = /^\d{15,22}$/.test(discordId) ? await prisma.employe.findUnique({ where: { discordId } })
-    : nom ? await prisma.employe.findUnique({ where: { discordPseudoNormalise: normaliserPseudo(nom) } }) : null;
+  // rattachement par ID Discord seulement (comme les factures) : le pseudo en jeu est modifiable et pas garanti unique,
+  // un homonyme créditerait la mauvaise fiche
+  const employe = /^\d{15,22}$/.test(discordId) ? await prisma.employe.findUnique({ where: { discordId } }) : null;
   await prisma.run.create({
     data: {
       jobId: texte(p.jobId, 100), vendeurNom: nom, vendeurDiscordId: discordId || null, employeId: employe?.id ?? null,

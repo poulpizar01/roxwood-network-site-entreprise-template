@@ -123,7 +123,7 @@ export function lireChamps(b: Record<string, unknown>, existante: Employe | null
   let depart = c.dateDepart !== undefined ? c.dateDepart : existante?.dateDepart;
   // une fiche inactive a toujours une date de départ (à défaut, celle du jour, comme le bouton « Désactiver ») et
   // une fiche active n'en a jamais (comme « Réactiver ») : sinon le statut et la date se contredisent
-  const statutFinal = c.statut ?? existante?.statut;
+  const statutFinal = c.statut ?? existante?.statut ?? 'actif';   // une création sans statut est active (routes/rh.ts)
   if (statutFinal === 'inactif' && !depart) { depart = versDate(jourParis()); c.dateDepart = depart; }
   if (statutFinal === 'actif' && depart) { depart = null; c.dateDepart = null; }
   if (arrivee && depart && depart < arrivee) throw new Refus('La date de départ ne peut pas précéder la date d’arrivée.');

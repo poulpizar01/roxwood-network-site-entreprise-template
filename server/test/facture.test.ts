@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import '../src/entreprise/index.js';   // d'abord : charge les modules dans l'ordre voulu (sinon dépendance circulaire)
 import { prisma } from '../src/socle/db.js';
 import { facturesComptees, recevoirFactureMonitoring } from '../src/entreprise/facture.js';
+import { recevoirRun } from '../src/entreprise/run.js';
 
 const DISCORD = '990000000000000301';
 let employeId = 0;
@@ -15,6 +16,7 @@ before(async () => {
 });
 after(async () => {
   await prisma.facture.deleteMany({ where: { clientNom: { startsWith: 'zz-test' } } });
+  await prisma.run.deleteMany({ where: { vendeurNom: { startsWith: 'zz-test' } } });
   await prisma.employe.deleteMany({ where: { idUnique: 'zz-test-fact' } });
   await prisma.$disconnect();
 });
@@ -54,4 +56,13 @@ test('facturesComptees : annulée sans avoir exclue, annulée avec avoir compté
   await prisma.facture.create({ data: { ...base, numeroFacture: 'zz-avoir', sousTotal: -1500, total: -1500, statutPaiement: 'PAYEE', avoirDeId: remboursee.id, employeId } });
   const somme = await prisma.facture.aggregate({ where: { clientNom: 'zz-test totaux', ...(await facturesComptees()) }, _sum: { total: true } });
   assert.equal(somme._sum.total, 400, '7000 exclue ; 1500 − 1500 = 0 ; reste la facture normale');
+});
+
+test('une vente en jeu (run) est rattachée par ID Discord seulement, comme les factures', async () => {
+  const vente = (discord: string) => ({ guildId: '1', eventType: 'monitoring.sale', sentAt: new Date().toISOString(),
+    payload: { jobId: 'zz-job', description: 'zz-test', playerDiscord: discord, playerName: 'zz-test-pseudo', parsed: { itemLabel: 'zz', quantity: 2, totalPrice: 100, companyShare: 50 } } });
+  await recevoirRun(vente(''));        // pseudo seul : ne crédite personne
+  await recevoirRun(vente(DISCORD));
+  const runs = await prisma.run.findMany({ where: { vendeurNom: 'zz-test-pseudo' }, orderBy: { id: 'asc' } });
+  assert.deepEqual(runs.map(r => r.employeId), [null, employeId]);
 });

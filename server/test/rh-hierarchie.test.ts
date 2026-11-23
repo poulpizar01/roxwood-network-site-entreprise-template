@@ -7,6 +7,7 @@ import type { AddressInfo } from 'node:net';
 import express from 'express';
 import { prisma } from '../src/socle/db.js';
 import { chargerGrades } from '../src/socle/droits.js';
+import { definirReglage } from '../src/socle/reglages.js';
 import '../src/entreprise/index.js';   // d'abord : charge les routes dans l'ordre voulu (sinon dépendance circulaire)
 import { rh } from '../src/entreprise/routes/rh.js';
 
@@ -18,7 +19,7 @@ let ficheSup = 0, ficheBas = 0, sanctionSup = 0, typeId = 0;
 before(async () => {
   await prisma.grade.createMany({ data: [
     { cle: GRADES.sup, libelle: 'Test sup', position: 899, permissions: [] },
-    { cle: GRADES.acteur, libelle: 'Test acteur', position: 900, permissions: ['rh-voir', 'rh-modifier', 'rh-sanctionner', 'rh-reactiver', 'comptes'] },
+    { cle: GRADES.acteur, libelle: 'Test acteur', position: 900, permissions: ['rh-voir', 'rh-modifier', 'rh-sanctionner', 'rh-reactiver', 'rh-creer', 'comptes'] },
     { cle: GRADES.bas, libelle: 'Test bas', position: 901, permissions: [] },
   ] });
   await chargerGrades();
@@ -37,6 +38,9 @@ before(async () => {
   typeId = (await prisma.typeSanction.create({ data: { nom: 'zz-test', couleur: '#aa0000' } })).id;
   sanctionSup = (await prisma.sanction.create({ data: { employeId: ficheSup, typeId, note: 'zz-test' } })).id;
 
+  // candidature du bot en suspens d'une personne dont le compte (grade supérieur) existe déjà : la traiter la rétrograderait
+  await prisma.arriveeBot.create({ data: { ticketId: 'zz-test-ticket', discordId: D.sup, resultat: 'en_attente', accepteLe: '2026-11-01' } });
+  await definirReglage('rh.grade_arrivee', GRADES.bas);
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => { (req as unknown as { session: unknown }).session = { compteId: acteur.id }; next(); });
@@ -47,6 +51,8 @@ before(async () => {
 
 after(async () => {
   srv?.close();
+  await prisma.arriveeBot.deleteMany({ where: { ticketId: 'zz-test-ticket' } });
+  await definirReglage('rh.grade_arrivee', '');
   await prisma.sanction.deleteMany({ where: { OR: [{ employeId: { in: [ficheSup, ficheBas] } }, { note: 'zz-test' }] } });
   await prisma.typeSanction.deleteMany({ where: { nom: 'zz-test' } });
   await prisma.service.deleteMany({ where: { employeId: { in: [ficheSup, ficheBas] } } });
@@ -86,4 +92,17 @@ test('réactiver une fiche dont le grade n’existe plus est refusé', async () 
   const fiche = await prisma.employe.findFirstOrThrow({ where: { idUnique: 'zz-test-4' } });
   assert.equal((await appeler('POST', `/api/rh/employes/${fiche.id}/reactiver`)).status, 400);
   assert.equal((await prisma.employe.findUniqueOrThrow({ where: { id: fiche.id } })).statut, 'inactif');
+});
+
+test('PATCH du statut sur une fiche dont le grade n’existe plus est refusé comme /reactiver', async () => {
+  const fiche = await prisma.employe.findFirstOrThrow({ where: { idUnique: 'zz-test-4' } });
+  assert.equal((await appeler('PATCH', `/api/rh/employes/${fiche.id}`, { statut: 'actif' })).status, 400);
+  assert.equal((await prisma.employe.findUniqueOrThrow({ where: { id: fiche.id } })).statut, 'inactif');
+});
+
+test('traiter une candidature du bot ne rétrograde pas un compte supérieur déjà relié à ce Discord', async () => {
+  const a = await prisma.arriveeBot.findUniqueOrThrow({ where: { ticketId: 'zz-test-ticket' } });
+  assert.equal((await appeler('POST', `/api/rh/bot/arrivees/${a.id}/traiter`)).status, 403);
+  assert.equal((await prisma.compte.findUniqueOrThrow({ where: { discordId: D.sup } })).gradeCle, GRADES.sup);
+  assert.equal((await prisma.arriveeBot.findUniqueOrThrow({ where: { id: a.id } })).resultat, 'en_attente');
 });
