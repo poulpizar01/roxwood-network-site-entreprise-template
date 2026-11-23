@@ -61,7 +61,7 @@
 /* ---- vues jour et semaine : grille horaire ---- */
 .agenda-horaire { --gouttiere: 58px; min-width: 0; }
 /* en-tête des jours et bandeau « jour entier » collés ensemble en haut, au-dessus de la grille horaire qui défile seule */
-.agenda-horaire-fixe { position: sticky; top: 0; z-index: 3; background: var(--bg2); border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); }
+.agenda-horaire-fixe { position: sticky; top: 0; z-index: 3; background: var(--bg2); border-bottom: 1px solid var(--border); }
 .agenda-horaire-entete { display: grid; grid-template-columns: var(--gouttiere) repeat(var(--agenda-jours), minmax(0, 1fr)); }
 /* bande par événement sans horaire, étirée sur les jours qu'il couvre (comme un agenda courant), au lieu d'un bloc
    répété dans chaque colonne horaire */

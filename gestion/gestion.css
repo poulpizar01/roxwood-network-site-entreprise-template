@@ -62,15 +62,8 @@ html.defilement-bloque body { overflow: visible; }
 }
 
 /* ======== changement de page, flèches, titres, intitulés ======== */
-/* Changement de page : transition native du navigateur (View Transitions, Chromium 126+ ; ailleurs, changement sans
-   animation). Le menu (barre latérale, barre du haut) a son propre nom : il reste immobile, seul le contenu se fond dans
-   la page suivante, sans page pâle ni clignement. Courte, pour ne jamais retarder l'affichage. */
-@view-transition { navigation: auto; }
-.admin-barre-laterale { view-transition-name: menu-lateral; }
-.admin-barre-haut { view-transition-name: menu-haut; }
-::view-transition-group(root) { animation-duration: 160ms; }
-::view-transition-old(root), ::view-transition-new(root) { animation-timing-function: ease-out; }
-@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+/* Pas de transition native entre pages (@view-transition) : le navigateur de l'ordinateur en jeu la saute et fige
+   l'affichage (docs/design.md §2 et §10). */
 /* Place de la barre de défilement toujours réservée : ni saut de 12 px d'une page courte à une page longue, ni
    largeur du contenu qui change quand une fenêtre bloque le défilement (les tableaux repassaient en cartes et inversement). */
 html { scrollbar-gutter: stable; }
@@ -369,12 +362,11 @@ label, .eyebrow-label {
 
 
 .modale-fond {
-  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(3px);
+  /* voile opaque, sans backdrop-filter : le flou plein écran saccade sur grand écran (3 fois plus de dessin mesuré) et
+     enferme les éléments position: fixed qu'il contient (docs/design.md §10) */
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.72);
   display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100000;
 }
-/* navigateur sans backdrop-filter (vieux Chromium embarqué, docs/folkos.md) : pas de flou, donc fond plus sombre
-   pour garder le contenu derrière la fenêtre illisible sans lui — sinon le fond resterait quasi transparent. */
-@supports not (backdrop-filter: blur(1px)) { .modale-fond { background: rgba(0, 0, 0, 0.72); } }
 .modale {
   width: 100%; max-width: 640px; max-height: 88vh; overflow-y: auto; background: var(--bg-card);
   border: 1px solid var(--border-light); border-radius: var(--radius); padding: 30px 32px; box-shadow: var(--shadow);
@@ -2147,7 +2139,7 @@ main.admin-contenu:focus { outline: none; }
 .liste-fantome { border-style: dashed; background: var(--bg2); }
 .liste-fantome > * { visibility: hidden; }
 /* pendant un glissé, survoler les autres lignes ne les éclaire pas : chaque transition repeignait la liste à chaque image */
-:has(> .liste-fantome) > .ligne-triable:hover { border-color: var(--border); }
+body.en-glisse .ligne-triable:hover { border-color: var(--border); }
 /* clone qui suit le curseur (forceFallback) : net, surélevé, détaché visuellement de la liste. Sa propre couche
    (will-change) : Sortable le déplace par transform 2D, sans elle toute la page était repeinte à chaque mouvement. */
 .liste-traine { opacity: 1; background: var(--bg-elevated); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28); cursor: grabbing; will-change: transform; }
@@ -2177,8 +2169,8 @@ main.admin-contenu:focus { outline: none; }
 .colonne-tirable > .carte-statut { cursor: grab; }
 /* colonne qui recevra la carte : celle où se trouve l'emplacement vide, sauf la colonne de départ (rien n'y changerait).
    En CSS plutôt qu'au survol en JS : l'éclairage suit exactement l'emplacement, sans retard ni clignotement. */
-.colonne-statut-cartes:has(> .liste-fantome):not(.colonne-origine) { background: rgba({{couleur_rvb}}, 0.08); box-shadow: inset 0 0 0 2px var(--accent); }
-.colonne-statut-cartes:has(> .liste-fantome) > .colonne-statut-vide { display: none; }
+body.en-glisse .colonne-statut-cartes:hover:not(.colonne-origine) { background: rgba({{couleur_rvb}}, 0.08); box-shadow: inset 0 0 0 2px var(--accent); }
+body.en-glisse .colonne-statut-cartes:hover > .colonne-statut-vide { display: none; }
 /* emplacement de la carte : seulement un pointillé (ni bordure pleine, ni anneau de .liste-choisie, ni marque d'état) */
 .colonne-statut-cartes > .liste-fantome { border: 1px dashed rgba({{couleur_rvb}}, 0.6); background: transparent; box-shadow: none; }
 /* carte qui suit la souris : opaque — Sortable lui impose `opacity: 0.8` en style en ligne, que seul !important
@@ -2818,14 +2810,14 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
    de la page, M5 téléphone. Les noms de jetons de la maquette (--g-*) sont ici ceux du thème : fond --bg, carte --bg2,
    chip --bg3, filet --border, accent --accent / --accent-dark (clair), ok / alerte / erreur.
    Classes posées par le serveur (socle/aide.ts) dans le HTML d'un article : à garder en phase avec son rendu. */
-:root { --aide-clair: color-mix(in srgb, var(--accent) 62%, var(--text)); }   /* « accent clair » des maquettes : l'accent tiré vers la couleur du texte */
+:root { --aide-clair: var(--accent-dark); }   /* « accent clair » des maquettes : l'accent tiré vers la couleur du texte (nuance calculée par le site, pas de color-mix) */
 .etat-vide-texte, .aide-chargement { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
 .aide-tiroir .tiroir-entete { align-items: center; }
 
 /* ---- schéma simplifié (SUI) : trame + trait, repères numérotés posés sur les zones ---- */
 .sui {
   position: relative; color: var(--aide-clair); overflow: hidden; border-radius: 10px;
-  background-color: color-mix(in srgb, var(--accent) 7%, var(--bg));
+  background-color: rgba({{couleur_rvb}}, 0.07);
   background-image: linear-gradient(rgba({{couleur_rvb}}, 0.09) 1px, transparent 1px), linear-gradient(90deg, rgba({{couleur_rvb}}, 0.09) 1px, transparent 1px);
   background-size: 14px 14px; border: 1px solid rgba({{couleur_rvb}}, 0.28);
 }
@@ -2837,7 +2829,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
   font: 700 12px/24px var(--body); text-align: center; box-shadow: 0 0 0 4px rgba({{couleur_rvb}}, 0.28), 0 4px 10px rgba(0, 0, 0, 0.5);
 }
 .rep.a { background: var(--alerte); color: #1a1200; box-shadow: 0 0 0 4px rgba(255, 176, 32, 0.25), 0 4px 10px rgba(0, 0, 0, 0.5); }
-.legende-sui .rep, .aide-lien-art .rep { position: static; margin: 0; flex: 0 0 auto; width: 22px; height: 22px; line-height: 22px; font-size: 11px; box-shadow: none; }
+.legende-sui .rep, .aide-lien-art .rep { position: static; margin: 0; flex: 0 0 auto; width: 22px; height: 22px; line-height: 22px; font-size: 12px; box-shadow: none; }
 
 /* ---- contenu d'un article : lu dans .tiroir-corps (tiroir) ou .aide-article (page aide.html) ---- */
 .tiroir-corps h3, .aide-article h3 { margin: 26px 0 10px; font-family: var(--display); font-size: 18px; font-weight: 750; line-height: 1.12; }
@@ -2884,9 +2876,9 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .tiroir-corps .cycle .etat, .aide-article .cycle .etat { display: flex; flex-direction: column; gap: 2px; border-radius: 9px; padding: 8px 12px; border: 1px solid var(--border); background: var(--bg3); min-width: 112px; }
 .tiroir-corps .cycle .etat b, .aide-article .cycle .etat b { font-size: 13px; display: flex; align-items: center; gap: 6px; }
 .tiroir-corps .cycle .etat b::before, .aide-article .cycle .etat b::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c, #888); flex: 0 0 auto; }
-.tiroir-corps .cycle .etat small, .aide-article .cycle .etat small { font-size: 11.5px; color: var(--text-faint); }
+.tiroir-corps .cycle .etat small, .aide-article .cycle .etat small { font-size: 12px; color: var(--text-faint); }
 .tiroir-corps .cycle .etat-a-part, .aide-article .cycle .etat-a-part { margin-left: auto; }
-.tiroir-corps .cycle .fl, .aide-article .cycle .fl { color: var(--text-faint); display: flex; flex-direction: column; align-items: center; font-size: 11px; gap: 0; }
+.tiroir-corps .cycle .fl, .aide-article .cycle .fl { color: var(--text-faint); display: flex; flex-direction: column; align-items: center; font-size: 12px; gap: 0; }
 .tiroir-corps .cycle .fl svg, .aide-article .cycle .fl svg { width: 34px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 
 .tiroir-corps .encart, .aide-article .encart { display: grid; grid-template-columns: 28px 1fr; gap: 10px; border-radius: 10px; padding: 11px 14px; margin: 12px 0; font-size: 13.5px; }
@@ -2962,7 +2954,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .aide-res .ic .ico { width: 17px; height: 17px; }
 .aide-res b { font-weight: 600; font-size: 14px; display: block; }
 .aide-res small { font-size: 12.5px; color: var(--text-faint); display: block; }
-.aide-res .act { margin-left: auto; font-size: 11.5px; color: var(--text-faint); flex: 0 0 auto; }
+.aide-res .act { margin-left: auto; font-size: 12px; color: var(--text-faint); flex: 0 0 auto; }
 .aide-pal mark { background: rgba({{couleur_rvb}}, 0.35); color: var(--text); border-radius: 2px; padding: 0 1px; }
 .aide-apercu { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .aide-apercu .sui { height: 130px; }
@@ -2986,9 +2978,9 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .aide-suggest .ico { width: 14px; height: 14px; color: var(--aide-clair); }
 .aide-poste { background: linear-gradient(160deg, var(--accent-soft), var(--bg2) 70%); border: 1px solid rgba({{couleur_rvb}}, 0.3); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
 .aide-poste-l1 { display: flex; align-items: center; gap: 10px; }
-.aide-poste-av { width: 38px; height: 38px; border-radius: 50%; background: var(--bg3); display: grid; place-items: center; font-size: 11px; font-weight: 700; flex: 0 0 auto; }
+.aide-poste-av { width: 38px; height: 38px; border-radius: 50%; background: var(--bg3); display: grid; place-items: center; font-size: 12px; font-weight: 700; flex: 0 0 auto; }
 .aide-poste b { font-size: 15px; }
-.aide-grade { font-size: 11.5px; font-weight: 700; color: color-mix(in srgb, var(--accent) 35%, var(--text)); background: rgba({{couleur_rvb}}, 0.25); border: 1px solid rgba({{couleur_rvb}}, 0.4); border-radius: 999px; padding: 1px 9px; }
+.aide-grade { font-size: 12px; font-weight: 700; color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.25); border: 1px solid rgba({{couleur_rvb}}, 0.4); border-radius: 999px; padding: 1px 9px; }
 .aide-droits { display: flex; gap: 6px; flex-wrap: wrap; }
 .aide-droits span { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid var(--border); border-radius: 7px; padding: 3px 8px; background: rgba(255, 255, 255, 0.03); }
 .aide-droits .ico { width: 14px; height: 14px; color: var(--aide-clair); }
@@ -3024,7 +3016,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .aide-rub .n { font-size: 12.5px; color: var(--aide-clair); margin-top: auto; display: flex; align-items: center; gap: 4px; }
 .aide-rub .n .fleche { width: 13px; height: 13px; }
 @media (max-width: 1100px) { .aide-rubriques { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 900px) { .aide-haut, .aide-art { grid-template-columns: 1fr; } .aide-cote { position: static; } .aide-parcours { grid-template-columns: repeat(5, 1fr); padding: 12px 2px 10px; } .aide-pas b { font-size: 11.5px; } .aide-pas .pt { width: 26px; height: 26px; } .aide-pas::before { top: 12px; } }
+@media (max-width: 900px) { .aide-haut, .aide-art { grid-template-columns: 1fr; } .aide-cote { position: static; } .aide-parcours { grid-template-columns: repeat(5, 1fr); padding: 12px 2px 10px; } .aide-pas b { font-size: 12px; } .aide-pas .pt { width: 26px; height: 26px; } .aide-pas::before { top: 12px; } }
 @media (max-width: 560px) { .aide-rubriques { grid-template-columns: 1fr 1fr; gap: 10px; } .aide-rub .sui { height: 62px; } .aide-rub h2 { font-size: 14px; } .aide-rub .c { padding: 9px 10px 10px; } .aide-rub ul { display: none; } .aide-haut h1 { font-size: 28px; } .aide-voir, .tiroir-corps .figure, .aide-article .figure { grid-template-columns: 1fr; } }
 .aide-voir-carte .sui:empty::after, .aide-rub .sui:empty::after { content: none; }
 .aide-tiroir-pied .kbd { font: 600 11px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text-faint); background: var(--bg3); }

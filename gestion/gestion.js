@@ -953,7 +953,9 @@ function triable(conteneur, { ligne, poignee, surReordre }) {
       const source = ev.item.querySelectorAll('input, textarea, select'), clones = ev.clone.querySelectorAll('input, textarea, select');
       source.forEach((champ, i) => { if (clones[i]) clones[i].value = champ.value; });
     },
-    onEnd: ev => { if (ev.oldIndex !== ev.newIndex) surReordre?.(ev.item); },
+    // body.en-glisse : état du glissé pour le CSS (pas de :has(), que le navigateur en jeu ne connaît pas)
+    onStart: () => document.body.classList.add('en-glisse'),
+    onEnd: ev => { document.body.classList.remove('en-glisse'); if (ev.oldIndex !== ev.newIndex) surReordre?.(ev.item); },
   });
   conteneur.addEventListener('keydown', e => {
     const p = e.target.closest(poignee);
@@ -1007,10 +1009,12 @@ function glisserColonnes(conteneur, { carte, filtreDepart, transitions, surDepot
       // Hauteurs figées pendant le glissé : les colonnes prennent celle de la plus remplie ; quand la carte la
       // quittait, toutes rétrécissaient sous le pointeur, qui se retrouvait hors de la colonne visée.
       onStart: ev => {
+        document.body.classList.add('en-glisse');
         ev.from.classList.add('colonne-origine');
         colonnes.forEach(c => { c.style.minHeight = `${c.offsetHeight}px`; });
       },
       onEnd: ev => {
+        document.body.classList.remove('en-glisse');
         ev.from.classList.remove('colonne-origine');
         colonnes.forEach(c => { c.style.minHeight = ''; });
         if (ev.from !== ev.to) surDepot(ev.item, ev.from.dataset.statut, ev.to.dataset.statut);
