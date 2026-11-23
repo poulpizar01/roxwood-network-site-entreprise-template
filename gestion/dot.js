@@ -185,7 +185,6 @@ async function chargerDotResume() {
 // une seule teinte : c'est une grandeur, pas une catégorie) ; le montant écrit reste la référence.
 function afficherCompteResultat(r) {
   const ca = r.caBrut || 0;
-  const plafond = r.depensePlafonnee ? r.salairesSemaine + r.depensesManuelles - r.depenseDeductible : 0;
   const lignes = [
     { groupe: "Produits" },
     { libelle: "Relevé Tablettes", valeur: r.caBrutTablette, signe: "+" },
@@ -194,7 +193,6 @@ function afficherCompteResultat(r) {
     { groupe: "Charges déductibles" },
     { libelle: "Salaires de la semaine", valeur: r.salairesSemaine, signe: "−" },
     { libelle: "Dépenses déductibles", valeur: r.depensesManuelles, signe: "−" },
-    plafond > 0 && { libelle: "Part non déductible", detail: "au-delà de 2 000 000 $", valeur: plafond, signe: "+" },
     { libelle: "Bénéfice imposable", valeur: r.beneficeImposable, type: "sous-total" },
     { groupe: "Impôt et affectation" },
     { libelle: "Impôt dû à la DOT", detail: r.tauxImposition == null ? "" : pourcent(r.tauxImposition + (r.tauxRichesse || 0)), valeur: r.montantImpots, signe: "−" },

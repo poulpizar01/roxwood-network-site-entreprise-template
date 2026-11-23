@@ -13,7 +13,6 @@ import { heuresServiceSemaine } from './services.js';
 import { caBrutReleve, estLigneTotal as estTotal, impotDot, indexColonne, minuscules, montantReleve, normaliserNom } from './stats/releve.js';
 import { debutSemaineParis, jourDeSemaineParis, jourValide, versDate } from './texte.js';
 
-export const PLAFOND_DEPENSE_DEDUCTIBLE = 2_000_000;
 export const CLE_SOLDE_BANCAIRE = 'dot.solde_bancaire';
 export const TYPES_ECRITURE = ['depense', 'retrait', 'recette'];
 
@@ -131,7 +130,7 @@ export async function salariesDot(iso: string) {
 }
 
 // ---------- résumé d'une semaine ----------
-// CA brut (relevé Tablettes + recettes exceptionnelles) − dépenses déductibles (plafonnées) = bénéfice imposable →
+// CA brut (relevé Tablettes + recettes exceptionnelles) − dépenses déductibles = bénéfice imposable →
 // impôts (taux du bénéfice + taux de la richesse, un seul impôt combiné) → bénéfice après impôts → primes → bénéfice
 // après primes → retraits = bénéfice net.
 // salariesPrecalcules : pour que construireEtVerrouiller ne relance pas salariesDot() une seconde fois en
@@ -144,10 +143,10 @@ export async function resumeDot(iso: string, salariesPrecalcules?: Awaited<Retur
   const caTablette = releve ? caBrutReleve(releve.colonnes, releve.lignes) : null;
   const recettes = ecritures.filter(e => e.type === 'recette').reduce((s, e) => s + e.montant, 0);
   const ca = caTablette === null && !recettes ? null : (caTablette ?? 0) + recettes;
-  // dépense déductible = salaires de la semaine + dépenses manuelles saisies, plafonnés ensemble (barème RP)
+  // dépense déductible = salaires de la semaine + dépenses manuelles saisies, sans plafond
   const salairesSemaine = salaries.agents.reduce((s, a) => s + a.salaireTotal, 0);
   const depensesManuelles = ecritures.filter(e => e.type === 'depense').reduce((s, e) => s + e.montant, 0);
-  const depenses = Math.min(salairesSemaine + depensesManuelles, PLAFOND_DEPENSE_DEDUCTIBLE);
+  const depenses = salairesSemaine + depensesManuelles;
   const retraits = ecritures.filter(e => e.type === 'retrait').reduce((s, e) => s + e.montant, 0);
   const imposable = ca === null ? null : ca - depenses;
   // solde bancaire saisi à la main : sa tranche donne un taux qui s'ajoute à celui du bénéfice (pas un second impôt)
@@ -164,7 +163,7 @@ export async function resumeDot(iso: string, salariesPrecalcules?: Awaited<Retur
   return {
     semaine: iso,
     caBrut: ca, caBrutTrouve: caTablette !== null, caBrutTablette: caTablette, caBrutRecettes: recettes,
-    salairesSemaine, depensesManuelles, depensePlafonnee: salairesSemaine + depensesManuelles > PLAFOND_DEPENSE_DEDUCTIBLE,
+    salairesSemaine, depensesManuelles,
     tranche: tranche && { seuilMin: tranche.seuilMin, seuilMax: tranche.seuilMax },
     trancheRichesse: trancheRichesse && { seuilMin: trancheRichesse.seuilMin, seuilMax: trancheRichesse.seuilMax },
     caBrutSource: releve && caTablette !== null ? { importeLe: releve.importeLe, importePar: releve.importePar, nbLignes: releve.lignes.filter(l => !estTotal(l)).length } : null,
