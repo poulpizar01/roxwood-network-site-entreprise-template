@@ -21,7 +21,7 @@ const GESTION_NAV = [
   { groupe: 'Ressources humaines' },
   { cle: 'rh', href: 'rh.html', label: 'Employés', icone: 'users', permission: 'rh-voir' },
   { cle: 'sanctions', href: 'sanctions.html', label: 'Sanctions', icone: 'alerte', permission: 'rh-voir' },
-  { cle: 'services', href: 'services.html', label: 'Prises de service', icone: 'clock', permission: 'rh-voir' },
+  { cle: 'services', href: 'services.html', label: 'Anomalies', icone: 'clock', permission: 'rh-voir' },
   { groupe: 'Comptabilité' },
   { cle: 'facturation', href: 'facturation.html', label: 'Facturation', icone: 'receipt', permission: 'factures' },
   { cle: 'contrats', href: 'contrats.html', label: 'Contrats', icone: 'archive', permission: 'contrats' },
@@ -32,7 +32,7 @@ const GESTION_NAV = [
   { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'grade', permission: 'grades' },
   { cle: 'comptes', href: 'comptes.html', label: 'Comptes', icone: 'lock', permission: 'comptes' },
   { cle: 'parametres', href: 'parametres.html', label: 'Paramètres', icone: 'gear', permission: 'parametres' },
-  { cle: 'webhooks', href: 'webhooks.html', label: 'Webhooks', icone: 'sync', permission: 'webhooks' },
+  { cle: 'webhooks', href: 'webhooks.html', label: 'Bot Discord', icone: 'sync', permission: 'webhooks' },
   { groupe: 'Site' },
   // le site public (même onglet)
   { cle: 'site', href: '/', label: 'Voir le site', icone: 'globe' },

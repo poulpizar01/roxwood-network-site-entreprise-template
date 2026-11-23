@@ -51,7 +51,8 @@
           <input type="search" id="recherche-comptes" placeholder="Nom ou pseudo Discord" aria-label="Rechercher un membre">
         </div>
       </div>
-      <div class="comptes-liste" id="liste-membres" aria-live="polite"></div>
+      <p class="visuellement-cache" id="comptes-nombre-resultats" role="status"></p>
+      <div class="comptes-liste" id="liste-membres"></div>
       <p class="comptes-aide comptes-note">Un employé dont le rôle Discord est lié à un grade est validé d’office à sa connexion. <a href="grades.html">Lier les grades aux rôles</a><br>Un employé qui a une fiche active dans Ressources humaines a le grade de sa fiche : il se change là-bas.</p>
     </section>
   </main>
@@ -136,6 +137,8 @@
       for (const f of ['tous', 'valide', 'refuse']) document.querySelector(`[data-nb="${f}"]`).textContent = membres.filter(c => f === 'tous' || c.statut === f).length;
       const r = recherche.toLowerCase();
       const visibles = TRI.appliquer(membres.filter(c => (filtre === 'tous' || c.statut === filtre) && (!r || `${c.nom || ''} ${c.pseudo}`.toLowerCase().includes(r))));
+      // seul le nombre de résultats est annoncé (la liste, redessinée à chaque frappe, serait relue en entier)
+      document.getElementById('comptes-nombre-resultats').textContent = `${visibles.length} membre${visibles.length > 1 ? 's' : ''} affiché${visibles.length > 1 ? 's' : ''}`;
       document.getElementById('liste-membres').innerHTML = visibles.length
         ? `<div class="comptes-entete entete-tri">${TRI.bouton('nom', 'Membre')}${TRI.bouton('grade', 'Grade')}${TRI.bouton('connexion', 'Dernière connexion')}<span></span></div>` + visibles.map(c => `
           <div class="comptes-ligne${c.statut === 'refuse' ? ' refuse' : ''}" data-id="${c.id}">

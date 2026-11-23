@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/gestion/webhooks.css">
   <script src="/socle/socle.js"></script>
   <script src="/gestion/gestion.js"></script>
-  <title>Webhooks — {{nom}}</title>
+  <title>Bot Discord — {{nom}}</title>
 </head>
 <body class="page-agents">
   <!-- GESTION — webhooks (permission « webhooks », serveur : socle/routes/webhooks-abonnements.ts et
@@ -21,7 +21,7 @@
   <main class="admin-contenu">
     <div class="entete-admin">
       <div>
-        <h1 style="margin-bottom:2px;">Webhooks</h1>
+        <h1 style="margin-bottom:2px;">Bot Discord</h1>
         <p style="margin:0;font-size:var(--fs-3);">Abonnements du bot Discord et événements reçus.</p>
       </div>
     </div>
@@ -43,7 +43,7 @@
       </div>
       <div class="comptes-liste webhooks-liste">
         <div class="comptes-entete"><span>Événement</span><span>État</span><span>Dernier événement reçu</span><span></span></div>
-        <div id="liste-abonnements" aria-live="polite"></div>
+        <div id="liste-abonnements"></div>
       </div>
     </section>
 

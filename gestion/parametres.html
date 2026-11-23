@@ -26,8 +26,8 @@
         <p style="margin:0;font-size:var(--fs-3);">Les liens et réglages du site. Chacun s’applique dès l’enregistrement.</p>
       </div>
     </div>
-    <div class="compta-sous-onglets" role="tablist" id="onglets"></div>
-    <div id="zone-message" role="status"></div>
+    <div class="compta-sous-onglets" role="tablist" id="onglets" aria-label="Rubriques des paramètres"></div>
+    <div id="zone-message" role="alert"></div>
     <div class="param-etats" id="etats" aria-live="polite"></div>
     <form id="form" novalidate>
       <div id="panneaux"></div>
@@ -110,7 +110,7 @@
           // prises et fins de service : envoyées par le bot (événement monitoring.duty) ; le site ne lit aucun salon
           lignes.push(s.dernierRecu
             ? etat('ok', `Prises et fins de service reçues du bot : la dernière le ${echapper(quand(s.dernierRecu))}. ${s.enService} personne${s.enService > 1 ? 's' : ''} en service.`)
-            : etat('neutre', 'Aucune prise de service reçue du bot pour le moment. Pour la recevoir, la personne qui s’occupe du site abonne le site à l’événement «&nbsp;Prise de service&nbsp;» (monitoring.duty) dans le panneau Monitoring du bot Discord de l’entreprise.'));
+            : etat('neutre', 'Aucune prise de service reçue du bot pour le moment. Pour la recevoir, la personne qui s’occupe du site abonne le site à l’événement «&nbsp;Prise de service&nbsp;» dans le panneau Monitoring du bot Discord de l’entreprise.'));
         } catch {}
       }
       zone.innerHTML = lignes.join('');
@@ -214,8 +214,8 @@
               <strong>${echapper(i.libelle)}</strong>${i.personnalisee ? ' <span class="puce puce-or">Remplacée</span>' : ''}
               <p class="champ-aide">${echapper(i.aide)} Proportions d’origine : ${i.largeur} × ${i.hauteur}.</p>
               <div class="apparence-actions">
-                <button type="button" class="btn btn-fantome btn-petit" data-remplacer="${echapper(i.cle)}" ${r.stockage ? '' : 'disabled'}>Remplacer</button>
-                ${i.personnalisee ? `<button type="button" class="btn btn-fantome btn-petit" data-retablir="${echapper(i.cle)}">Rétablir l’originale</button>` : ''}
+                <button type="button" class="btn btn-fantome btn-petit" data-remplacer="${echapper(i.cle)}" aria-label="Remplacer l’image : ${echapper(i.libelle || i.cle)}" ${r.stockage ? '' : 'disabled'}>Remplacer</button>
+                ${i.personnalisee ? `<button type="button" class="btn btn-fantome btn-petit" data-retablir="${echapper(i.cle)}" aria-label="Rétablir l’image d’origine : ${echapper(i.libelle || i.cle)}">Rétablir l’originale</button>` : ''}
               </div>
             </div>
           </div>`).join('');
