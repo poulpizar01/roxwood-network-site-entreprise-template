@@ -3138,3 +3138,54 @@ a.aide-pas:hover b, a.aide-pas:focus-visible b { text-decoration: underline; }
 .vue-ensemble-ligne:last-child { border-bottom: 0; }
 .vue-ensemble-ligne > div:first-child { flex: 1 1 240px; min-width: 0; }
 .vue-ensemble-ligne .grades-tags { flex: 1 1 260px; }
+
+/* DOT : graphique « Évolution sur 12 semaines » (couleurs des séries fixes : lisibles sur fond clair) */
+#dot-graphique { --s-net: #4f86ff; --s-impot: #c96a2e; --s-sorties: #9a6fe0; --s-charges: #2fa58a; min-height: 400px; }
+.dot-reperes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.dot-repere { padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg2); min-width: 0; }
+.dot-repere span { display: block; font-size: var(--fs-1); color: var(--text-muted); }
+.dot-repere strong { display: block; margin: 2px 0; font-size: 20px; font-variant-numeric: tabular-nums; }
+.dot-repere small { font-size: var(--fs-1); color: var(--text-faint); }
+.dot-graphique-legende { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; font-size: var(--fs-2); color: var(--text-muted); }
+.dot-graphique-legende-item { display: inline-flex; align-items: center; gap: 6px; }
+.dot-graphique-pastille { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.dot-graphique-zone { position: relative; overflow-x: auto; }
+.dot-graphique-svg { display: block; }
+.dot-g-axe { fill: var(--text-faint); font-size: 12px; }
+.dot-g-lib { fill: var(--text-muted); font-size: 12px; }
+.dot-g-lib.actif { fill: var(--text); font-weight: 600; }
+.dot-g-valeur { fill: var(--text-muted); font-size: 12px; }
+.dot-g-grille { stroke: var(--border); }
+.dot-g-zero { stroke: var(--text-faint); stroke-opacity: .6; }
+.dot-g-col { cursor: pointer; }
+.dot-g-col:focus { outline: none; }
+.dot-g-fond { fill: transparent; }
+.dot-g-col:hover .dot-g-fond { fill: rgba(0, 0, 0, 0.04); }
+.dot-g-col:focus-visible .dot-g-fond { stroke: var(--accent); stroke-width: 1.5; }
+.dot-g-net { fill: var(--s-net); } .dot-g-impot { fill: var(--s-impot); }
+.dot-g-sorties { fill: var(--s-sorties); } .dot-g-charges { fill: var(--s-charges); }
+.dot-g-prov { fill-opacity: .38; stroke-dasharray: 3 3; }
+.dot-g-prov.dot-g-net { stroke: var(--s-net); } .dot-g-prov.dot-g-impot { stroke: var(--s-impot); }
+.dot-g-prov.dot-g-sorties { stroke: var(--s-sorties); } .dot-g-prov.dot-g-charges { stroke: var(--s-charges); }
+.dot-g-perte { fill: none; stroke: var(--s-net); stroke-width: 1.5; }
+.dot-g-perte-int { fill: var(--s-net); fill-opacity: .35; }
+.dot-g-perte-val { fill: var(--text); font-size: 12px; }
+.dot-g-trou { stroke: var(--border); }
+.dot-g-trou-fond { fill: var(--bg2); } .dot-g-trou-trait { stroke: var(--border); stroke-width: 3; }
+.dot-g-souligne { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+.dot-bulle {
+  position: absolute; top: 10px; z-index: 3; min-width: 220px; padding: 10px 12px; pointer-events: none; opacity: 0;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; font-size: var(--fs-2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); transition: opacity .1s;
+}
+.dot-bulle b { display: block; margin-bottom: 6px; }
+.dot-bulle .l { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.dot-bulle .l span:last-child { color: var(--text); }
+.dot-bulle .tot { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); color: var(--text); }
+.dot-bulle .note { margin-top: 4px; font-size: var(--fs-1); color: var(--text-muted); }
+.dot-graphique-pied { margin: 8px 0 0; font-size: var(--fs-1); color: var(--text-faint); }
+@media (max-width: 640px) {
+  .dot-reperes { grid-template-columns: 1fr; gap: 8px; margin-bottom: 12px; }
+  .dot-repere { padding: 10px 12px; }
+  .dot-repere strong { font-size: 18px; }
+}

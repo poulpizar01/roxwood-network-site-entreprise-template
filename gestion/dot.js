@@ -73,7 +73,7 @@ document.addEventListener("keydown", e => {
 });
 
 async function chargerDot() {
-  await Promise.all([chargerDotResume(), chargerDotEcritures(), chargerDotBareme(), chargerDotSalaries()]);
+  await Promise.all([chargerDotResume(), chargerDotEcritures(), chargerDotBareme(), chargerDotSalaries(), chargerDotGraphique()]);
 }
 
 const pourcent = t => `${Math.round((Number(t) || 0) * 1000) / 10} %`.replace(".", ",");
@@ -777,5 +777,148 @@ document.getElementById("bouton-reinitialiser-tablette").addEventListener("click
   }
 });
 
+
+// ---------- graphique : évolution sur 12 semaines ----------
+// Une colonne = le CA brut d'une semaine découpé en ce qu'il devient : charges déductibles, impôt, primes et retraits, et le
+// bénéfice net (posé sur l'axe pour se comparer d'une semaine à l'autre ; sous l'axe, contour, s'il est négatif). Semaine
+// pas encore verrouillée : colonne en pointillés ; sans relevé Tablettes : emplacement hachuré. Un clic ouvre la semaine.
+// Dessiné à la largeur réelle de la zone (1 unité = 1 px, textes lisibles), redessiné si elle change (ResizeObserver).
+// Un tableau masqué à l'écran, lu par un lecteur d'écran, porte les mêmes chiffres.
+const GRAPHIQUE_SERIES = [["net", "Bénéfice net"], ["impot", "Impôt"], ["sorties", "Primes et retraits"], ["charges", "Charges déductibles"]];
+let GRAPHIQUE_DOT = null, GRAPHIQUE_LARGEUR = 0;
+async function chargerDotGraphique() {
+  const zone = document.getElementById("dot-graphique");
+  try {
+    GRAPHIQUE_DOT = await socle.api(`/api/compta/dot/graphique?semaine=${DOT_SEMAINE}`);
+    dessinerGraphiqueDot();
+  } catch (e) {
+    zone.innerHTML = `<p class="champ-aide">Le graphique n’a pas pu se charger (${echapper(e.message)}).</p>`;
+  }
+}
+const kDot = v => `${v < 0 ? "−" : ""}${Math.round(Math.abs(v) / 1000).toLocaleString("fr-FR")} k$`;
+const moinsDot = v => `−${formaterArgentStats(v)}`;
+const pluralDot = (n, un, plusieurs) => `${n} ${n > 1 ? plusieurs : un}`;
+function resumeColonneDot(p) {
+  const date = dateCourteDot(p.semaine);
+  if (p.vide) return `Semaine du ${date} : ${p.provisoire ? "pas encore de relevé Tablettes" : "verrouillée sans relevé Tablettes, exclue des moyennes"}.`;
+  return `Semaine du ${date}${p.provisoire ? " (provisoire)" : ""} : CA brut ${formaterArgentStats(p.ca)}, charges déductibles ${formaterArgentStats(p.charges)}, impôt ${formaterArgentStats(p.impot)}, primes et retraits ${formaterArgentStats(p.sorties)}, bénéfice net ${formaterArgentStats(p.net)}.`;
+}
+function dessinerGraphiqueDot() {
+  const zone = document.getElementById("dot-graphique");
+  const r = GRAPHIQUE_DOT;
+  if (!r) return;
+  const pts = r.semaines, rep = r.reperes;
+  GRAPHIQUE_LARGEUR = Math.floor(zone.clientWidth);
+  // téléphone : le graphique tient dans la largeur (jamais de défilement de côté) — marges réduites, colonnes plus larges,
+  // une date sur deux, textes secondaires allégés quand la place manque
+  const L = GRAPHIQUE_LARGEUR || 960, H = 330, etroit = L < 520, g = etroit ? 42 : 56, d = etroit ? 16 : 12, haut = 14, bas = 46;
+  const pas = (L - g - d) / pts.length, lb = Math.min(44, pas * (etroit ? 0.7 : 0.62));
+  const serre = pas < 50, tresSerre = pas < 60;
+  const pile = p => p.charges + p.impot + p.sorties + Math.max(p.net, 0);
+  const pleines = pts.filter(p => !p.vide);
+  const maxV = Math.max(0, ...pleines.map(p => Math.max(p.ca, pile(p)))) || 100000;
+  const brut = maxV / 5, dizaine = 10 ** Math.floor(Math.log10(brut));
+  const marche = [1, 2, 5, 10].map(m => m * dizaine).find(m => m >= brut);   // ~5 graduations rondes
+  const T = Math.ceil(maxV / marche) * marche;
+  const minNet = Math.min(0, ...pleines.map(p => p.net));
+  const sous = minNet < 0 ? -minNet * 1.2 : 0;   // place sous l'axe pour une semaine en perte
+  const y = v => haut + (H - haut - bas) * (T - v) / (T + sous);
+  const zero = y(0);
+
+  // repères
+  const sans = rep.semainesSansReleve, perte = rep.semainesEnPerte;
+  const reperes = [
+    ["CA brut moyen", rep.caMoyen, rep.semainesDeclarees ? `sur ${pluralDot(rep.semainesDeclarees, "semaine déclarée", "semaines déclarées")}${sans ? ` (${sans} sans relevé)` : ""}` : "aucune semaine déclarée"],
+    ["Impôt versé sur la période", rep.impotTotal, rep.tauxEffectif == null ? "aucune semaine déclarée" : `taux effectif ${(rep.tauxEffectif * 100).toFixed(1).replace(".", ",")} % du CA`],
+    ["Bénéfice net moyen", rep.netMoyen, !rep.semainesDeclarees ? "aucune semaine déclarée" : perte.length ? `${pluralDot(perte.length, "semaine en perte", "semaines en perte")} (${perte.map(dateCourteDot).join(", ")})` : "aucune semaine en perte"],
+  ].map(([libelle, valeur, detail]) => `<div class="dot-repere"><span>${libelle}</span><strong>${valeur == null ? "—" : formaterArgentStats(valeur)}</strong><small>${detail}</small></div>`).join("");
+
+  // graduations et axe
+  let svg = `<svg class="dot-graphique-svg" width="${L}" height="${H}" viewBox="0 0 ${L} ${H}" role="group" aria-labelledby="dot-titre-graphique">
+    <defs><pattern id="dot-hach" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="dot-g-trou-fond" width="7" height="7"></rect><line class="dot-g-trou-trait" x1="0" y1="0" x2="0" y2="7"></line></pattern></defs>`;
+  for (let v = 0; v <= T; v += marche) svg += `<line class="${v ? "dot-g-grille" : "dot-g-zero"}" x1="${g}" x2="${L - d}" y1="${y(v)}" y2="${y(v)}"></line><text class="dot-g-axe" x="${g - (etroit ? 5 : 8)}" y="${y(v) + 4}" text-anchor="end">${v ? kDot(v) : "0"}</text>`;
+
+  // colonnes
+  const dernieresPleines = pleines.slice(serre ? -1 : -2);
+  pts.forEach((p, i) => {
+    const x = g + i * pas + (pas - lb) / 2, cx = x + lb / 2, prov = p.provisoire ? " dot-g-prov" : "";
+    svg += `<g class="dot-g-col" tabindex="0" role="button" data-i="${i}" aria-label="${resumeColonneDot(p)} Ouvrir cette semaine dans la déclaration."><rect class="dot-g-fond" x="${g + i * pas + 2}" y="${haut}" width="${pas - 4}" height="${H - haut - bas + 18}" rx="6"></rect>`;
+    if (p.vide) {
+      const h = y(T * 0.3);
+      svg += `<rect class="dot-g-trou" x="${x}" y="${h}" width="${lb}" height="${zero - h}" rx="4" fill="url(#dot-hach)"></rect>${tresSerre ? "" : `<text class="dot-g-axe" x="${cx}" y="${h - 8}" text-anchor="middle"><tspan x="${cx}" dy="-15">Pas de</tspan><tspan x="${cx}" dy="15">relevé</tspan></text>`}`;
+    } else {
+      const segments = [];
+      let base = Math.max(p.net, 0);
+      if (p.net > 0) segments.push(["net", 0, p.net]);
+      for (const cle of ["impot", "sorties", "charges"]) { if (p[cle] > 0) segments.push([cle, base, base + p[cle]]); base += p[cle]; }
+      segments.forEach(([cle, a, b], j) => {
+        const haute = y(b), h = Math.max(0, y(a) - haute - 2);   // 2 px d'écart entre deux segments
+        svg += `<rect class="dot-g-${cle}${prov}" x="${x}" y="${haute}" width="${lb}" height="${h}" rx="${j === segments.length - 1 ? 4 : 1.5}"></rect>`;
+      });
+      if (p.net < 0) svg += `<rect class="dot-g-perte" x="${x}" y="${zero + 1}" width="${lb}" height="${y(p.net) - zero}" rx="4"></rect><rect class="dot-g-perte-int" x="${x + 3}" y="${zero + 4}" width="${lb - 6}" height="${Math.max(0, y(p.net) - zero - 6)}" rx="2"></rect><text class="dot-g-perte-val" x="${cx}" y="${y(p.net) + 14}" text-anchor="middle">${kDot(p.net)}</text>`;
+      if (dernieresPleines.includes(p)) svg += `<text class="dot-g-valeur" x="${cx}" y="${y(Math.max(p.ca, pile(p))) - 7}" text-anchor="middle">${kDot(p.ca)}</text>`;
+    }
+    if (!serre || (pts.length - 1 - i) % 2 === 0) svg += `<text class="dot-g-lib${i === pts.length - 1 ? " actif" : ""}" x="${cx}" y="${H - 14}" text-anchor="middle">${dateCourteDot(p.semaine)}</text>`;
+    if (i === pts.length - 1) svg += `<line class="dot-g-souligne" x1="${cx - 14}" x2="${cx + 14}" y1="${H - 6}" y2="${H - 6}"></line>`;
+    svg += `</g>`;
+  });
+  svg += `</svg>`;
+
+  const statut = p => p.vide ? "Sans relevé" : p.provisoire ? "Provisoire" : "Verrouillée";
+  zone.innerHTML = `
+    <div class="dot-reperes">${reperes}</div>
+    <div class="dot-graphique-legende">${GRAPHIQUE_SERIES.map(([cle, libelle]) => `<span class="dot-graphique-legende-item"><span class="dot-graphique-pastille" style="background:var(--s-${cle})"></span>${libelle}</span>`).join("")}</div>
+    <div class="dot-graphique-zone" id="dot-graphique-zone">${svg}<div class="dot-bulle" id="dot-bulle" aria-hidden="true"></div></div>
+    <p class="dot-graphique-pied">Colonne en pointillés : semaine pas encore verrouillée. Hachures : semaine verrouillée sans relevé Tablettes. Un clic sur une colonne ouvre cette semaine dans la déclaration.</p>
+    <div class="visuellement-cache"><table>
+      <caption>Évolution sur 12 semaines : chiffre d’affaires et son découpage, par semaine</caption>
+      <thead><tr><th>Semaine</th><th>État</th><th>CA brut</th><th>Charges déductibles</th><th>Impôt</th><th>Primes et retraits</th><th>Bénéfice net</th></tr></thead>
+      <tbody>${pts.map(p => `<tr><td>${dateCourteDot(p.semaine)}</td><td>${statut(p)}</td>${p.vide ? `<td colspan="5">—</td>` : [p.ca, p.charges, p.impot, p.sorties, p.net].map(v => `<td>${formaterArgentStats(v)}</td>`).join("")}</tr>`).join("")}</tbody>
+    </table></div>`;
+
+  // survol, focus et clic
+  const conteneur = document.getElementById("dot-graphique-zone"), bulle = document.getElementById("dot-bulle");
+  const montrer = el => {
+    const p = pts[Number(el.dataset.i)], date = dateCourteDot(p.semaine);
+    bulle.innerHTML = p.vide
+      ? `<b>Semaine du ${date}</b><div class="l"><span>${p.provisoire ? "Pas encore de relevé Tablettes" : "Verrouillée sans relevé Tablettes"}</span></div>${p.provisoire ? "" : `<div class="note">Exclue des moyennes.</div>`}`
+      : `<b>Semaine du ${date}${p.provisoire ? " · provisoire" : ""}</b>
+         <div class="l"><span>CA brut</span><span>${formaterArgentStats(p.ca)}</span></div>
+         <div class="l"><span>Charges déductibles</span><span>${moinsDot(p.charges)}</span></div>
+         <div class="l"><span>Impôt</span><span>${moinsDot(p.impot)}</span></div>
+         <div class="l"><span>Primes et retraits</span><span>${moinsDot(p.sorties)}</span></div>
+         <div class="l tot"><span>Bénéfice net</span><span>${formaterArgentStats(p.net)}</span></div>`;
+    const re = el.getBoundingClientRect(), rz = conteneur.getBoundingClientRect(), bl = bulle.offsetWidth;
+    let gauche = re.left - rz.left + conteneur.scrollLeft + re.width + 6;
+    if (gauche + bl > conteneur.scrollLeft + rz.width) gauche = Math.max(conteneur.scrollLeft, re.left - rz.left + conteneur.scrollLeft - bl - 6);
+    gauche = Math.max(conteneur.scrollLeft, Math.min(gauche, conteneur.scrollLeft + rz.width - bl));
+    bulle.style.left = `${gauche}px`;
+    bulle.style.opacity = 1;
+  };
+  let derniereTouchee = null;
+  const ouvrir = el => {
+    const semaine = pts[Number(el.dataset.i)].semaine;
+    if (semaine === DOT_SEMAINE) return;
+    allerSemaineDot(semaine);
+    document.getElementById("dot-titre-semaine").scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  };
+  conteneur.querySelectorAll(".dot-g-col").forEach(el => {
+    el.addEventListener("mouseenter", () => montrer(el));
+    el.addEventListener("focus", () => montrer(el));
+    el.addEventListener("mouseleave", () => { bulle.style.opacity = 0; });
+    el.addEventListener("blur", () => { bulle.style.opacity = 0; derniereTouchee = null; });
+    // au doigt, un premier appui montre le détail de la semaine, un second l'ouvre (sinon le détail ne se voit jamais)
+    el.addEventListener("click", () => {
+      if (matchMedia("(pointer: coarse)").matches && derniereTouchee !== el) { derniereTouchee = el; montrer(el); return; }
+      ouvrir(el);
+    });
+    el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ouvrir(el); } });
+  });
+}
+// zone masquée (onglet Relevé) puis affichée, ou fenêtre redimensionnée : redessiné à la nouvelle largeur
+new ResizeObserver(() => {
+  const w = Math.floor(document.getElementById("dot-graphique").clientWidth);
+  if (w && Math.abs(w - GRAPHIQUE_LARGEUR) >= 2) dessinerGraphiqueDot();
+}).observe(document.getElementById("dot-graphique"));
 
 gestion.coque('dot').then(() => { remplirSemainesTablette(); chargerTablette(); });

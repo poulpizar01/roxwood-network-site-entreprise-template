@@ -11,6 +11,7 @@ import { calculerPaie, paieGrades } from './paie.js';
 import { Refus } from './refus.js';
 import { nomComplet } from './rh.js';
 import { heuresServiceSemaine } from './services.js';
+import { pointGraphique, reperesGraphique, type ResumeSemaine } from './stats/graphique-dot.js';
 import { caBrutReleve, estLigneTotal as estTotal, impotDot, indexColonne, minuscules, montantReleve, normaliserNom } from './stats/releve.js';
 import { debutSemaineParis, jourDeSemaineParis, jourValide, versDate } from './texte.js';
 
@@ -187,6 +188,30 @@ export async function resumeDot(iso: string, salariesPrecalcules?: Awaited<Retur
 // ---------- verrouillage (figer une semaine) ----------
 // Calcule le résumé, le tableau des salariés et les mouvements de la semaine, puis les fige dans une déclaration :
 // plus aucun recalcul ensuite, même si le barème, le relevé Tablettes ou le solde bancaire changent après coup.
+// `compteId` null = verrouillage automatique (verrouillage-dot.ts), sinon manuel (« Valider la déclaration »).
+export async function construireEtVerrouiller(iso: string, compteId: number | null, statut: 'validee' | 'auto') {
+  if (await estVerrouillee(iso)) throw new Refus('Cette semaine est déjà verrouillée.', 409);
+  // lectures successives, sans transaction : si un mouvement est saisi pendant le calcul, le résumé ne correspondrait
+  // plus aux mouvements figés avec lui — on recommence (trois essais), les mouvements d'avant et d'après devant être identiques
+  let salaries: Awaited<ReturnType<typeof salariesDot>>, resume: Awaited<ReturnType<typeof resumeDot>>, ecritures: Awaited<ReturnType<typeof ecrituresBrutes>>;
+  for (let essai = 0; ; essai++) {
+    const avant = JSON.stringify(await ecrituresBrutes(iso));
+    salaries = await salariesDot(iso);
+    [resume, ecritures] = await Promise.all([resumeDot(iso, salaries), ecrituresBrutes(iso)]);
+    if (JSON.stringify(ecritures) === avant) break;
+    // toujours en mouvement au troisième essai : on ne fige pas un résumé qui ne correspond plus à ses mouvements
+    // (le verrouillage automatique réessaie le lendemain)
+    if (essai >= 2) throw new Refus('Des mouvements ont été saisis pendant le calcul : réessayez dans un instant.', 409);
+  }
+  try {
+    await prisma.declarationDot.create({ data: { semaine: semaineDate(iso), statut, compteId, resume, salaries, ecritures } });
+  } catch (e) {
+    // semaine (@id) déjà verrouillée par une requête presque simultanée (double clic, nouvelle tentative réseau)
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new Refus('Cette semaine est déjà verrouillée.', 409);
+    throw e;
+  }
+}
+
 // ---------- fiches de paie publiées : « Publier » fige la publication d'une semaine déjà verrouillée ;
 // « Payé » se coche ensuite par employé, à part du résumé figé (compta_dot_declarations.salaries ne change plus) ----------
 export async function publierFichesPaie(iso: string): Promise<void> {
@@ -223,26 +248,19 @@ export async function fichesPaiePubliees(employeId: number) {
     .filter((f): f is NonNullable<typeof f> => f !== null);
 }
 
-// `compteId` null = verrouillage automatique (verrouillage-dot.ts), sinon manuel (« Valider la déclaration »).
-export async function construireEtVerrouiller(iso: string, compteId: number | null, statut: 'validee' | 'auto') {
-  if (await estVerrouillee(iso)) throw new Refus('Cette semaine est déjà verrouillée.', 409);
-  // lectures successives, sans transaction : si un mouvement est saisi pendant le calcul, le résumé ne correspondrait
-  // plus aux mouvements figés avec lui — on recommence (trois essais), les mouvements d'avant et d'après devant être identiques
-  let salaries: Awaited<ReturnType<typeof salariesDot>>, resume: Awaited<ReturnType<typeof resumeDot>>, ecritures: Awaited<ReturnType<typeof ecrituresBrutes>>;
-  for (let essai = 0; ; essai++) {
-    const avant = JSON.stringify(await ecrituresBrutes(iso));
-    salaries = await salariesDot(iso);
-    [resume, ecritures] = await Promise.all([resumeDot(iso, salaries), ecrituresBrutes(iso)]);
-    if (JSON.stringify(ecritures) === avant) break;
-    // toujours en mouvement au troisième essai : on ne fige pas un résumé qui ne correspond plus à ses mouvements
-    // (le verrouillage automatique réessaie le lendemain)
-    if (essai >= 2) throw new Refus('Des mouvements ont été saisis pendant le calcul : réessayez dans un instant.', 409);
-  }
-  try {
-    await prisma.declarationDot.create({ data: { semaine: semaineDate(iso), statut, compteId, resume, salaries, ecritures } });
-  } catch (e) {
-    // semaine (@id) déjà verrouillée par une requête presque simultanée (double clic, nouvelle tentative réseau)
-    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') throw new Refus('Cette semaine est déjà verrouillée.', 409);
-    throw e;
-  }
+// ---------- graphique DOT : évolution sur 12 semaines (jusqu'à celle demandée) ----------
+// Une semaine verrouillée se lit sur son résumé figé (compta_dot_declarations : mêmes chiffres que la déclaration, même
+// si le barème ou le relevé ont changé depuis) ; une semaine pas encore verrouillée est calculée en direct et marquée
+// provisoire. Une semaine sans relevé Tablettes ni recette est un trou (vide), jamais un zéro (stats/graphique-dot.ts).
+export async function graphiqueDot(iso: string) {
+  const semaineFin = semaineDemandee(iso);
+  const semaines: string[] = [];
+  for (let i = 11, d = debutSemaineParis(semaineFin); i >= 0; i--, d.setUTCDate(d.getUTCDate() - 7)) semaines.unshift(jourDeSemaineParis(d));
+  const figees = await prisma.declarationDot.findMany({ where: { semaine: { in: semaines.map(semaineDate) } }, select: { semaine: true, resume: true } });
+  const resumeFige = new Map(figees.map(f => [jourDeSemaineParis(f.semaine), f.resume as unknown as ResumeSemaine]));
+  const points = await Promise.all(semaines.map(async s => {
+    const fige = resumeFige.get(s);
+    return pointGraphique(s, fige ?? await resumeDot(s), !fige);
+  }));
+  return { semaines: points, reperes: reperesGraphique(points) };
 }

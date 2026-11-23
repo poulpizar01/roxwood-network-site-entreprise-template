@@ -10,7 +10,7 @@ import { body, intParam, permission } from '../../socle/http.js';
 import { definirReglage } from '../../socle/reglages.js';
 import {
   CLE_SOLDE_BANCAIRE, TYPES_ECRITURE, construireEtVerrouiller, corrigerLigneTotale, dernierReleve, ecrituresBrutes,
-  enregistrerReleve, estVerrouillee, marquerFichePaiePayee, publierFichesPaie, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
+  enregistrerReleve, estVerrouillee, graphiqueDot, marquerFichePaiePayee, publierFichesPaie, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
 } from '../dot.js';
 import { verifierFacturationContrat } from '../contrats.js';
 import { classementFactures, definirQuotaFacture, quotasFacture } from '../facture.js';
@@ -384,6 +384,9 @@ compta.get('/api/compta/dot/salaries', ...gerer, async (req, res) => {
 
 // « Publier » : les fiches de paie de la semaine (déjà verrouillée) deviennent visibles dans « Mon compte » de chaque
 // employé. « Payé » : coché ensuite, employé par employé.
+// évolution sur 12 semaines (résumés figés des semaines verrouillées, calcul en direct pour les autres)
+compta.get('/api/compta/dot/graphique', ...gerer, async (req, res) => { res.json(await graphiqueDot(semaineDemandee(req.query.semaine))); });
+
 compta.post('/api/compta/dot/publier', ...gerer, traiter(async (req, res) => {
   const semaine = semaineDemandee(body(req).semaine);
   await publierFichesPaie(semaine);

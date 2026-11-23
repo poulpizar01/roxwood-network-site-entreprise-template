@@ -143,6 +143,15 @@
           </div>
         </section>
 
+        <!-- Graphique : évolution sur 12 semaines jusqu'à celle affichée. Une colonne = le CA brut d'une semaine découpé
+             en charges déductibles, impôt, primes et retraits, bénéfice net (résumés figés des semaines verrouillées,
+             calcul en direct pour la semaine en cours). Serveur : GET /api/compta/dot/graphique. -->
+        <section class="dot-section" aria-labelledby="dot-titre-graphique">
+          <h3 class="compta-titre" id="dot-titre-graphique">Évolution sur 12 semaines</h3>
+          <p class="compta-aide">Jusqu’à la semaine affichée ci-dessus · semaines verrouillées + semaine en cours (provisoire)</p>
+          <div id="dot-graphique"></div>
+        </section>
+
         <!-- Tableau des salariés, à coller dans le document de la DOT : Nom et Grade viennent de RH, RUN (unités) et
              FACTURE ($) des quotas réels de la semaine (mêmes chiffres que Paie/Quota), VENTE et CA TOTAL RÉALISÉ du
              relevé Tablettes (0 si l'employé n'y figure pas), Salaire du calcul de la page Paie, Prime saisie ici pour
