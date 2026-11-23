@@ -67,7 +67,7 @@
         <div class="champ" id="bloc-rib">
           <label for="infos-rib">RIB</label>
           <div class="champ-masque">
-            <input type="password" id="infos-rib" maxlength="60" autocomplete="off">
+            <input type="password" id="infos-rib" maxlength="60" autocomplete="new-password" data-1p-ignore data-lpignore="true">
             <button type="button" class="champ-masque-bouton" id="bouton-voir-rib" aria-label="Afficher le RIB"></button>
           </div>
         </div>
@@ -125,6 +125,8 @@
       $('bloc-fiche').hidden = !A_UNE_FICHE;
       $('bloc-rib').hidden = !A_UNE_FICHE;
       etiquettes();
+      // sans fiche, ni quota ni sanctions : le formulaire occupe la page seul, pas une colonne de droite en face du vide
+      document.querySelector('.accueil-colonnes').classList.toggle('une-colonne', !fiche);
       if (!fiche) return;
       TEL_ENREGISTRE = fiche.telephone; RIB_ENREGISTRE = fiche.rib;
       $('infos-telephone').value = TEL_ENREGISTRE;
@@ -171,16 +173,17 @@
     });
     $('form-infos').addEventListener('submit', async e => {
       e.preventDefault();
-      try {
-        const [moi] = await Promise.all([
-          socle.api('/api/moi', { method: 'PATCH', body: { nom: $('nom').value } }),
-          A_UNE_FICHE && socle.api('/api/moi/fiche', { method: 'PATCH', body: { telephone: $('infos-telephone').value, rib: $('infos-rib').value } }),
-        ]);
-        gestion.message('zone-message', '');
-        gestion.notifier('Coordonnées enregistrées.');
-        if (A_UNE_FICHE) { TEL_ENREGISTRE = $('infos-telephone').value; RIB_ENREGISTRE = $('infos-rib').value; }
-        afficher(moi);
-      } catch (err) { gestion.message('zone-message', err.message); }
+      // deux appels indépendants : si l'un échoue, ce que l'autre a enregistré l'est bien (Annuler ne doit pas le défaire)
+      const [nom, fiche] = await Promise.allSettled([
+        socle.api('/api/moi', { method: 'PATCH', body: { nom: $('nom').value } }),
+        A_UNE_FICHE ? socle.api('/api/moi/fiche', { method: 'PATCH', body: { telephone: $('infos-telephone').value, rib: $('infos-rib').value } }) : Promise.resolve(),
+      ]);
+      if (nom.status === 'fulfilled') afficher(nom.value);
+      if (A_UNE_FICHE && fiche.status === 'fulfilled') { TEL_ENREGISTRE = $('infos-telephone').value; RIB_ENREGISTRE = $('infos-rib').value; }
+      const echec = [nom, fiche].find(r => r.status === 'rejected');
+      if (echec) { gestion.message('zone-message', echec.reason.message); return; }
+      gestion.message('zone-message', '');
+      gestion.notifier('Coordonnées enregistrées.');
     });
     $('supprimer').addEventListener('click', async () => {
       if (!await gestion.confirmer('Votre compte est effacé du site. Vous pourrez refaire une demande en vous reconnectant.', 'Supprimer votre compte ?', 'Supprimer mon compte')) return;

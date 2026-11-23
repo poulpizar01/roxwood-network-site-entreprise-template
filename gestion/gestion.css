@@ -1280,7 +1280,7 @@ main.admin-contenu:focus { outline: none; }
 .compte-identite-nom { margin: 0; font-family: var(--display); font-size: var(--fs-7); font-weight: 600; color: var(--text); }
 .compte-identite-pseudo { display: block; font-size: var(--fs-2); color: var(--text-faint); }
 .compte-identite-etiquettes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.compte-etiq { font-size: var(--fs-1); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink2); white-space: nowrap; }
+.compte-etiq { font-size: var(--fs-1); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink2); overflow-wrap: anywhere; }
 .compte-etiq strong { color: var(--text); font-weight: 500; font-family: var(--mono); }
 .compte-etiq--grade { border-color: rgba({{couleur_rvb}}, 0.6); color: var(--text); background: var(--accent-soft); }
 .compte-identite-statut { display: grid; gap: 8px; justify-items: end; text-align: right; }
@@ -1288,6 +1288,9 @@ main.admin-contenu:focus { outline: none; }
   .compte-identite { grid-template-columns: auto minmax(0, 1fr); }
   .compte-identite-statut { grid-column: 1 / -1; justify-items: start; text-align: left; }
 }
+/* sans fiche : la pile de gauche (quota, sanctions) est vide, on ne la montre pas */
+.accueil-colonnes.une-colonne > .accueil-pile:first-child { display: none; }
+@media (min-width: 1024px) { .accueil-colonnes.une-colonne { grid-template-columns: minmax(0, 640px); } }
 .compte-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .compte-actions .btn { flex: 1 1 120px; }
 /* champ à valeur masquée (RIB) : l'œil sur le bord du champ, un seul cadre autour des deux */
