@@ -15,7 +15,7 @@ import {
 import { verifierFacturationContrat } from '../contrats.js';
 import { classementFactures, definirQuotaFacture, quotasFacture } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
-import { caBrutReleve } from '../stats/releve.js';
+import { caBrutReleve, estLigneTotal } from '../stats/releve.js';
 import { jourValide, versDate } from '../texte.js';
 
 export const compta = Router();
@@ -29,9 +29,11 @@ const gererFactures = permission('factures');
 // avant l'envoi
 const MAX_COLONNES = 20, MAX_LIGNES = 500, MAX_CELLULE = 300;
 
-compta.get('/api/compta/tablettes', ...gerer, async (_req, res) => {
-  const r = await dernierReleve();
+compta.get('/api/compta/tablettes', ...gerer, async (req, res) => {
+  const semaine = semaineDemandee(req.query.semaine);
+  const r = await dernierReleve(semaine);
   res.json({
+    semaine, verrouillee: await estVerrouillee(semaine),
     import: r && { colonnes: r.colonnes, lignes: r.lignes, importe_le: r.importeLe, importe_par: r.importePar },
     // CA brut repris par la DOT, calculé ici (même fonction que le résumé) : la ligne TOTAL de la tablette est fausse
     // dès qu'un membre est retiré du relevé
@@ -41,35 +43,52 @@ compta.get('/api/compta/tablettes', ...gerer, async (_req, res) => {
 
 compta.post('/api/compta/tablettes', ...gerer, traiter(async (req, res) => {
   const b = body(req);
-  const colonnes = (Array.isArray(b.colonnes) ? b.colonnes : []).map(c => String(c ?? '').trim().slice(0, MAX_CELLULE)).slice(0, MAX_COLONNES).filter(Boolean);
+  // seuls les titres vides de fin sont écartés : un titre vide au milieu décalerait d'une colonne toutes les cellules à
+  // sa droite (le CA lirait la mauvaise colonne sans erreur visible), donc l'import est refusé
+  const colonnes = (Array.isArray(b.colonnes) ? b.colonnes : []).map(c => String(c ?? '').trim().slice(0, MAX_CELLULE)).slice(0, MAX_COLONNES);
+  while (colonnes.length && !colonnes.at(-1)) colonnes.pop();
+  if (colonnes.some(t => !t)) throw new Refus('Une colonne n’a pas de titre : complétez la première ligne collée (chaque colonne doit avoir un titre).');
+  const doublonTitre = colonnes.find((t, i) => colonnes.findIndex(x => x.toLowerCase() === t.toLowerCase()) !== i);
+  if (doublonTitre) throw new Refus(`Deux colonnes portent le titre « ${doublonTitre} » : renommez-en une avant d’importer.`);
   if (!colonnes.length) throw new Refus('Aucune colonne détectée : la première ligne collée doit contenir les titres des colonnes.');
   const brutes = (Array.isArray(b.lignes) ? b.lignes : []).slice(0, MAX_LIGNES);
   if (!brutes.length) throw new Refus('Aucune ligne de données détectée sous les titres de colonnes.');
   const lignes = corrigerLigneTotale(colonnes, brutes.map(l => (Array.isArray(l) ? l : []).map(c => String(c ?? '').slice(0, MAX_CELLULE))))
     .map(l => colonnes.map((_, i) => l[i] ?? ''));
-  await enregistrerReleve(colonnes, lignes, req.compte.id);
+  // un membre deux fois (tableau collé en double) compterait deux fois son montant dans le CA brut
+  const noms = lignes.filter(l => !estLigneTotal(l)).map(l => String(l[0] ?? '').trim().toLowerCase()).filter(Boolean);
+  const doublonNom = noms.find((n, i) => noms.indexOf(n) !== i);
+  if (doublonNom) throw new Refus(`« ${doublonNom} » apparaît deux fois : le tableau a peut-être été collé deux fois.`);
+  // semaine du relevé : la semaine en cours par défaut ; une semaine verrouillée est figée, rien n'y change plus
+  const semaine = semaineDemandee(b.semaine);
+  refuserSiVerrouillee(await estVerrouillee(semaine));
+  await enregistrerReleve(semaine, colonnes, lignes, req.compte.id);
   res.json({ ok: true });
 }));
 
 // retirer une ligne (un membre) du dernier relevé : nouvel import sans elle ; le nom envoyé sert de garde-fou si le
 // relevé a changé entre-temps
 compta.delete('/api/compta/tablettes/lignes/:index', ...gerer, traiter(async (req, res) => {
-  const r = await dernierReleve();
+  const semaine = semaineDemandee(req.query.semaine);
+  refuserSiVerrouillee(await estVerrouillee(semaine));
+  const r = await dernierReleve(semaine);
   if (!r) throw new Refus('Aucun relevé importé.', 404);
   const index = Number(req.params.index);
   if (!Number.isInteger(index) || index < 0 || index >= r.lignes.length) throw new Refus('Ligne introuvable.', 404);
   const nom = body(req).nom;
   if (nom != null && String(r.lignes[index][0] ?? '').trim() !== String(nom).trim()) throw new Refus('Le relevé a changé depuis l’affichage : rechargez la page avant de supprimer.', 409);
   const restantes = r.lignes.filter((_, i) => i !== index);
-  await enregistrerReleve(r.colonnes, restantes, req.compte.id);
+  await enregistrerReleve(semaine, r.colonnes, restantes, req.compte.id);
   res.json({ ok: true, restantes: restantes.length });
 }));
 
 // réinitialiser ne supprime rien : un import vide, l'historique reste en base
-compta.delete('/api/compta/tablettes', ...gerer, async (req, res) => {
-  await enregistrerReleve([], [], req.compte.id);
+compta.delete('/api/compta/tablettes', ...gerer, traiter(async (req, res) => {
+  const semaine = semaineDemandee(req.query.semaine);
+  refuserSiVerrouillee(await estVerrouillee(semaine));
+  await enregistrerReleve(semaine, [], [], req.compte.id);
   res.json({ ok: true });
-});
+}));
 
 // ---------- mouvements de la DOT (recette exceptionnelle, dépense déductible, retrait), un journal par semaine ----------
 // Un mouvement ne se crée, ne se supprime ni ne se réinitialise que sur une semaine non verrouillée (jamais future).

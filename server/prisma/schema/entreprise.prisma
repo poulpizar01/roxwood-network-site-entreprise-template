@@ -243,10 +243,11 @@ model ImportCompta {
   type      String   @default("tablettes") @db.VarChar(20)
   colonnes  Json
   lignes    Json
+  semaine   DateTime @db.Date // lundi de la semaine (calendrier Paris) à laquelle appartient le relevé ; le plus récent d'une semaine fait foi
   compteId  Int?     @map("compte_id") // auteur ; null si son compte a été supprimé
   importeLe DateTime @default(now()) @map("importe_le") @db.Timestamptz(6)
 
-  @@index([type, importeLe(sort: Desc)])
+  @@index([type, semaine, importeLe(sort: Desc)])
   @@index([compteId])
   @@map("compta_imports")
 }

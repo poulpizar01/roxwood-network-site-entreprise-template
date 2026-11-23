@@ -1292,6 +1292,10 @@ main.admin-contenu:focus { outline: none; }
 .accueil-colonnes.une-colonne > .accueil-pile:first-child { display: none; }
 @media (min-width: 1024px) { .accueil-colonnes.une-colonne { grid-template-columns: minmax(0, 640px); } }
 .compte-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+/* DOT, relevé Tablettes : le choix de la semaine à côté des actions ; sur téléphone, chaque contrôle sur sa ligne */
+.dot-actions-releve { display: flex; flex: 1 1 100%; gap: 10px; flex-wrap: wrap; align-items: center; }   /* sur sa propre ligne sous l'introduction : jamais un bouton seul à la ligne */
+.dot-actions-releve .d8-select-enveloppe { flex: 0 1 280px; min-width: 200px; }
+@media (max-width: 640px) { .dot-actions-releve { width: 100%; justify-content: stretch; } .dot-actions-releve .d8-select-enveloppe, .dot-actions-releve .btn { flex: 1 1 100%; } }
 .compte-actions .btn { flex: 1 1 120px; }
 /* champ à valeur masquée (RIB) : l'œil sur le bord du champ, un seul cadre autour des deux */
 .champ-masque { display: flex; align-items: stretch; border: 1px solid var(--contour-champ); border-radius: var(--radius-sm); background: var(--bg2); overflow: hidden; }

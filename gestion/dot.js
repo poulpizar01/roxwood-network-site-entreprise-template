@@ -41,6 +41,9 @@ function decalerSemaineDot(iso, sens) {
 }
 const DOT_SEMAINE_COURANTE = lundiDeDot(jourParisISODot(new Date()));
 let DOT_SEMAINE = DOT_SEMAINE_COURANTE;
+// semaine du relevé Tablettes affiché (chaque relevé appartient à une semaine) ; la semaine en cours par défaut
+let TABLETTE_SEMAINE = DOT_SEMAINE_COURANTE;
+const dateCourteDot = iso => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
 
 function majNavSemaineDot() {
   const courante = DOT_SEMAINE === DOT_SEMAINE_COURANTE;
@@ -162,7 +165,12 @@ async function chargerDotResume() {
       source.textContent = "Aucun relevé Tablettes au moment du verrouillage : le CA brut ne comptait que les recettes exceptionnelles.";
     } else {
       source.innerHTML = `Aucun relevé Tablettes : le CA brut ne compte que les recettes exceptionnelles. <button type="button" class="lien-bouton" id="dot-aller-tablettes">Importer le relevé</button>`;
-      document.getElementById("dot-aller-tablettes").addEventListener("click", () => document.querySelector('[data-compta-onglet="tablettes"]').click());
+      document.getElementById("dot-aller-tablettes").addEventListener("click", () => {
+        TABLETTE_SEMAINE = DOT_SEMAINE;   // le relevé manquant est celui de la semaine affichée
+        document.querySelector('[data-compta-onglet="tablettes"]').click();
+        remplirSemainesTablette();
+        chargerTablette();
+      });
     }
 
     document.getElementById("dot-chiffres").innerHTML = [
@@ -575,7 +583,7 @@ async function supprimerLigneTablette(index, nom) {
   const ok = await gestion.confirmer(`« ${nom} » sera retiré du relevé Tablettes. Les totaux (CA brut, DOT) seront recalculés sans cette ligne.`, "Retirer ce membre du relevé ?", "Retirer du relevé");
   if (!ok) return;
   try {
-    await socle.api(`/api/compta/tablettes/lignes/${index}`, { method: "DELETE", body: { nom } });
+    await socle.api(`/api/compta/tablettes/lignes/${index}?semaine=${TABLETTE_SEMAINE}`, { method: "DELETE", body: { nom } });
     gestion.message("zone-message-tablette", `« ${nom} » retiré du relevé ✓`, "succes");
     chargerTablette();
   } catch (e) {
@@ -611,10 +619,25 @@ document.getElementById("bouton-copier-tablette").addEventListener("click", asyn
   signalerCopie(e.currentTarget, await copierTexte(lignes.join("\n")), `Relevé copié ✓ (${RELEVE_TABLETTE.lignes.length} lignes, avec les titres)`);
 });
 
+// les 12 dernières semaines (la semaine en cours d'abord), plus celle choisie si elle est plus ancienne
+function remplirSemainesTablette() {
+  const semaines = Array.from({ length: 12 }, (_, i) => decalerSemaineDot(DOT_SEMAINE_COURANTE, -i));
+  if (!semaines.includes(TABLETTE_SEMAINE)) semaines.push(TABLETTE_SEMAINE);
+  const choix = document.getElementById("tablette-semaine");
+  choix.innerHTML = `<option value="${TABLETTE_SEMAINE}" selected></option>`;   // remplirSelect garde la valeur actuelle
+  remplirSelect(choix, semaines.map(s => ({ valeur: s, libelle: s === DOT_SEMAINE_COURANTE ? `Cette semaine · ${dateCourteDot(s)}` : `Semaine du ${dateCourteDot(s)}` })));
+}
+document.getElementById("tablette-semaine").addEventListener("change", e => { TABLETTE_SEMAINE = e.target.value; chargerTablette(); });
+
 async function chargerTablette() {
   gestion.message("zone-message-tablette", "");
   try {
-    const reponse = await socle.api("/api/compta/tablettes");
+    const reponse = await socle.api(`/api/compta/tablettes?semaine=${TABLETTE_SEMAINE}`);
+    // une semaine verrouillée est figée : ni import, ni retrait de ligne, ni réinitialisation
+    const verrouillee = !!reponse.verrouillee;
+    const importer = document.getElementById("bouton-importer-tablette");
+    importer.disabled = verrouillee;
+    importer.title = verrouillee ? "Cette semaine est verrouillée : son relevé ne change plus." : "";
     const vide = document.getElementById("compta-tablette-vide");
     const resultat = document.getElementById("compta-tablette-resultat");
     const boutonReset = document.getElementById("bouton-reinitialiser-tablette");
@@ -627,14 +650,14 @@ async function chargerTablette() {
     }
     vide.classList.add("cache");
     resultat.classList.remove("cache");
-    boutonReset.classList.remove("cache");
+    boutonReset.classList.toggle("cache", verrouillee);
     document.getElementById("compta-tablette-info").textContent =
       `Importé par ${reponse.import.importe_par || "un membre"} le ${formaterDateHeureCompta(reponse.import.importe_le)}.`;
     RELEVE_TABLETTE = reponse.import;
     document.getElementById("bouton-copier-tablette").classList.remove("cache");
     afficherSyntheseTablette(reponse.import, reponse.ca_brut);
     const table = document.getElementById("table-tablette");
-    table.innerHTML = rendreTableCompta(reponse.import.colonnes, reponse.import.lignes, true);
+    table.innerHTML = rendreTableCompta(reponse.import.colonnes, reponse.import.lignes, !verrouillee);
     table.querySelectorAll("[data-index]").forEach((btn) => {
       btn.addEventListener("click", () => supprimerLigneTablette(Number(btn.dataset.index), btn.dataset.nom));
     });
@@ -659,6 +682,7 @@ function majApercuImportTablette() {
 }
 
 function ouvrirModaleImportTablette() {
+  document.getElementById("import-tablette-semaine").textContent = `Ce relevé sera enregistré pour la semaine du ${dateLongue(TABLETTE_SEMAINE)}${TABLETTE_SEMAINE === DOT_SEMAINE_COURANTE ? " (cette semaine)" : ""}. Pour une autre semaine, fermez cette fenêtre et changez la semaine du relevé.`;
   document.getElementById("import-tablette-texte").value = "";
   document.getElementById("apercu-import-tablette").classList.add("cache");
   document.getElementById("bouton-enregistrer-import-tablette").disabled = true;
@@ -680,7 +704,7 @@ document.getElementById("bouton-enregistrer-import-tablette").addEventListener("
     gestion.message("zone-message-modale-import", "Collez d'abord vos données.");
     return;
   }
-  const corps = { colonnes: analyse.colonnes, lignes: analyse.lignes };
+  const corps = { colonnes: analyse.colonnes, lignes: analyse.lignes, semaine: TABLETTE_SEMAINE };
   // le serveur n'accepte pas de requête de plus de 64 Ko : prévenu ici, avec la taille, plutôt qu'une erreur vague
   const taille = new Blob([JSON.stringify(corps)]).size;
   if (taille > 60000) {
@@ -708,7 +732,7 @@ document.getElementById("bouton-reinitialiser-tablette").addEventListener("click
   );
   if (!ok) return;
   try {
-    await socle.api("/api/compta/tablettes", { method: "DELETE" });
+    await socle.api(`/api/compta/tablettes?semaine=${TABLETTE_SEMAINE}`, { method: "DELETE" });
     chargerTablette();
   } catch (e) {
     gestion.message("zone-message-tablette", "Impossible de réinitialiser : " + e.message);
@@ -716,4 +740,4 @@ document.getElementById("bouton-reinitialiser-tablette").addEventListener("click
 });
 
 
-gestion.coque('dot').then(() => chargerTablette());
+gestion.coque('dot').then(() => { remplirSemainesTablette(); chargerTablette(); });

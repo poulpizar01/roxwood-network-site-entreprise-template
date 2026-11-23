@@ -50,8 +50,9 @@ export function corrigerLigneTotale(colonnes: string[], lignes: string[][]) {
   return lignes.map(l => (estTotal(l) && l.length < colonnes.length ? [...l.slice(0, iRang), '-', ...l.slice(iRang)] : l));
 }
 
-export async function dernierReleve() {
-  const r = await prisma.importCompta.findFirst({ where: { type: 'tablettes' }, orderBy: [{ importeLe: 'desc' }, { id: 'desc' }] });
+// relevé d'une semaine (le plus récent de celle-ci) : jamais celui d'une autre, une semaine sans relevé n'a pas de chiffre
+export async function dernierReleve(iso: string) {
+  const r = await prisma.importCompta.findFirst({ where: { type: 'tablettes', semaine: semaineDate(iso) }, orderBy: [{ importeLe: 'desc' }, { id: 'desc' }] });
   const colonnes = (r?.colonnes as string[] | undefined) ?? [];
   // une réinitialisation enregistre un import sans colonnes : comme « aucun relevé »
   if (!r || !colonnes.length) return null;
@@ -59,8 +60,8 @@ export async function dernierReleve() {
   // nom RP (modifiable par chacun) suivi du pseudo Discord (non modifiable sur le site) : on sait qui a importé
   return { colonnes, lignes: corrigerLigneTotale(colonnes, r.lignes as string[][]), importeLe: r.importeLe, importePar: auteur ? (auteur.nom ? `${auteur.nom} (@${auteur.pseudo})` : `@${auteur.pseudo}`) : null };
 }
-export const enregistrerReleve = (colonnes: string[], lignes: string[][], compteId: number) =>
-  prisma.importCompta.create({ data: { type: 'tablettes', colonnes, lignes, compteId } });
+export const enregistrerReleve = (iso: string, colonnes: string[], lignes: string[][], compteId: number) =>
+  prisma.importCompta.create({ data: { type: 'tablettes', semaine: semaineDate(iso), colonnes, lignes, compteId } });
 
 // ---------- mouvements (recette | depense | retrait) d'une semaine, bruts (table) ----------
 export async function ecrituresBrutes(iso: string) {
@@ -79,7 +80,7 @@ export async function ecrituresBrutes(iso: string) {
 // salariés).
 const ALIAS_NOM_SALARIES = ['nom', "nom de l'employé", 'nom du salarié', 'employé', 'employe'];
 export async function salariesDot(iso: string) {
-  const releve = await dernierReleve();
+  const releve = await dernierReleve(iso);
   const colonnesMin = releve ? minuscules(releve.colonnes) : [];
   const lignes = releve ? releve.lignes.filter(l => !estTotal(l)) : [];
   const iNomReleve = indexColonne(colonnesMin, ALIAS_NOM_SALARIES);
@@ -144,7 +145,7 @@ export async function salariesDot(iso: string) {
 // parallèle du tableau figé dans la même déclaration (les deux pourraient sinon diverger sur une écriture concurrente)
 export async function resumeDot(iso: string, salariesPrecalcules?: Awaited<ReturnType<typeof salariesDot>>) {
   const [releve, ecritures, bareme, baremeRichesse, salaries, nombreEmployes] = await Promise.all([
-    dernierReleve(), prisma.ecritureDot.findMany({ where: { semaine: semaineDate(iso) } }), prisma.baremeImposition.findMany({ orderBy: { seuilMin: 'asc' } }),
+    dernierReleve(iso), prisma.ecritureDot.findMany({ where: { semaine: semaineDate(iso) } }), prisma.baremeImposition.findMany({ orderBy: { seuilMin: 'asc' } }),
     prisma.baremeRichesse.findMany({ orderBy: { seuilMin: 'asc' } }), salariesPrecalcules ?? salariesDot(iso), prisma.employe.count({ where: { statut: 'actif' } }),
   ]);
   const caTablette = releve ? caBrutReleve(releve.colonnes, releve.lignes) : null;

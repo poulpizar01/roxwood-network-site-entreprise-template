@@ -38,7 +38,8 @@
             <h2 class="compta-titre">Relevé Tablettes</h2>
             <p class="compta-aide">Le relevé de la semaine (ventes, total entreprise), collé depuis un outil externe. Son total donne le CA brut de la déclaration DOT. Les heures de service viennent du bot (tableau des salariés, onglet Déclaration DOT).</p>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div class="dot-actions-releve">
+            <select id="tablette-semaine" aria-label="Semaine du relevé"></select>
             <button type="button" class="btn btn-or" id="bouton-importer-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-upload"></use></svg> Importer</button>
             <button type="button" class="btn btn-fantome cache" id="bouton-copier-tablette"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
             <!-- action d’effacement : après l’action principale, en bouton discret -->
@@ -47,7 +48,7 @@
         </div>
         <div id="zone-message-tablette"></div>
         <div id="compta-tablette-vide" class="etat-vide">
-          <p>Aucune donnée importée pour le moment. Cliquez sur « Importer » pour coller votre premier relevé.</p>
+          <p id="compta-tablette-vide-texte">Aucun relevé pour cette semaine. Cliquez sur « Importer » pour coller celui de la semaine choisie.</p>
         </div>
         <div id="compta-tablette-resultat" class="cache">
           <!-- les chiffres qui comptent pour la suite (CA brut de la DOT, paie à l'heure), avant le détail -->
@@ -206,6 +207,7 @@
       <button type="button" id="fermer-modale-import-tablette" aria-label="Fermer">✕</button>
     </div>
     <div id="zone-message-modale-import"></div>
+    <p class="champ-aide" id="import-tablette-semaine" style="margin:0 0 12px;"></p>
     <div class="import-tablette-corps">
       <div class="champ">
         <label for="import-tablette-texte">Collez vos données ici</label>

@@ -17,9 +17,12 @@ async function purger(): Promise<void> {
     // services terminés (un service en cours reste)
     prisma.service.deleteMany({ where: { fin: { lt: avant(SERVICES_JOURS) } } }),
   ]);
-  // relevés Tablettes : chaque retrait d'une ligne en enregistre une nouvelle copie ; seuls les plus récents servent
+  // relevés Tablettes : chaque retrait d'une ligne en enregistre une nouvelle copie ; seuls les plus récents servent.
+  // Un relevé d'une semaine pas encore verrouillée se lit encore : seuls ceux des semaines verrouillées (figées dans
+  // leur déclaration) hors des plus récents sont effacés.
   const gardes = await prisma.importCompta.findMany({ where: { type: 'tablettes' }, orderBy: [{ importeLe: 'desc' }, { id: 'desc' }], take: RELEVES_GARDES, select: { id: true } });
-  const releves = gardes.length < RELEVES_GARDES ? { count: 0 } : await prisma.importCompta.deleteMany({ where: { type: 'tablettes', id: { notIn: gardes.map(g => g.id) } } });
+  const verrouillees = (await prisma.declarationDot.findMany({ select: { semaine: true } })).map(d => d.semaine);
+  const releves = gardes.length < RELEVES_GARDES ? { count: 0 } : await prisma.importCompta.deleteMany({ where: { type: 'tablettes', id: { notIn: gardes.map(g => g.id) }, semaine: { in: verrouillees } } });
   const effaces = { agenda: agenda.count, candidatures: candidatures.count, services: services.count, releves: releves.count };
   if (Object.values(effaces).some(Boolean)) console.log('[purge] effacés :', JSON.stringify(effaces));
 }
