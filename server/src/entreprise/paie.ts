@@ -4,6 +4,7 @@
 // d'un employé sur une semaine (routes/paie.ts).
 import { prisma } from '../socle/db.js';
 import { tousLesGrades } from '../socle/droits.js';
+import { facturesComptees } from './facture.js';
 import { nomComplet } from './rh.js';
 import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
 
@@ -71,9 +72,10 @@ export async function statsEmployeSemaine(employeId: number, semaineDemandee?: s
   const debut = semaineDemandee ? debutSemaineParis(semaineDemandee) : semaineCourante;
   if (debut > semaineCourante) debut.setTime(semaineCourante.getTime());
   const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
+  const comptees = await facturesComptees();
   const [runs, factures] = await Promise.all([
     prisma.run.aggregate({ where: { employeId, creeLe: { gte: debut, lt: fin } }, _sum: { quantite: true } }),
-    prisma.facture.aggregate({ where: { employeId, dateFacture: { gte: debut, lt: fin } }, _sum: { total: true } }),
+    prisma.facture.aggregate({ where: { employeId, dateFacture: { gte: debut, lt: fin }, ...comptees }, _sum: { total: true } }),
   ]);
   return { debutSemaine: jourDeSemaineParis(debut), runs: runs._sum.quantite ?? 0, factures: factures._sum.total ?? 0 };
 }

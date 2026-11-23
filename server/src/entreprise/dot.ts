@@ -6,6 +6,7 @@ import { Prisma } from '../generated/prisma/client.js';
 import { prisma } from '../socle/db.js';
 import { gradeDe } from '../socle/droits.js';
 import { reglage } from '../socle/reglages.js';
+import { facturesComptees } from './facture.js';
 import { calculerPaie, paieGrades } from './paie.js';
 import { Refus } from './refus.js';
 import { nomComplet } from './rh.js';
@@ -103,9 +104,10 @@ export async function salariesDot(iso: string) {
 
   const idsEmployes = employes.map(e => e.id);
   const { debut, fin } = plageSemaine(iso);
+  const comptees = await facturesComptees();
   const [sommeRuns, sommeFactures] = idsEmployes.length ? await Promise.all([
     prisma.run.groupBy({ by: ['employeId'], where: { employeId: { in: idsEmployes }, creeLe: { gte: debut, lt: fin } }, _sum: { quantite: true } }),
-    prisma.facture.groupBy({ by: ['employeId'], where: { employeId: { in: idsEmployes }, dateFacture: { gte: debut, lt: fin } }, _sum: { total: true } }),
+    prisma.facture.groupBy({ by: ['employeId'], where: { employeId: { in: idsEmployes }, dateFacture: { gte: debut, lt: fin }, ...comptees }, _sum: { total: true } }),
   ]) : [[], []];
   const runsParEmploye = new Map(sommeRuns.map(s => [s.employeId as number, s._sum.quantite ?? 0]));
   const facturesParEmploye = new Map(sommeFactures.map(s => [s.employeId as number, s._sum.total ?? 0]));

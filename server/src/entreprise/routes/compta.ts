@@ -249,7 +249,9 @@ compta.patch('/api/compta/factures/:id', ...gererFactures, traiter(async (req, r
   const dates = { dateFacture: versDate(dateFacture), dateEcheance: dateEcheance ? versDate(dateEcheance) : null };
   // seule une facture saisie à la main, et qui n'est pas elle-même un avoir (il reprend tels quels les montants qu'il
   // annule), a ses montants et articles modifiables ; les autres (bot, avoir) ne modifient que leurs dates
-  if (f.source === 'manuel' && !f.avoirDeId) {
+  // une facture dont un avoir a été émis n'a plus ses montants modifiables non plus : l'avoir reprend les anciens tels quels
+  const aUnAvoir = f.source === 'manuel' && !f.avoirDeId && !!(await prisma.facture.findFirst({ where: { avoirDeId: f.id }, select: { id: true } }));
+  if (f.source === 'manuel' && !f.avoirDeId && !aUnAvoir) {
     await prisma.facture.update({ where: { id: f.id }, data: { ...dates, ...construireLigneFacture(b) } });
   } else {
     await prisma.facture.update({ where: { id: f.id }, data: dates });
@@ -311,6 +313,7 @@ compta.post('/api/compta/factures/:id/avoir', ...gererFactures, traiter(async (r
           sousTotal: -f.sousTotal, livraison: -f.livraison, reduction: -f.reduction, total: -f.total,
           statutPaiement: 'PAYEE',
           compteId: req.compte.id,
+          employeId: f.employeId,   // l'avoir compense la facture d'origine dans le facturé de la même personne
         },
       });
       if (f.source === 'manuel') await tx.facture.update({ where: { id: f.id }, data: { statutPaiement: 'ANNULEE' } });

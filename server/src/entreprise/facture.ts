@@ -4,12 +4,14 @@
 // dédoublonnage des renvois déjà assuré par le socle, comme pour monitoring.sale, entreprise/run.ts).
 // Formes exactes vérifiées côté bot (src/services/orderLogService.ts, src/services/monitoringService.ts +
 // monitoringParsers.ts), docs/webhooks.md.
+import crypto from 'node:crypto';
+import { Prisma } from '../generated/prisma/client.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { entierRegle } from './parametres.js';
 import { nomComplet } from './rh.js';
-import { debutSemaineParis, jourDeSemaineParis, normaliserPseudo } from './texte.js';
+import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -78,19 +80,33 @@ export async function recevoirFactureMonitoring(e: EvenementBot): Promise<void> 
   // forme inattendue (description du log FiveM non reconnue par le bot) : ignorée, mais consignée — seule trace si
   // le bot change de format
   if (!p || typeof p !== 'object' || !parsed || typeof parsed !== 'object') {
-    console.warn('[facture] événement monitoring.invoice ignoré : forme inattendue', JSON.stringify(p).slice(0, 300));
+    // seules les clés sont journalisées : la valeur peut porter des données personnelles (pseudo, description)
+    console.warn('[facture] événement monitoring.invoice ignoré : forme inattendue', p && typeof p === 'object' ? Object.keys(p) : typeof p);
     return;
   }
   const discordId = texte(p.playerDiscord, 22);
   const nom = texte(p.playerName, 120).replace(/[`*_<>@]/g, '');
-  const employe = /^\d{15,22}$/.test(discordId) ? await prisma.employe.findUnique({ where: { discordId } })
-    : nom ? await prisma.employe.findUnique({ where: { discordPseudoNormalise: normaliserPseudo(nom) } }) : null;
+  // rattachement par ID Discord seulement : le pseudo en jeu est modifiable et pas garanti unique, un homonyme
+  // créditerait la mauvaise fiche (donc son quota et sa paie)
+  const employe = /^\d{15,22}$/.test(discordId) ? await prisma.employe.findUnique({ where: { discordId } }) : null;
+  // montant hors bornes (colonne entière) : donnée invalide, ignorée — un 500 ferait réessayer le bot dix fois pour rien
+  const montant = entier(parsed.amount);
+  if (montant <= 0 || montant > 2_147_483_647) {
+    console.warn('[facture] événement monitoring.invoice ignoré : montant invalide');
+    return;
+  }
+  // identifiant propre à l'événement : le bot renvoie le même corps (même sentAt) à chaque nouvelle tentative, donc une
+  // reprise après un échec d'enregistrement du socle retombe sur la même ligne au lieu d'en créer une seconde
+  const idBot = 'inv-' + crypto.createHash('sha256')
+    .update([e.sentAt, discordId, parsed.amount, parsed.payerName, p.jobId, p.logTimestamp, p.description].map(v => String(v ?? '')).join('|'))
+    .digest('hex').slice(0, 40);
   await prisma.facture.create({
     data: {
+      idBot,
       source: 'monitoring',
       clientNom: texte(parsed.payerName, 200),
-      sousTotal: entier(parsed.amount),
-      total: entier(parsed.amount),
+      sousTotal: montant,
+      total: montant,
       statutPaiement: 'PAID',
       employeId: employe?.id ?? null,
       details: {
@@ -101,7 +117,14 @@ export async function recevoirFactureMonitoring(e: EvenementBot): Promise<void> 
         description: texte(p.description, 500),
       },
     },
-  });
+  }).catch(err => { if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err; });   // déjà enregistré
+}
+
+// Factures qui comptent dans les totaux (quota, classement, paie, DOT) : une facture annulée sans avoir (saisie manuelle
+// passée à « annulée ») ne compte plus ; une annulée AVEC avoir reste comptée, et son avoir (montants négatifs) la compense.
+export async function facturesComptees(): Promise<Prisma.FactureWhereInput> {
+  const avoirs = await prisma.facture.findMany({ where: { avoirDeId: { not: null } }, select: { avoirDeId: true } });
+  return { NOT: { statutPaiement: 'ANNULEE', id: { notIn: avoirs.map(a => a.avoirDeId as number) } } };
 }
 
 // ---------- classement et quota de facturation (page Quota, onglet Quota facture / Classements) ----------
@@ -115,10 +138,11 @@ export async function classementFactures(semaineDemandee?: string) {
   const debut = semaineDemandee ? debutSemaineParis(semaineDemandee) : semaineCourante;
   if (debut > semaineCourante) debut.setTime(semaineCourante.getTime());
   const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
+  const comptees = await facturesComptees();
   const [employes, factures, total, quotas] = await Promise.all([
     prisma.employe.findMany({ where: { statut: 'actif' } }),
-    prisma.facture.groupBy({ by: ['employeId'], where: { dateFacture: { gte: debut, lt: fin }, employeId: { not: null } }, _sum: { total: true } }),
-    prisma.facture.aggregate({ where: { dateFacture: { gte: debut, lt: fin } }, _sum: { total: true } }),
+    prisma.facture.groupBy({ by: ['employeId'], where: { dateFacture: { gte: debut, lt: fin }, employeId: { not: null }, ...comptees }, _sum: { total: true } }),
+    prisma.facture.aggregate({ where: { dateFacture: { gte: debut, lt: fin }, ...comptees }, _sum: { total: true } }),
     quotasFacture(),
   ]);
   const montantParEmploye = new Map(factures.map(f => [f.employeId as number, f._sum.total ?? 0]));
