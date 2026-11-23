@@ -796,19 +796,7 @@ window.gestion = {
     // une fenêtre ou un tiroir ouvert recouvre la page : un message posé dans la page derrière resterait invisible
     // (l'action semblerait ne rien faire) — il est alors aussi annoncé en notification, au-dessus de la fenêtre
     if ([...document.querySelectorAll('.modale-fond:not(.cache)')].some(f => !f.contains(el))) notifier(texte, type);
-    if (type === 'succes') oublierSaisiesTiroirs();
-  },
-
-  // Redessine un tiroir en gardant ce qui y est en cours de saisie : un champ modifié (rapport, note…) retrouve sa
-  // valeur après le redessin, au lieu de revenir à celle du serveur à chaque rafraîchissement (clic sur un bouton voisin).
-  // Seuls les champs qui ont un id sont gardés.
-  conserverSaisies(zone, redessiner) {
-    const el = typeof zone === 'string' ? document.getElementById(zone) : zone;
-    const saisies = new Map();
-    el?.querySelectorAll('textarea[id], input[id]:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden])')
-      .forEach(c => { if (c.value !== c.defaultValue) saisies.set(c.id, c.value); });
-    redessiner();
-    saisies.forEach((valeur, id) => { const c = document.getElementById(id); if (c) c.value = valeur; });
+    if (type === 'succes') el.closest(FICHE)?.removeAttribute('data-saisie');   // enregistré : cette fiche repart de zéro
   },
 
   // Confirmation dans la page (aucune boîte de dialogue du navigateur : l'ordinateur en jeu ne les affiche pas).
@@ -1089,7 +1077,6 @@ function notifier(texte, type = 'succes') {
   n.className = `notification notification-${type === 'erreur' ? 'erreur' : 'succes'}`;
   n.textContent = texte;
   zone.append(n);
-  if (type !== 'erreur') oublierSaisiesTiroirs();
   setTimeout(() => { n.classList.add('sortie'); setTimeout(() => n.remove(), 300); }, type === 'erreur' ? 6000 : 3200);
 }
 
@@ -1506,16 +1493,16 @@ document.addEventListener('keydown', ev => {
   else if (ev.shiftKey && document.activeElement === premier) { ev.preventDefault(); dernier.focus(); }
   else if (!ev.shiftKey && document.activeElement === dernier) { ev.preventDefault(); premier.focus(); }
 });
-// Fermer une fiche — tiroir ou grande fenêtre (croix, Échap qui clique la croix, clic sur le fond) — alors qu'une saisie y
+// Fermer une fiche — tiroir ou fenêtre de saisie (croix, Échap qui clique la croix, clic sur le fond) — alors qu'une saisie y
 // a été faite sans être enregistrée : confirmation, au lieu de la perdre en silence. Le bouton « Annuler » du pied, lui,
 // est un choix explicite et ferme sans question. « Saisie » = un caractère réellement tapé (événement input de
 // l'utilisateur) dans un champ texte de la fiche depuis son ouverture ou son dernier enregistrement réussi
-// (notifier / message de succès, envoi du formulaire). On ne compare pas aux valeurs d'origine : les pages remplissent
+// (message de succès dans la fiche, envoi du formulaire ; une fiche enregistrée sans l'un ni l'autre et laissée ouverte
+// demande à tort une confirmation : mieux qu'une saisie perdue en silence). On ne compare pas aux valeurs d'origine : les pages remplissent
 // leurs champs par .value, que defaultValue ne voit pas (fausse alerte à chaque fermeture). data-sans-confirmation
 // exclut un champ (recherche, filtre).
-const FICHE = '.tiroir-fond, .modale-fond.modale-pleine';   // le fond : la boîte intérieure porte aussi modale-pleine
+const FICHE = '.tiroir-fond, .modale-fond:not(.modale-compacte)';   // le fond (jamais la boîte intérieure) ; la confirmation est compacte
 const CHAMP_SAISIE = 'textarea, input:not([type]), input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="url"]';
-function oublierSaisiesTiroirs() { document.querySelectorAll('[data-saisie]').forEach(f => f.removeAttribute('data-saisie')); }
 document.addEventListener('input', ev => {
   const c = ev.target;
   if (!ev.isTrusted || !c.matches?.(CHAMP_SAISIE) || c.readOnly || c.hasAttribute('data-sans-confirmation')) return;

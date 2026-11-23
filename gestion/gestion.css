@@ -2813,7 +2813,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
    de la page, M5 téléphone. Les noms de jetons de la maquette (--g-*) sont ici ceux du thème : fond --bg, carte --bg2,
    chip --bg3, filet --border, accent --accent / --accent-dark (clair), ok / alerte / erreur.
    Classes posées par le serveur (socle/aide.ts) dans le HTML d'un article : à garder en phase avec son rendu. */
-:root { --aide-clair: var(--accent-dark); }   /* « accent clair » des maquettes : l'accent tiré vers la couleur du texte (nuance calculée par le site, pas de color-mix) */
+:root { --aide-clair: var(--accent-dark); }   /* texte et traits d'accent de l'aide : nuance assombrie calculée par le site (pas de color-mix, inconnu du navigateur en jeu) ; thème sombre : la remplacer par une nuance plus claire */
 .etat-vide-texte, .aide-chargement { padding: 24px 4px; text-align: center; color: var(--text-faint); font-size: var(--fs-3); }
 .aide-tiroir .tiroir-entete { align-items: center; }
 
@@ -2871,7 +2871,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .tiroir-corps .chemin span, .aide-article .chemin span { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 0 7px; }
 .tiroir-corps .chemin .ico-ch, .aide-article .chemin .ico-ch { width: 11px; height: 11px; color: var(--text-faint); }
 .tiroir-corps .kbd, .aide-article .kbd, .aide-pal .kbd {
-  font: 600 11px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px;
+  font: 600 12px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px;
   color: var(--text-faint); background: var(--bg3);
 }
 
@@ -2974,7 +2974,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .aide-recherche { display: flex; align-items: center; gap: 10px; background: var(--bg2); border: 1px solid var(--text-faint); border-radius: 10px; padding: 12px 14px; font-size: 15px; color: var(--text-faint); width: 100%; cursor: pointer; font-family: inherit; }
 .aide-recherche .ico { width: 19px; height: 19px; flex: 0 0 auto; }
 .aide-recherche span { flex: 1; text-align: left; }
-.aide-recherche kbd { font: 600 11px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text-faint); background: var(--bg3); }
+.aide-recherche kbd { font: 600 12px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text-faint); background: var(--bg3); }
 .aide-suggest { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .aide-suggest button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; color: var(--text); background: none; cursor: pointer; }
 .aide-suggest button:hover, .aide-suggest button:focus-visible { border-color: var(--border-light); }
@@ -3022,7 +3022,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 @media (max-width: 900px) { .aide-haut, .aide-art { grid-template-columns: 1fr; } .aide-cote { position: static; } .aide-parcours { grid-template-columns: repeat(5, 1fr); padding: 12px 2px 10px; } .aide-pas b { font-size: 12px; } .aide-pas .pt { width: 26px; height: 26px; } .aide-pas::before { top: 12px; } }
 @media (max-width: 560px) { .aide-rubriques { grid-template-columns: 1fr 1fr; gap: 10px; } .aide-rub .sui { height: 62px; } .aide-rub h2 { font-size: 14px; } .aide-rub .c { padding: 9px 10px 10px; } .aide-rub ul { display: none; } .aide-haut h1 { font-size: 28px; } .aide-voir, .tiroir-corps .figure, .aide-article .figure { grid-template-columns: 1fr; } }
 .aide-voir-carte .sui:empty::after, .aide-rub .sui:empty::after { content: none; }
-.aide-tiroir-pied .kbd { font: 600 11px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text-faint); background: var(--bg3); }
+.aide-tiroir-pied .kbd { font: 600 12px/1.5 var(--mono); border: 1px solid rgba(255, 255, 255, 0.18); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--text-faint); background: var(--bg3); }
 /* M5 : sur téléphone, barre du haut propre à l'article (retour à l'aide, lien) à la place du fil d'Ariane */
 .aide-barre-art { display: none; align-items: center; gap: 10px; margin: 0 0 14px; font-weight: 650; }
 .aide-barre-art span { flex: 1; }
