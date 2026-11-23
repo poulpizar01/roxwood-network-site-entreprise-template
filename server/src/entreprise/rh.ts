@@ -46,7 +46,7 @@ export async function maFiche(discordId: string | null | undefined) {
   if (!discordId) return null;
   const e = await prisma.employe.findUnique({ where: { discordId } });
   if (!e) return null;
-  return { id: e.id, idUnique: e.idUnique, idProvisoire: e.idProvisoire, telephone: e.telephone, rib: e.rib };
+  return { id: e.id, idUnique: e.idUnique, idProvisoire: e.idProvisoire, telephone: e.telephone, rib: e.rib, dateArrivee: versJour(e.dateArrivee) };
 }
 
 export async function definirMaFiche(discordId: string | null | undefined, b: Record<string, unknown>): Promise<void> {

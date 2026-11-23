@@ -1244,22 +1244,62 @@ main.admin-contenu:focus { outline: none; }
    suivant, panneaux à la hauteur de leur contenu (un panneau vide ne s'étire plus sur celui d'à côté). */
 .accueil-a-traiter { margin: 0 0 20px; }
 .accueil-a-traiter h2 { margin: 0 0 10px; font-size: var(--fs-6); }
-.accueil-a-traiter ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* grille de tuiles plutôt qu'une ligne par tâche : quelques rangées au lieu d'une longue liste, les alertes (en tête,
+   triées par l'appelant) se repèrent par leur couleur */
+.accueil-a-traiter ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.accueil-a-traiter ul > li { display: flex; }   /* le <li> est l'élément de la grille : sans lui la tuile garde sa hauteur propre, plus courte que ses voisines */
 .accueil-tache {
-  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 10px 14px; color: var(--text);
+  display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 4px 12px; min-height: 64px; width: 100%; padding: 12px 14px; color: var(--text); line-height: 1.3;
   border: 1px solid rgba({{couleur_rvb}}, 0.45); border-radius: var(--radius-sm); background: rgba({{couleur_rvb}}, 0.08);
   transition: background var(--transition), border-color var(--transition);
 }
 .accueil-tache:hover { background: rgba({{couleur_rvb}}, 0.16); border-color: var(--accent); color: var(--text); }
-.accueil-tache .ico { flex-shrink: 0; width: 18px; height: 18px; margin-left: auto; transform: rotate(-90deg); color: var(--accent-dark); }
-.accueil-tache-nombre {
-  flex-shrink: 0; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 999px; display: inline-flex;
-  align-items: center; justify-content: center; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: var(--fs-2);
-}
+.accueil-tache .ico { flex-shrink: 0; width: 16px; height: 16px; margin-top: 3px; transform: rotate(-90deg); color: var(--text-faint); }
+.accueil-tache-nombre { flex-shrink: 0; min-width: 1.4em; font-family: var(--display); font-size: var(--fs-7); font-weight: 600; line-height: 1; color: var(--accent-dark); }
 .accueil-tache--alerte { border-color: var(--erreur); background: var(--erreur-soft); }
 .accueil-tache--alerte:hover { border-color: var(--erreur); background: var(--erreur-soft); }
-.accueil-tache--alerte .accueil-tache-nombre { background: var(--erreur); color: #fff; }
+.accueil-tache--alerte .accueil-tache-nombre { color: var(--erreur); }
+@media (max-width: 480px) { .accueil-a-traiter ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .accueil-panneaux { align-items: start; }
+/* deux colonnes indépendantes au-delà de 1 024 px : la journée à gauche, l'équipe à droite (plus de panneaux de
+   hauteurs inégales sur une même grille) */
+.accueil-colonnes { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; margin: 6px 0 22px; }
+.accueil-colonnes > .accueil-pile { display: grid; gap: 16px; min-width: 0; }
+@media (min-width: 1024px) { .accueil-colonnes { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); } }
+/* état de service, à côté du titre */
+.accueil-service { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border-radius: var(--radius); background: var(--ok-soft); border: 1px solid rgba(31, 138, 76, 0.35); font-size: var(--fs-2); }
+.accueil-service-point { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px rgba(31, 138, 76, 0.18); }
+.accueil-service strong { display: block; font-weight: 600; }
+.accueil-service small { display: block; color: var(--text-faint); font-size: var(--fs-1); }
+/* Mon compte : identité en tête (avatar, nom, étiquettes en lecture seule), état de service à droite */
+.compte-identite {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 22px; margin-bottom: 16px;
+}
+.compte-identite .admin-avatar { width: 56px; height: 56px; font-size: var(--fs-6); }
+.compte-identite-nom { margin: 0; font-family: var(--display); font-size: var(--fs-7); font-weight: 600; color: var(--text); }
+.compte-identite-pseudo { display: block; font-size: var(--fs-2); color: var(--text-faint); }
+.compte-identite-etiquettes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.compte-etiq { font-size: var(--fs-1); padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--ink2); white-space: nowrap; }
+.compte-etiq strong { color: var(--text); font-weight: 500; font-family: var(--mono); }
+.compte-etiq--grade { border-color: rgba({{couleur_rvb}}, 0.6); color: var(--text); background: var(--accent-soft); }
+.compte-identite-statut { display: grid; gap: 8px; justify-items: end; text-align: right; }
+@media (max-width: 640px) {
+  .compte-identite { grid-template-columns: auto minmax(0, 1fr); }
+  .compte-identite-statut { grid-column: 1 / -1; justify-items: start; text-align: left; }
+}
+.compte-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.compte-actions .btn { flex: 1 1 120px; }
+/* champ à valeur masquée (RIB) : l'œil sur le bord du champ, un seul cadre autour des deux */
+.champ-masque { display: flex; align-items: stretch; border: 1px solid var(--contour-champ); border-radius: var(--radius-sm); background: var(--bg2); overflow: hidden; }
+.champ-masque:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
+.champ-masque input { flex: 1; min-width: 0; width: auto; border: 0; background: none; }
+.champ-masque input:focus { outline: none; box-shadow: none; }
+.champ-masque-bouton { flex: none; border: 0; border-left: 1px solid var(--border); border-radius: 0; background: none; color: var(--text-faint); padding: 0 12px; cursor: pointer; display: flex; align-items: center; min-width: 44px; justify-content: center; }
+.champ-masque-bouton:hover, .champ-masque-bouton:focus-visible { background: var(--bg3); color: var(--text); outline: none; }
+/* chiffre relié à sa page : tout le bloc est le lien, pas seulement le libellé */
+.accueil-chiffre-lien { display: block; color: inherit; text-decoration: none; }
+.accueil-chiffre-lien:hover .accueil-chiffre-libelle { color: var(--accent-dark); }
 .accueil-sous-titre { margin: 16px 0 2px; font-family: var(--body); font-size: var(--fs-1); font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
 .accueil-panneau .admin-service-liste { padding: 0; overflow: visible; max-height: none; }
 .accueil-panneau .admin-service-liste li { padding: 9px 0; border-radius: 0; gap: 2px; }
@@ -2385,6 +2425,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .logo-connexion { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; font-family: var(--display); font-weight: 700; font-size: var(--fs-6); color: var(--text); text-align: center; }
 .compte-panneau { max-width: 640px; margin-bottom: 24px; }
 .compte-panneau form { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.accueil-pile > .compte-panneau { max-width: none; margin-bottom: 0; }   /* dans une colonne : l'écart est celui de la pile, pas une marge de plus */
 .compte-supprimer { max-width: 640px; }
 /* bouton de connexion : le libellé passe à la ligne plutôt que d'être coupé sur téléphone */
 .btn.bouton-discord { height: auto; min-height: 44px; padding: 10px 20px; white-space: normal; text-align: center; }
