@@ -2,6 +2,7 @@
 // (téléphone, RIB — jamais le grade ni l'ID, réservés à un supérieur RH) et son quota de run de la semaine.
 import { Router } from 'express';
 import { body, valide } from '../../socle/http.js';
+import { fichesPaiePubliees } from '../dot.js';
 import { traiter } from '../refus.js';
 import { definirMaFiche, maFiche } from '../rh.js';
 import { monQuota } from '../run.js';
@@ -12,6 +13,12 @@ export const compte = Router();
 compte.get('/api/moi/fiche', ...valide, async (req, res) => {
   const fiche = await maFiche(req.compte.discordId);
   res.json({ fiche, quota: fiche ? await monQuota(fiche.id) : null, sanctions: fiche ? await sanctionsDe(fiche.id) : [] });
+});
+
+// mes fiches de paie publiées : seulement si une fiche employé est reliée à mon compte Discord
+compte.get('/api/moi/fiches-paie', ...valide, async (req, res) => {
+  const fiche = await maFiche(req.compte.discordId);
+  res.json({ fiches: fiche ? await fichesPaiePubliees(fiche.id) : [] });
 });
 
 compte.patch('/api/moi/fiche', ...valide, traiter(async (req, res) => {

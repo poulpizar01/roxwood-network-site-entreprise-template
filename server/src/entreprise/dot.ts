@@ -187,6 +187,42 @@ export async function resumeDot(iso: string, salariesPrecalcules?: Awaited<Retur
 // ---------- verrouillage (figer une semaine) ----------
 // Calcule le résumé, le tableau des salariés et les mouvements de la semaine, puis les fige dans une déclaration :
 // plus aucun recalcul ensuite, même si le barème, le relevé Tablettes ou le solde bancaire changent après coup.
+// ---------- fiches de paie publiées : « Publier » fige la publication d'une semaine déjà verrouillée ;
+// « Payé » se coche ensuite par employé, à part du résumé figé (compta_dot_declarations.salaries ne change plus) ----------
+export async function publierFichesPaie(iso: string): Promise<void> {
+  const semaine = semaineDate(iso);
+  const d = await prisma.declarationDot.findUnique({ where: { semaine }, select: { publieeLe: true } });
+  if (!d) throw new Refus('Cette semaine n’est pas encore verrouillée : validez d’abord la déclaration.', 409);
+  if (d.publieeLe) return;   // déjà publiée : idempotent (double clic, nouvelle tentative réseau)
+  await prisma.declarationDot.update({ where: { semaine }, data: { publieeLe: new Date() } });
+}
+
+export async function marquerFichePaiePayee(iso: string, employeId: number, paye: boolean): Promise<void> {
+  const semaine = semaineDate(iso);
+  if (!await prisma.declarationDot.findUnique({ where: { semaine }, select: { semaine: true } }))
+    throw new Refus('Cette semaine n’est pas encore verrouillée.', 409);
+  if (paye) await prisma.paiementFicheDot.upsert({ where: { semaine_employeId: { semaine, employeId } }, create: { semaine, employeId }, update: {} });
+  else await prisma.paiementFicheDot.deleteMany({ where: { semaine, employeId } });
+}
+
+// fiches de paie publiées d'un employé (« Mon compte », routes/compte.ts) : les 20 dernières semaines publiées où il
+// figure dans le tableau des salariés figé. Seulement ce qui le concerne : jamais le CA ni les quotas de la ligne.
+export async function fichesPaiePubliees(employeId: number) {
+  const declarations = await prisma.declarationDot.findMany({
+    where: { publieeLe: { not: null } }, orderBy: { semaine: 'desc' }, take: 20,
+    select: { semaine: true, salaries: true },
+  });
+  const paiements = declarations.length ? await prisma.paiementFicheDot.findMany({ where: { employeId, semaine: { in: declarations.map(d => d.semaine) } }, select: { semaine: true } }) : [];
+  const payees = new Set(paiements.map(p => p.semaine.getTime()));
+  return declarations
+    .map(d => {
+      const salaries = d.salaries as { agents?: { employeId: number; grade: string; heuresServiceMinutes: number; salaireTotal: number; prime: number }[] };
+      const ligne = salaries.agents?.find(a => a.employeId === employeId);
+      return ligne ? { semaine: jourDeSemaineParis(d.semaine), grade: ligne.grade, heuresServiceMinutes: ligne.heuresServiceMinutes, salaireTotal: ligne.salaireTotal, prime: ligne.prime, paye: payees.has(d.semaine.getTime()) } : null;
+    })
+    .filter((f): f is NonNullable<typeof f> => f !== null);
+}
+
 // `compteId` null = verrouillage automatique (verrouillage-dot.ts), sinon manuel (« Valider la déclaration »).
 export async function construireEtVerrouiller(iso: string, compteId: number | null, statut: 'validee' | 'auto') {
   if (await estVerrouillee(iso)) throw new Refus('Cette semaine est déjà verrouillée.', 409);

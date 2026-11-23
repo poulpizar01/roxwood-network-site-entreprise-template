@@ -153,6 +153,7 @@
               <h3 class="compta-titre" id="dot-titre-salaries">Tableau des salariés</h3>
               <p class="compta-aide" id="dot-salaries-resume">Run et facture : quotas réels de la semaine. Vente et CA total réalisé : relevé Tablettes. Heures : service du bot, sans anomalie (RH → Services). Salaire : fixe du grade, palier atteint et paie à l'heure. Prime : à saisir ici.</p>
             </div>
+            <button type="button" class="btn btn-fantome cache" id="bouton-publier-fiches">Publier les fiches de paie</button>
             <button type="button" class="btn btn-or" id="bouton-copier-salaries"><svg class="ico" aria-hidden="true"><use href="#ico-copy"></use></svg> Copier le tableau</button>
           </div>
           <details class="dot-aide-repliable">
@@ -165,7 +166,7 @@
           <div class="carte-table">
             <table class="table-admin dot-salaries">
               <thead>
-                <tr><th data-titre>Nom du salarié</th><th>Grade</th><th class="dot-montant">Run</th><th class="dot-montant">Facture</th><th class="dot-montant">Vente</th><th class="dot-montant">CA total réalisé</th><th class="dot-montant">Heures</th><th class="dot-montant">Salaire</th><th class="dot-montant">Prime</th></tr>
+                <tr><th data-titre>Nom du salarié</th><th>Grade</th><th class="dot-montant">Run</th><th class="dot-montant">Facture</th><th class="dot-montant">Vente</th><th class="dot-montant">CA total réalisé</th><th class="dot-montant">Heures</th><th class="dot-montant">Salaire</th><th class="dot-montant">Prime</th><th class="dot-col-paye" id="dot-colonne-paye" hidden>Payé</th></tr>
               </thead>
               <tbody id="corps-table-dot-salaries"></tbody>
             </table>

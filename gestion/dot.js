@@ -294,14 +294,43 @@ async function chargerDotSalaries() {
               ? `<strong>${formaterArgentStats(a.prime)}</strong>`
               : `<input type="number" class="table-input dot-prime" min="0" step="1" inputmode="numeric" value="${a.prime}" data-prime-employe="${a.employeId}" aria-label="Prime de ${echapper(a.nom)}">`}<span class="visuellement-cache" data-texte-plafond></span></td>
           </tr>`).join("")
-      : `<tr><td colspan="9" class="champ-aide">Aucun employé actif : les fiches se créent dans Ressources humaines.</td></tr>`;
+      : `<tr><td colspan="10" class="champ-aide">Aucun employé actif : les fiches se créent dans Ressources humaines.</td></tr>`;
     corps.querySelectorAll("[data-prime-employe]").forEach(input => input.addEventListener("change", () => enregistrerPrimeSalarie(input)));
+    // fiches de paie : une semaine verrouillée se publie, puis se coche « Payé » employé par employé
+    document.getElementById("dot-colonne-paye").hidden = !verrouillee;
+    if (verrouillee) {
+      corps.querySelectorAll("tr[data-employe]").forEach(tr => {
+        const a = DOT_SALARIES.find(x => String(x.employeId) === tr.dataset.employe);
+        tr.insertAdjacentHTML("beforeend", `<td class="dot-col-paye"><input type="checkbox" data-paye-employe="${a.employeId}" aria-label="Fiche de paie réglée : ${echapper(a.nom)}"${a.paye ? " checked" : ""}></td>`);
+      });
+      corps.querySelectorAll("[data-paye-employe]").forEach(c => c.addEventListener("change", () => marquerPaye(c)));
+    }
+    const publier = document.getElementById("bouton-publier-fiches");
+    publier.classList.toggle("cache", !verrouillee || !!r.publieeLe);
+    DOT_PUBLIEE_LE = r.publieeLe || null;
     majResumeSalaries(verrouillee);
     majAlertesPlafonds();
   } catch (e) {
     corps.innerHTML = `<tr><td colspan="9" class="champ-aide">Le tableau des salariés n’a pas pu se charger (${echapper(e.message)}). Rechargez la page.</td></tr>`;
   }
 }
+
+let DOT_PUBLIEE_LE = null;
+async function marquerPaye(c) {
+  c.disabled = true;
+  try { await socle.api(`/api/compta/dot/salaries/${c.dataset.payeEmploye}/paye?semaine=${DOT_SEMAINE}`, { method: "PUT", body: { paye: c.checked } }); }
+  catch (e) { c.checked = !c.checked; gestion.message("zone-message-dot", "Paiement non enregistré : " + e.message); }
+  finally { c.disabled = false; }
+}
+document.getElementById("bouton-publier-fiches").addEventListener("click", async () => {
+  const ok = await gestion.confirmer(`Chaque salarié verra sa fiche de paie de la semaine du ${dateLongue(DOT_SEMAINE)} dans « Mon compte ». Une fois publiée, une fiche ne se retire plus.`, "Publier les fiches de paie ?", "Publier", { danger: false });
+  if (!ok) return;
+  try {
+    await socle.api("/api/compta/dot/publier", { method: "POST", body: { semaine: DOT_SEMAINE } });
+    gestion.notifier("Fiches de paie publiées ✓");
+    await chargerDotSalaries();
+  } catch (e) { gestion.message("zone-message-dot", "Fiches non publiées : " + e.message); }
+});
 
 function majResumeSalaries(verrouillee) {
   const n = DOT_SALARIES.length;

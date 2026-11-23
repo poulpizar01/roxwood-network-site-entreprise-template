@@ -52,6 +52,11 @@
           <p class="champ-aide" id="run-periode">Unités vendues en jeu cette semaine.</p>
           <div id="run-barre-conteneur"></div>
         </section>
+        <section class="accueil-panneau compte-panneau" aria-labelledby="titre-paie" id="section-paie" hidden>
+          <h2 class="compta-titre" id="titre-paie">Mes fiches de paie</h2>
+          <p class="champ-aide">Publiées par la comptabilité.</p>
+          <ul class="rh-historique" id="mes-fiches-paie"></ul>
+        </section>
         <section class="accueil-panneau compte-panneau" aria-labelledby="titre-sanctions" id="section-sanctions" hidden>
           <h2 class="compta-titre" id="titre-sanctions">Mes sanctions</h2>
           <ul class="rh-historique" id="mes-sanctions"></ul>
@@ -132,6 +137,15 @@
       $('infos-telephone').value = TEL_ENREGISTRE;
       $('infos-rib').value = RIB_ENREGISTRE;
     }
+    // une fiche par semaine publiée : salaire, prime, heures de service ; « Payée » une fois réglée
+    const argent = n => `${Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} $`;
+    function afficherFichesPaie(fiches) {
+      $('section-paie').hidden = !fiches.length;
+      $('mes-fiches-paie').innerHTML = fiches.map(f => `<li>
+        <span class="sanction-type${f.paye ? '' : ' sanction-type--aucun'}"${f.paye ? ' style="--vis:var(--ok)"' : ''}>${f.paye ? 'Payée' : 'À régler'}</span>
+        <span><strong>Semaine du ${echapper(new Date(`${f.semaine}T12:00:00Z`).toLocaleDateString('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'long' }))}</strong> · salaire ${argent(f.salaireTotal)}${f.prime ? `, dont prime ${argent(f.prime)}` : ''}${f.heuresServiceMinutes ? ` · ${Math.floor(f.heuresServiceMinutes / 60)} h ${String(f.heuresServiceMinutes % 60).padStart(2, '0')} de service` : ''}</span>
+      </li>`).join('');
+    }
     function afficherSanctions(sanctions) {
       $('section-sanctions').hidden = !sanctions || !sanctions.length;
       if (!sanctions || !sanctions.length) return;
@@ -144,6 +158,7 @@
     gestion.coque('compte').then(afficher).catch(e => gestion.message('zone-message', e.message));
     socle.api('/api/moi/fiche').then(({ fiche, quota, sanctions }) => { afficherFiche(fiche); afficherQuota(quota); afficherSanctions(sanctions); })
       .catch(e => gestion.message('zone-message', e.message));
+    socle.api('/api/moi/fiches-paie').then(({ fiches }) => afficherFichesPaie(fiches)).catch(() => {});   // un échec ici ne gêne pas le reste de la page
     async function chargerMonService(recharger = false) {
       try {
         const { enService } = await gestion.servicesEnCours(recharger);

@@ -10,7 +10,7 @@ import { body, intParam, permission } from '../../socle/http.js';
 import { definirReglage } from '../../socle/reglages.js';
 import {
   CLE_SOLDE_BANCAIRE, TYPES_ECRITURE, construireEtVerrouiller, corrigerLigneTotale, dernierReleve, ecrituresBrutes,
-  enregistrerReleve, estVerrouillee, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
+  enregistrerReleve, estVerrouillee, marquerFichePaiePayee, publierFichesPaie, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
 } from '../dot.js';
 import { verifierFacturationContrat } from '../contrats.js';
 import { classementFactures, definirQuotaFacture, quotasFacture } from '../facture.js';
@@ -371,9 +371,31 @@ compta.put('/api/compta/dot/solde-bancaire', ...gerer, traiter(async (req, res) 
 // ---------- tableau des salariés (à coller dans le document de la DOT) ----------
 compta.get('/api/compta/dot/salaries', ...gerer, async (req, res) => {
   const semaine = semaineDemandee(req.query.semaine);
-  const declaree = await prisma.declarationDot.findUnique({ where: { semaine: semaineDate(semaine) }, select: { salaries: true } });
-  res.json(declaree ? { ...(declaree.salaries as object), semaine, verrouillee: true } : { ...await salariesDot(semaine), semaine, verrouillee: false });
+  const declaree = await prisma.declarationDot.findUnique({ where: { semaine: semaineDate(semaine) }, select: { salaries: true, publieeLe: true } });
+  if (!declaree) { res.json({ ...await salariesDot(semaine), semaine, verrouillee: false }); return; }
+  const salaries = declaree.salaries as { agents?: { employeId: number }[] };
+  const paiements = await prisma.paiementFicheDot.findMany({ where: { semaine: semaineDate(semaine) }, select: { employeId: true } });
+  const payes = new Set(paiements.map(p => p.employeId));
+  res.json({
+    ...salaries, agents: (salaries.agents ?? []).map(a => ({ ...a, paye: payes.has(a.employeId) })),
+    semaine, verrouillee: true, publieeLe: declaree.publieeLe,
+  });
 });
+
+// « Publier » : les fiches de paie de la semaine (déjà verrouillée) deviennent visibles dans « Mon compte » de chaque
+// employé. « Payé » : coché ensuite, employé par employé.
+compta.post('/api/compta/dot/publier', ...gerer, traiter(async (req, res) => {
+  const semaine = semaineDemandee(body(req).semaine);
+  await publierFichesPaie(semaine);
+  res.json({ ok: true, semaine });
+}));
+
+compta.put('/api/compta/dot/salaries/:employeId/paye', ...gerer, traiter(async (req, res) => {
+  const employeId = intParam(req, 'employeId');
+  const semaine = semaineDemandee(req.query.semaine);
+  await marquerFichePaiePayee(semaine, employeId, body(req).paye === true);
+  res.json({ ok: true });
+}));
 
 // Prime d'un employé, saisie pour une semaine non verrouillée (tableau des salariés) : entre dans « Montant total des
 // primes » du résumé DOT.

@@ -286,8 +286,22 @@ model DeclarationDot {
   resume   Json
   salaries Json
   ecritures Json
+  // fiches de paie : la semaine doit être verrouillée avant de pouvoir être publiée (bouton à part, « Mon compte » ne
+  // lit que les semaines publiées) ; null = pas encore publiée.
+  publieeLe DateTime? @map("publiee_le") @db.Timestamptz(6)
 
   @@map("compta_dot_declarations")
+}
+
+// Paiement d'une fiche de paie publiée, par employé et par semaine — à part du JSON figé `salaries` (qui ne change
+// plus une fois la semaine verrouillée) : seul ce qui reste modifiable après coup (case « Payé »).
+model PaiementFicheDot {
+  semaine   DateTime @db.Date
+  employeId Int      @map("employe_id")
+  payeLe    DateTime @default(now()) @map("paye_le") @db.Timestamptz(6)
+
+  @@id([semaine, employeId])
+  @@map("paiements_fiche_dot")
 }
 
 // Barème d'imposition de la DOT (fixé par l'organisme du serveur RP, le même pour toutes les entreprises) : rempli par
