@@ -11,7 +11,7 @@ import { reglage } from '../../socle/reglages.js';
 import { ajouterSanction, listeTypesSanction, retirerSanction, toutesSanctions } from '../sanctions.js';
 import { terminerServiceDe } from '../services.js';
 import { traiter } from '../refus.js';
-import { jourValide, versDate } from '../texte.js';
+import { jourParis, jourValide, versDate } from '../texte.js';
 
 export const rh = Router();
 const voir = permission('rh-voir');
@@ -191,6 +191,12 @@ rh.patch('/api/rh/employes/:id', ...voir, exiger('modifier', 'Vous n’avez pas 
 
 // départ : statut inactif + date de départ (aujourd'hui si elle n'est pas donnée) ; réactivation : statut actif, date
 // de départ effacée. Rien d'autre ne change : l'historique reste rattaché à la fiche.
+// une fiche inactive garde la clé de son grade : si ce grade a été supprimé depuis, la réactivation lui rendrait un
+// grade qui n'existe plus (aucun droit, paie à zéro)
+function gradeExistePourReactivation(gradeCle: string) {
+  if (!gradeDe(gradeCle)) throw new Refus('Le grade de cette fiche n’existe plus : choisissez-en un autre avant de la réactiver.');
+}
+
 async function changerStatut(req: Request, res: Response, statut: 'actif' | 'inactif') {
   const e: Employe | null = await prisma.employe.findUnique({ where: { id: intParam(req, 'id') } });
   if (!e) throw new Refus('Employé introuvable.', 404);
@@ -198,11 +204,11 @@ async function changerStatut(req: Request, res: Response, statut: 'actif' | 'ina
   if (e.statut === statut) { res.json({ ok: true, inchange: true }); return; }
   let dateDepart: Date | null = null;
   if (statut === 'inactif') {
-    const v = String(body(req).dateDepart ?? '') || new Date().toISOString().slice(0, 10);
+    const v = String(body(req).dateDepart ?? '') || jourParis();
     if (!jourValide(v)) throw new Refus('La date de départ doit être une date valide (AAAA-MM-JJ).');
     dateDepart = versDate(v);
     if (e.dateArrivee && dateDepart < e.dateArrivee) throw new Refus('La date de départ ne peut pas précéder la date d’arrivée.');
-  } else await verifierDroitsDuCompte(req, e.discordId, e.gradeCle);   // réactiver redonne le grade de la fiche
+  } else { gradeExistePourReactivation(e.gradeCle); await verifierDroitsDuCompte(req, e.discordId, e.gradeCle); }   // réactiver redonne le grade de la fiche
   await prisma.employe.update({ where: { id: e.id }, data: { statut, dateDepart } });
   await actualiserGrades([e.discordId]);   // départ : le compte retombe sur son rôle Discord
   res.json({ ok: true, employe: nomComplet(e) });

@@ -32,6 +32,8 @@ before(async () => {
   await fiche('zz-test-3', GRADES.bas, { statut: 'inactif', discordId: D.sup, dateDepart: new Date() });
   // un service ouvert à terminer (sans lui, terminerServiceDe répond 404, ce qui masquerait la règle testée)
   await prisma.service.createMany({ data: [ficheSup, ficheBas].map((employeId, i) => ({ serviceId: `zz-test-s${i}`, employeNom: 'Test', employeId, debut: new Date() })) });
+  // fiche inactive dont le grade a été supprimé depuis (aucun grade de ce nom)
+  await fiche('zz-test-4', 'zz-test-fantome', { statut: 'inactif', dateDepart: new Date() });
   typeId = (await prisma.typeSanction.create({ data: { nom: 'zz-test', couleur: '#aa0000' } })).id;
   sanctionSup = (await prisma.sanction.create({ data: { employeId: ficheSup, typeId, note: 'zz-test' } })).id;
 
@@ -77,5 +79,11 @@ test('réactiver une fiche reliée à un compte supérieur ne change pas le grad
   const r = await appeler('POST', `/api/rh/employes/${fiche.id}/reactiver`);
   assert.equal(r.status, 403);
   assert.equal((await prisma.compte.findUniqueOrThrow({ where: { discordId: D.sup } })).gradeCle, GRADES.sup);
+  assert.equal((await prisma.employe.findUniqueOrThrow({ where: { id: fiche.id } })).statut, 'inactif');
+});
+
+test('réactiver une fiche dont le grade n’existe plus est refusé', async () => {
+  const fiche = await prisma.employe.findFirstOrThrow({ where: { idUnique: 'zz-test-4' } });
+  assert.equal((await appeler('POST', `/api/rh/employes/${fiche.id}/reactiver`)).status, 400);
   assert.equal((await prisma.employe.findUniqueOrThrow({ where: { id: fiche.id } })).statut, 'inactif');
 });

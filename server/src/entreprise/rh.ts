@@ -53,7 +53,11 @@ export async function definirMaFiche(discordId: string | null | undefined, b: Re
   if (!discordId) throw new Refus('Aucune fiche employé n’est reliée à votre compte Discord.', 404);
   const e = await prisma.employe.findUnique({ where: { discordId } });
   if (!e) throw new Refus('Aucune fiche employé n’est reliée à votre compte Discord.', 404);
-  await prisma.employe.update({ where: { id: e.id }, data: { telephone: texte(b.telephone, 30), rib: texte(b.rib, 60) } });
+  // seuls les champs envoyés changent : un appel qui ne porte que le téléphone ne doit pas effacer le RIB (ni l'inverse)
+  const data: { telephone?: string; rib?: string } = {};
+  if (b.telephone !== undefined) data.telephone = texte(b.telephone, 30);
+  if (b.rib !== undefined) data.rib = texte(b.rib, 60);
+  if (Object.keys(data).length) await prisma.employe.update({ where: { id: e.id }, data });
 }
 
 // ordre d'affichage : actifs d'abord, puis par grade (position dans la page Grades), puis par nom
@@ -116,7 +120,12 @@ export function lireChamps(b: Record<string, unknown>, existante: Employe | null
     c.statut = b.statut;
   }
   const arrivee = c.dateArrivee !== undefined ? c.dateArrivee : existante?.dateArrivee;
-  const depart = c.dateDepart !== undefined ? c.dateDepart : existante?.dateDepart;
+  let depart = c.dateDepart !== undefined ? c.dateDepart : existante?.dateDepart;
+  // une fiche inactive a toujours une date de départ (à défaut, celle du jour, comme le bouton « Désactiver ») et
+  // une fiche active n'en a jamais (comme « Réactiver ») : sinon le statut et la date se contredisent
+  const statutFinal = c.statut ?? existante?.statut;
+  if (statutFinal === 'inactif' && !depart) { depart = versDate(jourParis()); c.dateDepart = depart; }
+  if (statutFinal === 'actif' && depart) { depart = null; c.dateDepart = null; }
   if (arrivee && depart && depart < arrivee) throw new Refus('La date de départ ne peut pas précéder la date d’arrivée.');
   return c;
 }
