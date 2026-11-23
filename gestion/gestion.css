@@ -615,10 +615,16 @@ label, .eyebrow-label {
 .admin-barre-laterale { gap: 4px; }
 .admin-barre-laterale a.logo { margin-bottom: 12px !important; }
 .admin-barre-laterale a.logo img { height: auto; width: 150px; max-width: 100%; }
+.admin-nav-section { display: flex; flex-direction: column; gap: 1px; }
+.admin-nav-section > summary { list-style: none; cursor: pointer; }
+.admin-nav-section > summary::-webkit-details-marker { display: none; }
+.admin-nav-section > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-sm); }
 .admin-nav-groupe {
-  margin: 0; padding: 14px 14px 6px; font-size: var(--fs-1); letter-spacing: 0.22em; text-transform: uppercase;
-  color: var(--accent-dark); font-weight: 500;
+  margin: 0; padding: 14px 14px 6px; display: flex; align-items: center; justify-content: space-between;
+  font-size: var(--fs-1); letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent-dark); font-weight: 500;
 }
+.admin-nav-groupe .ico { width: 14px; height: 14px; transform: rotate(-90deg); transition: transform var(--transition); }
+.admin-nav-section[open] > .admin-nav-groupe .ico { transform: rotate(0deg); }
 .admin-barre-laterale button.lien-onglet, .admin-barre-laterale a.lien-onglet {
   display: flex; align-items: center; gap: 12px; padding: 10px 14px; font-size: var(--fs-4); color: var(--text-muted);
   font-family: var(--body); font-weight: 400; cursor: pointer; transition: background var(--transition), color var(--transition), box-shadow var(--transition);
@@ -1003,7 +1009,7 @@ img.admin-avatar { object-fit: cover; padding: 0; }
 }
 .admin-barre-laterale a.lien-onglet { padding: 7px 12px; line-height: 1.35; }
 .page-agents .admin-nav-groupe { padding: 9px 12px 3px; }
-.page-agents .admin-nav-groupe:first-child { padding-top: 4px; }
+.page-agents .admin-nav > details:first-of-type > .admin-nav-groupe { padding-top: 4px; }
 .admin-barre-laterale .admin-bas { margin-top: 0; padding-top: 8px; gap: 8px; border-top: 1px solid var(--border); }
 
 /* pied du menu : indicateur « En service » (ouvre le panneau), puis le compte avec l'aide et la déconnexion */
@@ -1204,7 +1210,7 @@ main.admin-contenu:focus { outline: none; }
 .page-agents .btn-petit { font-size: var(--fs-2); }
 .page-agents .btn-fantome, .page-agents .btn-danger { font-weight: 500; }
 .page-agents .stat-libelle { font-size: var(--fs-1); letter-spacing: 0.1em; }
-.page-agents .admin-nav-groupe { font-size: var(--fs-1); letter-spacing: 0.16em; }
+.page-agents .admin-nav-groupe { font-size: var(--fs-1); letter-spacing: 0.1em; gap: 8px; white-space: nowrap; }   /* un titre de groupe tient sur une ligne, chevron compris */
 .page-agents .admin-compte-grade { font-size: var(--fs-1); text-transform: none; letter-spacing: 0; }
 .page-agents .puce { font-size: var(--fs-1); text-transform: none; letter-spacing: 0; }
 .page-agents .champ label { font-size: var(--fs-2); font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--text-muted); }

@@ -116,7 +116,7 @@ const memoCoque = {
   // mémo d'une autre forme (laissé par une version précédente de la coque) : ignoré, sinon le menu plantait avant d'être posé
   lire() { try { const m = JSON.parse(sessionStorage.getItem(this.cle)); return m?.moi ? m : null; } catch { return null; } },
   ecrire(moi) {
-    const m = { moi: { nom: moi.nom, pseudo: moi.pseudo, avatar: moi.avatar, proprietaire: moi.proprietaire, grade: moi.grade ? { libelle: moi.grade.libelle } : null, permissions: moi.permissions } };
+    const m = { moi: { id: moi.id, nom: moi.nom, pseudo: moi.pseudo, avatar: moi.avatar, proprietaire: moi.proprietaire, grade: moi.grade ? { libelle: moi.grade.libelle } : null, permissions: moi.permissions } };
     try { sessionStorage.setItem(this.cle, JSON.stringify(m)); } catch { /* stockage refusé : menu dessiné à la réponse */ }
     return m;
   },
@@ -709,14 +709,41 @@ window.gestion = {
         <span class="pastille-service" aria-hidden="true"></span><span data-service-texte></span></button>
       <button type="button" class="admin-icone-bouton" data-aide-ouvrir aria-haspopup="dialog" title="Aide de cette page" aria-label="Aide de cette page">${ico('aide')}</button>
       <a href="compte.html" class="admin-barre-haut-compte" data-avatar aria-label="Mon compte"></a>`;
+    // groupes repliables : état (fermé ou non) mémorisé par compte, le groupe de la rubrique en cours s'ouvre
+    // toujours sans changer ce qui est mémorisé — sinon la rubrique active semblerait avoir disparu du menu.
+    // Toujours posés fermés dans le HTML, puis ouverts après coup par script (jamais l'attribut « open » dans le
+    // texte servi) : Chromium déclenche « toggle » même pour un <details open> tout juste posé par innerHTML, pas
+    // seulement pour un changement réel — sans ce détour, chaque affichage réécrirait l'état mémorisé.
+    let cleGroupes = null;
+    const ignores = new Set();
     const dessiner = (moi) => {
       // une page est ouverte par la permission « voir » ; ses commandes d'écriture (data-exige="clé") se masquent pour qui
       // n'a pas la permission « agir » (gestion.css, body.sans-<clé>) : le serveur refuse l'écriture de toute façon
       for (const cle of DROITS_ECRITURE) document.body.classList.toggle(`sans-${cle}`, !socle.peut(moi, cle));
-      // un groupe sans aucune rubrique visible n'est pas affiché
-      barre.querySelector('.admin-nav').innerHTML = gestion.rubriques(cle => socle.peut(moi, cle)).map(l => l.groupe
-        ? `<p class="admin-nav-groupe">${socle.esc(l.groupe)}</p>`
-        : `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`).join('');
+      cleGroupes = `gestion.groupesMenu.${moi.id}`;
+      let fermes;
+      try { fermes = new Set(JSON.parse(localStorage.getItem(cleGroupes)) || []); } catch { fermes = new Set(); }
+      const lien = l => `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`;
+      // un groupe sans aucune rubrique visible n'est pas affiché (gestion.rubriques)
+      const lignes = gestion.rubriques(cle => socle.peut(moi, cle));
+      let groupeActif = null, g = null;
+      for (const l of lignes) { if (l.groupe) g = l.groupe; else if (l.cle === rubrique) groupeActif = g; }
+      let html = '', groupeOuvert = false;
+      for (const l of lignes) {
+        if (l.groupe) {
+          if (groupeOuvert) html += '</details>';
+          html += `<details class="admin-nav-section" data-groupe="${socle.esc(l.groupe)}">
+            <summary class="admin-nav-groupe">${socle.esc(l.groupe)}${ico('chevron')}</summary>`;
+          groupeOuvert = true;
+        } else html += lien(l);
+      }
+      if (groupeOuvert) html += '</details>';
+      const nav = barre.querySelector('.admin-nav');
+      nav.innerHTML = html;
+      ignores.clear();
+      for (const d of nav.querySelectorAll('.admin-nav-section')) {
+        if (d.dataset.groupe === groupeActif || !fermes.has(d.dataset.groupe)) { ignores.add(d); d.open = true; }
+      }
       const nom = moi.nom || moi.pseudo;
       const grade = moi.grade?.libelle || (moi.proprietaire ? 'Super-admin' : 'Sans grade');
       const avatar = moi.avatar ? `<img class="admin-avatar" src="${socle.esc(moi.avatar)}" alt="">` : `<span class="admin-avatar" aria-hidden="true">${socle.esc(initiales(nom))}</span>`;
@@ -728,6 +755,16 @@ window.gestion = {
       haut.querySelector('[data-avatar]').innerHTML = avatar;
     };
     if (memo) dessiner(memo.moi);
+    // écoute en capture : « toggle » ne remonte pas d'un <details> à ses parents
+    barre.querySelector('.admin-nav').addEventListener('toggle', e => {
+      const d = e.target;
+      if (!cleGroupes || !(d instanceof HTMLDetailsElement) || !d.classList.contains('admin-nav-section')) return;
+      if (ignores.delete(d)) return;   // ouverture posée par dessiner(), pas un clic du compte
+      let fermes;
+      try { fermes = new Set(JSON.parse(localStorage.getItem(cleGroupes)) || []); } catch { fermes = new Set(); }
+      d.open ? fermes.delete(d.dataset.groupe) : fermes.add(d.dataset.groupe);
+      try { localStorage.setItem(cleGroupes, JSON.stringify([...fermes])); } catch { /* stockage refusé : état non mémorisé */ }
+    }, true);
     barre.addEventListener('click', e => {
       if (!e.target.closest('[data-deconnexion]')) return;
       memoCoque.effacer();
