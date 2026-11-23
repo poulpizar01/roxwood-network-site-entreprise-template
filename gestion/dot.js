@@ -781,7 +781,7 @@ document.getElementById("bouton-reinitialiser-tablette").addEventListener("click
 // ---------- graphique : évolution sur 12 semaines ----------
 // Une colonne = le CA brut d'une semaine découpé en ce qu'il devient : charges déductibles, impôt, primes et retraits, et le
 // bénéfice net (posé sur l'axe pour se comparer d'une semaine à l'autre ; sous l'axe, contour, s'il est négatif). Semaine
-// pas encore verrouillée : colonne en pointillés ; sans relevé Tablettes : emplacement hachuré. Un clic ouvre la semaine.
+// pas encore verrouillée : colonne en pointillés ; sans chiffre d'affaires : emplacement hachuré. Un clic ouvre la semaine.
 // Dessiné à la largeur réelle de la zone (1 unité = 1 px, textes lisibles), redessiné si elle change (ResizeObserver).
 // Un tableau masqué à l'écran, lu par un lecteur d'écran, porte les mêmes chiffres.
 const GRAPHIQUE_SERIES = [["net", "Bénéfice net"], ["impot", "Impôt"], ["sorties", "Primes et retraits"], ["charges", "Charges déductibles"]];
@@ -800,7 +800,7 @@ const moinsDot = v => `−${formaterArgentStats(v)}`;
 const pluralDot = (n, un, plusieurs) => `${n} ${n > 1 ? plusieurs : un}`;
 function resumeColonneDot(p) {
   const date = dateCourteDot(p.semaine);
-  if (p.vide) return `Semaine du ${date} : ${p.provisoire ? "pas encore de relevé Tablettes" : "verrouillée sans relevé Tablettes, exclue des moyennes"}.`;
+  if (p.vide) return `Semaine du ${date} : ${p.provisoire ? "pas encore de chiffre d’affaires (relevé Tablettes absent ou sans colonne « Total entreprise »)" : "verrouillée sans chiffre d’affaires, exclue des moyennes"}.`;
   return `Semaine du ${date}${p.provisoire ? " (provisoire)" : ""} : CA brut ${formaterArgentStats(p.ca)}, charges déductibles ${formaterArgentStats(p.charges)}, impôt ${formaterArgentStats(p.impot)}, primes et retraits ${formaterArgentStats(p.sorties)}, bénéfice net ${formaterArgentStats(p.net)}.`;
 }
 function dessinerGraphiqueDot() {
@@ -828,7 +828,7 @@ function dessinerGraphiqueDot() {
   // repères
   const sans = rep.semainesSansReleve, perte = rep.semainesEnPerte;
   const reperes = [
-    ["CA brut moyen", rep.caMoyen, rep.semainesDeclarees ? `sur ${pluralDot(rep.semainesDeclarees, "semaine déclarée", "semaines déclarées")}${sans ? ` (${sans} sans relevé)` : ""}` : "aucune semaine déclarée"],
+    ["CA brut moyen", rep.caMoyen, rep.semainesDeclarees ? `sur ${pluralDot(rep.semainesDeclarees, "semaine déclarée", "semaines déclarées")}${sans ? ` (${sans} sans CA)` : ""}` : "aucune semaine déclarée"],
     ["Impôt versé sur la période", rep.impotTotal, rep.tauxEffectif == null ? "aucune semaine déclarée" : `taux effectif ${(rep.tauxEffectif * 100).toFixed(1).replace(".", ",")} % du CA`],
     ["Bénéfice net moyen", rep.netMoyen, !rep.semainesDeclarees ? "aucune semaine déclarée" : perte.length ? `${pluralDot(perte.length, "semaine en perte", "semaines en perte")} (${perte.map(dateCourteDot).join(", ")})` : "aucune semaine en perte"],
   ].map(([libelle, valeur, detail]) => `<div class="dot-repere"><span>${libelle}</span><strong>${valeur == null ? "—" : formaterArgentStats(valeur)}</strong><small>${detail}</small></div>`).join("");
@@ -845,7 +845,7 @@ function dessinerGraphiqueDot() {
     svg += `<g class="dot-g-col" tabindex="0" role="button" data-i="${i}" aria-label="${resumeColonneDot(p)} Ouvrir cette semaine dans la déclaration."><rect class="dot-g-fond" x="${g + i * pas + 2}" y="${haut}" width="${pas - 4}" height="${H - haut - bas + 18}" rx="6"></rect>`;
     if (p.vide) {
       const h = y(T * 0.3);
-      svg += `<rect class="dot-g-trou" x="${x}" y="${h}" width="${lb}" height="${zero - h}" rx="4" fill="url(#dot-hach)"></rect>${tresSerre ? "" : `<text class="dot-g-axe" x="${cx}" y="${h - 8}" text-anchor="middle"><tspan x="${cx}" dy="-15">Pas de</tspan><tspan x="${cx}" dy="15">relevé</tspan></text>`}`;
+      svg += `<rect class="dot-g-trou" x="${x}" y="${h}" width="${lb}" height="${zero - h}" rx="4" fill="url(#dot-hach)"></rect>${tresSerre ? "" : `<text class="dot-g-axe" x="${cx}" y="${h - 8}" text-anchor="middle"><tspan x="${cx}" dy="-15">Pas de</tspan><tspan x="${cx}" dy="15">CA</tspan></text>`}`;
     } else {
       const segments = [];
       let base = Math.max(p.net, 0);
@@ -854,6 +854,8 @@ function dessinerGraphiqueDot() {
       segments.forEach(([cle, a, b], j) => {
         const haute = y(b), h = Math.max(0, y(a) - haute - 2);   // 2 px d'écart entre deux segments
         svg += `<rect class="dot-g-${cle}${prov}" x="${x}" y="${haute}" width="${lb}" height="${h}" rx="${j === segments.length - 1 ? 4 : 1.5}"></rect>`;
+        // le montant dans la bande quand elle est assez haute et la colonne assez large pour le lire (sinon au survol)
+        if (h >= 18 && lb >= 34) svg += `<text class="dot-g-seg" x="${cx}" y="${haute + h / 2 + 4}" text-anchor="middle">${kDot(b - a)}</text>`;
       });
       if (p.net < 0) svg += `<rect class="dot-g-perte" x="${x}" y="${zero + 1}" width="${lb}" height="${y(p.net) - zero}" rx="4"></rect><rect class="dot-g-perte-int" x="${x + 3}" y="${zero + 4}" width="${lb - 6}" height="${Math.max(0, y(p.net) - zero - 6)}" rx="2"></rect><text class="dot-g-perte-val" x="${cx}" y="${y(p.net) + 14}" text-anchor="middle">${kDot(p.net)}</text>`;
       if (dernieresPleines.includes(p)) svg += `<text class="dot-g-valeur" x="${cx}" y="${y(Math.max(p.ca, pile(p))) - 7}" text-anchor="middle">${kDot(p.ca)}</text>`;
@@ -864,12 +866,12 @@ function dessinerGraphiqueDot() {
   });
   svg += `</svg>`;
 
-  const statut = p => p.vide ? "Sans relevé" : p.provisoire ? "Provisoire" : "Verrouillée";
+  const statut = p => p.vide ? "Sans CA" : p.provisoire ? "Provisoire" : "Verrouillée";
   zone.innerHTML = `
     <div class="dot-reperes">${reperes}</div>
     <div class="dot-graphique-legende">${GRAPHIQUE_SERIES.map(([cle, libelle]) => `<span class="dot-graphique-legende-item"><span class="dot-graphique-pastille" style="background:var(--s-${cle})"></span>${libelle}</span>`).join("")}</div>
     <div class="dot-graphique-zone" id="dot-graphique-zone">${svg}<div class="dot-bulle" id="dot-bulle" aria-hidden="true"></div></div>
-    <p class="dot-graphique-pied">Colonne en pointillés : semaine pas encore verrouillée. Hachures : semaine verrouillée sans relevé Tablettes. Un clic sur une colonne ouvre cette semaine dans la déclaration.</p>
+    <p class="dot-graphique-pied">Colonne en pointillés : semaine pas encore verrouillée. Hachures : semaine sans chiffre d’affaires (relevé Tablettes absent, ou sans colonne « Total entreprise », et aucune recette). Un clic sur une colonne ouvre cette semaine dans la déclaration.</p>
     <div class="visuellement-cache"><table>
       <caption>Évolution sur 12 semaines : chiffre d’affaires et son découpage, par semaine</caption>
       <thead><tr><th>Semaine</th><th>État</th><th>CA brut</th><th>Charges déductibles</th><th>Impôt</th><th>Primes et retraits</th><th>Bénéfice net</th></tr></thead>
@@ -881,7 +883,7 @@ function dessinerGraphiqueDot() {
   const montrer = el => {
     const p = pts[Number(el.dataset.i)], date = dateCourteDot(p.semaine);
     bulle.innerHTML = p.vide
-      ? `<b>Semaine du ${date}</b><div class="l"><span>${p.provisoire ? "Pas encore de relevé Tablettes" : "Verrouillée sans relevé Tablettes"}</span></div>${p.provisoire ? "" : `<div class="note">Exclue des moyennes.</div>`}`
+      ? `<b>Semaine du ${date}</b><div class="l"><span>${p.provisoire ? "Pas encore de chiffre d’affaires" : "Verrouillée sans chiffre d’affaires"}</span></div>${p.provisoire ? "" : `<div class="note">Exclue des moyennes.</div>`}`
       : `<b>Semaine du ${date}${p.provisoire ? " · provisoire" : ""}</b>
          <div class="l"><span>CA brut</span><span>${formaterArgentStats(p.ca)}</span></div>
          <div class="l"><span>Charges déductibles</span><span>${moinsDot(p.charges)}</span></div>

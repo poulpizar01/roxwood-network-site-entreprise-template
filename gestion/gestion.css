@@ -3155,6 +3155,7 @@ a.aide-pas:hover b, a.aide-pas:focus-visible b { text-decoration: underline; }
 .dot-g-lib { fill: var(--text-muted); font-size: 12px; }
 .dot-g-lib.actif { fill: var(--text); font-weight: 600; }
 .dot-g-valeur { fill: var(--text-muted); font-size: 12px; }
+.dot-g-seg { fill: var(--text); font-size: 12px; font-weight: 600; pointer-events: none; }   /* montant dans la bande */
 .dot-g-grille { stroke: var(--border); }
 .dot-g-zero { stroke: var(--text-faint); stroke-opacity: .6; }
 .dot-g-col { cursor: pointer; }
