@@ -33,11 +33,25 @@ function pasSaPropreFiche(req: Request, discordId: string | null | undefined) {
 // compte déjà validé, c'est changer ses droits, comme dans Comptes : il faut aussi la permission « comptes ». Un compte
 // en attente n'a aucun droit tant qu'il n'est pas validé (dans Comptes, donc par quelqu'un qui l'a).
 async function verifierDroitsDuCompte(req: Request, discordId: string | null | undefined, gradeCle: string) {
-  if (!discordId || peut(req.compte, 'comptes')) return;
-  const c = await prisma.compte.findUnique({ where: { discordId }, select: { statut: true, gradeCle: true } });
-  if (c?.statut === 'valide' && c.gradeCle !== gradeCle) {
+  if (!discordId || req.compte.proprietaire) return;
+  const c = await prisma.compte.findUnique({ where: { discordId }, select: { statut: true, gradeCle: true, proprietaire: true } });
+  if (c?.statut !== 'valide' || c.gradeCle === gradeCle) return;
+  if (!peut(req.compte, 'comptes')) {
     throw new Refus('Ce grade change les droits sur le site d’un compte déjà validé : il faut aussi la permission « Gérer les comptes ».', 403);
   }
+  // comme dans Comptes : on ne change le grade que d'un compte sous le sien (sinon une fiche rétrograderait un supérieur)
+  if (c.proprietaire || !auDessusDe(req.compte, c.gradeCle)) {
+    throw new Refus('Ce compte a un grade égal ou supérieur au vôtre : son grade ne peut pas être changé depuis une fiche.', 403);
+  }
+}
+
+// fiche visée par une route de la page :id : introuvable → 404 ; grade égal ou supérieur, ou sa propre fiche → refus
+// (même règle que la modification de la fiche). À appeler avant tout effet de bord.
+async function ficheSousMonGrade(req: Request): Promise<Employe> {
+  const e = await prisma.employe.findUnique({ where: { id: intParam(req, 'id') } });
+  if (!e) throw new Refus('Employé introuvable.', 404);
+  verifierHierarchie(req.compte, e);
+  return e;
 }
 
 rh.get('/api/rh/employes', ...voir, async (req, res) => {
@@ -80,7 +94,7 @@ rh.get('/api/rh/employes/:id', ...voir, async (req, res) => {
 // terminer le service en cours de cette fiche (bouton RH) : utile quand le bot ne l'a pas annoncé, sans attendre la
 // clôture automatique de 16 h
 rh.post('/api/rh/employes/:id/service/terminer', ...voir, exiger('modifier', 'Vous n’avez pas le droit de modifier un employé.'), traiter(async (req, res) => {
-  await terminerServiceDe(intParam(req, 'id'));
+  await terminerServiceDe((await ficheSousMonGrade(req)).id);
   res.json({ ok: true });
 }));
 
@@ -90,7 +104,8 @@ rh.get('/api/rh/sanctions', ...voir, async (req, res) => {
 });
 
 rh.post('/api/rh/employes/:id/sanctions', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les sanctions.'), traiter(async (req, res) => {
-  const b = body(req), id = intParam(req, 'id'), typeId = entier(b.typeId);
+  const b = body(req), typeId = entier(b.typeId);
+  const { id } = await ficheSousMonGrade(req);
   if (typeId === null) throw new Refus('Type de sanction invalide.');
   const nomActeur = req.compte.nom || req.compte.pseudo;
   const s = await ajouterSanction(id, typeId, b.note, req.compte.id, nomActeur);
@@ -98,7 +113,7 @@ rh.post('/api/rh/employes/:id/sanctions', ...voir, exiger('sanctionner', 'Vous n
 }));
 
 rh.delete('/api/rh/employes/:id/sanctions/:sid', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les sanctions.'), traiter(async (req, res) => {
-  await retirerSanction(intParam(req, 'id'), intParam(req, 'sid'));
+  await retirerSanction((await ficheSousMonGrade(req)).id, intParam(req, 'sid'));
   res.json({ ok: true });
 }));
 
