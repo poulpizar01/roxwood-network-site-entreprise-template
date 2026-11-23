@@ -80,13 +80,14 @@ webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, 
     try { recu = await prisma.webhookRecu.create({ data: { empreinte, type: e.eventType, contenu: e as unknown as Prisma.InputJsonValue } }); }
     catch (err) {
       // la même livraison arrive deux fois au même instant : l'autre requête la traite
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') { res.json({ ok: true, deja: true }); return; }
+      // 503 et non 200 : si l'autre requête échoue, le bot doit réessayer (un 200 lui ferait croire l'événement traité)
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') { res.set('Retry-After', '5').status(503).json({ error: 'traitement en cours' }); return; }
       throw err;
     }
   }
   // la ligne existe déjà mais n'est pas encore marquée traitée (l'autre requête en est au traitement, pas qu'à
   // la création) : sans ce verrou, les deux requêtes lanceraient entreprise.webhooks[type] en parallèle
-  if (empreintesEnCours.has(empreinte)) { res.json({ ok: true, deja: true }); return; }
+  if (empreintesEnCours.has(empreinte)) { res.set('Retry-After', '5').status(503).json({ error: 'traitement en cours' }); return; }
   empreintesEnCours.add(empreinte);
 
   const abonnement = entreprise.webhooks?.[e.eventType];

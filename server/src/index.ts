@@ -30,6 +30,14 @@ import { entreprise } from './entreprise/index.js';
 import { nouveauJetonCsrf, origineAcceptee } from './socle/csrf.js';
 
 await Promise.all([chargerGrades(), chargerReglages()]);
+// Un ID retiré de SUPER_ADMIN_DISCORD_IDS perd son statut dès le démarrage : sinon il le garde jusqu'à sa prochaine
+// connexion Discord (auth.ts le réécrit), soit 7 jours de session. Liste vide : on ne touche à rien (un .env mal lu
+// ne doit pas retirer tous les propriétaires) ; le compte de la connexion de dev reste propriétaire.
+const gardes = [...config.superAdmins, ...(config.devLogin ? [config.devDiscordId] : [])];
+if (config.superAdmins.length) {
+  const retires = await prisma.compte.updateMany({ where: { proprietaire: true, discordId: { notIn: gardes } }, data: { proprietaire: false } });
+  if (retires.count) console.warn(`Super-admin : ${retires.count} compte(s) absent(s) de SUPER_ADMIN_DISCORD_IDS ne sont plus propriétaires.`);
+}
 declarerParametres(entreprise.parametres);   // avant demarrage(), qui peut lire un paramètre
 planifierPurge();
 planifierSynchroDiscord();
@@ -89,8 +97,14 @@ app.use(['/api', '/auth'], (req, res, next) => {
   })) next();
   else res.status(403).json({ error: 'origine refusée' });
 });
-// jeton de la session pour socle.js (lu une fois par page, ajouté aux requêtes qui modifient quelque chose)
-app.get('/api/csrf', (req, res) => { req.session.csrf ??= nouveauJetonCsrf(); res.json({ csrf: req.session.csrf }); });
+// jeton de la session pour socle.js (lu une fois par page, ajouté aux requêtes qui modifient quelque chose).
+// Sans ordinateur en jeu (FOLKOS_HOTE), le jeton ne sert à rien (origineAcceptee ne l'accepte pas) : aucune session créée
+// pour un visiteur anonyme.
+app.get('/api/csrf', (req, res) => {
+  if (!config.folkos.hote) { res.status(404).json({ error: 'introuvable' }); return; }
+  req.session.csrf ??= nouveauJetonCsrf();
+  res.json({ csrf: req.session.csrf });
+});
 
 app.use('/auth', limits.auth);
 app.use('/api', limits.api);

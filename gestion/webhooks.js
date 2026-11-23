@@ -228,7 +228,7 @@ document.getElementById('liste-abonnements').addEventListener('click', async e =
   else if (action.dataset.action === 'historique') ouvrirTiroirHistorique(type);
   else if (action.dataset.action === 'voir-evenements') allerAuJournal(type);
   else if (action.dataset.action === 'retirer') {
-    if (!await gestion.confirmer(`Le site refusera désormais les événements « ${a.type} ». Retirez aussi l’abonnement côté bot (panneau Monitoring), sinon il réessaiera pendant quelques heures.`, 'Retirer cet abonnement ?', 'Retirer l’abonnement', { danger: false })) return;
+    if (!await gestion.confirmer(`La clé de « ${a.type} » sera supprimée : le site refusera ces événements, et il faudra la recoller depuis Discord pour les reprendre. Retirez aussi l’abonnement côté bot (panneau Monitoring), sinon il réessaiera pendant quelques heures.`, 'Supprimer la clé ?', 'Supprimer la clé')) return;
     try { await socle.api(`/api/webhooks/abonnements/${encodeURIComponent(type)}`, { method: 'DELETE' }); gestion.notifier('Abonnement retiré.'); await chargerAbonnements(); }
     catch (err) { gestion.message('zone-message', err.message); }
   }

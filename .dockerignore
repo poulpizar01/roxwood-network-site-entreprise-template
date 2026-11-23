@@ -6,3 +6,7 @@ uploads
 server/src/generated
 server/dist
 backups
+secrets
+work
+*.dump
+*.sql.gz

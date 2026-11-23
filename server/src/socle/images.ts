@@ -6,7 +6,7 @@
 //   });
 // Pas d'image donnée par lien : seul un fichier envoyé au site entre sur le stockage (ni téléchargement par le serveur,
 // ni adresse d'une image hébergée ailleurs).
-// Contrôles : 15 Mo, 25 mégapixels, contenu réellement jpg / png / webp (pas seulement l'extension), une image par
+// Contrôles : 15 Mo par défaut, 25 mégapixels, contenu réellement jpg / png / webp (pas seulement l'extension), une image par
 // envoi ; réencodage WebP (1 800 px + miniature 600 px), orientation appliquée, métadonnées (GPS…) retirées.
 import crypto from 'node:crypto';
 import type { RequestHandler } from 'express';
@@ -23,11 +23,6 @@ const MAX_PIXELS = 25_000_000;
 sharp.cache(false);
 sharp.concurrency(1);
 const FORMATS_ACCEPTES = ['jpeg', 'png', 'webp'];
-
-const multerUn = multer({
-  storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, f, cb) => cb(null, /^image\/(jpeg|png|webp)$/.test(f.mimetype)),
-}).single('image');
 
 // stockage prêt (sinon 503 explicite), limite d'envois, puis lecture du champ « image » du formulaire
 const stockagePret: RequestHandler = (_req, res, next) => {
@@ -54,14 +49,25 @@ const envoisBornes: RequestHandler = (req, res, next) => {
   res.once('close', () => { if (!creneau.traitement) creneau.liberer(); });
   next();
 };
-const lire: RequestHandler = (req, res, next) => multerUn(req, res, err => {
-  if (!err) {
-    if (req.file) (req.file as FichierRecu)[CRENEAU] = res.locals.creneauImage;
-    return next();
-  }
-  res.status(400).json({ error: err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE' ? 'Image trop lourde (15 Mo max).' : 'Envoi illisible.' });
-});
-export const recevoirImage: RequestHandler[] = [stockagePret, limits.upload, envoisBornes, lire];
+export function recevoirImageLimitee(maxMo: number): RequestHandler[] {
+  const maxOctets = maxMo * 1024 * 1024;
+  const multerUn = multer({
+    // Garde un octet pour vérifier la borne exacte, même si le parseur lève une erreur en l’atteignant.
+    storage: multer.memoryStorage(), limits: { fileSize: maxOctets + 1, files: 1 },
+    fileFilter: (_req, f, cb) => cb(null, /^image\/(jpeg|png|webp)$/.test(f.mimetype)),
+  }).single('image');
+  const lire: RequestHandler = (req, res, next) => multerUn(req, res, err => {
+    const tailleDepassee = (req.file?.size ?? 0) > maxOctets;
+    if (!err && !tailleDepassee) {
+      if (req.file) (req.file as FichierRecu)[CRENEAU] = res.locals.creneauImage;
+      return next();
+    }
+    const tropLourde = tailleDepassee || (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE');
+    res.status(400).json({ error: tropLourde ? `Image trop lourde (${maxMo} Mo max).` : 'Envoi illisible.' });
+  });
+  return [stockagePret, limits.upload, envoisBornes, lire];
+}
+export const recevoirImage = recevoirImageLimitee(15);
 
 // un seul traitement à la fois : deux images de 25 Mpx en parallèle dépasseraient la mémoire du conteneur
 let file: Promise<unknown> = Promise.resolve();

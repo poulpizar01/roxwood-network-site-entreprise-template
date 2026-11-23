@@ -3,7 +3,7 @@ import { Router } from 'express';
 import { prisma } from '../db.js';
 import type { Compte } from '../../generated/prisma/client.js';
 import { body, connecte, intParam, permission, text, valide } from '../http.js';
-import { auDessusDe, gradeDe, permissions, permissionsDe, rang } from '../droits.js';
+import { auDessusDe, gradeDe, peutAccorder, permissions, permissionsDe, rang } from '../droits.js';
 import { entreprise } from '../../entreprise/index.js';
 import { gradesImposes, type GradeImpose } from '../grades-imposes.js';
 
@@ -99,6 +99,8 @@ comptes.patch('/api/comptes/:id', ...permission('comptes'), async (req, res) => 
     const cle = b.grade === null || b.grade === '' ? null : String(b.grade);
     if (cle !== null && !gradeDe(cle)) { res.status(400).json({ error: 'Grade inconnu.' }); return; }
     if (cle !== null && !auDessusDe(moi, cle)) { res.status(403).json({ error: 'Tu ne peux attribuer qu’un grade inférieur au tien.' }); return; }
+    // même règle que la page Grades : on n'accorde pas, par le grade d'un compte, des permissions qu'on ne détient pas
+    if (cle !== null && !peutAccorder(moi, [...permissionsDe({ gradeCle: cle, proprietaire: false })])) { res.status(403).json({ error: 'Ce grade porte des permissions que tu ne détiens pas.' }); return; }
     data.gradeCle = cle;
   }
   const c = await prisma.compte.update({ where: { id: cible.id }, data });

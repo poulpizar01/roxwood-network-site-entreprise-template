@@ -14,7 +14,9 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
   Vu : une liste « En service » ajoutée sous le menu, avec sa propre barre de défilement, qui bougeait sur toutes les pages et repoussait le compte ; sur téléphone, elle n'était visible qu'en ouvrant le menu pour aller ailleurs.
 - **Jamais deux zones qui défilent l'une dans l'autre.** Une seule zone défile dans le menu, la navigation ; le compte et la déconnexion restent fixés en bas. Ce qui est caché se signale par un fondu, la barre n'apparaît qu'au survol.
   Vu : la navigation et la liste en dessous défilaient chacune de leur côté ; la molette agissait sur l'une ou l'autre selon la position de la souris.
-- **Rubriques sur une ligne, à hauteur fixe.** Viser que tout le menu tienne sans défilement à 800 px de haut (vérifier avec toutes les permissions) ; un libellé sur deux lignes donne une colonne en dents de scie.
+- **Rubriques sur une ligne, à hauteur fixe.** Un libellé sur deux lignes donne une colonne en dents de scie.
+- **Groupes repliables, état mémorisé par compte.** Chaque groupe est un `<details>`/`<summary>` natif ; replié ou non, c'est gardé par compte (`localStorage`, `gestion.groupesMenu.<id>`) — le groupe de la rubrique en cours s'ouvre toujours, sans changer cet état mémorisé. Viser que les groupes qu'un compte garde ouverts tiennent sans défilement à 800 px de haut (vérifier avec toutes les permissions) ; le menu entier déployé peut dépasser, la navigation au quotidien ne doit pas en dépendre.
+  Vu : à 18 rubriques et 6 groupes, le menu entier ne tenait plus sans défilement, et la seule signalétique (fondu, barre visible au survol) ne suffisait pas à rendre la scrollbar intuitive.
 - **Le menu est posé au premier affichage, avant toute réponse du serveur** (`gestion.coque()` le dessine d'après le compte gardé pour l'onglet, puis le corrige) ; sa place est réservée en CSS avant même l'appel.
   Vu : chaque page s'affichait d'abord sans menu, puis tout le contenu sautait de 256 px vers la droite.
 - **Laisser respirer le logo** : au moins 16 px entre le logo et le premier titre de groupe.
