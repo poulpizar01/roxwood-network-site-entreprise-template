@@ -88,7 +88,12 @@ export async function salariesDot(iso: string) {
   const ligneParNom = new Map<string, string[]>(iNomReleve === -1 ? [] : lignes.map((l): [string, string[]] => [normaliserNom(l[iNomReleve]), l]).filter(([n]) => n));
 
   const [employes, config, heuresParEmploye, remuGrades, primes] = await Promise.all([
-    prisma.employe.findMany({ where: { statut: 'actif' }, select: { id: true, prenom: true, nom: true, discordPseudo: true, idUnique: true, gradeCle: true } }),
+    // les actifs, plus ceux partis pendant ou après la semaine (leur paie de la semaine travaillée ne se perd pas avec leur
+    // désactivation) ; pas ceux arrivés après sa fin
+    prisma.employe.findMany({
+      where: { AND: [{ OR: [{ statut: 'actif' }, { dateDepart: { gte: plageSemaine(iso).debut } }] }, { OR: [{ dateArrivee: null }, { dateArrivee: { lt: plageSemaine(iso).fin } }] }] },
+      select: { id: true, prenom: true, nom: true, discordPseudo: true, idUnique: true, gradeCle: true },
+    }),
     paieGrades(),
     heuresServiceSemaine(iso),
     prisma.remunerationGrade.findMany(),
@@ -184,8 +189,15 @@ export async function resumeDot(iso: string, salariesPrecalcules?: Awaited<Retur
 // `compteId` null = verrouillage automatique (verrouillage-dot.ts), sinon manuel (« Valider la déclaration »).
 export async function construireEtVerrouiller(iso: string, compteId: number | null, statut: 'validee' | 'auto') {
   if (await estVerrouillee(iso)) throw new Refus('Cette semaine est déjà verrouillée.', 409);
-  const salaries = await salariesDot(iso);
-  const [resume, ecritures] = await Promise.all([resumeDot(iso, salaries), ecrituresBrutes(iso)]);
+  // lectures successives, sans transaction : si un mouvement est saisi pendant le calcul, le résumé ne correspondrait
+  // plus aux mouvements figés avec lui — on recommence (trois essais), les mouvements d'avant et d'après devant être identiques
+  let salaries: Awaited<ReturnType<typeof salariesDot>>, resume: Awaited<ReturnType<typeof resumeDot>>, ecritures: Awaited<ReturnType<typeof ecrituresBrutes>>;
+  for (let essai = 0; ; essai++) {
+    const avant = JSON.stringify(await ecrituresBrutes(iso));
+    salaries = await salariesDot(iso);
+    [resume, ecritures] = await Promise.all([resumeDot(iso, salaries), ecrituresBrutes(iso)]);
+    if (JSON.stringify(ecritures) === avant || essai >= 2) break;
+  }
   try {
     await prisma.declarationDot.create({ data: { semaine: semaineDate(iso), statut, compteId, resume, salaries, ecritures } });
   } catch (e) {

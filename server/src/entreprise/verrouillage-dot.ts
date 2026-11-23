@@ -1,22 +1,20 @@
 // ENTREPRISE — verrouillage automatique de la déclaration DOT : si personne n'a cliqué « Valider la déclaration »
 // avant la fin de sa semaine, elle est figée seule (sans compte associé) dès que la semaine suivante commence — pour
 // que l'historique ne reste jamais indéfiniment modifiable faute d'y avoir pensé.
+import { prisma } from '../socle/db.js';
 import { construireEtVerrouiller, estVerrouillee, semaineCourante } from './dot.js';
+import { semainesARattraper } from './stats/verrouillage.js';
 
 const JOUR = 24 * 3600e3;
-const semainePrecedente = (iso: string) => new Date(new Date(`${iso}T00:00:00Z`).getTime() - 7 * JOUR).toISOString().slice(0, 10);
-// une panne ou un échec silencieux de plusieurs jours à cheval sur un changement de semaine civile ne doit pas
-// laisser les semaines plus anciennes indéfiniment déverrouillées : on remonte jusqu'à en retrouver une déjà
-// verrouillée, avec une borne pour ne pas boucler sans fin sur un site jamais encore verrouillé
-const LIMITE_RATTRAPAGE = 52;
 
+// une panne de plusieurs jours à cheval sur un changement de semaine se rattrape : on fige les semaines terminées qui
+// suivent la dernière verrouillée, jamais celles d'avant (limite de 52 par passage)
 async function verrouillerSiOubliee(): Promise<void> {
-  let semaine = semainePrecedente(semaineCourante());
-  for (let i = 0; i < LIMITE_RATTRAPAGE; i++) {
-    if (await estVerrouillee(semaine)) return;
+  const derniere = await prisma.declarationDot.findFirst({ orderBy: { semaine: 'desc' }, select: { semaine: true } });
+  for (const semaine of semainesARattraper(semaineCourante(), derniere ? derniere.semaine.toISOString().slice(0, 10) : null)) {
+    if (await estVerrouillee(semaine)) continue;
     await construireEtVerrouiller(semaine, null, 'auto');
     console.log(`[dot] déclaration de la semaine du ${semaine} verrouillée automatiquement`);
-    semaine = semainePrecedente(semaine);
   }
 }
 
