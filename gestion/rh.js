@@ -212,8 +212,9 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   grade.disabled = !peutEcrire;
   // date d'arrivée exigée à la création ; une fiche reprise de l'existant peut ne pas en avoir encore
   $rh('employe-arrivee').required = !id;
-  // téléphone et RIB : le serveur ne les envoie qu'avec rh-sensible
-  $rh('employe-bloc-sensible').classList.toggle('cache', !aDroitRh('sensible'));
+  // téléphone et RIB : le serveur ne les envoie qu'avec rh-sensible-voir ; sans rh-sensible, ils se lisent sans se modifier
+  $rh('employe-bloc-sensible').classList.toggle('cache', !aDroitRh('sensible-voir'));
+  for (const champ of ['employe-telephone', 'employe-rib']) $rh(champ).readOnly = !aDroitRh('sensible');
   const bouton = $rh('employe-enregistrer');
   bouton.classList.toggle('cache', !peutEcrire);
   $rh('fiche-rh-pied').classList.toggle('cache', !peutEcrire);

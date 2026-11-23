@@ -1,7 +1,8 @@
 // ENTREPRISE — ressources humaines : la fiche employé, source de vérité de l'identité, du grade et du statut (table
 // employes). Logique partagée par les routes (routes/rh.ts) et le traitement des candidatures du bot Discord.
 // Permissions (vérifiées côté serveur, l'interface ne fait que suivre) : rh-voir, rh-creer, rh-modifier,
-// rh-desactiver, rh-reactiver, rh-sensible (téléphone, RIB), rh-parametrer (réglages du bot). Elles se cochent par
+// rh-desactiver, rh-reactiver, rh-sensible-voir / rh-sensible (téléphone, RIB : consulter / modifier), rh-sanctions-voir /
+// rh-sanctionner, rh-parametrer (réglages du bot). Elles se cochent par
 // grade dans la page Grades ; le propriétaire du serveur Discord les a toutes.
 import crypto from 'node:crypto';
 import { Prisma, type Compte, type Employe } from '../generated/prisma/client.js';
@@ -12,7 +13,7 @@ import { definirReglage, reglage } from '../socle/reglages.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { jourParis, jourValide, normaliserPseudo, normaliserTexte, versDate, versJour } from './texte.js';
 
-export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'sensible', 'parametrer', 'sanctionner'] as const;
+export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'sensible-voir', 'sensible', 'parametrer', 'sanctions-voir', 'sanctionner'] as const;
 export type DroitRh = typeof DROITS_RH[number];
 // droits RH d'un compte ; rien sans rh-voir (toute action suppose de pouvoir consulter les fiches)
 export const droitsRh = (c: Compte): Set<DroitRh> =>
@@ -26,7 +27,7 @@ export { Refus };
 export const nomComplet = (e: Pick<Employe, 'prenom' | 'nom' | 'discordPseudo' | 'idUnique'>) =>
   `${e.prenom} ${e.nom}`.trim() || e.discordPseudo || e.idUnique;
 
-// Fiche telle qu'envoyée au navigateur : téléphone et RIB n'y figurent QUE pour un compte qui a rh-sensible — jamais
+// Fiche telle qu'envoyée au navigateur : téléphone et RIB n'y figurent QUE pour un compte qui a rh-sensible-voir — jamais
 // masqués côté interface seulement.
 export function fichePublique(e: Employe, droits: Set<DroitRh>) {
   const g = gradeDe(e.gradeCle);
@@ -36,7 +37,7 @@ export function fichePublique(e: Employe, droits: Set<DroitRh>) {
     grade: e.gradeCle, gradeLibelle: g?.libelle ?? e.gradeCle, gradeCouleur: g?.couleur ?? null, statut: e.statut,
     dateArrivee: versJour(e.dateArrivee), dateDepart: versJour(e.dateDepart),
     aCompleter: !e.prenom || !e.nom || e.idProvisoire,
-    ...(droits.has('sensible') && { telephone: e.telephone, rib: e.rib }),
+    ...(droits.has('sensible-voir') && { telephone: e.telephone, rib: e.rib }),
   };
 }
 

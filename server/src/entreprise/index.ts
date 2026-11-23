@@ -34,7 +34,7 @@ export const entreprise: Entreprise = {
     comptes: 'comptes',
     grades: 'grades',
     rh: 'rh-voir',
-    sanctions: 'rh-voir',
+    sanctions: 'rh-sanctions-voir',
     services: 'rh-voir',
     quota: 'rh-voir',
     dot: 'compta',

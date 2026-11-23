@@ -99,7 +99,7 @@ rh.post('/api/rh/employes/:id/service/terminer', ...voir, exiger('modifier', 'Vo
 }));
 
 // sanctions : onglet dédié de Ressources humaines, toutes les fiches confondues
-rh.get('/api/rh/sanctions', ...voir, async (req, res) => {
+rh.get('/api/rh/sanctions', ...permission('rh-sanctions-voir'), async (req, res) => {
   res.json({ sanctions: await toutesSanctions(), types: await listeTypesSanction(), peutSanctionner: droitsRh(req.compte).has('sanctionner') });
 });
 

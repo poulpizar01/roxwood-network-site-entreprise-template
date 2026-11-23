@@ -20,7 +20,7 @@ const GESTION_NAV = [
   { cle: 'beneficiaires', href: 'beneficiaires.html', label: 'Clients', icone: 'carte', permission: 'contrats-beneficiaires' },
   { groupe: 'Ressources humaines' },
   { cle: 'rh', href: 'rh.html', label: 'Employés', icone: 'users', permission: 'rh-voir' },
-  { cle: 'sanctions', href: 'sanctions.html', label: 'Sanctions', icone: 'alerte', permission: 'rh-voir' },
+  { cle: 'sanctions', href: 'sanctions.html', label: 'Sanctions', icone: 'alerte', permission: 'rh-sanctions-voir' },
   { cle: 'services', href: 'services.html', label: 'Anomalies', icone: 'clock', permission: 'rh-voir' },
   { groupe: 'Comptabilité' },
   { cle: 'facturation', href: 'facturation.html', label: 'Facturation', icone: 'receipt', permission: 'factures' },
