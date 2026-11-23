@@ -249,8 +249,17 @@ document.getElementById("formulaire-solde-bancaire").addEventListener("submit", 
 
 // « Valider la déclaration » : fige la semaine affichée (résumé, salariés, mouvements) — ne change plus ensuite.
 document.getElementById("bouton-valider-declaration").addEventListener("click", async () => {
+  // services de la semaine encore ouverts ou en anomalie : leurs heures ne sont pas payées, et la déclaration figée ne les rattrape plus
+  let avertissement = "";
+  try {
+    const s = await socle.api(`/api/compta/dot/services-en-suspens?semaine=${DOT_SEMAINE}`);
+    const morceaux = [];
+    if (s.ouverts) morceaux.push(`${s.ouverts} service${s.ouverts > 1 ? "s" : ""} encore ouvert${s.ouverts > 1 ? "s" : ""}`);
+    if (s.anomalies) morceaux.push(`${s.anomalies} service${s.anomalies > 1 ? "s" : ""} en anomalie`);
+    if (morceaux.length) avertissement = ` Attention : ${morceaux.join(" et ")} cette semaine, dont les heures ne sont pas comptées. Terminez-les ou corrigez-les (page Anomalies) avant de valider.`;
+  } catch { /* l'avertissement est un plus : sa lecture en échec ne bloque pas la validation */ }
   const ok = await gestion.confirmer(
-    `La déclaration de la semaine du ${dateLongue(DOT_SEMAINE)} sera figée telle qu’elle est maintenant : plus aucun mouvement, prime ou solde bancaire ne pourra la changer. Vérifiez le compte de résultat avant de continuer.`,
+    `La déclaration de la semaine du ${dateLongue(DOT_SEMAINE)} sera figée telle qu’elle est maintenant : plus aucun mouvement, prime ou solde bancaire ne pourra la changer. Vérifiez le compte de résultat avant de continuer.${avertissement}`,
     "Valider cette déclaration ?", "Valider la déclaration", { danger: false },
   );
   if (!ok) return;

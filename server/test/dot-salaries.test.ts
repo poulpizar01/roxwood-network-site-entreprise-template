@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import '../src/entreprise/index.js';   // d'abord : charge les modules dans l'ordre voulu (sinon dépendance circulaire)
 import { prisma } from '../src/socle/db.js';
 import { salariesDot } from '../src/entreprise/dot.js';
+import { servicesEnSuspensSemaine } from '../src/entreprise/services.js';
 
 const SEMAINE = '2026-11-02';   // lundi, semaine du 2 au 8 novembre
 const jour = (iso: string) => new Date(`${iso}T00:00:00Z`);
@@ -22,6 +23,7 @@ before(async () => {
     statut: f.statut, dateArrivee: jour(f.arrivee), dateDepart: f.depart ? jour(f.depart) : null } });
 });
 after(async () => {
+  await prisma.service.deleteMany({ where: { serviceId: { startsWith: 'zz-test-' } } });
   await prisma.employe.deleteMany({ where: { idUnique: { startsWith: 'zz-test-' } } });
   await prisma.$disconnect();
 });
@@ -33,4 +35,17 @@ test('salariesDot : actifs et partis pendant ou après la semaine, pas les arriv
     fiches.map(f => [f.cle, presents(f.cle)]),
     [['actif', true], ['parti-pendant', true], ['parti-apres', true], ['parti-avant', false], ['arrive-apres', false]],
   );
+});
+
+test('servicesEnSuspensSemaine : ouverts et en anomalie de la semaine, d’une fiche, hors des autres semaines', async () => {
+  const fiche = await prisma.employe.findFirstOrThrow({ where: { idUnique: 'zz-test-actif' } });
+  const dans = new Date('2026-11-04T10:00:00Z'), hors = new Date('2026-11-12T10:00:00Z');
+  await prisma.service.createMany({ data: [
+    { serviceId: 'zz-test-ouvert', employeNom: 'x', employeId: fiche.id, debut: dans },                                          // compte : ouvert
+    { serviceId: 'zz-test-anomalie', employeNom: 'x', employeId: fiche.id, debut: dans, fin: new Date('2026-11-04T12:00:00Z'), anomalie: 'cloture_auto' },   // compte : anomalie
+    { serviceId: 'zz-test-normal', employeNom: 'x', employeId: fiche.id, debut: dans, fin: new Date('2026-11-04T12:00:00Z') },   // terminé et sain : non
+    { serviceId: 'zz-test-autre-semaine', employeNom: 'x', employeId: fiche.id, debut: hors },                                  // une autre semaine : non
+    { serviceId: 'zz-test-sans-fiche', employeNom: 'x', employeId: null, debut: dans },                                          // sans fiche : non
+  ] });
+  assert.deepEqual(await servicesEnSuspensSemaine(SEMAINE), { ouverts: 1, anomalies: 1 });
 });

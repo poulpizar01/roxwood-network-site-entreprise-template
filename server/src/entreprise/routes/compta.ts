@@ -15,6 +15,7 @@ import {
 import { verifierFacturationContrat } from '../contrats.js';
 import { classementFactures, definirQuotaFacture, quotasFacture } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
+import { servicesEnSuspensSemaine } from '../services.js';
 import { caBrutReleve, estLigneTotal } from '../stats/releve.js';
 import { jourValide, versDate } from '../texte.js';
 
@@ -405,6 +406,9 @@ compta.get('/api/compta/dot/resume', ...gerer, async (req, res) => {
 // « Valider la déclaration » : fige la semaine demandée (la semaine en cours par défaut) — résumé, salariés et
 // mouvements ne changent plus ensuite, même si le barème, le relevé Tablettes ou le solde bancaire changent après
 // coup. Si personne ne valide, la semaine est verrouillée automatiquement la semaine suivante (verrouillage-dot.ts).
+// services de la semaine encore ouverts ou en anomalie (leurs heures ne sont pas payées) : prévenu avant de valider
+compta.get('/api/compta/dot/services-en-suspens', ...gerer, async (req, res) => { res.json(await servicesEnSuspensSemaine(semaineDemandee(req.query.semaine))); });
+
 compta.post('/api/compta/dot/verrouiller', ...gerer, traiter(async (req, res) => {
   const semaine = semaineDemandee(body(req).semaine);
   await construireEtVerrouiller(semaine, req.compte.id, 'validee');

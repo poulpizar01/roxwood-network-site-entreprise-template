@@ -166,6 +166,19 @@ export async function tempsServiceSemaine(iso?: string) {
   };
 }
 
+// Services de la semaine qui ne comptent pas (encore) dans les heures payées : un service encore ouvert ou en
+// anomalie. Prévenu avant de valider la déclaration DOT, qui fige les heures telles qu'elles sont alors.
+export async function servicesEnSuspensSemaine(iso?: string): Promise<{ ouverts: number; anomalies: number }> {
+  const debut = debutSemaineParis(iso);
+  const fin = new Date(debut);
+  fin.setUTCDate(fin.getUTCDate() + 7);
+  const [ouverts, anomalies] = await Promise.all([
+    prisma.service.count({ where: { employeId: { not: null }, fin: null, debut: { gte: debut, lt: fin } } }),
+    prisma.service.count({ where: { employeId: { not: null }, fin: { not: null }, anomalie: { not: '' }, debut: { gte: debut, lt: fin } } }),
+  ]);
+  return { ouverts, anomalies };
+}
+
 // ---------- anomalies à traiter (RH/Services) ----------
 export async function anomaliesATraiter() {
   const lignes = await prisma.service.findMany({ where: { anomalie: { not: '' }, traite: false }, orderBy: { debut: 'desc' }, take: 200 });
