@@ -209,7 +209,7 @@ label, .eyebrow-label {
 .champ input:focus, .champ select:focus, .champ textarea:focus {
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15);
 }
-.champ textarea { resize: vertical; min-height: 90px; }
+.champ textarea { resize: vertical; min-height: 90px; max-height: 320px; overflow-y: auto; }   /* ne s'étire pas sans fin */
 .champ-checkbox { display: flex; align-items: center; gap: 10px; }
 .champ-checkbox input { width: auto; min-height: 0; }
 .champ-deux { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -384,6 +384,8 @@ label, .eyebrow-label {
   }
 }
 .modale-entete { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+/* titre d'une confirmation à la taille d'une fenêtre compacte (un h2 à 43 px passait sur deux lignes dans 420 px) */
+.modale[role="alertdialog"] .modale-titre { font-size: var(--fs-8); line-height: 1.2; }
 /* actions d'une fenêtre : l'action principale prend la place, « Annuler » à côté ; passent l'une sous l'autre faute de place */
 .modale-boutons { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .modale-boutons .btn { min-height: 44px; }
@@ -1156,6 +1158,7 @@ main.admin-contenu:focus { outline: none; }
 /* ---- « En service » : pastille et compteur, communs au panneau du menu et à l'Accueil ---- */
 .admin-en-service-nombre { margin-left: auto; font-size: var(--fs-1); padding: 1px 8px; border-radius: 999px; background: var(--ok-soft); color: var(--ok); }
 .admin-service-panneau-tete .admin-en-service-nombre { margin-left: 0; }
+.admin-en-service-nombre.vide { background: var(--bg3); color: var(--text-faint); }   /* personne en service : pas une pastille verte */
 .pastille-service { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); flex-shrink: 0; }
 
 

@@ -159,7 +159,9 @@ function enService(barre, haut) {
       d.querySelector('[data-service-texte]').textContent = d.dataset.serviceIndic === 'court' ? String(n) : `${n} en service`;
       d.setAttribute('aria-label', `${libelle} : afficher la liste`);
     }
-    panneau.querySelector('[data-service-nombre]').textContent = n;
+    const compteur = panneau.querySelector('[data-service-nombre]');
+    compteur.textContent = n;
+    compteur.classList.toggle('vide', !n);   // personne en service : pas une pastille verte
     panneau.querySelector('[data-service-liste]').innerHTML = n
       ? ordreEnService(personnes).map(ligneEnService).join('')
       : '<li class="admin-service-vide">Personne n’est en service pour le moment.</li>';
@@ -566,17 +568,36 @@ function aideCoque(moi, rubrique, barre, haut) {
     if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ouvrirPaletteAide(pages); }
     else if (e.key === '/' && !dansChamp) { e.preventDefault(); ouvrirPaletteAide(pages); }
   });
+  // flèches, Début et Fin dans une rangée d'onglets (toutes les pages) : l'onglet voisin visible s'active
+  document.addEventListener('keydown', e => {
+    const onglet = e.target.closest?.('[role="tab"]');
+    const touches = { ArrowRight: 1, ArrowLeft: -1, Home: 'debut', End: 'fin' };
+    if (!onglet || !(e.key in touches) || e.altKey || e.ctrlKey || e.metaKey) return;
+    const liste = onglet.closest('[role="tablist"]');
+    const tous = liste ? [...liste.querySelectorAll('[role="tab"]')].filter(t => t.offsetParent) : [];
+    if (tous.length < 2) return;
+    const i = tous.indexOf(onglet), t = touches[e.key];
+    const cible = t === 'debut' ? tous[0] : t === 'fin' ? tous[tous.length - 1] : tous[(i + t + tous.length) % tous.length];
+    e.preventDefault();
+    cible.focus();
+    cible.click();
+  });
 }
 
 // Menu : une seule zone qui défile (la navigation), et seulement quand l'écran est trop bas. Un fondu en haut ou en bas
 // signale ce qui est caché (la barre de défilement n'apparaît qu'au survol) ; la rubrique en cours est amenée en vue.
+// centrerActif() s'appelle dès que le menu du mémo est posé (avant la réponse du serveur) : sinon la page s'affiche
+// d'abord défilée en haut, puis saute en vue de la rubrique une fois le compte confirmé — visible à chaque page.
+function centrerActif(nav) {
+  const actif = nav.querySelector('.actif');
+  if (actif && actif.offsetTop + actif.offsetHeight > nav.clientHeight) nav.scrollTop = actif.offsetTop - nav.clientHeight / 2;
+}
 function indiceDefilement(nav) {
   const maj = () => {
     nav.classList.toggle('suite-haut', nav.scrollTop > 2);
     nav.classList.toggle('suite-bas', nav.scrollTop + nav.clientHeight < nav.scrollHeight - 2);
   };
-  const actif = nav.querySelector('.actif');
-  if (actif && actif.offsetTop + actif.offsetHeight > nav.clientHeight) nav.scrollTop = actif.offsetTop - nav.clientHeight / 2;
+  centrerActif(nav);
   maj();
   nav.addEventListener('scroll', maj, { passive: true });
   addEventListener('resize', maj);
@@ -743,6 +764,9 @@ window.gestion = {
     evitement.textContent = 'Aller au contenu';
     document.body.prepend(evitement);
     document.body.classList.add('page-agents', 'admin-connecte');
+    // la mise en page (hauteur, flex) du menu dépend de .admin-connecte : centrer avant cette classe donnerait un
+    // menu à hauteur nulle (rien à faire), d'où ce centrage juste après
+    if (memo) centrerActif(barre.querySelector('.admin-nav'));
 
     let moi;
     try { moi = await socle.moi(); }
@@ -769,6 +793,22 @@ window.gestion = {
     div.className = `message message-${type === 'succes' ? 'succes' : 'erreur'}`;
     div.textContent = texte;
     el.append(div);
+    // une fenêtre ou un tiroir ouvert recouvre la page : un message posé dans la page derrière resterait invisible
+    // (l'action semblerait ne rien faire) — il est alors aussi annoncé en notification, au-dessus de la fenêtre
+    if ([...document.querySelectorAll('.modale-fond:not(.cache)')].some(f => !f.contains(el))) notifier(texte, type);
+    if (type === 'succes') oublierSaisiesTiroirs();
+  },
+
+  // Redessine un tiroir en gardant ce qui y est en cours de saisie : un champ modifié (rapport, note…) retrouve sa
+  // valeur après le redessin, au lieu de revenir à celle du serveur à chaque rafraîchissement (clic sur un bouton voisin).
+  // Seuls les champs qui ont un id sont gardés.
+  conserverSaisies(zone, redessiner) {
+    const el = typeof zone === 'string' ? document.getElementById(zone) : zone;
+    const saisies = new Map();
+    el?.querySelectorAll('textarea[id], input[id]:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden])')
+      .forEach(c => { if (c.value !== c.defaultValue) saisies.set(c.id, c.value); });
+    redessiner();
+    saisies.forEach((valeur, id) => { const c = document.getElementById(id); if (c) c.value = valeur; });
   },
 
   // Confirmation dans la page (aucune boîte de dialogue du navigateur : l'ordinateur en jeu ne les affiche pas).
@@ -783,7 +823,7 @@ window.gestion = {
         <div class="modale-entete"><h2 class="modale-titre" id="confirmer-titre"></h2></div>
         <p style="margin-bottom:26px;" id="confirmer-texte"></p>
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
-          <button type="button" class="btn btn-fantome" style="flex:1;" data-non>Annuler</button>
+          <button type="button" class="btn btn-danger" style="flex:1;" data-non>Annuler</button>
           <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-or'}" style="flex:1;" data-oui></button>
         </div></div>`;
       fond.querySelector('h2').textContent = titre;
@@ -1049,6 +1089,7 @@ function notifier(texte, type = 'succes') {
   n.className = `notification notification-${type === 'erreur' ? 'erreur' : 'succes'}`;
   n.textContent = texte;
   zone.append(n);
+  if (type !== 'erreur') oublierSaisiesTiroirs();
   setTimeout(() => { n.classList.add('sortie'); setTimeout(() => n.remove(), 300); }, type === 'erreur' ? 6000 : 3200);
 }
 
@@ -1465,6 +1506,37 @@ document.addEventListener('keydown', ev => {
   else if (ev.shiftKey && document.activeElement === premier) { ev.preventDefault(); dernier.focus(); }
   else if (!ev.shiftKey && document.activeElement === dernier) { ev.preventDefault(); premier.focus(); }
 });
+// Fermer une fiche — tiroir ou grande fenêtre (croix, Échap qui clique la croix, clic sur le fond) — alors qu'une saisie y
+// a été faite sans être enregistrée : confirmation, au lieu de la perdre en silence. Le bouton « Annuler » du pied, lui,
+// est un choix explicite et ferme sans question. « Saisie » = un caractère réellement tapé (événement input de
+// l'utilisateur) dans un champ texte de la fiche depuis son ouverture ou son dernier enregistrement réussi
+// (notifier / message de succès, envoi du formulaire). On ne compare pas aux valeurs d'origine : les pages remplissent
+// leurs champs par .value, que defaultValue ne voit pas (fausse alerte à chaque fermeture). data-sans-confirmation
+// exclut un champ (recherche, filtre).
+const FICHE = '.tiroir-fond, .modale-fond.modale-pleine';   // le fond : la boîte intérieure porte aussi modale-pleine
+const CHAMP_SAISIE = 'textarea, input:not([type]), input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="url"]';
+function oublierSaisiesTiroirs() { document.querySelectorAll('[data-saisie]').forEach(f => f.removeAttribute('data-saisie')); }
+document.addEventListener('input', ev => {
+  const c = ev.target;
+  if (!ev.isTrusted || !c.matches?.(CHAMP_SAISIE) || c.readOnly || c.hasAttribute('data-sans-confirmation')) return;
+  c.closest(FICHE)?.setAttribute('data-saisie', '');
+}, true);
+document.addEventListener('submit', ev => ev.target.closest?.(FICHE)?.removeAttribute('data-saisie'), true);
+// une fiche refermée repart de zéro à sa prochaine ouverture
+new MutationObserver(lot => lot.forEach(m => { if (m.target.matches?.('.cache[data-saisie]')) m.target.removeAttribute('data-saisie'); }))
+  .observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: true });
+document.addEventListener('click', async ev => {
+  const fond = ev.target.closest?.(FICHE);
+  if (!fond || fond.dataset.fermetureConfirmee || !fond.hasAttribute('data-saisie')) return;
+  if (!(ev.target === fond || ev.target.closest('[aria-label="Fermer"]'))) return;
+  ev.stopImmediatePropagation(); ev.preventDefault();
+  const cible = ev.target;
+  if (!await gestion.confirmer('Ce que vous avez saisi dans cette fiche n’est pas enregistré.', 'Fermer sans enregistrer ?', 'Fermer sans enregistrer')) return;
+  fond.dataset.fermetureConfirmee = '1';
+  cible.click();
+  delete fond.dataset.fermetureConfirmee;
+}, true);
+
 (function suivreFenetres() {
   const ouvreurs = new WeakMap();
   // dernier élément qui avait le focus hors de toute fenêtre : la page place souvent le focus dans la fenêtre avant que
