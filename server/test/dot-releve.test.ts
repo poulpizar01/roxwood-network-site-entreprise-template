@@ -66,6 +66,12 @@ test('un tableau ambigu est refusé : titre vide au milieu, titre en double, mem
   assert.equal((await appeler('POST', '/api/compta/tablettes', releve({ colonnes: ['Nom', 'Ventes', ''], lignes: [['zz-test A', '1', '']] }))).status, 200);
 });
 
+test('un relevé ne s’écrit pas sur une semaine à venir (refusé, pas ramené en silence à la semaine en cours)', async () => {
+  const avenir = '2099-01-05';
+  assert.equal((await appeler('POST', '/api/compta/tablettes', releve({ semaine: avenir }))).status, 400);
+  assert.equal((await appeler('DELETE', `/api/compta/tablettes?semaine=${avenir}`)).status, 400);
+});
+
 test('une semaine verrouillée est figée : import, retrait et réinitialisation refusés', async () => {
   assert.equal((await appeler('POST', '/api/compta/tablettes', releve({ semaine: S_VERROUILLEE }))).status, 409);
   assert.equal((await appeler('DELETE', `/api/compta/tablettes?semaine=${S_VERROUILLEE}`)).status, 409);

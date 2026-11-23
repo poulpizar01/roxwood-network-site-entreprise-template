@@ -30,6 +30,13 @@ const gererFactures = permission('factures');
 // avant l'envoi
 const MAX_COLONNES = 20, MAX_LIGNES = 500, MAX_CELLULE = 300;
 
+// semaine visée par une écriture sur le relevé : une semaine à venir est refusée (semaineDemandee la ramènerait en silence
+// à la semaine en cours, et le relevé irait sur la mauvaise)
+const semaineEcriture = (valeur: unknown): string => {
+  if (typeof valeur === 'string' && valeur > semaineCourante()) throw new Refus('Une semaine à venir n’a pas encore de relevé.');
+  return semaineDemandee(valeur);
+};
+
 compta.get('/api/compta/tablettes', ...gerer, async (req, res) => {
   const semaine = semaineDemandee(req.query.semaine);
   const r = await dernierReleve(semaine);
@@ -61,7 +68,7 @@ compta.post('/api/compta/tablettes', ...gerer, traiter(async (req, res) => {
   const doublonNom = noms.find((n, i) => noms.indexOf(n) !== i);
   if (doublonNom) throw new Refus(`« ${doublonNom} » apparaît deux fois : le tableau a peut-être été collé deux fois.`);
   // semaine du relevé : la semaine en cours par défaut ; une semaine verrouillée est figée, rien n'y change plus
-  const semaine = semaineDemandee(b.semaine);
+  const semaine = semaineEcriture(b.semaine);
   refuserSiVerrouillee(await estVerrouillee(semaine));
   await enregistrerReleve(semaine, colonnes, lignes, req.compte.id);
   res.json({ ok: true });
@@ -70,7 +77,7 @@ compta.post('/api/compta/tablettes', ...gerer, traiter(async (req, res) => {
 // retirer une ligne (un membre) du dernier relevé : nouvel import sans elle ; le nom envoyé sert de garde-fou si le
 // relevé a changé entre-temps
 compta.delete('/api/compta/tablettes/lignes/:index', ...gerer, traiter(async (req, res) => {
-  const semaine = semaineDemandee(req.query.semaine);
+  const semaine = semaineEcriture(req.query.semaine);
   refuserSiVerrouillee(await estVerrouillee(semaine));
   const r = await dernierReleve(semaine);
   if (!r) throw new Refus('Aucun relevé importé.', 404);
@@ -85,7 +92,7 @@ compta.delete('/api/compta/tablettes/lignes/:index', ...gerer, traiter(async (re
 
 // réinitialiser ne supprime rien : un import vide, l'historique reste en base
 compta.delete('/api/compta/tablettes', ...gerer, traiter(async (req, res) => {
-  const semaine = semaineDemandee(req.query.semaine);
+  const semaine = semaineEcriture(req.query.semaine);
   refuserSiVerrouillee(await estVerrouillee(semaine));
   await enregistrerReleve(semaine, [], [], req.compte.id);
   res.json({ ok: true });

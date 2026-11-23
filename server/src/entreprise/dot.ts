@@ -224,8 +224,10 @@ export async function publierFichesPaie(iso: string): Promise<void> {
 
 export async function marquerFichePaiePayee(iso: string, employeId: number, paye: boolean): Promise<void> {
   const semaine = semaineDate(iso);
-  if (!await prisma.declarationDot.findUnique({ where: { semaine }, select: { semaine: true } }))
-    throw new Refus('Cette semaine n’est pas encore verrouillée.', 409);
+  const d = await prisma.declarationDot.findUnique({ where: { semaine }, select: { salaries: true } });
+  if (!d) throw new Refus('Cette semaine n’est pas encore verrouillée.', 409);
+  // un employé absent de la déclaration figée n'a pas de fiche à marquer (pas de ligne parasite pour un id quelconque)
+  if (!(d.salaries as { agents?: { employeId: number }[] }).agents?.some(a => a.employeId === employeId)) throw new Refus('Cet employé ne figure pas dans la déclaration de cette semaine.', 404);
   if (paye) await prisma.paiementFicheDot.upsert({ where: { semaine_employeId: { semaine, employeId } }, create: { semaine, employeId }, update: {} });
   else await prisma.paiementFicheDot.deleteMany({ where: { semaine, employeId } });
 }

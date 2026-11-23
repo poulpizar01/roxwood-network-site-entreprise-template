@@ -53,4 +53,5 @@ test('payé se coche et se décoche à part, seulement sur une semaine verrouill
   await marquerFichePaiePayee(S_PUBLIEE, moi, false);
   assert.equal((await fichesPaiePubliees(moi)).find(f => f.semaine === S_PUBLIEE)?.paye, false);
   await assert.rejects(() => marquerFichePaiePayee(S_OUVERTE, moi, true), (e: unknown) => e instanceof Refus && e.status === 409);
+  await assert.rejects(() => marquerFichePaiePayee(S_PUBLIEE, 987654321, true), (e: unknown) => e instanceof Refus && e.status === 404);   // pas un salarié de cette déclaration
 });
