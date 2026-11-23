@@ -8,6 +8,8 @@ import express from 'express';
 import '../src/entreprise/index.js';   // d'abord : charge les routes dans l'ordre voulu (sinon dépendance circulaire)
 import { prisma } from '../src/socle/db.js';
 import { chargerGrades, completerPermissions } from '../src/socle/droits.js';
+import { declarerParametres } from '../src/socle/parametres.js';
+import { entreprise } from '../src/entreprise/index.js';
 import { compta } from '../src/entreprise/routes/compta.js';
 import { contrats } from '../src/entreprise/routes/contrats.js';
 import { paie } from '../src/entreprise/routes/paie.js';
@@ -23,6 +25,10 @@ let srv: ReturnType<ReturnType<typeof express>['listen']>, url = '';
 const ids: Record<string, number> = {};
 
 before(async () => {
+  declarerParametres(entreprise.parametres);   // comme au démarrage : les routes lisent des paramètres du site
+  // restes d'un essai interrompu : sinon la création ci-dessous échouerait
+  await prisma.compte.deleteMany({ where: { discordId: { in: Object.values(D) } } });
+  await prisma.grade.deleteMany({ where: { cle: { in: Object.values(PROFILS).map(g => g.cle) } } });
   await prisma.grade.createMany({ data: Object.values(PROFILS).map(g => ({ cle: g.cle, libelle: g.cle, position: g.position, permissions: g.permissions })) });
   await chargerGrades();
   for (const nom of Object.keys(D) as (keyof typeof D)[])
@@ -60,7 +66,7 @@ test('chaque permission « agir » entraîne sa permission « voir »', () => {
 });
 
 test('consulter permet de lire, jamais d’écrire', async () => {
-  for (const chemin of LECTURES) assert.notEqual((await appeler('lecteur', 'GET', chemin)).status, 403, `lecture ${chemin}`);
+  for (const chemin of LECTURES) assert.equal((await appeler('lecteur', 'GET', chemin)).status, 200, `lecture ${chemin}`);   // 200 : ni refus ni erreur serveur déguisée
   for (const [methode, chemin, corps] of [...ECRITURES_SURES, ...ECRITURES_REELLES]) assert.equal((await appeler('lecteur', methode, chemin, corps)).status, 403, `écriture ${methode} ${chemin}`);
 });
 
@@ -71,4 +77,13 @@ test('gérer permet d’écrire (la garde de permission ne bloque plus)', async 
 test('sans permission, ni lecture ni écriture', async () => {
   for (const chemin of LECTURES) assert.equal((await appeler('aucun', 'GET', chemin)).status, 403, `lecture ${chemin}`);
   for (const [methode, chemin, corps] of [...ECRITURES_SURES, ...ECRITURES_REELLES]) assert.equal((await appeler('aucun', methode, chemin, corps)).status, 403, `écriture ${methode} ${chemin}`);
+});
+
+test('aucune donnée réelle n’a été écrite par ces essais', async () => {
+  const comptes = (await prisma.compte.findMany({ where: { discordId: { in: Object.values(D) } }, select: { id: true } })).map(c => c.id);
+  assert.equal(await prisma.facture.count({ where: { compteId: { in: comptes } } }), 0);
+  assert.equal(await prisma.contrat.count({ where: { compteId: { in: comptes } } }), 0);
+  assert.equal(await prisma.importCompta.count({ where: { compteId: { in: comptes } } }), 0);
+  assert.equal(await prisma.ecritureDot.count({ where: { compteId: { in: comptes } } }), 0);
+  assert.equal(await prisma.declarationDot.count({ where: { compteId: { in: comptes } } }), 0);
 });

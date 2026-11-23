@@ -49,6 +49,7 @@ const appeler = (profil: string, methode: string, chemin: string, corps?: unknow
 test('chaque permission « agir » entraîne sa permission « voir »', () => {
   assert.ok(completerPermissions(['rh-sensible']).includes('rh-sensible-voir'));
   assert.ok(completerPermissions(['rh-sanctionner']).includes('rh-sanctions-voir'));
+  assert.ok(completerPermissions(['rh-sanctions-voir']).includes('rh-voir'), 'la page Sanctions liste aussi les employés');
 });
 
 test('le téléphone et le RIB ne s’envoient qu’avec rh-sensible-voir', async () => {

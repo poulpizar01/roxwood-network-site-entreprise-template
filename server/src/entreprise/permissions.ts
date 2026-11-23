@@ -13,8 +13,8 @@ export const permissions: Permission[] = [
   { cle: 'rh-sensible-voir', domaine: RH, libelle: 'Consulter le téléphone et le RIB', description: 'Voir le téléphone et le RIB des employés, sans pouvoir les modifier' },
   { cle: 'rh-sensible', domaine: RH, libelle: 'Modifier le téléphone et le RIB', description: 'Changer le téléphone et le RIB d’un employé', requiert: ['rh-sensible-voir'] },
   { cle: 'rh-modifier', domaine: RH, libelle: 'Modifier une fiche', description: 'Changer l’identité, le grade ou les dates d’un employé' },
-  // la page Sanctions se consulte sans pouvoir sanctionner (et sans consulter les fiches : rh-voir à part)
-  { cle: 'rh-sanctions-voir', domaine: RH, libelle: 'Consulter les sanctions', description: 'Voir les sanctions de tous les employés (page Sanctions)' },
+  // la page Sanctions se consulte sans pouvoir sanctionner ; elle liste aussi les employés, d'où rh-voir
+  { cle: 'rh-sanctions-voir', domaine: RH, libelle: 'Consulter les sanctions', description: 'Voir les sanctions de tous les employés (page Sanctions)', requiert: ['rh-voir'] },
   { cle: 'rh-sanctionner', domaine: RH, libelle: 'Gérer les sanctions', description: 'Ajouter ou retirer une sanction sur une fiche employé', requiert: ['rh-sanctions-voir'] },
   { cle: 'rh-creer', domaine: RH, libelle: 'Ajouter un employé', description: 'Créer une fiche ; retraiter ou écarter une candidature reçue' },
   { cle: 'rh-reactiver', domaine: RH, libelle: 'Réintégrer un ancien employé', description: 'Remettre un ancien employé dans l’effectif actif' },
