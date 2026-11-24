@@ -126,43 +126,71 @@
     </section>
   </main>
 
-<div class="modale-fond cache" id="modale-employe">
-  <div class="modale modale-fiche-rh" role="dialog" aria-modal="true" aria-labelledby="modale-employe-titre">
-    <div class="modale-entete">
-      <h2 id="modale-employe-titre" class="modale-titre">Fiche employé</h2>
+<div class="modale-fond tiroir-fond cache" id="modale-employe" data-echap>
+  <div class="tiroir tiroir-fiche-rh" role="dialog" aria-modal="true" aria-labelledby="modale-employe-titre">
+    <div class="tiroir-entete">
+      <div class="tiroir-identite">
+        <h2 id="modale-employe-titre">Fiche employé</h2>
+        <p class="tiroir-sous-titre" id="employe-statut"></p>
+      </div>
       <button type="button" id="fermer-modale-employe" aria-label="Fermer">✕</button>
     </div>
+    <div class="compta-sous-onglets fiche-onglets cache" id="employe-onglets" role="tablist" aria-label="Rubriques de la fiche">
+      <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="employe-panneau-profil" data-fiche-onglet="profil">Profil</button>
+      <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="employe-panneau-activite" data-fiche-onglet="activite">Activité</button>
+    </div>
     <div id="zone-message-modale-employe"></div>
-    <form id="formulaire-employe" autocomplete="off">
-      <div class="fiche-rh-corps">
-        <div class="champ-deux">
-          <div class="champ"><label for="employe-prenom">Prénom</label><input type="text" id="employe-prenom" required maxlength="60"></div>
-          <div class="champ"><label for="employe-nom">Nom</label><input type="text" id="employe-nom" required maxlength="60"></div>
+    <form id="formulaire-employe" class="tiroir-form" autocomplete="off">
+      <div class="tiroir-corps">
+        <div id="employe-panneau-profil" role="tabpanel">
+          <div class="champ-deux">
+            <div class="champ"><label for="employe-prenom">Prénom</label><input type="text" id="employe-prenom" required maxlength="60"></div>
+            <div class="champ"><label for="employe-nom">Nom</label><input type="text" id="employe-nom" required maxlength="60"></div>
+          </div>
+          <div class="champ-deux">
+            <div class="champ"><label for="employe-id-unique">ID Unique</label><input type="text" id="employe-id-unique" required maxlength="12" inputmode="numeric" placeholder="Ex. 42" aria-describedby="aide-employe-id-unique"><p class="champ-aide" id="aide-employe-id-unique">Chiffres uniquement.</p><p class="champ-erreur cache" id="erreur-employe-id-unique">L’ID Unique ne contient que des chiffres, par exemple 42.</p></div>
+            <div class="champ"><label for="employe-grade">Grade</label><select id="employe-grade" aria-describedby="employe-grade-aide"></select><small class="champ-aide" id="employe-grade-aide">Donne aussi les droits sur le site à son compte (même ID Discord).</small></div>
+          </div>
+          <div class="champ-deux">
+            <div class="champ"><label for="employe-discord-id">ID Discord</label><input type="text" id="employe-discord-id" inputmode="numeric" maxlength="22" placeholder="18 chiffres environ" aria-describedby="aide-discord-id"><p class="champ-aide" id="aide-discord-id">Clic droit sur le membre dans Discord, « Copier l’identifiant ».</p></div>
+            <div class="champ"><label for="employe-discord-pseudo">Pseudo Discord</label><input type="text" id="employe-discord-pseudo" maxlength="100" placeholder="Ex. lucas_p" aria-describedby="aide-discord-pseudo"><p class="champ-aide" id="aide-discord-pseudo">Celui que le bot envoie avec les ventes.</p></div>
+          </div>
+          <div class="champ-deux" id="employe-bloc-sensible">
+            <div class="champ"><label for="employe-telephone">Téléphone</label><input type="text" id="employe-telephone" maxlength="30"></div>
+            <div class="champ"><label for="employe-rib">RIB</label><input type="text" id="employe-rib" maxlength="60"></div>
+          </div>
+          <div class="champ-deux">
+            <div class="champ"><label for="employe-arrivee">Date d'arrivée</label><input type="date" id="employe-arrivee"></div>
+            <div class="champ"><label for="employe-depart">Date de départ</label><input type="date" id="employe-depart"></div>
+          </div>
+          <div class="champ"><label for="employe-notes">Notes internes</label><textarea id="employe-notes" rows="4" maxlength="1000" aria-describedby="aide-employe-notes"></textarea><p class="champ-aide" id="aide-employe-notes">Visibles de toute personne qui consulte les fiches, jamais de l’employé.</p></div>
+          <section class="tiroir-section cache" id="employe-piece" aria-labelledby="titre-employe-piece"></section>
         </div>
-        <div class="champ-deux">
-          <div class="champ"><label for="employe-id-unique">ID Unique</label><input type="text" id="employe-id-unique" required maxlength="12" inputmode="numeric" placeholder="Ex. 42" aria-describedby="aide-employe-id-unique"><p class="champ-aide" id="aide-employe-id-unique">Chiffres uniquement.</p><p class="champ-erreur cache" id="erreur-employe-id-unique">L’ID Unique ne contient que des chiffres, par exemple 42.</p></div>
-          <div class="champ"><label for="employe-grade">Grade</label><select id="employe-grade" aria-describedby="employe-grade-aide"></select><small class="champ-aide" id="employe-grade-aide">Donne aussi les droits sur le site à son compte (même ID Discord).</small></div>
+        <div id="employe-panneau-activite" role="tabpanel" class="cache">
+          <div class="champ-aide" id="employe-historique"></div>
+          <p class="champ-aide cache" id="employe-service"></p>
+          <section class="tiroir-section" aria-labelledby="titre-employe-journal">
+            <h3 id="titre-employe-journal">Historique de la fiche</h3>
+            <ul class="rh-historique" id="employe-journal"></ul>
+          </section>
         </div>
-        <div class="champ-deux">
-          <div class="champ"><label for="employe-discord-id">ID Discord</label><input type="text" id="employe-discord-id" inputmode="numeric" maxlength="22" placeholder="18 chiffres environ" aria-describedby="aide-discord-id"><p class="champ-aide" id="aide-discord-id">Clic droit sur le membre dans Discord, « Copier l’identifiant ».</p></div>
-          <div class="champ"><label for="employe-discord-pseudo">Pseudo Discord</label><input type="text" id="employe-discord-pseudo" maxlength="100" placeholder="Ex. lucas_p" aria-describedby="aide-discord-pseudo"><p class="champ-aide" id="aide-discord-pseudo">Celui que le bot envoie avec les ventes.</p></div>
-        </div>
-        <div class="champ-deux" id="employe-bloc-sensible">
-          <div class="champ"><label for="employe-telephone">Téléphone</label><input type="text" id="employe-telephone" maxlength="30"></div>
-          <div class="champ"><label for="employe-rib">RIB</label><input type="text" id="employe-rib" maxlength="60"></div>
-        </div>
-        <div class="champ-deux">
-          <div class="champ"><label for="employe-arrivee">Date d'arrivée</label><input type="date" id="employe-arrivee"></div>
-          <div class="champ"><label for="employe-depart">Date de départ</label><input type="date" id="employe-depart"></div>
-        </div>
-        <p class="champ-aide" id="employe-statut" style="margin:6px 0 0;"></p>
-        <div class="champ-aide" id="employe-historique" style="margin-top:10px;"></div>
-        <p class="champ-aide cache" id="employe-service" style="margin-top:10px;"></p>
       </div>
-      <div class="fiche-rh-pied" id="fiche-rh-pied">
+      <div class="tiroir-pied" id="fiche-rh-pied">
+        <span class="tiroir-pied-espace"></span>
         <button type="submit" class="btn btn-or" id="employe-enregistrer">Ajouter</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Pièce d'identité en grand : lue sur le site, jamais dans un nouvel onglet -->
+<div class="modale-fond cache" id="modale-piece" data-echap>
+  <div class="modale modale-piece" role="dialog" aria-modal="true" aria-labelledby="titre-modale-piece">
+    <div class="modale-entete">
+      <h2 id="titre-modale-piece" class="modale-titre">Pièce d’identité</h2>
+      <button type="button" id="fermer-modale-piece" aria-label="Fermer">✕</button>
+    </div>
+    <img id="image-piece" alt="Pièce d’identité de l’employé">
   </div>
 </div>
 

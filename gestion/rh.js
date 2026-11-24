@@ -215,12 +215,17 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   // date d'arrivée exigée à la création ; une fiche reprise de l'existant peut ne pas en avoir encore
   $rh('employe-arrivee').required = !id;
   // téléphone et RIB : le serveur ne les envoie qu'avec rh-sensible-voir ; sans rh-sensible, ils se lisent sans se modifier
+  $rh('employe-notes').value = f.notes || ''; $rh('employe-notes').disabled = !peutEcrire;
   $rh('employe-bloc-sensible').classList.toggle('cache', !aDroitRh('sensible-voir'));
   for (const champ of ['employe-telephone', 'employe-rib']) $rh(champ).readOnly = !aDroitRh('sensible');
   const bouton = $rh('employe-enregistrer');
   bouton.classList.toggle('cache', !peutEcrire);
   $rh('fiche-rh-pied').classList.toggle('cache', !peutEcrire);
   bouton.textContent = id ? 'Enregistrer' : 'Ajouter';
+  // création : une seule rubrique ; fiche existante : Profil et Activité (l'historique n'existe qu'une fois la fiche créée)
+  $rh('employe-onglets').classList.toggle('cache', !id);
+  choisirOngletFiche('profil');
+  dessinerPiece(id ? f : null);
   $rh('employe-statut').textContent = id
     ? `${f.statut === 'actif' ? 'Employé actif' : 'Ancien employé'}${f.idProvisoire ? '. ID Unique provisoire : remplacez-le par le vrai.' : '.'}${peutEcrire ? '' : ' Fiche en lecture seule (grade égal ou supérieur au vôtre).'}`
     : '';
@@ -233,6 +238,70 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   $rh('modale-employe').classList.remove('cache');
   (peutEcrire ? $rh('employe-prenom') : $rh('fermer-modale-employe')).focus();
 }
+// ---- onglets de la fiche : Profil (modifiable) et Activité (compte du site, service, historique écrit par le serveur) ----
+function choisirOngletFiche(nom) {
+  document.querySelectorAll('[data-fiche-onglet]').forEach(b => { const actif = b.dataset.ficheOnglet === nom; b.classList.toggle('actif', actif); b.setAttribute('aria-selected', String(actif)); b.tabIndex = actif ? 0 : -1; });
+  $rh('employe-panneau-profil').classList.toggle('cache', nom !== 'profil');
+  $rh('employe-panneau-activite').classList.toggle('cache', nom !== 'activite');
+  $rh('fiche-rh-pied').classList.toggle('cache', nom !== 'profil' || $rh('employe-enregistrer').classList.contains('cache'));
+  if (nom === 'activite') chargerJournal();
+}
+async function chargerJournal() {
+  const id = FICHE_OUVERTE, liste = $rh('employe-journal');
+  liste.innerHTML = '<li><span>Chargement…</span></li>';
+  try {
+    const { historique } = await socle.api(`/api/rh/employes/${id}/historique`);
+    if (id !== FICHE_OUVERTE) return;   // une autre fiche s'est ouverte pendant la requête
+    liste.innerHTML = historique.length
+      ? historique.map(h => `<li><span>${echapper(new Date(h.creeLe).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' }))}</span><strong>${echapper(h.texte)}</strong>${h.auteur ? `<small>par ${echapper(h.auteur)}</small>` : ''}</li>`).join('')
+      : '<li><span>Rien d’enregistré pour l’instant : l’historique s’écrit à chaque changement de la fiche.</span></li>';
+  } catch (e) { if (id === FICHE_OUVERTE) liste.innerHTML = `<li><span>${echapper(e.message)}</span></li>`; }
+}
+document.querySelectorAll('[data-fiche-onglet]').forEach(b => {
+  b.addEventListener('click', () => choisirOngletFiche(b.dataset.ficheOnglet));
+  b.addEventListener('keydown', e => {   // flèches : on passe d'une rubrique à l'autre
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const autre = document.querySelector(`[data-fiche-onglet]:not([data-fiche-onglet="${b.dataset.ficheOnglet}"])`);
+    choisirOngletFiche(autre.dataset.ficheOnglet); autre.focus();
+  });
+});
+
+// ---- pièce d'identité (rh-piece-voir pour la voir, rh-piece pour la poser) : une image envoyée, effacée 90 jours après le départ ----
+function dessinerPiece(f) {
+  const zone = $rh('employe-piece');
+  zone.classList.toggle('cache', !f || !aDroitRh('piece-voir'));
+  if (!f || !aDroitRh('piece-voir')) return;
+  const gerer = aDroitRh('piece') && f.modifiable !== false;
+  zone.innerHTML = `<h3 id="titre-employe-piece">Pièce d’identité <span class="rh-donnees-sensibles">${gestion.ico('lock')} données sensibles</span></h3>
+    ${f.pieceIdentiteUrlMini
+      ? `<button type="button" class="piece-apercu" data-agrandir-piece aria-label="Agrandir la pièce d’identité"><img src="${echapper(f.pieceIdentiteUrlMini)}" alt=""></button>`
+      : '<p class="comptes-discret">Aucune pièce d’identité.</p>'}
+    ${gerer ? `<div class="piece-actions">
+        <button type="button" class="btn btn-fantome" data-piece-choisir>${f.pieceIdentiteUrl ? 'Remplacer la pièce' : 'Ajouter une pièce'}</button>
+        ${f.pieceIdentiteUrl ? '<button type="button" class="btn btn-fantome grade-supprimer" data-piece-retirer>Retirer</button>' : ''}
+        <input type="file" id="piece-fichier" accept="image/png,image/jpeg,image/webp" class="cache" aria-label="Choisir l’image de la pièce d’identité">
+      </div>` : ''}
+    <p class="champ-aide">Effacée automatiquement 90 jours après le départ de l’employé.</p>`;
+  const grande = zone.querySelector('[data-agrandir-piece]');
+  if (grande) grande.addEventListener('click', () => { $rh('image-piece').src = f.pieceIdentiteUrl; $rh('modale-piece').classList.remove('cache'); $rh('fermer-modale-piece').focus(); });
+  zone.querySelector('[data-piece-choisir]')?.addEventListener('click', () => $rh('piece-fichier').click());
+  $rh('piece-fichier')?.addEventListener('change', async e => {
+    const fichier = e.target.files[0];
+    if (!fichier) return;
+    const corps = new FormData(); corps.append('image', fichier);
+    gestion.notifier('Envoi de la pièce d’identité…');
+    try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/piece-identite`, { method: 'POST', body: corps }); gestion.notifier('Pièce d’identité enregistrée ✓'); ouvrirFicheEmploye(FICHE_OUVERTE); }
+    catch (err) { gestion.message('zone-message-modale-employe', err.message); e.target.value = ''; }
+  });
+  zone.querySelector('[data-piece-retirer]')?.addEventListener('click', async () => {
+    if (!await gestion.confirmer('La pièce d’identité de cette fiche sera définitivement retirée.', 'Retirer la pièce d’identité ?', 'Retirer la pièce')) return;
+    try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/piece-identite`, { method: 'DELETE' }); gestion.notifier('Pièce d’identité retirée ✓'); ouvrirFicheEmploye(FICHE_OUVERTE); }
+    catch (err) { gestion.message('zone-message-modale-employe', err.message); }
+  });
+}
+$rh('fermer-modale-piece').addEventListener('click', () => $rh('modale-piece').classList.add('cache'));
+$rh('modale-piece').addEventListener('click', e => { if (e.target.id === 'modale-piece') $rh('modale-piece').classList.add('cache'); });
+
 const fermerModaleEmploye = () => { $rh('modale-employe').classList.add('cache'); if (OUVREUR_FICHE?.isConnected) OUVREUR_FICHE.focus(); };
 async function terminerServiceEmploye(id) {
   if (!await gestion.confirmer('Son service s’arrête à l’instant, même s’il ou elle est toujours en jeu.', 'Terminer ce service ?', 'Terminer le service')) return;
@@ -246,7 +315,6 @@ async function terminerServiceEmploye(id) {
 $rh('bouton-nouvel-employe').addEventListener('click', () => ouvrirFicheEmploye(null));
 $rh('fermer-modale-employe').addEventListener('click', fermerModaleEmploye);
 $rh('modale-employe').addEventListener('click', e => { if (e.target.id === 'modale-employe') fermerModaleEmploye(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$rh('modale-employe').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) fermerModaleEmploye(); });
 
 $rh('formulaire-employe').addEventListener('submit', async e => {
   e.preventDefault();
@@ -255,7 +323,7 @@ $rh('formulaire-employe').addEventListener('submit', async e => {
   const corps = {
     prenom: val('employe-prenom'), nom: val('employe-nom'), idUnique: val('employe-id-unique'), grade: $rh('employe-grade').value,
     discordId: val('employe-discord-id'), discordPseudo: val('employe-discord-pseudo'),
-    dateArrivee: val('employe-arrivee'), dateDepart: val('employe-depart'),
+    dateArrivee: val('employe-arrivee'), dateDepart: val('employe-depart'), notes: val('employe-notes'),
   };
   if (aDroitRh('sensible')) { corps.telephone = val('employe-telephone'); corps.rib = val('employe-rib'); }
   // l’ID Unique est un numéro ; un ID provisoire (PROV-…) reste accepté tant qu’on ne l’a pas remplacé
