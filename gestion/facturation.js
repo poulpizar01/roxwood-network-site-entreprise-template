@@ -231,13 +231,12 @@ function actionsFacture(f) {
   }
   return items;
 }
-// pied du tiroir : Aperçu et actions à gauche ; Supprimer, Annuler (ou Fermer) et Enregistrer/Ajouter à droite
+// pied du tiroir : Aperçu et actions à gauche ; Supprimer et Enregistrer/Ajouter à droite (pas d'Annuler : le ✕ ferme, avec confirmation si saisie)
 function dessinerPiedFacture(f, editable) {
   const b = [];
   if (f) b.push(`<button type="button" class="btn btn-fantome" data-pied-apercu>${gestion.ico("sheet")} Aperçu</button>`, ...actionsFacture(f));
   b.push('<span class="tiroir-pied-espace"></span>');
   if (f && f.source === "manuel") b.push(`<button type="button" class="btn btn-danger" data-exige="factures" data-pied-supprimer>${gestion.ico("trash")} Supprimer</button>`);
-  b.push(editable ? '<button type="button" class="btn btn-danger" data-pied-annuler>Annuler</button>' : '<button type="button" class="btn btn-fantome" data-pied-annuler>Fermer</button>');
   if (editable) b.push(`<button type="submit" class="btn btn-or" data-exige="factures" id="bouton-facture-enregistrer">${f ? "Enregistrer" : "Ajouter"}</button>`);
   document.getElementById("facture-pied").innerHTML = b.join("");
 }
@@ -248,7 +247,6 @@ document.getElementById("factures-liste").addEventListener("click", ev => {
 document.getElementById("facture-pied").addEventListener("click", ev => {
   const bouton = ev.target.closest("button");
   if (!bouton) return;
-  if (bouton.dataset.piedAnnuler !== undefined) return fermerModaleFactureForm();
   if (bouton.dataset.piedApercu !== undefined) return ouvrirApercuFacture(FACTURES_TOUTES.find(f => f.id === FACTURE_COURANTE?.id) || FACTURE_COURANTE);
   if (bouton.dataset.piedSupprimer !== undefined) return supprimerFactureCourante();
   if (bouton.dataset.factureStatut) {
