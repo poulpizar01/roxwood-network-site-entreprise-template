@@ -188,18 +188,17 @@ function afficherFactures() {
   // une ligne par facture (composant .liste-lignes) : le nom du client ouvre le tiroir, le menu « ⋯ » porte les actions
   // secondaires ; en carte (place mesurée trop étroite), chaque cellule est précédée de son libellé
   const entete = `<div class="liste-entete entete-tri">${TRI_FACTURES.bouton("client", "Client")}${TRI_FACTURES.bouton("date", "Date")}${TRI_FACTURES.bouton("source", "Provenance")}<span class="liste-entete-droite">${TRI_FACTURES.bouton("total", "Total")}</span>${TRI_FACTURES.bouton("statut", "Statut")}<span></span></div>`;
-  document.getElementById("factures-liste").innerHTML = entete + lignes.map(f => `<div class="ligne-liste${f.statutPaiement === "ANNULEE" ? " ligne-liste--terminee" : ""}">
-      <button type="button" class="ligne-bouton" data-facture-voir="${f.id}" aria-label="Ouvrir la facture de ${echapper(f.clientNom) || "client inconnu"}">
+  document.getElementById("factures-liste").innerHTML = entete + lignes.map(f => `<button type="button" class="ligne-liste${f.statutPaiement === "ANNULEE" ? " ligne-liste--terminee" : ""}" data-facture-voir="${f.id}" aria-label="Ouvrir la facture de ${echapper(f.clientNom) || "client inconnu"}">
+      <span class="ligne-identite">
         <span class="admin-avatar" aria-hidden="true">${echapper(initiales(f.clientNom || "?"))}</span>
-        <span class="rh-employe-texte"><span class="comptes-nom"><strong>${echapper(f.clientNom) || "Client inconnu"}</strong>${f.avoirDeId ? '<span class="puce puce-off">Avoir</span>' : ""}</span>
-          <span class="comptes-pseudo">${echapper(f.numeroFacture) || "Sans numéro"}</span></span>
-      </button>
+        <span class="ligne-nom"><strong>${echapper(f.clientNom) || "Client inconnu"}</strong>${f.avoirDeId ? '<span class="puce puce-off">Avoir</span>' : ""}</span>
+      </span>
       <span class="ligne-cellule" data-libelle="Date">${echapper(formaterDateAdmin(f.dateFacture))}</span>
       <span class="ligne-cellule" data-libelle="Provenance">${echapper(labelSourceFacture(f.source))}</span>
       <span class="ligne-cellule ligne-cellule--montant" data-libelle="Total"><span>${formaterArgentStats(f.total)}</span></span>
       <span class="ligne-cellule" data-libelle="Statut"><span>${badgeStatutFacture(f.statutPaiement)}</span></span>
-      ${menuLigneFacture(f).replace('class="comptes-menu"', 'class="comptes-menu ligne-actions"')}
-    </div>`).join("");
+      <span class="ligne-chevron" aria-hidden="true">${fleche("droite")}</span>
+    </button>`).join("");
   gestion.listeEnCartes(document.getElementById("factures-liste"), 780, true);
 }
 // Statut d'une facture saisie à la main : les trois valeurs possibles, dans chacune le libellé et l'icône de
@@ -212,15 +211,11 @@ const STATUTS_FACTURE_MANUELLE = {
   ANNULEE: { libelle: "Marquer annulée", icone: "fermer",
     confirmation: { texte: "Cette facture sera marquée annulée.", titre: "Annuler cette facture ?", bouton: "Valider" } },
 };
-// Actions secondaires d'une facture, regroupées sous un menu « ⋯ » (même composant que la liste RH, gestion/rh.js :
-// trop de boutons côte à côte écrasait le rendu du tableau à 1 280 px). Consulter/Modifier n'y est pas : c'est
-// l'action la plus fréquente, elle s'ouvre directement en tapant le nom du client (bouton .table-lien ci-dessus),
-// pas depuis un menu — un menu qui mélange l'action principale aux actions rares coûte un tap de plus à la première
-// et noie les secondes (design-critique du 2026-10-23). Le changement de statut propose les deux autres valeurs que
-// la valeur actuelle (on peut revenir en arrière), sauf une fois qu'un avoir a été émis pour une facture payée (son
-// statut ne peut plus changer, routes/compta.ts) ; Créer un avoir n'apparaît que si l'action a un sens pour cette
-// facture ; Aperçu de la facture est toujours là.
-function menuLigneFacture(f) {
+// Actions d'une facture : dans le pied du tiroir, pas sur la ligne (la ligne n'a qu'une action, l'ouvrir). Le changement
+// de statut propose les deux autres valeurs que la valeur actuelle (on peut revenir en arrière), sauf une fois qu'un
+// avoir a été émis pour une facture payée (son statut ne peut plus changer, routes/compta.ts) ; Créer un avoir
+// n'apparaît que si l'action a un sens pour cette facture.
+function actionsFacture(f) {
   // un avoir n'est pas modifiable : il reprend tels quels les montants qu'il annule (server/src/entreprise/routes/compta.ts)
   const editable = f.source === "manuel" && !f.avoirDeId;
   const items = [];
@@ -228,80 +223,53 @@ function menuLigneFacture(f) {
     for (const statut of ["EN_ATTENTE", "PAYEE", "ANNULEE"]) {
       if (statut === f.statutPaiement) continue;
       const a = STATUTS_FACTURE_MANUELLE[statut];
-      items.push(`<button type="button" role="menuitem" data-exige="factures" data-facture-statut="${f.id}" data-statut-cible="${statut}">${gestion.ico(a.icone)} ${a.libelle}</button>`);
+      items.push(`<button type="button" class="btn btn-fantome" data-exige="factures" data-facture-statut="${f.id}" data-statut-cible="${statut}">${gestion.ico(a.icone)} ${a.libelle}</button>`);
     }
   }
   if (["PAID", "PAYEE"].includes(f.statutPaiement) && !f.avoirDeId && !f.avoirEmis) {
-    items.push(`<button type="button" role="menuitem" data-exige="factures" data-facture-avoir="${f.id}">${gestion.ico("receipt")} Créer un avoir</button>`);
+    items.push(`<button type="button" class="btn btn-fantome" data-exige="factures" data-facture-avoir="${f.id}">${gestion.ico("receipt")} Créer un avoir</button>`);
   }
-  items.push(`<button type="button" role="menuitem" data-facture-apercu="${f.id}">${gestion.ico("sheet")} Aperçu de la facture</button>`);
-  const nom = echapper(f.numeroFacture ? `la facture ${f.numeroFacture}` : `la facture n° ${f.id}`);
-  return `<div class="comptes-menu">
-    <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${nom}">${gestion.ico("points")}</button>
-    <div class="comptes-menu-liste cache" role="menu">${items.join("")}</div>
-  </div>`;
+  return items;
 }
-// même comportement que le menu « ⋯ » de la liste RH (gestion/rh.js) : un seul menu ouvert à la fois, Échap et clic
-// extérieur le ferment, les flèches déplacent le focus entre ses actions, il s'ouvre vers le haut s'il déborderait en bas.
-let MENU_FACTURE_OUVERT = null;
-function fermerMenuFacture(rendreFocus) {
-  if (!MENU_FACTURE_OUVERT) return;
-  MENU_FACTURE_OUVERT.querySelector(".comptes-menu-liste").classList.add("cache");
-  const b = MENU_FACTURE_OUVERT.querySelector(".comptes-menu-bouton");
-  b.setAttribute("aria-expanded", "false");
-  if (rendreFocus) b.focus();
-  MENU_FACTURE_OUVERT = null;
+// pied du tiroir : Aperçu et actions à gauche ; Supprimer, Annuler (ou Fermer) et Enregistrer/Ajouter à droite
+function dessinerPiedFacture(f, editable) {
+  const b = [];
+  if (f) b.push(`<button type="button" class="btn btn-fantome" data-pied-apercu>${gestion.ico("sheet")} Aperçu</button>`, ...actionsFacture(f));
+  b.push('<span class="tiroir-pied-espace"></span>');
+  if (f && f.source === "manuel") b.push(`<button type="button" class="btn btn-danger" data-exige="factures" data-pied-supprimer>${gestion.ico("trash")} Supprimer</button>`);
+  b.push(editable ? '<button type="button" class="btn btn-danger" data-pied-annuler>Annuler</button>' : '<button type="button" class="btn btn-fantome" data-pied-annuler>Fermer</button>');
+  if (editable) b.push(`<button type="submit" class="btn btn-or" data-exige="factures" id="bouton-facture-enregistrer">${f ? "Enregistrer" : "Ajouter"}</button>`);
+  document.getElementById("facture-pied").innerHTML = b.join("");
 }
 document.getElementById("factures-liste").addEventListener("click", ev => {
-  const ouvreur = ev.target.closest(".comptes-menu-bouton");
-  if (ouvreur) {
-    const menu = ouvreur.closest(".comptes-menu");
-    if (MENU_FACTURE_OUVERT === menu) return fermerMenuFacture(true);
-    fermerMenuFacture(false);
-    const liste = menu.querySelector(".comptes-menu-liste");
-    liste.classList.remove("cache");
-    liste.classList.toggle("vers-le-haut", ouvreur.getBoundingClientRect().bottom + liste.offsetHeight + 16 > innerHeight);
-    ouvreur.setAttribute("aria-expanded", "true");
-    liste.querySelector("[role=menuitem]").focus();
-    MENU_FACTURE_OUVERT = menu;
-    return;
-  }
-  const bouton = ev.target.closest("button[data-facture-voir], button[data-facture-statut], button[data-facture-avoir], button[data-facture-apercu]");
+  const bouton = ev.target.closest("[data-facture-voir]");
+  if (bouton) ouvrirFactureForm(Number(bouton.dataset.factureVoir));
+});
+document.getElementById("facture-pied").addEventListener("click", ev => {
+  const bouton = ev.target.closest("button");
   if (!bouton) return;
-  fermerMenuFacture(false);
-  if (bouton.dataset.factureVoir) { ouvrirFactureForm(Number(bouton.dataset.factureVoir)); return; }
+  if (bouton.dataset.piedAnnuler !== undefined) return fermerModaleFactureForm();
+  if (bouton.dataset.piedApercu !== undefined) return ouvrirApercuFacture(FACTURES_TOUTES.find(f => f.id === FACTURE_COURANTE?.id) || FACTURE_COURANTE);
+  if (bouton.dataset.piedSupprimer !== undefined) return supprimerFactureCourante();
   if (bouton.dataset.factureStatut) {
-    const cible = bouton.dataset.statutCible;
-    const a = STATUTS_FACTURE_MANUELLE[cible];
-    actionFactureLigne(Number(bouton.dataset.factureStatut), "statut", { libelle: a.libelle, confirmation: a.confirmation, corps: { statut: cible } });
-    return;
+    const cible = bouton.dataset.statutCible, a = STATUTS_FACTURE_MANUELLE[cible];
+    return actionFactureLigne(Number(bouton.dataset.factureStatut), "statut", { libelle: a.libelle, confirmation: a.confirmation, corps: { statut: cible } });
   }
   if (bouton.dataset.factureAvoir) {
     actionFactureLigne(Number(bouton.dataset.factureAvoir), "avoir",
       { libelle: "Avoir créé", confirmation: { texte: "Une facture d'avoir sera créée (montants négatifs), liée à celle-ci. Si elle a été saisie à la main, elle passera elle-même à « annulée ».", titre: "Créer un avoir pour cette facture ?", bouton: "Créer l'avoir" } });
-    return;
-  }
-  if (bouton.dataset.factureApercu) ouvrirApercuFacture(FACTURES_TOUTES.find(f => f.id === Number(bouton.dataset.factureApercu)));
-});
-document.addEventListener("click", ev => { if (MENU_FACTURE_OUVERT && !MENU_FACTURE_OUVERT.contains(ev.target)) fermerMenuFacture(false); });
-document.addEventListener("keydown", ev => {
-  if (!MENU_FACTURE_OUVERT) return;
-  if (ev.key === "Escape") { ev.preventDefault(); fermerMenuFacture(true); }
-  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
-    ev.preventDefault();
-    const items = [...MENU_FACTURE_OUVERT.querySelectorAll("[role=menuitem]")], i = items.indexOf(document.activeElement);
-    items[(i + (ev.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus();
   }
 });
-// changer de statut / créer un avoir, depuis la ligne : recharge la liste (montants, statut, actions applicables)
+// changer de statut / créer un avoir, depuis le pied de la fiche ouverte : recharge la liste et redessine la fiche
 async function actionFactureLigne(id, route, { libelle, confirmation, corps }) {
   if (confirmation && !(await gestion.confirmer(confirmation.texte, confirmation.titre, confirmation.bouton, { danger: false }))) return;
   try {
     await socle.api(`/api/compta/factures/${id}/${route}`, { method: "POST", body: corps });
     gestion.notifier(`${libelle} ✓`);
     await chargerFactures();
+    if (FACTURE_COURANTE?.id === id) await ouvrirFactureForm(id);
   } catch (e) {
-    gestion.message("zone-message-factures", "Action impossible : " + e.message);
+    gestion.message("zone-message-modale-facture", "Action impossible : " + e.message);
   }
 }
 
@@ -478,7 +446,7 @@ document.getElementById("bouton-apercu-copier").addEventListener("click", async 
   }
 });
 
-document.getElementById("bouton-supprimer-facture").addEventListener("click", async () => {
+async function supprimerFactureCourante() {
   const f = FACTURE_COURANTE;
   if (!f) return;
   const ok = await gestion.confirmer("Cette facture saisie à la main sera définitivement supprimée.", "Supprimer cette facture ?", "Supprimer la facture");
@@ -490,7 +458,7 @@ document.getElementById("bouton-supprimer-facture").addEventListener("click", as
   } catch (e) {
     gestion.message("zone-message-factures", "Impossible de supprimer cette facture : " + e.message);
   }
-});
+}
 
 // saisie manuelle : le total s'affiche en aperçu (sous-total + livraison − réduction en %) mais n'est jamais envoyé,
 // pour qu'il ne puisse jamais contredire les autres montants — c'est le serveur qui le calcule (routes/compta.ts).
@@ -650,19 +618,7 @@ async function ouvrirFactureForm(id) {
   document.getElementById("facture-reduction").value = f && f.sousTotal ? Math.round((f.reduction / f.sousTotal) * 100) : 0;
   if (editable) majApercuTotalFacture(); else remplirRecapitulatifLecture(f);
 
-  // Supprimer : seule action de cycle de vie restée dans le panel (les autres sont sur la ligne du tableau, menuLigneFacture)
-  const afficheSupprimer = !!(f && f.source === "manuel");
-  document.getElementById("bouton-supprimer-facture").classList.toggle("cache", !afficheSupprimer);
-  // rien à enregistrer sur une facture non modifiable (commande Discord, facture en jeu, avoir) : le panel ne sert
-  // plus qu'à consulter, pas de bouton Enregistrer
-  document.getElementById("bouton-facture-enregistrer").classList.toggle("cache", !editable);
-  document.getElementById("bouton-facture-enregistrer").textContent = !f ? "Ajouter" : "Enregistrer";
-  // Aperçu : pour une facture existante ; Annuler (rouge, repère constant) ferme sans enregistrer, « Fermer » quand il n'y a rien à enregistrer
-  document.getElementById("bouton-facture-apercu").classList.toggle("cache", !f);
-  const annuler = document.getElementById("bouton-facture-annuler");
-  annuler.textContent = editable ? "Annuler" : "Fermer";
-  annuler.classList.toggle("btn-danger", editable);
-  annuler.classList.toggle("btn-fantome", !editable);
+  dessinerPiedFacture(f, editable);
 
   document.getElementById("modale-facture-form").classList.remove("cache");
   (editable ? document.getElementById("facture-client") : document.getElementById("fermer-modale-facture-form")).focus();
@@ -670,8 +626,6 @@ async function ouvrirFactureForm(id) {
 function fermerModaleFactureForm() { document.getElementById("modale-facture-form").classList.add("cache"); }
 document.getElementById("bouton-nouvelle-facture").addEventListener("click", () => ouvrirFactureForm(null));
 document.getElementById("fermer-modale-facture-form").addEventListener("click", fermerModaleFactureForm);
-document.getElementById("bouton-facture-annuler").addEventListener("click", fermerModaleFactureForm);
-document.getElementById("bouton-facture-apercu").addEventListener("click", () => { if (FACTURE_COURANTE) ouvrirApercuFacture(FACTURES_TOUTES.find(f => f.id === FACTURE_COURANTE.id) || FACTURE_COURANTE); });
 document.getElementById("modale-facture-form").addEventListener("click", (ev) => { if (ev.target.id === "modale-facture-form") fermerModaleFactureForm(); });
 
 document.getElementById("formulaire-facture").addEventListener("submit", async (ev) => {
