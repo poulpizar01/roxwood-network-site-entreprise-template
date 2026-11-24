@@ -27,8 +27,8 @@ function load(): Record<string, string> {
   if (typeof couleur !== 'string' || !/^#[0-9a-f]{6}$/i.test(couleur)) { console.error('site.json : « couleur » doit être une couleur du type #3e7bfa'); process.exit(1); }
   // lien d'invitation : inséré dans des href, donc une adresse https et rien d'autre
   if (raw.discord !== undefined && !/^https:\/\/[^\s"'<>]+$/.test(raw.discord as string)) { console.error('site.json : « discord » doit être une adresse https:// (lien d’invitation)'); process.exit(1); }
-  // modules activables de l'entreprise (« vitrine avis demandes ») : des mots en minuscules séparés par des espaces ; leur liste connue est vérifiée par entreprise/modules.ts
-  if (raw.modules !== undefined && !/^[a-z-]+( [a-z-]+)*$/.test(raw.modules as string)) { console.error('site.json : « modules » doit être une liste de mots en minuscules séparés par des espaces (ex. « vitrine avis demandes »)'); process.exit(1); }
+  // modules activables de l'entreprise (« vitrine avis demandes ») : des mots en minuscules séparés par des espaces (vide : aucun module) ; leur liste connue est vérifiée par entreprise/modules.ts
+  if (raw.modules !== undefined && !/^([a-z-]+( [a-z-]+)*)?$/.test(raw.modules as string)) { console.error('site.json : « modules » doit être une liste de mots en minuscules séparés par des espaces (ex. « vitrine avis demandes »)'); process.exit(1); }
   const rvb = [1, 3, 5].map(i => parseInt(couleur.slice(i, i + 2), 16));
   const sombre = '#' + rvb.map(v => Math.round(v * 0.7).toString(16).padStart(2, '0')).join('');
   return { ...(raw as Record<string, string>), couleur, couleur_rvb: rvb.join(', '), couleur_sombre: sombre, url: config.baseUrl };

@@ -107,3 +107,36 @@ svg.fleche{width:1.1em;height:1.1em;vertical-align:-.2em;fill:none;stroke:curren
 .postes{list-style:none;margin:32px 0 0;padding:0;display:grid;gap:12px;max-width:560px}
 .poste{display:flex;justify-content:space-between;gap:16px;padding:14px 18px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius)}
 .poste__places{color:var(--ink2);white-space:nowrap}
+
+/* ---------- avis (module « avis » : index.html, avis.html, assets/js/avis.js) ---------- */
+.avis,.avis-page{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;margin-top:32px}
+.avis-carte{display:flex;flex-direction:column;gap:10px;padding:24px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.avis-carte--epingle{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent),var(--shadow)}
+.avis-carte__label{margin:0;font:600 12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.etoiles{display:flex;gap:3px}
+.etoiles svg{width:18px;height:18px}
+.etoiles .est-pleine{fill:var(--accent)}
+.etoiles .est-vide{fill:var(--line)}
+.avis-carte__texte{flex:1;margin:0;color:var(--ink);overflow-wrap:anywhere}
+.avis-carte__auteur{margin:0;font-weight:600;overflow-wrap:anywhere}
+.avis-carte__auteur span{display:block;font-weight:400;font-size:14px;color:var(--ink2)}
+.avis__pied{display:flex;flex-wrap:wrap;gap:12px;margin:32px 0 0}
+.avis-vide,.avis-compte,.avis-etat{color:var(--ink2)}
+.avis-compte{margin:0}
+.pagination{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-top:32px}
+.pagination .btn[disabled]{opacity:.45;cursor:default}
+.avis-depot{max-width:560px;margin-top:24px}
+.champ{display:flex;flex-direction:column;gap:6px;margin:0 0 18px;padding:0;border:0;min-width:0}
+.champ label,.champ legend{padding:0;font-weight:600;font-size:15px}
+.champ small{font-weight:400;color:var(--ink2)}
+.champ input[type=text],.champ textarea{width:100%;min-height:44px;padding:11px 14px;font:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--ink2);border-radius:var(--radius)}
+.champ textarea{resize:vertical}
+.champ input:focus-visible,.champ textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.champ-aide{margin:0;font-size:14px;color:var(--ink2)}
+.avis-note__choix{display:flex;gap:8px}
+.avis-note__choix label{position:relative;cursor:pointer}
+.avis-note__choix input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.avis-note__choix span{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--ink2);border-radius:var(--radius);font-weight:600}
+.avis-note__choix input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.avis-note__choix input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.lien{padding:0;border:0;background:none;color:var(--accent);font:inherit;text-decoration:underline;cursor:pointer}

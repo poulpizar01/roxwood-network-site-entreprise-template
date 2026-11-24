@@ -177,6 +177,7 @@ if (storage.kind === 'local') app.use('/uploads', express.static(storage.dir, { 
 const rootPages = pages(config.root), rootFiles = express.static(config.root, statics);
 app.use((req, res, next) => {
   if (!/^\/([\w-]+(\.(html|css|js|txt|xml))?)?$/.test(req.path)) return next();
+  if (entreprise.pagesPubliquesInactives?.includes(req.path.slice(1).replace(/\.html$/, '').toLowerCase())) return next();   // module éteint : 404
   // un nom sans extension n'est qu'une page (/faq → faq.html) : jamais un fichier tel quel (LICENSE, Dockerfile…)
   rootPages(req, res, () => (/\.\w+$/.test(req.path) ? rootFiles(req, res, next) : next()));
 });

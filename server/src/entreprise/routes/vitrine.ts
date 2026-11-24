@@ -1,18 +1,15 @@
 // ENTREPRISE — routes du module « vitrine » (montées seulement s'il est allumé dans site.json) : services de la page
 // d'accueil, étiquettes, postes ouverts. Public : les services et les postes à pourvoir, et la photo d'un service
 // non masqué ; tout le reste exige vitrine-voir / vitrine (services, étiquettes) ou postes-voir / postes (postes).
-import { join } from 'node:path';
 import { Router, type Request } from 'express';
-import { config } from '../../socle/config.js';
 import { prisma } from '../../socle/db.js';
 import { body, intParam, permission } from '../../socle/http.js';
 import { enregistrerImage, recevoirImage, retirerImage } from '../../socle/images.js';
-import { renderFile, withNonce } from '../../socle/site.js';
 import { storage } from '../../socle/storage.js';
 import { Refus, traiter } from '../refus.js';
 import {
-  creerEtiquette, creerPoste, injecterVitrine, creerService, listerEtiquettes, listerPostes, listerServices, modifierEtiquette, modifierPoste, modifierService,
-  ordonnerServices, postesPublics, serviceDe, servicesPublics, supprimerEtiquette, supprimerPoste, supprimerService, type ServiceVitrine,
+  creerEtiquette, creerPoste, creerService, listerEtiquettes, listerPostes, listerServices, modifierEtiquette, modifierPoste, modifierService,
+  ordonnerServices, postesPublics, urlPhoto, serviceDe, servicesPublics, supprimerEtiquette, supprimerPoste, supprimerService,
 } from '../vitrine.js';
 import { CACHE_COURT, changerImage, lireImage } from './apparence.js';
 
@@ -24,12 +21,6 @@ const voirPostes = permission('postes-voir'), gererPostes = permission('postes')
 // ---- photo d'un service : image d'apparence « service-<id> » (même traitement que le logo) ----
 type Photo = { url: string; urlMini: string; majLe: Date };
 const photoDe = async (id: number): Promise<Photo | null> => prisma.apparenceImage.findUnique({ where: { cle: `service-${id}` }, select: { url: true, urlMini: true, majLe: true } });
-// version dans l'adresse : une photo remplacée change d'adresse, le navigateur ne garde jamais l'ancienne
-function urlPhoto(s: ServiceVitrine, photo: { majLe: Date } | undefined, mini = false): string | null {
-  if (!photo) return null;
-  const base = s.masque ? `/api/vitrine/services/${s.id}/apercu${mini ? '-mini' : ''}` : `/assets/img/service-${s.id}${mini ? '-mini' : ''}.webp`;
-  return `${base}?v=${photo.majLe.getTime()}`;
-}
 async function servirPhoto(res: import('express').Response, id: number, mini: boolean): Promise<void> {
   const photo = await photoDe(id);
   if (!photo) { res.status(404).end(); return; }
@@ -51,18 +42,7 @@ for (const mini of [true, false]) {
   }));
 }
 
-// ---- public : page d'accueil ----
-// rendue ici, avec ses services et ses postes déjà dans le HTML : rien n'arrive après coup, donc rien ne saute à l'affichage
-// (module éteint : cette route n'existe pas, la page est servie telle quelle par le socle, sections cachées)
-vitrine.get(['/', '/index.html'], async (_req, res, next) => {
-  try {
-  let html: string;
-  try { html = renderFile(join(config.root, 'index.html')); } catch { next(); return; }
-  const photos = new Map((await prisma.apparenceImage.findMany({ where: { cle: { startsWith: 'service-' } }, select: { cle: true, majLe: true } })).map(p => [p.cle, p]));
-  const services = await servicesPublics(s => urlPhoto(s, photos.get(`service-${s.id}`)));
-  res.type('text/html').send(withNonce(injecterVitrine(html, services, await postesPublics()), res));
-  } catch (e) { next(e); }
-});
+// ---- public : lecture JSON (la page d'accueil elle-même est rendue par routes/accueil-public.ts) ----
 vitrine.get('/api/services/public', traiter(async (_req, res) => {
   const photos = new Map((await prisma.apparenceImage.findMany({ where: { cle: { startsWith: 'service-' } }, select: { cle: true, majLe: true } })).map(p => [p.cle, p]));
   res.json({ services: await servicesPublics(s => urlPhoto(s, photos.get(`service-${s.id}`))) });

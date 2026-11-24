@@ -158,3 +158,11 @@ export function injecterVitrine(html: string, services: ServicePublic[], postes:
   }
   return html;
 }
+
+// adresse de la photo d'un service (la version change avec la photo : jamais l'ancienne en cache) ; masqué : par la gestion seulement
+// version dans l'adresse : une photo remplacée change d'adresse, le navigateur ne garde jamais l'ancienne
+export function urlPhoto(s: ServiceVitrine, photo: { majLe: Date } | undefined, mini = false): string | null {
+  if (!photo) return null;
+  const base = s.masque ? `/api/vitrine/services/${s.id}/apercu${mini ? '-mini' : ''}` : `/assets/img/service-${s.id}${mini ? '-mini' : ''}.webp`;
+  return `${base}?v=${photo.majLe.getTime()}`;
+}

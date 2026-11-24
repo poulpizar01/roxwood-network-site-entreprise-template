@@ -635,3 +635,25 @@ model PosteOuvert {
 
   @@map("postes_ouverts")
 }
+
+// ---------- Avis (module « avis » : page publique avis.html, modération dans gestion/avis.html, entreprise/avis.ts) ----------
+
+// Avis déposé sur la vitrine par quelqu'un dont l'identité est prouvée par Discord (socle/routes/discord-leger.ts) :
+// identifiant et pseudo gardés pour retrouver l'auteur d'un abus (jamais affichés au public). Publié après modération,
+// un seul avis épinglé à la fois, un seul avis en attente par personne.
+model Avis {
+  id            Int      @id @default(autoincrement())
+  nom           String   @db.VarChar(100) // nom affiché, saisi (préremplissable par le pseudo Discord)
+  entreprise    String?  @db.VarChar(100)
+  note          Int      @db.SmallInt // 1 à 5
+  texte         String   @db.VarChar(800)
+  statut        String   @default("attente") @db.VarChar(10) // attente | publie | refuse
+  epingle       Boolean  @default(false)
+  discordId     String   @map("discord_id") @db.VarChar(20)
+  pseudoDiscord String   @map("pseudo_discord") @db.VarChar(100)
+  creeLe        DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  @@index([statut, epingle, creeLe(sort: Desc)])
+  @@index([discordId])
+  @@map("avis")
+}

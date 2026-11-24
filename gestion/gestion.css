@@ -3333,3 +3333,14 @@ p.service-apercu-titre { margin-bottom: 8px; font-size: var(--fs-6); font-weight
 /* ---- fiche avec interrupteurs (Vitrine) : pas l'habillage majuscule des étiquettes de champ (label, en tête de ce fichier) ---- */
 .catalogue-options { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 6px; }
 .catalogue-options .grade-permission { margin: 0 -10px; text-transform: none; letter-spacing: 0; font-size: var(--fs-3); }
+
+/* fiches d'avis : tout l'avis tient sur la carte (pas de tiroir) ; seuls épingler et supprimer y sont des boutons */
+.avis-fiche--epingle { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.avis-fiche-etoiles { display: flex; gap: 2px; }
+.avis-fiche-etoiles svg { width: 13px; height: 13px; }
+.avis-fiche-etoiles svg.pleine { fill: var(--accent); }
+.avis-fiche-etoiles svg.vide { fill: var(--border); }
+.avis-fiche-texte { margin-top: 6px; font-size: var(--fs-2); color: var(--text); overflow-wrap: anywhere; }
+.avis-fiche-auteur { margin-top: 8px; font-size: var(--fs-2); font-weight: 600; overflow-wrap: anywhere; }
+.avis-fiche-auteur span { display: block; font-weight: 400; color: var(--text-faint); }
+.avis-fiche-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <script src="/gestion/vendor/Sortable.min.js"></script>
+  <title>Avis — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — modération des avis publics de la vitrine (module « avis »), permissions « avis-voir » (consulter) et « avis »
+       (décider) : publier, refuser, épingler (un seul à la fois, mis en avant sur l'accueil et en tête de /avis.html) ou
+       supprimer. Dépôt public avec identité Discord vérifiée : le pseudo de l'auteur est affiché ici, jamais en public.
+       Serveur : entreprise/routes/avis.ts, entreprise/avis.ts. -->
+  <main class="admin-contenu">
+    <section>
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Avis</h1>
+          <p style="margin:0;font-size:var(--fs-3);">Avis déposés depuis le site, à valider avant publication.</p>
+        </div>
+      </div>
+      <div id="zone-message-avis" role="status"></div>
+      <div class="colonnes-statut" id="avis-colonnes"></div>
+    </section>
+  </main>
+
+  <script src="/gestion/avis.js"></script>
+</body>
+</html>

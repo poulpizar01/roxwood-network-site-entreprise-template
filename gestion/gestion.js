@@ -28,8 +28,6 @@ const GESTION_NAV = [
   { cle: 'contrats', href: 'contrats.html', label: 'Contrats', icone: 'archive', permission: 'contrats-voir' },
   { cle: 'paie', href: 'paie.html', label: 'Paie', icone: 'coins', permission: 'paie-voir' },
   { cle: 'dot', href: 'dot.html', label: 'DOT', icone: 'calc', permission: 'compta-voir' },
-  // module « vitrine » (site.json) : visible avec l'une ou l'autre des deux lectures (services, postes ouverts)
-  { cle: 'vitrine', href: 'vitrine.html', label: 'Vitrine', icone: 'grid', permission: 'vitrine-voir', ou: 'postes-voir', module: 'vitrine' },
   // réglages, en dernier : on y vient rarement, ils ne passent pas avant le travail de tous les jours
   { groupe: 'Administration' },
   { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'grade', permission: 'grades' },
@@ -37,6 +35,9 @@ const GESTION_NAV = [
   { cle: 'parametres', href: 'parametres.html', label: 'Paramètres', icone: 'gear', permission: 'parametres' },
   { cle: 'webhooks', href: 'webhooks.html', label: 'Bot Discord', icone: 'sync', permission: 'webhooks' },
   { groupe: 'Site' },
+  // module « vitrine » (site.json) : visible avec l'une ou l'autre des deux lectures (services, postes ouverts)
+  { cle: 'vitrine', href: 'vitrine.html', label: 'Vitrine', icone: 'grid', permission: 'vitrine-voir', ou: 'postes-voir', module: 'vitrine' },
+  { cle: 'avis', href: 'avis.html', label: 'Avis', icone: 'star', permission: 'avis-voir', module: 'avis' },
   // le site public (même onglet)
   { cle: 'site', href: '/', label: 'Voir le site', icone: 'globe' },
 ];
@@ -54,6 +55,7 @@ const GESTION_ICONES = {
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
   // avertissement (Sanctions) : triangle sur toute la hauteur de la grille, lisible à 18 px
   alerte: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+  star: '<path d="M12 3l2.6 5.9 6.4.6-4.8 4.3 1.4 6.2L12 17.3 6.4 20.2l1.4-6.2L3 9.6l6.2-.9z"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',
   // carte de membre (Bénéficiaires) : qui est couvert par un contrat
   carte: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 16.5c.6-1.6 2-2.5 3.5-2.5s2.9.9 3.5 2.5M15 10h3M15 13.5h3"/>',

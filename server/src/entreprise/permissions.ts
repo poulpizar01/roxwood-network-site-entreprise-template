@@ -41,6 +41,9 @@ const declarees: Permission[] = [
   { cle: 'vitrine', domaine: 'Site', libelle: 'Gérer la vitrine', description: 'Créer, modifier, ordonner ou supprimer un service ou une étiquette', requiert: ['vitrine-voir'] },
   { cle: 'postes-voir', domaine: 'Site', libelle: 'Consulter les postes ouverts', description: 'Voir les postes affichés dans la section Recrutement de l’accueil' },
   { cle: 'postes', domaine: 'Site', libelle: 'Gérer les postes ouverts', description: 'Créer, modifier ou supprimer un poste ouvert', requiert: ['postes-voir'] },
+  // Site : module « avis » (site.json) — file de modération des avis déposés sur la vitrine
+  { cle: 'avis-voir', domaine: 'Site', libelle: 'Consulter les avis', description: 'Voir la file de modération des avis déposés sur la vitrine' },
+  { cle: 'avis', domaine: 'Site', libelle: 'Modérer les avis', description: 'Publier, refuser, épingler ou supprimer un avis', requiert: ['avis-voir'] },
 ];
 
 // celles d'un module éteint (site.json) ne sont pas déclarées : absentes de la page Grades, refusées par les routes

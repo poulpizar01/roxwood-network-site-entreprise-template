@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <title>Avis — {{nom}}</title>
+  <meta name="description" content="Les avis laissés sur {{nom}}, publiés après vérification.">
+  <link rel="canonical" href="{{url}}/avis.html">
+  <meta name="theme-color" content="{{couleur}}">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+  <link rel="stylesheet" href="/socle/signature.css">
+</head>
+<body>
+  <!-- VITRINE (module « avis » de site.json : cette page répond 404 s'il est éteint) — liste paginée des avis publiés et
+       formulaire de dépôt. Déposer exige une connexion Discord (vérification légère du socle, aucun compte créé) : le pseudo
+       Discord est gardé avec l'avis pour la modération, jamais affiché. Serveur : /api/avis (entreprise/routes/avis.ts). -->
+  <header class="entete">
+    <div class="wrap entete__barre">
+      <a class="marque" href="/"><img src="/assets/logo.png" alt="" width="36" height="36"><span>{{nom}}</span></a>
+      <button class="burger" type="button" aria-expanded="false" aria-controls="menu" aria-label="Menu"><span></span></button>
+      <nav class="menu" id="menu">
+        <a href="/#entreprise">L'entreprise</a>
+        <a href="/avis.html" aria-current="page">Avis</a>
+        <a href="/#contact">Contact</a>
+        <a class="btn btn--accent" href="/gestion/">Espace employés</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="section">
+      <div class="wrap">
+        <a class="btn btn--ligne" href="/#avis"><svg class="fleche" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.667 8H3.333M6.667 4.667 3.333 8l3.334 3.333"/></svg> Retour à l'accueil</a>
+        <p class="surtitre" style="margin-top:28px;">Avis</p>
+        <h1 class="section__titre">Tous les avis</h1>
+        <p class="avis-compte" id="avis-compte"></p>
+
+        <div class="avis-page" id="avis-liste"><p class="avis-vide">Chargement…</p></div>
+
+        <nav class="pagination" id="avis-pagination" aria-label="Pages d'avis" hidden>
+          <button type="button" class="btn btn--ligne" id="avis-precedente">Page précédente</button>
+          <span class="pagination__page" id="avis-page-texte"></span>
+          <button type="button" class="btn btn--ligne" id="avis-suivante">Page suivante</button>
+        </nav>
+      </div>
+    </section>
+
+    <section class="section section--alt" id="donner">
+      <div class="wrap">
+        <p class="surtitre">Votre avis</p>
+        <h2 class="section__titre">Donner votre avis</h2>
+        <div class="avis-depot">
+          <div id="avis-discord-bloc" hidden>
+            <p>Pour déposer un avis, connectez-vous avec Discord : nous gardons votre pseudo Discord avec votre avis, pour la modération. Il n'est jamais affiché.</p>
+            <p><a class="btn btn--accent" id="avis-connecter" href="/api/discord/connecter?next=/avis.html">Se connecter avec Discord</a></p>
+            <p class="avis-etat" id="avis-erreur-discord" role="alert" hidden>La connexion avec Discord a échoué. Réessayez.</p>
+          </div>
+          <form id="avis-formulaire" novalidate hidden>
+            <p class="avis-etat">Connecté en tant que <strong id="avis-pseudo"></strong>. <button type="button" class="lien" id="avis-changer">Ce n'est pas vous ?</button></p>
+            <div class="champ"><label for="av-nom">Nom affiché</label><input type="text" id="av-nom" maxlength="100" autocomplete="name" required></div>
+            <div class="champ"><label for="av-entreprise">Entreprise <small>facultatif</small></label><input type="text" id="av-entreprise" maxlength="100" autocomplete="organization"></div>
+            <fieldset class="champ avis-note">
+              <legend>Note</legend>
+              <div class="avis-note__choix">
+                <label><input type="radio" name="note" value="1"><span>1</span></label>
+                <label><input type="radio" name="note" value="2"><span>2</span></label>
+                <label><input type="radio" name="note" value="3"><span>3</span></label>
+                <label><input type="radio" name="note" value="4"><span>4</span></label>
+                <label><input type="radio" name="note" value="5" checked><span>5</span></label>
+              </div>
+              <p class="champ-aide">De 1 (décevant) à 5 (excellent).</p>
+            </fieldset>
+            <div class="champ"><label for="av-texte">Votre avis</label><textarea id="av-texte" maxlength="800" rows="5" required></textarea></div>
+            <p class="avis-etat" id="avis-message" role="alert" hidden></p>
+            <button type="submit" class="btn btn--accent">Envoyer mon avis</button>
+          </form>
+          <p class="avis-etat" id="avis-merci" role="status" hidden>Merci ! Votre avis est enregistré : il sera visible après vérification.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pied">
+    <div class="wrap pied__grille">
+      <p><strong>{{nom}}</strong> · {{slogan}}</p>
+      <p><a href="/confidentialite.html">Confidentialité</a> · <a href="/gestion/">Espace employés</a></p>
+    </div>
+  </footer>
+  <!-- signature commune aux sites Roxwood Network : à garder telle quelle (style : socle/signature.css) -->
+  <div class="signature">
+    <div class="sig-pastille">
+      <img src="/assets/roxwood.png" alt="" width="20" height="20" loading="lazy">
+      <span class="sig-txt">Développé par <b>Roxwood Network</b></span>
+      <span class="sig-trait" aria-hidden="true"></span>
+      <span class="sig-actions">
+        <a href="https://roxwood-network.fbfa.fr/" target="_blank" rel="noopener">Site</a>
+        <a href="https://discord.gg/dZDfarP8zT" target="_blank" rel="noopener">Discord</a>
+      </span>
+    </div>
+  </div>
+  <script src="/socle/socle.js"></script>
+  <script src="/assets/js/main.js"></script>
+  <script src="/assets/js/avis.js"></script>
+</body>
+</html>

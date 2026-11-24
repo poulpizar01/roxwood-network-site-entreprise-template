@@ -50,6 +50,8 @@ export type Entreprise = {
   pages: Record<string, NiveauPage>;
   // pages de gestion/ d'un module désactivé (site.json « modules ») : le serveur répond 404, comme si elles n'existaient pas
   pagesInactives?: string[];
+  // pages de la racine du site (sans .html) d'un module désactivé : 404 aussi
+  pagesPubliquesInactives?: string[];
   // routes Express, sous /api/… (la session n'est ouverte que là) ; chacune protégée par une garde de socle/http.ts
   routes: Router[];
   // Abonnements du bot, par type (`absence.updated`, `order.updated`, `monitoring.sale`, `custom`…) : chacun a sa

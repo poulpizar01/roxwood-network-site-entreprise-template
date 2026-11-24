@@ -31,6 +31,7 @@
       <nav class="menu" id="menu">
         <a href="#services" data-si-services hidden>Services</a>
         <a href="#entreprise">L'entreprise</a>
+        <a href="#avis" data-si-avis hidden>Avis</a>
         <a href="#contact">Contact</a>
         <a class="btn btn--accent" href="/gestion/">Espace employés</a>
       </nav>
@@ -83,6 +84,19 @@
           <p>Texte à remplacer : l'histoire de l'entreprise, ses valeurs, ce qui la distingue.</p>
           <p>Texte à remplacer : où la trouver en ville, ses horaires, comment se passe une commande.</p>
         </div>
+      </div>
+    </section>
+
+    <!-- Avis (module « avis ») : épinglé + 3 derniers, écrits par le serveur dans le HTML ; la section porte aussi le lien pour en déposer un -->
+    <section class="section" id="avis" data-si-avis hidden>
+      <div class="wrap">
+        <p class="surtitre">Avis</p>
+        <h2 class="section__titre">Ils nous font confiance</h2>
+        <div class="avis" id="avis-liste"></div>
+        <p class="avis__pied">
+          <a class="btn btn--ligne" href="/avis.html">Voir tous les avis</a>
+          <a class="btn btn--accent" href="/avis.html#donner">Donner votre avis</a>
+        </p>
       </div>
     </section>
 
