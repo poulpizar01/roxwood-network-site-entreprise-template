@@ -278,6 +278,17 @@ model EcritureDot {
 // toujours lisibles même si une table liée change de forme plus tard. Verrouillage manuel (« Valider la déclaration »,
 // compteId renseigné) ou automatique (planifiée la semaine suivante si personne ne l'a fait, compteId nul) :
 // entreprise/verrouillage-dot.ts.
+// Prestations qu'une facture saisie à la main reprend en un clic (nom + prix) : un raccourci, jamais une obligation, et
+// l'article reste modifiable sur la facture (les factures déjà créées ne changent pas si le catalogue change).
+model CatalogueFacture {
+  id       Int    @id @default(autoincrement())
+  nom      String @db.VarChar(200)
+  prix     Int
+  position Int    @default(0)
+
+  @@map("catalogue_factures")
+}
+
 model DeclarationDot {
   semaine  DateTime @id @db.Date
   statut   String   @db.VarChar(10) // validee | auto

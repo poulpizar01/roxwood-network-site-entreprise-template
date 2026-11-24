@@ -10,11 +10,36 @@ import type { EvenementBot } from '../socle/contrat.js';
 import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { entierRegle } from './parametres.js';
+import { Refus } from './refus.js';
 import { nomComplet } from './rh.js';
 import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
+
+// ---------- catalogue de prestations : raccourci de saisie d'un article de facture, jamais obligatoire ----------
+export const listerCatalogue = () => prisma.catalogueFacture.findMany({ orderBy: [{ position: 'asc' }, { nom: 'asc' }] });
+
+function champsCatalogue(b: Record<string, unknown>) {
+  const nom = texte(b.nom, 200);
+  if (!nom) throw new Refus('Donnez un nom à la prestation.');
+  const prix = Math.round(Number(b.prix));
+  if (!Number.isFinite(prix) || prix < 0 || prix > 2_147_483_647) throw new Refus('Le prix doit être un nombre positif.');
+  return { nom, prix };
+}
+
+export async function ajouterArticleCatalogue(b: Record<string, unknown>) {
+  if (await prisma.catalogueFacture.count() >= 200) throw new Refus('200 prestations au plus : retirez-en avant d’en ajouter une autre.');
+  const position = (await prisma.catalogueFacture.aggregate({ _max: { position: true } }))._max.position ?? -1;
+  return prisma.catalogueFacture.create({ data: { ...champsCatalogue(b), position: position + 1 } });
+}
+
+export async function modifierArticleCatalogue(id: number, b: Record<string, unknown>): Promise<void> {
+  try { await prisma.catalogueFacture.update({ where: { id }, data: champsCatalogue(b) }); }
+  catch (e) { if ((e as { code?: string }).code === 'P2025') throw new Refus('Prestation introuvable.', 404); throw e; }
+}
+
+export const supprimerArticleCatalogue = async (id: number): Promise<void> => { await prisma.catalogueFacture.deleteMany({ where: { id } }); };
 
 // ---------- quota hebdomadaire de montant facturé, par grade (réglé dans la fiche du grade, page Grades) ----------
 // Un grade sans ligne n'a pas de quota (0, jamais « en retard »). Consultation : page Quota, onglets Quota facture et

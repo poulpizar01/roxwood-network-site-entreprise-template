@@ -19,14 +19,20 @@
        que soit leur provenance, avec le détail d'origine et le téléchargement d'une facture. Serveur :
        entreprise/routes/compta.ts (/api/compta/factures). -->
   <main class="admin-contenu">
-    <section id="panneau-factures">
-      <div class="entete-admin">
-        <div>
-          <h1 style="margin-bottom:2px;">Facturation</h1>
-          <p style="margin:0;font-size:var(--fs-3);">Commande Discord et facture constatée en jeu (reçues du bot), et saisie à la main.</p>
-        </div>
-        <button type="button" class="btn btn-or" data-exige="factures" id="bouton-nouvelle-facture"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouvelle facture</button>
+    <div class="entete-admin">
+      <div>
+        <h1 style="margin-bottom:2px;">Facturation</h1>
+        <p style="margin:0;font-size:var(--fs-3);">Commande Discord et facture constatée en jeu (reçues du bot), et saisie à la main.</p>
       </div>
+      <button type="button" class="btn btn-or" data-exige="factures" id="bouton-nouvelle-facture"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouvelle facture</button>
+    </div>
+
+    <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques de la facturation">
+      <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="panneau-factures" data-facturation-onglet="factures"><svg class="ico" aria-hidden="true"><use href="#ico-sheet"></use></svg> Factures</button>
+      <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="panneau-catalogue" data-exige="factures" data-facturation-onglet="catalogue"><svg class="ico" aria-hidden="true"><use href="#ico-list"></use></svg> Catalogue</button>
+    </div>
+
+    <section id="panneau-factures">
       <div id="zone-message-factures"></div>
 
       <!-- place réservée (squelettes) : les chiffres arrivent sans pousser le reste vers le bas -->
@@ -73,6 +79,30 @@
           <thead><tr id="factures-entete"></tr></thead>
           <tbody id="corps-table-factures"></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- Catalogue de prestations : nom + prix, raccourci à la saisie d'un article de facture (la saisie libre reste
+         toujours possible). Même composant que les types de contrat (contrats.html), sans couleur. -->
+    <section id="panneau-catalogue" class="cache">
+      <div id="zone-message-catalogue"></div>
+      <div class="types-corps" style="padding:0;margin-top:20px;">
+        <p class="champ-aide types-intro">Chaque prestation remplit le nom et le prix d’un article à la création d’une facture ; l’article reste modifiable ensuite.</p>
+        <div class="types-section-entete">
+          <h3 class="types-sous-titre">Prestations</h3>
+          <span class="types-compte" id="catalogue-compte"></span>
+        </div>
+        <ul class="types-liste" id="catalogue-liste"></ul>
+      </div>
+      <div class="types-pied" style="padding:0;margin-top:14px;background:none;">
+        <form class="types-ajout" id="form-catalogue" novalidate>
+          <h3 class="types-sous-titre">Ajouter une prestation</h3>
+          <div class="types-ajout-champs">
+            <div class="champ"><label for="catalogue-nom">Nom</label><input type="text" id="catalogue-nom" maxlength="200" placeholder="Ex. Réparation d’un véhicule"></div>
+            <div class="champ"><label for="catalogue-prix">Prix</label><div class="champ-dollar"><input type="number" id="catalogue-prix" min="0" step="1" value="0"></div></div>
+          </div>
+          <button type="submit" class="btn btn-or">Ajouter</button>
+        </form>
       </div>
     </section>
   </main>
@@ -152,9 +182,12 @@
           <div id="facture-articles-edition">
             <div class="facture-articles-entete" aria-hidden="true"><span>Article</span><span>Qté</span><span>Prix unitaire</span></div>
             <div id="facture-articles"></div>
-            <button type="button" class="btn btn-fantome facture-article-ajouter" data-exige="factures" id="bouton-ajouter-article">
-              <svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un article
-            </button>
+            <div class="facture-articles-boutons">
+              <button type="button" class="btn btn-fantome facture-article-ajouter" data-exige="factures" id="bouton-ajouter-article">
+                <svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter un article
+              </button>
+              <select id="facture-catalogue-choix" aria-label="Ajouter depuis le catalogue"><option value="">Depuis le catalogue…</option></select>
+            </div>
           </div>
           <div id="facture-articles-lecture" class="cache"></div>
         </fieldset>

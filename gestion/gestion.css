@@ -3201,3 +3201,5 @@ body.sans-factures [data-exige="factures"] { display: none !important; }
 body.sans-contrats [data-exige="contrats"] { display: none !important; }
 body.sans-compta [data-exige="compta"] { display: none !important; }
 body.sans-paie [data-exige="paie"] { display: none !important; }
+.facture-articles-boutons { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 2px; }
+.facture-articles-boutons .facture-article-ajouter { margin-top: 0; }

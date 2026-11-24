@@ -13,7 +13,7 @@ import {
   enregistrerReleve, estVerrouillee, graphiqueDot, marquerFichePaiePayee, publierFichesPaie, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
 } from '../dot.js';
 import { verifierFacturationContrat } from '../contrats.js';
-import { classementFactures, definirQuotaFacture, quotasFacture } from '../facture.js';
+import { ajouterArticleCatalogue, classementFactures, definirQuotaFacture, listerCatalogue, modifierArticleCatalogue, quotasFacture, supprimerArticleCatalogue } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
 import { servicesEnSuspensSemaine } from '../services.js';
 import { caBrutReleve, estLigneTotal } from '../stats/releve.js';
@@ -155,6 +155,24 @@ async function avecAuteurs<T extends { compteId: number | null }>(lignes: T[]) {
   const parId = new Map(comptes.map(c => [c.id, c.nom ? `${c.nom} (@${c.pseudo})` : `@${c.pseudo}`]));
   return lignes.map(l => ({ ...l, saisiePar: l.compteId != null ? parId.get(l.compteId) ?? null : null }));
 }
+
+// ---------- catalogue de prestations : raccourci de saisie d'un article, nom + prix (réservé à qui saisit des factures) ----------
+compta.get('/api/compta/catalogue', ...gererFactures, async (_req, res) => { res.json({ catalogue: await listerCatalogue() }); });
+
+compta.post('/api/compta/catalogue', ...gererFactures, traiter(async (req, res) => {
+  const a = await ajouterArticleCatalogue(body(req));
+  res.status(201).json({ id: a.id });
+}));
+
+compta.put('/api/compta/catalogue/:id', ...gererFactures, traiter(async (req, res) => {
+  await modifierArticleCatalogue(intParam(req, 'id'), body(req));
+  res.json({ ok: true });
+}));
+
+compta.delete('/api/compta/catalogue/:id', ...gererFactures, traiter(async (req, res) => {
+  await supprimerArticleCatalogue(intParam(req, 'id'));
+  res.json({ ok: true });
+}));
 
 compta.get('/api/compta/factures', ...voirFactures, async (req, res) => {
   const source = String(req.query.source ?? '');

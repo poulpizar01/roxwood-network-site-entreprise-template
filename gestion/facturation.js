@@ -715,13 +715,15 @@ function noteContratFacture(p) {
 // ouvre directement le formulaire de nouvelle facture, pré-rempli (une ligne : le nombre de périodes au montant du
 // contrat) ; l'utilisateur vérifie et valide. L'URL est nettoyée pour qu'un rechargement ne rouvre pas le formulaire.
 const PARAMS_CONTRAT = new URLSearchParams(location.search);
+// un seul appel de la coque pour toute la page (un second dessinerait le menu deux fois)
+const COQUE = gestion.coque('facturation');
 const ID_CONTRAT = Number(PARAMS_CONTRAT.get("depuisContrat"));
 if (Number.isInteger(ID_CONTRAT) && ID_CONTRAT > 0) {
   const client = PARAMS_CONTRAT.get("client") || "", montant = Math.round(Number(PARAMS_CONTRAT.get("montant"))) || 0;
   const nombre = Math.max(1, Math.round(Number(PARAMS_CONTRAT.get("nombre"))) || 1), unite = PARAMS_CONTRAT.get("unite") || "période";
   const debut = PARAMS_CONTRAT.get("debut") || "", fin = PARAMS_CONTRAT.get("fin") || "";
   history.replaceState(null, "", location.pathname);
-  gestion.coque('facturation').then(async () => {
+  COQUE.then(async () => {
     await chargerFactures();
     await ouvrirFactureForm(null);
     FACTURE_CONTRAT = { id: ID_CONTRAT, debut, fin };
@@ -732,5 +734,100 @@ if (Number.isInteger(ID_CONTRAT) && ID_CONTRAT > 0) {
     majApercuTotalFacture();
   });
 } else {
-  gestion.coque('facturation').then(() => chargerFactures());
+  COQUE.then(() => chargerFactures());
 }
+
+// ---------------------------------------------------------------------------
+// Catalogue de prestations : raccourci de saisie (nom + prix), toujours modifiable ensuite sur la facture.
+// ---------------------------------------------------------------------------
+document.querySelectorAll("[data-facturation-onglet]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("[data-facturation-onglet]").forEach(b => { b.classList.toggle("actif", b === btn); b.setAttribute("aria-selected", String(b === btn)); });
+    document.getElementById("panneau-factures").classList.toggle("cache", btn.dataset.facturationOnglet !== "factures");
+    document.getElementById("panneau-catalogue").classList.toggle("cache", btn.dataset.facturationOnglet !== "catalogue");
+  });
+});
+
+let CATALOGUE = [];
+let CATALOGUE_EN_EDITION = null;
+function remplirSelectCatalogue() {
+  const select = document.getElementById("facture-catalogue-choix");
+  select.innerHTML = `<option value="">Depuis le catalogue…</option>${CATALOGUE.map(a => `<option value="${a.id}">${echapper(a.nom)} — ${formaterArgentStats(a.prix)}</option>`).join("")}`;
+}
+function dessinerCatalogue() {
+  const ul = document.getElementById("catalogue-liste");
+  document.getElementById("catalogue-compte").textContent = `${CATALOGUE.length} ${CATALOGUE.length === 1 ? "prestation" : "prestations"}`;
+  ul.innerHTML = CATALOGUE.length ? CATALOGUE.map(a => `
+    <li class="types-ligne${CATALOGUE_EN_EDITION === a.id ? " en-edition" : ""}" data-catalogue="${a.id}">
+      ${CATALOGUE_EN_EDITION === a.id ? `
+        <div class="types-edition-champs">
+          <div class="champ"><label for="catalogue-nom-${a.id}">Nom</label><input type="text" id="catalogue-nom-${a.id}" value="${echapper(a.nom)}" maxlength="200" data-champ="nom"></div>
+          <div class="champ"><label for="catalogue-prix-${a.id}">Prix</label><div class="champ-dollar"><input type="number" id="catalogue-prix-${a.id}" min="0" step="1" value="${a.prix}" data-champ="prix"></div></div>
+        </div>
+        <div class="types-actions">
+          <button type="button" class="btn btn-or" data-enregistrer-catalogue>Enregistrer</button>
+          <button type="button" class="btn btn-danger" data-annuler-edition-catalogue>Annuler</button>
+        </div>` : `
+        <div class="types-identite"><strong>${echapper(a.nom)}</strong> <small>${formaterArgentStats(a.prix)}</small></div>
+        <div class="types-actions">
+          <button type="button" class="btn btn-fantome" data-modifier-catalogue>Modifier</button>
+          <button type="button" class="types-supprimer" data-supprimer-catalogue>Supprimer</button>
+        </div>`}
+    </li>`).join("") : '<li class="types-vide">Aucune prestation créée. Ajoutez-en une ci-dessous.</li>';
+}
+async function chargerCatalogue() {
+  try { CATALOGUE = (await socle.api("/api/compta/catalogue")).catalogue || []; dessinerCatalogue(); remplirSelectCatalogue(); }
+  catch (e) { gestion.message("zone-message-catalogue", "Impossible de charger le catalogue : " + e.message); }
+}
+async function catalogueModifie(promesse, notification) {
+  try {
+    await promesse;
+    gestion.message("zone-message-catalogue", "");
+    gestion.notifier(notification);
+    await chargerCatalogue();
+    return true;
+  } catch (e) { gestion.message("zone-message-catalogue", e.message); }
+  return false;
+}
+document.getElementById("form-catalogue").addEventListener("submit", e => {
+  e.preventDefault();
+  const nom = document.getElementById("catalogue-nom").value.trim();
+  const prix = Math.round(Number(document.getElementById("catalogue-prix").value)) || 0;
+  if (!nom) { gestion.message("zone-message-catalogue", "Donnez un nom à la prestation."); document.getElementById("catalogue-nom").focus(); return; }
+  catalogueModifie(socle.api("/api/compta/catalogue", { method: "POST", body: { nom, prix } }), `Prestation « ${nom} » ajoutée ✓`)
+    .then(ok => { if (ok) { document.getElementById("catalogue-nom").value = ""; document.getElementById("catalogue-prix").value = "0"; document.getElementById("catalogue-nom").focus(); } });
+});
+document.getElementById("catalogue-liste").addEventListener("click", async e => {
+  const ligne = e.target.closest("[data-catalogue]");
+  if (!ligne) return;
+  const id = Number(ligne.dataset.catalogue);
+  if (e.target.closest("[data-modifier-catalogue]")) { CATALOGUE_EN_EDITION = id; dessinerCatalogue(); document.getElementById(`catalogue-nom-${id}`).focus(); return; }
+  if (e.target.closest("[data-annuler-edition-catalogue]")) { CATALOGUE_EN_EDITION = null; dessinerCatalogue(); return; }
+  if (e.target.closest("[data-enregistrer-catalogue]")) {
+    const nom = ligne.querySelector('[data-champ="nom"]').value.trim();
+    const prix = Math.round(Number(ligne.querySelector('[data-champ="prix"]').value)) || 0;
+    if (!nom) { gestion.message("zone-message-catalogue", "Donnez un nom à la prestation."); return; }
+    const ok = await catalogueModifie(socle.api(`/api/compta/catalogue/${id}`, { method: "PUT", body: { nom, prix } }), `Prestation « ${nom} » enregistrée ✓`);
+    if (ok) CATALOGUE_EN_EDITION = null;
+    return;
+  }
+  if (e.target.closest("[data-supprimer-catalogue]")) {
+    if (!await gestion.confirmer("Cette prestation sera retirée du catalogue (les factures déjà créées ne changent pas).", "Supprimer cette prestation ?", "Supprimer")) return;
+    await catalogueModifie(socle.api(`/api/compta/catalogue/${id}`, { method: "DELETE" }), "Prestation supprimée ✓");
+  }
+});
+ameliorerSelect(document.getElementById("facture-catalogue-choix"));
+document.getElementById("facture-catalogue-choix").addEventListener("change", e => {
+  const id = Number(e.target.value);
+  e.target.value = "";
+  const a = CATALOGUE.find(c => c.id === id);
+  if (a) {
+    // la ligne vide du départ cède la place à la prestation choisie (elle reste si elle est déjà remplie)
+    const lignes = [...document.querySelectorAll('#facture-articles .facture-article-ligne')];
+    if (lignes.length === 1 && !lignes[0].querySelector('.facture-article-nom').value.trim() && !Number(lignes[0].querySelector('.facture-article-prix').value)) lignes[0].remove();
+    ajouterLigneArticle(true, { name: a.nom, unitPrice: a.prix, quantity: 1 });
+  }
+  majApercuTotalFacture();
+});
+// le catalogue ne sert qu'à qui saisit des factures (la route l'exige) : un lecteur ne le charge pas
+COQUE.then(moi => { if (socle.peut(moi, 'factures')) chargerCatalogue(); });
