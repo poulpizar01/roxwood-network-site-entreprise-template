@@ -104,8 +104,9 @@ async function traiter(dossier: string, fichier: Express.Multer.File, creneau: C
       mini: await img.clone().resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true }).webp({ quality: 78 }).toBuffer(),
     };
   });
-  // clé non dérivée du nom du fichier envoyé
-  const base = `${dossier}/${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
+  // clé non dérivée du nom du fichier envoyé ; 128 bits aléatoires : l'adresse est publique côté stockage distant (pièces d'identité
+  // comprises), elle ne doit pas se deviner par énumération
+  const base = `${dossier}/${Date.now().toString(36)}-${crypto.randomBytes(16).toString('hex')}`;
   const cle = `${base}.webp`, cleMini = `${base}-m.webp`;
   const url = await storage.put(cle, grande.data);
   let urlMini: string;

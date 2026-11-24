@@ -102,26 +102,16 @@ function afficherEmployes() {
       e.aCompleter ? '<span class="puce puce-or">À compléter</span>' : '',
       e.statut === 'inactif' ? `<span class="puce puce-masquee">Parti${e.dateDepart ? ` le ${dateCourte(e.dateDepart)}` : ''}</span>` : '',
     ].join('');
-    const actions = [
-      `<button type="button" role="menuitem" data-rh-fiche="${e.id}">${gestion.ico('user')} Ouvrir la fiche</button>`,
-      e.enService && aDroitRh('modifier') ? `<button type="button" role="menuitem" data-rh-terminer-service="${e.id}">${gestion.ico('clock')} Terminer son service</button>` : '',
-      e.statut === 'actif' && aDroitRh('desactiver') ? `<button type="button" role="menuitem" data-rh-desactiver="${e.id}">${gestion.ico('lock')} Désactiver (départ)</button>` : '',
-      e.statut !== 'actif' && aDroitRh('reactiver') ? `<button type="button" role="menuitem" data-rh-reactiver="${e.id}">${gestion.ico('sync')} Réactiver</button>` : '',
-    ].join('');
-    return `<div class="ligne-liste${e.statut === 'inactif' ? ' ligne-liste--terminee' : ''}">
-      <button type="button" class="rh-employe" data-rh-fiche="${e.id}">
+    return `<button type="button" class="ligne-liste${e.statut === 'inactif' ? ' ligne-liste--terminee' : ''}" data-rh-fiche="${e.id}" aria-label="Ouvrir la fiche de ${echapper(e.nomComplet)}">
+      <span class="ligne-identite">
         <span class="admin-avatar" aria-hidden="true">${echapper(initiales(e.nomComplet))}</span>
-        <span class="rh-employe-texte"><span class="comptes-nom"><strong>${echapper(e.nomComplet)}</strong>${etiquettes}</span>
-          <span class="comptes-pseudo">${echapper(e.idUnique)}${e.idProvisoire ? ' · provisoire' : ''}</span></span>
-      </button>
+        <span class="ligne-nom"><strong>${echapper(e.nomComplet)}</strong><span class="comptes-pseudo">${echapper(e.idUnique)}${e.idProvisoire ? ' · provisoire' : ''}</span>${etiquettes}</span>
+      </span>
       <span class="ligne-cellule" data-libelle="Grade"><span><span class="pastille-grade" style="background:${echapper(e.gradeCouleur || '#8a93b8')}"></span>${echapper(e.gradeLibelle)}</span></span>
       <span class="ligne-cellule" data-libelle="Discord"><span>${e.discordPseudo ? `${echapper(e.discordPseudo)}` : '<span class="comptes-discret">—</span>'}${e.discordId ? `<span class="rh-id-discord">${echapper(e.discordId)}</span>` : ''}</span></span>
       <span class="ligne-cellule" data-libelle="Arrivée">${dateCourte(e.dateArrivee)}</span>
-      <div class="comptes-menu ligne-actions">
-        <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(e.nomComplet)}">${gestion.ico('points')}</button>
-        <div class="comptes-menu-liste cache" role="menu">${actions}</div>
-      </div>
-    </div>`;
+      <span class="ligne-chevron" aria-hidden="true">${gestion.fleche('droite')}</span>
+    </button>`;
   }).join('');
 
   $rh('rh-liste').innerHTML = liste.length
@@ -134,16 +124,8 @@ document.querySelectorAll('[data-statut]').forEach(b => b.addEventListener('clic
 // cartes plutôt que colonnes quand la place réellement disponible manque (menu, barre de défilement)
 gestion.listeEnCartes($rh('rh-liste'), 720);
 
-// clics de la liste : tri, fiche, menu « ⋯ » et ses actions (un seul écouteur : la liste est redessinée à chaque fois)
-let MENU_OUVERT = null;
-function fermerMenuRh(rendreFocus) {
-  if (!MENU_OUVERT) return;
-  MENU_OUVERT.querySelector('.comptes-menu-liste').classList.add('cache');
-  const b = MENU_OUVERT.querySelector('.comptes-menu-bouton');
-  b.setAttribute('aria-expanded', 'false');
-  if (rendreFocus) b.focus();
-  MENU_OUVERT = null;
-}
+// clics de la liste : tri, ou ouverture de la fiche (un seul écouteur : la liste est redessinée à chaque fois). Les actions
+// (terminer le service, départ, réintégration) sont dans le pied de la fiche, pas sur la ligne.
 $rh('rh-liste').addEventListener('click', e => {
   const tri = e.target.closest('[data-tri]');
   if (tri) {
@@ -152,36 +134,8 @@ $rh('rh-liste').addEventListener('click', e => {
     document.querySelector(`[data-tri="${TRI.etat?.cle ?? tri.dataset.tri}"]`)?.focus();
     return;
   }
-  const ouvreur = e.target.closest('.comptes-menu-bouton');
-  if (ouvreur) {
-    const menu = ouvreur.closest('.comptes-menu');
-    if (MENU_OUVERT === menu) return fermerMenuRh(true);
-    fermerMenuRh(false);
-    const liste = menu.querySelector('.comptes-menu-liste');
-    liste.classList.remove('cache');
-    liste.classList.toggle('vers-le-haut', ouvreur.getBoundingClientRect().bottom + liste.offsetHeight + 16 > innerHeight);
-    ouvreur.setAttribute('aria-expanded', 'true');
-    liste.querySelector('[role=menuitem]').focus();
-    MENU_OUVERT = menu;
-    return;
-  }
-  const b = e.target.closest('[data-rh-fiche], [data-rh-terminer-service], [data-rh-desactiver], [data-rh-reactiver]');
-  if (!b) return;
-  fermerMenuRh(false);
-  if (b.dataset.rhFiche) ouvrirFicheEmploye(Number(b.dataset.rhFiche));
-  else if (b.dataset.rhTerminerService) terminerServiceEmploye(Number(b.dataset.rhTerminerService));
-  else if (b.dataset.rhDesactiver) changerStatutEmploye(Number(b.dataset.rhDesactiver), 'desactiver');
-  else changerStatutEmploye(Number(b.dataset.rhReactiver), 'reactiver');
-});
-document.addEventListener('click', e => { if (MENU_OUVERT && !MENU_OUVERT.contains(e.target)) fermerMenuRh(false); });
-document.addEventListener('keydown', e => {
-  if (!MENU_OUVERT) return;
-  if (e.key === 'Escape') { e.preventDefault(); fermerMenuRh(true); }
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    const items = [...MENU_OUVERT.querySelectorAll('[role=menuitem]')], i = items.indexOf(document.activeElement);
-    items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
-  }
+  const b = e.target.closest('[data-rh-fiche]');
+  if (b) ouvrirFicheEmploye(Number(b.dataset.rhFiche));
 });
 
 // ---- fiche : consultation, modification, ou création (id absent, avec un pré-remplissage éventuel) ----
@@ -193,7 +147,7 @@ async function ouvrirFicheEmploye(id, preremplissage) {
     try { f = await socle.api(`/api/rh/employes/${id}`); }
     catch (e) { gestion.message('zone-message-rh', e.message); return; }
   }
-  OUVREUR_FICHE = document.activeElement;
+  if ($rh('modale-employe').classList.contains('cache')) OUVREUR_FICHE = document.activeElement;
   FICHE_OUVERTE = id || null;
   // fiche d'un grade égal ou supérieur, ou sa propre fiche : en lecture seule (le serveur le refuserait)
   const peutEcrire = id ? aDroitRh('modifier') && f.modifiable !== false : aDroitRh('creer');
@@ -218,10 +172,7 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   $rh('employe-notes').value = f.notes || ''; $rh('employe-notes').disabled = !peutEcrire;
   $rh('employe-bloc-sensible').classList.toggle('cache', !aDroitRh('sensible-voir'));
   for (const champ of ['employe-telephone', 'employe-rib']) $rh(champ).readOnly = !aDroitRh('sensible');
-  const bouton = $rh('employe-enregistrer');
-  bouton.classList.toggle('cache', !peutEcrire);
-  $rh('fiche-rh-pied').classList.toggle('cache', !peutEcrire);
-  bouton.textContent = id ? 'Enregistrer' : 'Ajouter';
+  dessinerPiedFiche(id ? f : null, peutEcrire);
   // création : une seule rubrique ; fiche existante : Profil et Activité (l'historique n'existe qu'une fois la fiche créée)
   $rh('employe-onglets').classList.toggle('cache', !id);
   choisirOngletFiche('profil');
@@ -238,12 +189,33 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   $rh('modale-employe').classList.remove('cache');
   (peutEcrire ? $rh('employe-prenom') : $rh('fermer-modale-employe')).focus();
 }
+// pied de la fiche : actions à gauche (terminer le service, départ ou réintégration, selon les droits et l'état), Enregistrer
+// à droite ; sans rien à y mettre, le pied disparaît
+function dessinerPiedFiche(f, peutEcrire) {
+  const b = [];
+  if (f && f.modifiable !== false) {
+    if (f.enServiceDepuis && aDroitRh('modifier')) b.push(`<button type="button" class="btn btn-fantome" data-pied-service>${gestion.ico('clock')} Terminer son service</button>`);
+    if (f.statut === 'actif' && aDroitRh('desactiver')) b.push(`<button type="button" class="btn btn-fantome" data-pied-statut="desactiver">${gestion.ico('lock')} Désactiver (départ)</button>`);
+    if (f.statut !== 'actif' && aDroitRh('reactiver')) b.push(`<button type="button" class="btn btn-fantome" data-pied-statut="reactiver">${gestion.ico('sync')} Réactiver</button>`);
+  }
+  b.push('<span class="tiroir-pied-espace"></span>');
+  if (peutEcrire) b.push(`<button type="submit" class="btn btn-or" id="employe-enregistrer">${f ? 'Enregistrer' : 'Ajouter'}</button>`);
+  $rh('fiche-rh-pied').innerHTML = b.join('');
+  $rh('fiche-rh-pied').classList.toggle('cache', b.length === 1);
+}
+$rh('fiche-rh-pied').addEventListener('click', e => {
+  const b = e.target.closest('button[data-pied-service], button[data-pied-statut]');
+  if (!b || !FICHE_OUVERTE) return;
+  if (b.dataset.piedService !== undefined) terminerServiceEmploye(FICHE_OUVERTE);
+  else changerStatutEmploye(FICHE_OUVERTE, b.dataset.piedStatut);
+});
+
 // ---- onglets de la fiche : Profil (modifiable) et Activité (compte du site, service, historique écrit par le serveur) ----
 function choisirOngletFiche(nom) {
   document.querySelectorAll('[data-fiche-onglet]').forEach(b => { const actif = b.dataset.ficheOnglet === nom; b.classList.toggle('actif', actif); b.setAttribute('aria-selected', String(actif)); b.tabIndex = actif ? 0 : -1; });
   $rh('employe-panneau-profil').classList.toggle('cache', nom !== 'profil');
   $rh('employe-panneau-activite').classList.toggle('cache', nom !== 'activite');
-  $rh('fiche-rh-pied').classList.toggle('cache', nom !== 'profil' || $rh('employe-enregistrer').classList.contains('cache'));
+  $rh('employe-enregistrer')?.classList.toggle('cache', nom !== 'profil');   // l'enregistrement ne concerne que le profil
   if (nom === 'activite') chargerJournal();
 }
 async function chargerJournal() {
@@ -360,7 +332,8 @@ async function changerStatutEmploye(id, action) {
     await socle.api(`/api/rh/employes/${id}/${action}`, { method: 'POST', body: {} });
     gestion.message('zone-message-rh', ''), gestion.notifier(action === 'desactiver' ? `${nom} a quitté l’effectif actif ✓` : `${nom} a réintégré l’effectif ✓`);
     chargerRh();
-  } catch (err) { gestion.message('zone-message-rh', err.message); }
+    if (FICHE_OUVERTE === id) ouvrirFicheEmploye(id);
+  } catch (err) { gestion.message(FICHE_OUVERTE === id ? 'zone-message-modale-employe' : 'zone-message-rh', err.message); }
 }
 
 // ---- recrutement : candidatures acceptées reçues du bot Discord, et réglages de leur lecture ----

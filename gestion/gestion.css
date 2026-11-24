@@ -2708,7 +2708,7 @@ button.ligne-liste:focus-visible { background: rgba({{couleur_rvb}}, 0.07); outl
 .liste-factures { --cols: minmax(0, 1.7fr) minmax(95px, 0.7fr) minmax(105px, 0.8fr) minmax(90px, 0.6fr) minmax(110px, 0.8fr) 20px; }
 .liste-factures .ligne-cellule--montant { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); font-weight: 500; }
 .liste-entete-droite { display: flex; justify-content: flex-end; }
-.liste-employes { --cols: minmax(0, 1.6fr) minmax(110px, 0.8fr) minmax(130px, 1fr) 100px 44px; }
+.liste-employes { --cols: minmax(0, 1.6fr) minmax(110px, 0.8fr) minmax(130px, 1fr) 100px 20px; }
 
 /* ---- tiroir (fiche d'un contrat) : à droite, toute la hauteur ; bandeau et pied fixes, seul le corps défile ---- */
 .tiroir-fond { justify-content: flex-end; align-items: stretch; padding: 0; }
