@@ -76,8 +76,8 @@ model AgendaDroitsGrade {
 }
 
 // Ressources humaines : la fiche employé, source de vérité de l'identité (routes/rh.ts). Les autres modules (ventes,
-// tableur, DOT) ne gardent que employeId et lisent ici nom, grade et statut. Une fiche n'est jamais supprimée : un départ
-// la passe « inactif », son historique reste rattaché. Un employé n'a pas forcément de compte sur le site : le lien
+// tableur, DOT) ne gardent que employeId et lisent ici nom, grade et statut. Un départ la passe « inactif » (historique gardé) ;
+// la suppression (rh-supprimer, supprimerFiche) efface la fiche et détache ce qui compte pour l'argent. Un employé n'a pas forcément de compte sur le site : le lien
 // avec un compte se fait par l'ID Discord.
 model Employe {
   id                     Int       @id @default(autoincrement())
@@ -111,7 +111,7 @@ model Employe {
 
 // Historique d'une fiche, écrit par le serveur à chaque changement (jamais saisi) : création, grade, statut, identité,
 // dates, notes, téléphone/RIB (sans leur valeur), pièce d'identité. type : creation | grade | statut | identite | dates |
-// contact | notes | piece. Sans relation Prisma (une fiche ne se supprime pas ; un test la retire à la main).
+// contact | notes | piece. Sans relation Prisma (retiré à la suppression de la fiche).
 model HistoriqueEmploye {
   id        Int      @id @default(autoincrement())
   employeId Int      @map("employe_id")

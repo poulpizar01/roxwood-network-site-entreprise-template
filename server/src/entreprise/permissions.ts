@@ -19,6 +19,7 @@ export const permissions: Permission[] = [
   { cle: 'rh-sanctions-voir', domaine: RH, libelle: 'Consulter les sanctions', description: 'Voir les sanctions de tous les employés (page Sanctions)', requiert: ['rh-voir'] },
   { cle: 'rh-sanctionner', domaine: RH, libelle: 'Gérer les sanctions', description: 'Ajouter ou retirer une sanction sur une fiche employé', requiert: ['rh-sanctions-voir'] },
   { cle: 'rh-creer', domaine: RH, libelle: 'Ajouter un employé', description: 'Créer une fiche ; retraiter ou écarter une candidature reçue' },
+  { cle: 'rh-supprimer', domaine: RH, libelle: 'Supprimer une fiche', description: 'Effacer définitivement la fiche d’un employé (préférer le départ, qui garde l’historique)', requiert: ['rh-voir'] },
   { cle: 'rh-reactiver', domaine: RH, libelle: 'Réintégrer un ancien employé', description: 'Remettre un ancien employé dans l’effectif actif' },
   { cle: 'rh-desactiver', domaine: RH, libelle: 'Enregistrer un départ', description: 'Passer un employé en « ancien employé »' },
   { cle: 'rh-parametrer', domaine: RH, libelle: 'Paramétrer le recrutement', description: 'Choisir comment les candidatures acceptées sur Discord remplissent les fiches' },

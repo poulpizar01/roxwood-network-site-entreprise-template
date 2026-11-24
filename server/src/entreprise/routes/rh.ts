@@ -7,7 +7,7 @@ import { auDessusDe, gradeDe, peut } from '../../socle/droits.js';
 import { actualiserGrades } from '../../socle/grades-imposes.js';
 import { body, couleur, entier, intParam, permission, text } from '../../socle/http.js';
 import { enregistrerImage, recevoirImage, retirerImage } from '../../socle/images.js';
-import { arriveesBot, changerPieceIdentite, consignerHistorique, droitsRh, ecarter, fichePublique, gradesEmployes, historiqueDe, lignesHistorique, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
+import { arriveesBot, changerPieceIdentite, consignerHistorique, droitsRh, ecarter, fichePublique, gradesEmployes, historiqueDe, lignesHistorique, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, supprimerFiche, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
 import { ajouterSanction, listeTypesSanction, retirerSanction, toutesSanctions } from '../sanctions.js';
 import { terminerServiceDe } from '../services.js';
@@ -258,6 +258,10 @@ async function changerStatut(req: Request, res: Response, statut: 'actif' | 'ina
   res.json({ ok: true, employe: nomComplet(e) });
 }
 rh.post('/api/rh/employes/:id/desactiver', ...voir, exiger('desactiver', 'Vous n’avez pas le droit de désactiver un employé.'), traiter((req, res) => changerStatut(req, res, 'inactif')));
+rh.delete('/api/rh/employes/:id', ...voir, exiger('supprimer', 'Vous n’avez pas le droit de supprimer une fiche.'), traiter(async (req, res) => {
+  const e = await ficheSousMonGrade(req);
+  res.json({ ok: true, employe: await supprimerFiche(e.id) });
+}));
 rh.post('/api/rh/employes/:id/reactiver', ...voir, exiger('reactiver', 'Vous n’avez pas le droit de réactiver un employé.'), traiter((req, res) => changerStatut(req, res, 'actif')));
 
 // candidatures reçues du bot Discord et réglages de leur lecture

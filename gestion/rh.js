@@ -196,6 +196,7 @@ function dessinerPiedFiche(f, peutEcrire) {
   if (f && f.modifiable !== false) {
     if (f.enServiceDepuis && aDroitRh('modifier')) b.push(`<button type="button" class="btn btn-fantome" data-pied-service>${gestion.ico('clock')} Terminer son service</button>`);
     if (f.statut === 'actif' && aDroitRh('desactiver')) b.push(`<button type="button" class="btn btn-fantome" data-pied-statut="desactiver">${gestion.ico('lock')} Désactiver (départ)</button>`);
+    if (aDroitRh('supprimer')) b.push(`<button type="button" class="btn btn-fantome grade-supprimer" data-pied-supprimer>${gestion.ico('trash')} Supprimer la fiche</button>`);
     if (f.statut !== 'actif' && aDroitRh('reactiver')) b.push(`<button type="button" class="btn btn-fantome" data-pied-statut="reactiver">${gestion.ico('sync')} Réactiver</button>`);
   }
   b.push('<span class="tiroir-pied-espace"></span>');
@@ -204,9 +205,10 @@ function dessinerPiedFiche(f, peutEcrire) {
   $rh('fiche-rh-pied').classList.toggle('cache', b.length === 1);
 }
 $rh('fiche-rh-pied').addEventListener('click', e => {
-  const b = e.target.closest('button[data-pied-service], button[data-pied-statut]');
+  const b = e.target.closest('button[data-pied-service], button[data-pied-statut], button[data-pied-supprimer]');
   if (!b || !FICHE_OUVERTE) return;
-  if (b.dataset.piedService !== undefined) terminerServiceEmploye(FICHE_OUVERTE);
+  if (b.dataset.piedSupprimer !== undefined) supprimerEmploye(FICHE_OUVERTE);
+  else if (b.dataset.piedService !== undefined) terminerServiceEmploye(FICHE_OUVERTE);
   else changerStatutEmploye(FICHE_OUVERTE, b.dataset.piedStatut);
 });
 
@@ -321,6 +323,18 @@ $rh('formulaire-employe').addEventListener('submit', async e => {
     gestion.message('zone-message-modale-employe', err.message);
   }
 });
+
+async function supprimerEmploye(id) {
+  const nom = CACHE_EMPLOYES.find(x => x.id === id)?.nomComplet ?? 'Cet employé';
+  if (!await gestion.confirmer(`La fiche de ${nom} est effacée définitivement, avec son historique, ses sanctions et ses primes. Ses factures, ventes et services restent, sans nom. Pour un simple départ, utilisez « Désactiver ».`, 'Supprimer cette fiche ?', 'Supprimer la fiche')) return;
+  try {
+    await socle.api(`/api/rh/employes/${id}`, { method: 'DELETE' });
+    gestion.notifier(`La fiche de ${nom} est supprimée ✓`);
+    fermerModaleEmploye();
+    FICHE_OUVERTE = null;
+    chargerRh();
+  } catch (err) { gestion.message('zone-message-modale-employe', err.message); }
+}
 
 async function changerStatutEmploye(id, action) {
   const e = CACHE_EMPLOYES.find(x => x.id === id), nom = e ? e.nomComplet : 'Cet employé';

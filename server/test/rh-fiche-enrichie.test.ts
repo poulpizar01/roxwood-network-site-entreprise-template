@@ -9,7 +9,7 @@ import '../src/entreprise/index.js';   // d'abord : charge les routes dans l'ord
 import { prisma } from '../src/socle/db.js';
 import { chargerGrades } from '../src/socle/droits.js';
 import { rh } from '../src/entreprise/routes/rh.js';
-import { changerPieceIdentite, fichePublique, historiqueDe, lignesHistorique, purgerPiecesIdentite } from '../src/entreprise/rh.js';
+import { changerPieceIdentite, supprimerFiche, fichePublique, historiqueDe, lignesHistorique, purgerPiecesIdentite } from '../src/entreprise/rh.js';
 import type { Employe } from '../src/generated/prisma/client.js';
 
 const GRADES = {
@@ -117,4 +117,18 @@ test('routes : sans rh-piece on ne pose ni ne retire la pièce, rh-voir lit l’
   const textes = async (profil: string) => ((await (await appel(profil, 'GET', `/api/rh/employes/${f.id}/historique`)).json()) as { historique: { texte: string }[] }).historique.map(h => h.texte);
   assert.equal((await textes('lecteur')).some(t => t.includes('Pièce')), false);
   assert.equal((await textes('piece')).some(t => t.includes('Pièce')), true);
+});
+
+test('supprimer une fiche : efface l’identité, détache les factures, met la pièce en nettoyage', async () => {
+  const f = await creer('zz-test-h9');
+  await changerPieceIdentite(f.id, image('s'), 'Testeur');
+  const fa = await prisma.facture.create({ data: { source: 'manuel', clientNom: 'zz-test-sup', employeId: f.id } });
+  try {
+    await supprimerFiche(f.id);
+    assert.equal(await prisma.employe.count({ where: { id: f.id } }), 0);
+    assert.equal(await prisma.historiqueEmploye.count({ where: { employeId: f.id } }), 0);
+    assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: fa.id } })).employeId, null);
+    assert.equal(await prisma.imageRetiree.count({ where: { cle: 'zz-test-s' } }), 1);
+    await assert.rejects(supprimerFiche(f.id), /introuvable/);
+  } finally { await prisma.facture.delete({ where: { id: fa.id } }); }
 });

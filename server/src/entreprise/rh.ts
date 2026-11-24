@@ -14,7 +14,7 @@ import { definirReglage, reglage } from '../socle/reglages.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { jourParis, jourValide, normaliserPseudo, normaliserTexte, versDate, versJour } from './texte.js';
 
-export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'sensible-voir', 'sensible', 'piece-voir', 'piece', 'parametrer', 'sanctions-voir', 'sanctionner'] as const;
+export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'supprimer', 'sensible-voir', 'sensible', 'piece-voir', 'piece', 'parametrer', 'sanctions-voir', 'sanctionner'] as const;
 export type DroitRh = typeof DROITS_RH[number];
 // droits RH d'un compte ; rien sans rh-voir (toute action suppose de pouvoir consulter les fiches)
 export const droitsRh = (c: Compte): Set<DroitRh> =>
@@ -97,6 +97,26 @@ export async function changerPieceIdentite(id: number, nouvelle: ImageEnregistre
     if (avant.pieceIdentiteCle) await tx.imageRetiree.create({ data: { cle: avant.pieceIdentiteCle, url: avant.pieceIdentiteUrl ?? '', cleMini: avant.pieceIdentiteCleMini ?? '', urlMini: avant.pieceIdentiteUrlMini ?? '' } });
     await consignerHistorique(tx, id, auteur, [{ type: 'piece', texte: texteHistorique ?? (nouvelle ? (avant.pieceIdentiteCle ? 'Pièce d’identité remplacée' : 'Pièce d’identité ajoutée') : 'Pièce d’identité retirée') }]);
   });
+}
+
+// Suppression définitive d'une fiche. Ce qui l'identifiait (sanctions, primes, « payé », historique) part avec elle ; ce qui
+// compte pour l'argent et les quotas (factures, ventes, services, candidatures) reste, détaché de la personne. Les
+// déclarations DOT figées gardent leur copie JSON. La pièce d'identité passe par la file de nettoyage du stockage.
+export async function supprimerFiche(id: number): Promise<string> {
+  const nom = await prisma.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'piece-identite:' + id}))`;
+    const e = await tx.employe.findUnique({ where: { id } });
+    if (!e) throw new Refus('Employé introuvable.', 404);
+    const detache = { where: { employeId: id }, data: { employeId: null } };
+    await tx.facture.updateMany(detache); await tx.run.updateMany(detache); await tx.service.updateMany(detache); await tx.arriveeBot.updateMany(detache);
+    const lie = { where: { employeId: id } };
+    await tx.sanction.deleteMany(lie); await tx.primeEmployeSemaine.deleteMany(lie); await tx.paiementFicheDot.deleteMany(lie); await tx.historiqueEmploye.deleteMany(lie);
+    if (e.pieceIdentiteCle) await tx.imageRetiree.create({ data: { cle: e.pieceIdentiteCle, url: e.pieceIdentiteUrl ?? '', cleMini: e.pieceIdentiteCleMini ?? '', urlMini: e.pieceIdentiteUrlMini ?? '' } });
+    await tx.employe.delete({ where: { id } });
+    return e;
+  });
+  await actualiserGrades([nom.discordId]);   // son compte retombe sur son rôle Discord
+  return nomComplet(nom);
 }
 
 // tâche quotidienne (purge.ts) : la pièce d'un employé parti depuis plus de 90 jours est effacée (confidentialite.html)
