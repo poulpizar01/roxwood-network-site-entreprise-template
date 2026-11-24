@@ -844,7 +844,9 @@ window.gestion = {
 
   // Une liste en lignes (.liste-lignes) devient une liste de cartes quand sa place MESURÉE passe sous seuil (px) : la place
   // dépend du menu, de la barre de défilement, du contenu — jamais de la largeur de l'écran (docs/design.md §4).
-  listeEnCartes(liste, seuil = 700) {
+  listeEnCartes(liste, seuil = 700, unique = false) {
+    // unique : appel répété à chaque dessin de la liste (facturation) — un seul observateur est posé
+    if (unique) { if (liste.dataset.enCartes) return; liste.dataset.enCartes = '1'; }
     new ResizeObserver(([e]) => liste.classList.toggle('liste-lignes--etroite', e.contentRect.width < seuil)).observe(liste);
   },
 

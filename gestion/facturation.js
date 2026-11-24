@@ -18,20 +18,15 @@ function formaterJourFr(iso) {
 }
 
 // ---- tri des colonnes du tableau des factures ----
-const TRI_FACTURES = gestion.tableauTriable("table-factures", {
+const TRI_FACTURES = gestion.tableauTriable("factures-liste", {
   date: (a, b) => new Date(a.dateFacture) - new Date(b.dateFacture),
   source: (a, b) => labelSourceFacture(a.source).localeCompare(labelSourceFacture(b.source), "fr", { sensitivity: "base" }),
   client: (a, b) => (a.clientNom || "").localeCompare(b.clientNom || "", "fr", { sensitivity: "base" }),
   numero: (a, b) => (a.numeroFacture || "").localeCompare(b.numeroFacture || "", "fr", { numeric: true }),
   total: (a, b) => a.total - b.total,
   statut: (a, b) => a.statutPaiement.localeCompare(b.statutPaiement, "fr", { sensitivity: "base" }),
-}, () => { afficherFactures(); majEnteteFactures(); }, { cle: "date", sens: -1 });
-function majEnteteFactures() {
-  document.getElementById("factures-entete").innerHTML = `<th>${TRI_FACTURES.bouton("date", "Date")}</th><th>${TRI_FACTURES.bouton("source", "Provenance")}</th>
-    <th data-titre>${TRI_FACTURES.bouton("client", "Client")}</th><th>${TRI_FACTURES.bouton("numero", "N°")}</th>
-    <th style="text-align:right;">${TRI_FACTURES.bouton("total", "Total")}</th><th>${TRI_FACTURES.bouton("statut", "Statut")}</th><th class="col-actions" aria-label="Actions"></th>`;
-}
-majEnteteFactures();
+}, () => afficherFactures(), { cle: "date", sens: -1 });
+
 
 // Résultat d'une copie : notification en bas de l'écran.
 function signalerCopie(_bouton, reussie, texte) {
@@ -190,15 +185,22 @@ function afficherFactures() {
   ].join("");
   if (!lignes.length) { vide.classList.remove("cache"); resultat.classList.add("cache"); return; }
   vide.classList.add("cache"); resultat.classList.remove("cache");
-  document.getElementById("corps-table-factures").innerHTML = lignes.map(f => `<tr>
-      <td>${echapper(formaterDateAdmin(f.dateFacture))}</td>
-      <td>${echapper(labelSourceFacture(f.source))}</td>
-      <td><button type="button" class="table-lien" data-facture-voir="${f.id}">${echapper(f.clientNom) || "Client inconnu"}</button>${f.avoirDeId ? ' <span class="puce puce-off">Avoir</span>' : ""}</td>
-      <td>${echapper(f.numeroFacture) || "—"}</td>
-      <td style="text-align:right;">${formaterArgentStats(f.total)}</td>
-      <td>${badgeStatutFacture(f.statutPaiement)}</td>
-      <td class="col-actions">${menuLigneFacture(f)}</td>
-    </tr>`).join("");
+  // une ligne par facture (composant .liste-lignes) : le nom du client ouvre le tiroir, le menu « ⋯ » porte les actions
+  // secondaires ; en carte (place mesurée trop étroite), chaque cellule est précédée de son libellé
+  const entete = `<div class="liste-entete entete-tri">${TRI_FACTURES.bouton("client", "Client")}${TRI_FACTURES.bouton("date", "Date")}${TRI_FACTURES.bouton("source", "Provenance")}<span class="liste-entete-droite">${TRI_FACTURES.bouton("total", "Total")}</span>${TRI_FACTURES.bouton("statut", "Statut")}<span></span></div>`;
+  document.getElementById("factures-liste").innerHTML = entete + lignes.map(f => `<div class="ligne-liste${f.statutPaiement === "ANNULEE" ? " ligne-liste--terminee" : ""}">
+      <button type="button" class="ligne-bouton" data-facture-voir="${f.id}" aria-label="Ouvrir la facture de ${echapper(f.clientNom) || "client inconnu"}">
+        <span class="admin-avatar" aria-hidden="true">${echapper(initiales(f.clientNom || "?"))}</span>
+        <span class="rh-employe-texte"><span class="comptes-nom"><strong>${echapper(f.clientNom) || "Client inconnu"}</strong>${f.avoirDeId ? '<span class="puce puce-off">Avoir</span>' : ""}</span>
+          <span class="comptes-pseudo">${echapper(f.numeroFacture) || "Sans numéro"}</span></span>
+      </button>
+      <span class="ligne-cellule" data-libelle="Date">${echapper(formaterDateAdmin(f.dateFacture))}</span>
+      <span class="ligne-cellule" data-libelle="Provenance">${echapper(labelSourceFacture(f.source))}</span>
+      <span class="ligne-cellule ligne-cellule--montant" data-libelle="Total"><span>${formaterArgentStats(f.total)}</span></span>
+      <span class="ligne-cellule" data-libelle="Statut"><span>${badgeStatutFacture(f.statutPaiement)}</span></span>
+      ${menuLigneFacture(f).replace('class="comptes-menu"', 'class="comptes-menu ligne-actions"')}
+    </div>`).join("");
+  gestion.listeEnCartes(document.getElementById("factures-liste"), 780, true);
 }
 // Statut d'une facture saisie à la main : les trois valeurs possibles, dans chacune le libellé et l'icône de
 // l'action qui y mène depuis une autre (ex. depuis « payée », l'action vers « en attente » est « Marquer en
@@ -250,7 +252,7 @@ function fermerMenuFacture(rendreFocus) {
   if (rendreFocus) b.focus();
   MENU_FACTURE_OUVERT = null;
 }
-document.getElementById("corps-table-factures").addEventListener("click", ev => {
+document.getElementById("factures-liste").addEventListener("click", ev => {
   const ouvreur = ev.target.closest(".comptes-menu-bouton");
   if (ouvreur) {
     const menu = ouvreur.closest(".comptes-menu");
@@ -655,7 +657,12 @@ async function ouvrirFactureForm(id) {
   // plus qu'à consulter, pas de bouton Enregistrer
   document.getElementById("bouton-facture-enregistrer").classList.toggle("cache", !editable);
   document.getElementById("bouton-facture-enregistrer").textContent = !f ? "Ajouter" : "Enregistrer";
-  document.getElementById("facture-pied").classList.toggle("cache", !editable && !afficheSupprimer);
+  // Aperçu : pour une facture existante ; Annuler (rouge, repère constant) ferme sans enregistrer, « Fermer » quand il n'y a rien à enregistrer
+  document.getElementById("bouton-facture-apercu").classList.toggle("cache", !f);
+  const annuler = document.getElementById("bouton-facture-annuler");
+  annuler.textContent = editable ? "Annuler" : "Fermer";
+  annuler.classList.toggle("btn-danger", editable);
+  annuler.classList.toggle("btn-fantome", !editable);
 
   document.getElementById("modale-facture-form").classList.remove("cache");
   (editable ? document.getElementById("facture-client") : document.getElementById("fermer-modale-facture-form")).focus();
@@ -663,6 +670,8 @@ async function ouvrirFactureForm(id) {
 function fermerModaleFactureForm() { document.getElementById("modale-facture-form").classList.add("cache"); }
 document.getElementById("bouton-nouvelle-facture").addEventListener("click", () => ouvrirFactureForm(null));
 document.getElementById("fermer-modale-facture-form").addEventListener("click", fermerModaleFactureForm);
+document.getElementById("bouton-facture-annuler").addEventListener("click", fermerModaleFactureForm);
+document.getElementById("bouton-facture-apercu").addEventListener("click", () => { if (FACTURE_COURANTE) ouvrirApercuFacture(FACTURES_TOUTES.find(f => f.id === FACTURE_COURANTE.id) || FACTURE_COURANTE); });
 document.getElementById("modale-facture-form").addEventListener("click", (ev) => { if (ev.target.id === "modale-facture-form") fermerModaleFactureForm(); });
 
 document.getElementById("formulaire-facture").addEventListener("submit", async (ev) => {

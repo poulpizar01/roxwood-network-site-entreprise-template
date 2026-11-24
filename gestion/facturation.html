@@ -74,11 +74,8 @@
       <div id="factures-vide" class="etat-vide cache">
         <p>Aucune facture ne correspond à ce filtre.</p>
       </div>
-      <div id="factures-resultat" class="cache carte-table">
-        <table class="table-admin" id="table-factures">
-          <thead><tr id="factures-entete"></tr></thead>
-          <tbody id="corps-table-factures"></tbody>
-        </table>
+      <div id="factures-resultat" class="cache">
+        <div class="liste-lignes liste-lignes--menu liste-factures" id="factures-liste"></div>
       </div>
     </section>
 
@@ -112,15 +109,15 @@
      facture ouverte. Montants et articles ne sont modifiables que pour une facture saisie à la main (source
      « manuel ») : une facture reçue du bot (commande Discord ou paiement constaté en jeu) les affiche en lecture
      seule, le site ne corrige pas ce que Discord a réellement enregistré (server/src/entreprise/routes/compta.ts). -->
-<div class="modale-fond cache" id="modale-facture-form" data-echap>
-  <div class="modale modale-facture">
-    <div class="modale-entete">
-      <h3 id="titre-modale-facture-form">Nouvelle facture</h3>
+<div class="modale-fond tiroir-fond cache" id="modale-facture-form" data-echap>
+  <div class="tiroir tiroir-facture" role="dialog" aria-modal="true" aria-labelledby="titre-modale-facture-form">
+    <div class="tiroir-entete">
+      <div class="tiroir-identite"><h2 id="titre-modale-facture-form">Nouvelle facture</h2></div>
       <button type="button" id="fermer-modale-facture-form" aria-label="Fermer">✕</button>
     </div>
-    <form id="formulaire-facture">
+    <form id="formulaire-facture" class="tiroir-form">
       <div id="zone-message-modale-facture"></div>
-      <div class="facture-corps">
+      <div class="tiroir-corps facture-corps">
         <!-- provenance, détail de la source et statut : seulement pour une facture existante -->
         <div id="facture-infos" class="facture-detail-entete cache">
           <span class="champ-aide" id="facture-infos-texte"></span>
@@ -215,9 +212,12 @@
           <div class="total"><span>Total</span><span id="facture-total-apercu">0 $</span></div>
         </div>
       </div>
-      <div class="facture-pied pied-centre" id="facture-pied">
-        <button type="button" class="btn btn-danger cache pied-secondaire" data-exige="factures" id="bouton-supprimer-facture"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Supprimer</button>
-        <button type="submit" class="btn btn-or pied-principal" data-exige="factures" id="bouton-facture-enregistrer">Ajouter</button>
+      <div class="tiroir-pied" id="facture-pied">
+        <button type="button" class="btn btn-fantome cache" id="bouton-facture-apercu"><svg class="ico" aria-hidden="true"><use href="#ico-sheet"></use></svg> Aperçu</button>
+        <button type="button" class="btn btn-danger cache" data-exige="factures" id="bouton-supprimer-facture"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Supprimer</button>
+        <span class="tiroir-pied-espace"></span>
+        <button type="button" class="btn btn-danger" id="bouton-facture-annuler">Annuler</button>
+        <button type="submit" class="btn btn-or" data-exige="factures" id="bouton-facture-enregistrer">Ajouter</button>
       </div>
     </form>
   </div>
