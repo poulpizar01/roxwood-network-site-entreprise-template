@@ -54,16 +54,6 @@ function periodeAgenda() {
   return { debut, fin };
 }
 
-// Période réellement choisie, sans les jours des mois voisins ajoutés à la grille du mois pour la compléter
-// (periodeAgenda() les inclut pour l'affichage du calendrier ; les statistiques des participants ne doivent
-// compter qu'un mois entier, pas deux mois et demi).
-function periodeParticipants() {
-  const vue = agendaVue();
-  if (vue !== "mois") return periodeAgenda();
-  const ref = new Date(AGENDA_REF); ref.setHours(0, 0, 0, 0);
-  return { debut: new Date(ref.getFullYear(), ref.getMonth(), 1), fin: new Date(ref.getFullYear(), ref.getMonth() + 1, 0) };
-}
-
 function joursDeLaPeriode() {
   const { debut, fin } = periodeAgenda();
   const jours = []; const d = new Date(debut);
@@ -149,7 +139,12 @@ function defilerVersMaintenant() {
 // Événements qui se chevauchent : côte à côte plutôt que l'un sur l'autre. Chaque groupe d'événements liés par un
 // chevauchement est réparti en colonnes ; chacun reçoit sa colonne et le nombre de colonnes de son groupe.
 function disposerEvenements(evts) {
-  const places = evts.map(e => { const s = segmentJour(e); return { e, debut: minutesDepuisMinuit(s.debut), fin: Math.max(minutesDepuisMinuit(s.fin), minutesDepuisMinuit(s.debut) + 15) }; });
+  // une fin à minuit ou franchissant minuit (ex. 22:00 → 00:00 ou → 02:00) se lit comme avant le début : affichée
+  // jusqu'en bas de la colonne du jour, faute de pouvoir continuer dans celle du lendemain
+  const places = evts.map(e => {
+    const s = segmentJour(e); const debut = minutesDepuisMinuit(s.debut); const finBrute = minutesDepuisMinuit(s.fin);
+    return { e, debut, fin: Math.max(finBrute <= debut ? 24 * 60 : finBrute, debut + 15) };
+  });
   let groupe = [], finGroupe = -1;
   const fermer = () => {
     const colonnes = [];
@@ -168,7 +163,11 @@ function disposerEvenements(evts) {
   return places;
 }
 
-const descriptionEvenement = e => `${e.titre}, ${texteHoraire(e)}${typeDe(e) ? `, ${typeDe(e).nom}` : ""}, pour ${e.destinataire || "moi"}${e.absence ? `, ${e.statut_absence === "approuve" ? "absence approuvée" : "absence en attente de validation"}` : ""}`;
+const LIBELLES_STATUT_ABSENCE = { en_attente: "en attente de validation", approuve: "approuvée", refuse: "refusée" };
+const libelleStatutAbsence = e => `absence ${LIBELLES_STATUT_ABSENCE[e.statut_absence] || LIBELLES_STATUT_ABSENCE.en_attente}`;
+// une absence refusée garde la classe de son statut (le nom reste explicite ailleurs : fiche, bandeau)
+const classeAbsence = e => e.absence ? ` absence-${e.statut_absence === "approuve" ? "approuvee" : e.statut_absence === "refuse" ? "refusee" : "en-attente"}` : "";
+const descriptionEvenement = e => `${e.titre}, ${texteHoraire(e)}${typeDe(e) ? `, ${typeDe(e).nom}` : ""}, pour ${e.destinataire || "moi"}${e.absence ? `, ${libelleStatutAbsence(e)}` : ""}`;
 
 // Événements sans horaire (sur un ou plusieurs jours) : une bande par événement, étirée sur les jours qu'il couvre
 // (comme dans un agenda courant), plutôt qu'un bloc plein écran répété dans chaque colonne horaire.
@@ -210,7 +209,7 @@ function rendreGrilleAgenda(jours) {
     <div class="agenda-toutjour">
       <span class="agenda-coin" aria-hidden="true"></span>
       ${toutJourPlaces.map(p => `
-        <div class="agenda-toutjour-barre" data-id="${p.e.id}" tabindex="0" role="button"
+        <div class="agenda-toutjour-barre${classeAbsence(p.e)}" data-id="${p.e.id}" tabindex="0" role="button"
              style="${styleType(p.e)}grid-column:${p.col1 + 2} / ${p.col2 + 3};grid-row:${p.rangee + 1}" aria-label="${echapper(descriptionEvenement(p.e))}">
           ${echapper(p.e.titre)}
         </div>`).join("")}
@@ -234,8 +233,10 @@ function rendreGrilleAgenda(jours) {
       return `
         <div class="agenda-evenement${hauteur < 44 ? " court" : ""}" data-id="${p.e.id}" tabindex="0" role="button"
              style="${styleType(p.e)}top:${top}px;height:${hauteur}px;left:calc(${p.col * largeur}% + 2px);width:calc(${largeur}% - 4px)" aria-label="${echapper(descriptionEvenement(p.e))}">
-          <span class="agenda-evenement-titre">${echapper(p.e.titre)}</span>
-          <span class="agenda-evenement-heure">${texteHoraire(p.e)}</span>
+          <div class="agenda-evenement-corps">
+            <span class="agenda-evenement-titre">${echapper(p.e.titre)}</span>
+            <span class="agenda-evenement-heure">${texteHoraire(p.e)}</span>
+          </div>
         </div>`;
     }).join("");
     const maintenant = estAujourdhui(d)
@@ -261,7 +262,7 @@ function rendreMoisAgenda() {
     const iso = formaterDateISO(d);
     const evs = evenementsDu(iso);
     const puces = evs.slice(0, 3).map(e => `
-      <span class="agenda-mois-evenement" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
+      <span class="agenda-mois-evenement${classeAbsence(e)}" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
         ${e.heure_debut ? `<span class="agenda-mois-heure">${e.heure_debut}</span> ` : ""}${echapper(e.titre)}
       </span>`).join("");
     const plus = evs.length > 3 ? `<button type="button" class="agenda-mois-plus" data-aller-jour="${iso}">${evs.length - 3} de plus</button>` : "";
@@ -292,9 +293,9 @@ function rendreListeAgenda() {
   const evs = evenementsDu(choisi);
   const liste = evs.length
     ? `<ul class="agenda-liste-evenements">${evs.map(e => `
-        <li><div class="agenda-carte" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
+        <li><div class="agenda-carte${classeAbsence(e)}" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
           <span class="agenda-carte-heures">${e.heure_debut ? `${e.heure_debut}<small>${e.heure_fin}</small>` : "<small>Toute la journée</small>"}</span>
-          <span class="agenda-carte-texte"><strong>${echapper(e.titre)}</strong><small>${typeDe(e) ? `${echapper(typeDe(e).nom)} · ` : ""}${echapper(e.destinataire || "Moi")}${e.auteur && !e.mien ? ` · ajouté par ${echapper(e.auteur)}` : ""}${e.absence ? ` · ${e.statut_absence === "approuve" ? "absence approuvée" : "absence en attente"}` : ""}</small></span>
+          <span class="agenda-carte-texte"><strong>${echapper(e.titre)}</strong><small>${typeDe(e) ? `${echapper(typeDe(e).nom)} · ` : ""}${echapper(e.destinataire || "Moi")}${e.auteur && !e.mien ? ` · ajouté par ${echapper(e.auteur)}` : ""}${e.absence ? ` · ${libelleStatutAbsence(e)}` : ""}</small></span>
         </div></li>`).join("")}</ul>`
     : `<p class="agenda-vide">Rien de prévu ce jour-là.</p>`;
   grille.className = "agenda-grille agenda-liste";
@@ -331,13 +332,15 @@ async function chargerAgenda(reinitialiserDefilement) {
     CACHE_EVENEMENTS = [];
   }
   rendreAgenda(reinitialiserDefilement);
+  if (panneauParMembreVisible()) rendreParMembre();
 }
 
 // Un seul écouteur pour la grille, quelle que soit la vue (elle est redessinée à chaque changement).
 const grilleAgenda = document.getElementById("agenda-grille");
 function ouvrirEvenementExistant(id) {
   const e = CACHE_EVENEMENTS.find(x => String(x.id) === String(id));
-  if (e) ouvrirModaleEvenement({ id: e.id, jour: e.jour, jourFin: e.jour_fin, heureDebut: e.heure_debut, heureFin: e.heure_fin, titre: e.titre, notes: e.notes, evenement: e });
+  if (!e) return;
+  ouvrirModaleEvenement({ id: e.id, jour: e.jour, jourFin: e.jour_fin, heureDebut: e.heure_debut, heureFin: e.heure_fin, titre: e.titre, notes: e.notes, evenement: e });
 }
 grilleAgenda.addEventListener("click", ev => {
   const cible = ev.target.closest("[data-id], [data-aller-jour], [data-choisir-jour], [data-ajouter-jour], .agenda-case");
@@ -353,14 +356,108 @@ grilleAgenda.addEventListener("keydown", ev => {
   if (el && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); ouvrirEvenementExistant(el.dataset.id); }
 });
 
-// Onglet Participants : pas de sélecteur propre, il affiche la période choisie ici (jour, semaine ou mois).
-const panneauParticipantsVisible = () => !document.getElementById("panneau-agenda-participants").classList.contains("cache");
-async function chargerPeriode(reinitialiserDefilement) {
-  await chargerAgenda(reinitialiserDefilement);
-  if (panneauParticipantsVisible()) chargerParticipants();
+// ---- Mon planning : tout ce qui me concerne — mes événements, créneaux pris ou à prendre — sur deux semaines,
+// indépendant de la période choisie pour le calendrier. Vue par défaut d'un compte sans droit de gestion de l'agenda
+// (aucun droit de création au-delà de « perso »). ----
+let PLANNING_EVENEMENTS = [];
+const gereAgenda = () => AGENDA_DROITS.destinations.length > 1;
+const PLANNING_JOURS = 14;
+
+// ---- trois rubriques à plat : Agenda / Mon planning / Planning de l'équipe ----
+let AGENDA_ONGLET = "calendrier";
+function activerOngletAgenda(nom) {
+  AGENDA_ONGLET = nom;
+  document.querySelectorAll("#agenda-onglets [data-agenda-onglet]").forEach(b => { const actif = b.dataset.agendaOnglet === nom; b.classList.toggle("actif", actif); b.setAttribute("aria-selected", String(actif)); });
+  document.getElementById("panneau-agenda-calendrier").classList.toggle("cache", nom !== "calendrier");
+  document.getElementById("panneau-mon-planning").classList.toggle("cache", nom !== "planning");
+  document.getElementById("panneau-agenda-parmembre").classList.toggle("cache", nom !== "parmembre");
+  if (nom === "planning") chargerMonPlanning();
+  else if (nom === "parmembre") rendreParMembre();
 }
-document.getElementById("agenda-semaine-precedente").addEventListener("click", () => { decalerAgenda(-1); chargerPeriode(true); });
-document.getElementById("agenda-semaine-suivante").addEventListener("click", () => { decalerAgenda(1); chargerPeriode(true); });
+document.getElementById("agenda-onglets").addEventListener("click", e => {
+  const b = e.target.closest("[data-agenda-onglet]");
+  if (!b || b.classList.contains("cache") || b.dataset.agendaOnglet === AGENDA_ONGLET) return;
+  activerOngletAgenda(b.dataset.agendaOnglet);
+});
+
+// « mien » au sens de Mon planning : un événement personnel ou un créneau déjà pris. Un créneau encore à pourvoir
+// (pas pris) n'est pas « mien » : il apparaît dans sa propre section, « Créneaux que vous pouvez prendre ».
+const estMienPourPlanning = e => e.mien || e.deja_pris || (e.affectations || []).some(a => a.moi);
+
+async function chargerMonPlanning() {
+  const zone = document.getElementById("panneau-mon-planning");
+  zone.innerHTML = '<p class="champ-aide">Chargement…</p>';
+  const debut = aujourdhuiParis(), fin = new Date(debut.getTime() + PLANNING_JOURS * 86400000);
+  try {
+    const agenda = await socle.api(`/api/agenda?debut=${formaterDateISO(debut)}&fin=${formaterDateISO(fin)}`);
+    PLANNING_EVENEMENTS = agenda.evenements || [];
+    dessinerMonPlanning();
+  } catch (e) {
+    zone.innerHTML = `<p class="agenda-vide">Impossible de charger votre planning : ${echapper(e.message)}. Rechargez la page dans un instant.</p>`;
+  }
+}
+
+// sous-titre d'une ligne : les notes, sinon le destinataire, sinon le type
+const planningSousTitre = e => e.notes || e.destinataire || (typeDe(e)?.nom ?? "");
+function planningLigne(e, bouton) {
+  return `<li class="planning-item" data-id="${e.id}" tabindex="${bouton ? -1 : 0}" role="${bouton ? "listitem" : "button"}">
+    <span class="planning-heure">${e.heure_debut ? echapper(e.heure_debut) : "Toute la journée"}</span>
+    <span class="planning-corps"><strong>${echapper(e.titre)}</strong><small>${echapper(planningSousTitre(e))}</small></span>
+    ${bouton || '<span class="planning-chevron" aria-hidden="true">' + fleche("droite") + "</span>"}
+  </li>`;
+}
+function dessinerMonPlanning() {
+  const zone = document.getElementById("panneau-mon-planning");
+  const auj = formaterDateISO(aujourdhuiParis());
+  const mines = PLANNING_EVENEMENTS.filter(estMienPourPlanning).filter(e => e.jour >= auj)
+    .sort((a, b) => (a.jour + (a.heure_debut || "")).localeCompare(b.jour + (b.heure_debut || "")));
+  const prochaine = mines[0] || null;
+  const parJour = new Map();
+  for (const e of mines.slice(1)) { if (!parJour.has(e.jour)) parJour.set(e.jour, []); parJour.get(e.jour).push(e); }
+  const creneaux = PLANNING_EVENEMENTS.filter(e => e.peut_prendre);
+
+  const blocs = [];
+  if (prochaine) {
+    blocs.push(`<div class="planning-prochaine">
+      <span class="planning-prochaine-entete">Prochaine · ${echapper(jourLong(new Date(prochaine.jour + "T12:00:00")))}${prochaine.heure_debut ? ` · ${echapper(texteHoraire(prochaine))}` : ""}</span>
+      <strong class="planning-prochaine-titre">${echapper(prochaine.titre)}</strong>
+      ${prochaine.notes || prochaine.destinataire ? `<span class="planning-prochaine-detail">${echapper(prochaine.notes || prochaine.destinataire)}</span>` : ""}
+      <button type="button" class="btn btn-or" data-planning-ouvrir="${prochaine.id}">Ouvrir</button>
+    </div>`);
+  } else {
+    blocs.push('<p class="agenda-vide">Rien de prévu dans les deux prochaines semaines.</p>');
+  }
+  for (const [jour, evts] of parJour) {
+    blocs.push(`<div class="planning-jour"><h3>${echapper(jourLong(new Date(jour + "T12:00:00")))}</h3><ul>${evts.map(e => planningLigne(e)).join("")}</ul></div>`);
+  }
+  if (creneaux.length) {
+    blocs.push(`<div class="planning-jour"><h3>Créneaux que vous pouvez prendre · ${creneaux.length}</h3><ul>${creneaux.map(e => planningLigne(e,
+      `<button type="button" class="btn btn-or btn-petit" data-planning-prendre="${e.id}">Prendre</button>`)).join("")}</ul></div>`);
+  }
+  zone.innerHTML = blocs.join("");
+}
+document.getElementById("panneau-mon-planning").addEventListener("click", async e => {
+  const prendre = e.target.closest("[data-planning-prendre]");
+  if (prendre) {
+    try { await socle.api(`/api/agenda/${prendre.dataset.planningPrendre}/prendre`, { method: "POST", body: {} }); gestion.notifier("Créneau pris ✓"); await chargerMonPlanning(); }
+    catch (err) { gestion.message("zone-message-agenda", err.message); }
+    return;
+  }
+  const id = e.target.closest("[data-planning-ouvrir]")?.dataset.planningOuvrir || e.target.closest(".planning-item")?.dataset.id;
+  if (!id) return;
+  const ev = PLANNING_EVENEMENTS.find(x => String(x.id) === String(id));
+  if (!ev) return;
+  ouvrirModaleEvenement({ id: ev.id, jour: ev.jour, jourFin: ev.jour_fin, heureDebut: ev.heure_debut, heureFin: ev.heure_fin, titre: ev.titre, notes: ev.notes, evenement: ev });
+});
+document.getElementById("panneau-mon-planning").addEventListener("keydown", ev => {
+  const el = ev.target.closest(".planning-item[role=button]");
+  if (el && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); el.click(); }
+});
+
+// Onglet Par membre : pas de sélecteur propre, il affiche la période choisie ici (jour, semaine ou mois).
+const panneauParMembreVisible = () => !document.getElementById("panneau-agenda-parmembre").classList.contains("cache");
+document.getElementById("agenda-semaine-precedente").addEventListener("click", () => { decalerAgenda(-1); chargerAgenda(true); });
+document.getElementById("agenda-semaine-suivante").addEventListener("click", () => { decalerAgenda(1); chargerAgenda(true); });
 // Raccourci T (« today », comme les agendas courants) : revient à la période actuelle. Ignoré pendant une saisie, une
 // fenêtre ouverte ou avec Ctrl / Alt / Cmd ; « t » ou « T » (avec Maj, la touche arrive en majuscule). Le bouton
 // s'illumine un instant : on voit ce que la touche a fait. En jeu, le clavier reste au jeu hors des champs : le bouton suffit.
@@ -376,13 +473,13 @@ document.addEventListener("keydown", (e) => {
 });
 document.getElementById("agenda-aujourdhui").addEventListener("click", () => {
   AGENDA_REF = aujourdhuiParis();
-  chargerPeriode(true);
+  chargerAgenda(true);
 });
 document.querySelectorAll(".agenda-vue-bouton").forEach(btn => {
   btn.addEventListener("click", () => {
     if (btn.dataset.vue === AGENDA_VUE_CHOISIE) return;
     AGENDA_VUE_CHOISIE = btn.dataset.vue;
-    chargerPeriode(true);
+    chargerAgenda(true);
   });
 });
 AGENDA_TELEPHONE.addEventListener("change", () => chargerAgenda(true));
@@ -511,9 +608,10 @@ function choisirInvite(id) {
 }
 
 function majChampInvites() {
+  if (EVENEMENT_CREATION) { document.getElementById("champ-evenement-invites").classList.toggle("cache", SORTE_EVENEMENT !== "reunion" || !AGENDA_DROITS.peut_inviter); return; }
   const perso = document.getElementById("evenement-destination").value === "perso";
   const invitationExistante = AGENDA_INVITES_SELECTIONNES.some(p => p.source === "invitation");
-  const visible = AGENDA_EVENEMENT_MODIFIABLE && perso && (AGENDA_DROITS.peut_inviter || invitationExistante);
+  const visible = modeEvenementChoisi() === "evenement" && AGENDA_EVENEMENT_MODIFIABLE && perso && (AGENDA_DROITS.peut_inviter || invitationExistante);
   document.getElementById("champ-evenement-invites").classList.toggle("cache", !visible);
   const recherche = document.getElementById("recherche-evenement-invites");
   recherche.disabled = !AGENDA_DROITS.peut_inviter;
@@ -523,23 +621,208 @@ function majChampInvites() {
   }
 }
 
-// une absence est toujours personnelle : la case disparaît (et se décoche) pour les autres partages
-function majChampAbsence() {
-  const perso = document.getElementById("evenement-destination").value === "perso";
-  document.getElementById("champ-evenement-absence").classList.toggle("cache", !perso);
-  if (!perso) document.getElementById("evenement-absence").checked = false;
+// Événement ou Absence : déduit de la sorte choisie à la création (jamais changé après). Une absence est toujours
+// personnelle et n'a ni titre libre, ni horaire, ni partage, ni invités : le titre se déduit du type choisi (motif
+// de l'absence — congé, maladie… — créé par l'entreprise dans la liste des types, comme pour un événement), les
+// notes restent le seul texte libre.
+let EVENEMENT_MODE = "evenement";
+let EVENEMENT_CREATION = true;
+const modeEvenementChoisi = () => EVENEMENT_MODE;
+
+// quatre sortes à la création : remplace « Partager avec », les places et la bascule Absence — chaque
+// sorte ne montre que ses champs utiles. En modification, la sorte d'origine ne se change plus (comme avant), tout
+// le formulaire reste visible (voir ESTEDITION dans remplirModaleEvenement).
+let SORTE_EVENEMENT = "rdv";
+let PLUS_OPTIONS_OUVERT = false;
+function majSorteEvenement() {
+  const sorte = SORTE_EVENEMENT, absence = sorte === "absence";
+  EVENEMENT_MODE = absence ? "absence" : "evenement";
+  document.querySelectorAll("#evenement-sortes [data-sorte]").forEach(b => { const actif = b.dataset.sorte === sorte; b.classList.toggle("actif", actif); b.setAttribute("aria-pressed", String(actif)); });
+  document.getElementById("champ-evenement-titre").classList.toggle("cache", absence);
+  document.getElementById("champ-evenement-classement").classList.toggle("cache", absence);
+  if (!absence) document.getElementById("evenement-destination").value = sorte === "creneau" ? "tous" : "perso";
+  document.getElementById("champ-evenement-multi-jours").classList.toggle("cache", absence);
+  document.getElementById("champ-evenement-jour-fin").classList.toggle("cache", !absence && !document.getElementById("evenement-multi-jours").checked);
+  document.getElementById("label-evenement-jour").textContent = absence || document.getElementById("evenement-multi-jours").checked ? "Du" : "Date";
+  // le motif (type) d'une absence n'est pas un réglage rare : Plus d'options reste ouvert et son bouton disparaît
+  document.getElementById("bouton-plus-options").classList.toggle("cache", absence);
+  if (absence) ouvrirPlusOptions(true);
+  majChampHeures();
+  majChampCreneau();
+  majChampInvites();
+  majBoutonsPiedCreation();
 }
+document.getElementById("evenement-sortes").addEventListener("click", e => {
+  const b = e.target.closest("[data-sorte]");
+  if (!b) return;
+  SORTE_EVENEMENT = b.dataset.sorte;
+  majSorteEvenement();
+});
+function ouvrirPlusOptions(ouvert) {
+  PLUS_OPTIONS_OUVERT = ouvert;
+  document.getElementById("evenement-plus-options").classList.toggle("cache", !ouvert);
+  document.getElementById("bouton-plus-options").setAttribute("aria-expanded", String(ouvert));
+  document.getElementById("bouton-plus-options").classList.toggle("ouvert", ouvert);
+}
+document.getElementById("bouton-plus-options").addEventListener("click", () => ouvrirPlusOptions(!PLUS_OPTIONS_OUVERT));
+document.getElementById("evenement-multi-jours").addEventListener("change", e => {
+  document.getElementById("champ-evenement-jour-fin").classList.toggle("cache", !e.target.checked);
+  document.getElementById("label-evenement-jour").textContent = e.target.checked ? "Du" : "Date";
+  if (!e.target.checked) document.getElementById("evenement-jour-fin").value = document.getElementById("evenement-jour").value;
+  majChampHeures();
+});
+// pied de la fenêtre à la création : libellé du bouton principal selon la sorte, « Enregistrer en
+// brouillon » en secondaire pour un créneau d'équipe seulement.
+function majBoutonsPiedCreation() {
+  document.getElementById("bouton-enregistrer-evenement").textContent = "Ajouter";
+  document.getElementById("bouton-enregistrer-brouillon").classList.toggle("cache", SORTE_EVENEMENT !== "creneau");
+}
+
+const dateCourteFr = iso => new Date(iso + "T00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+const ETATS_ABSENCE = {
+  en_attente: ["En attente de validation", "puce-or"],
+  approuve: ["Approuvée", "puce-ok"],
+  refuse: ["Refusée", "puce-off"],
+};
+
+// places à pourvoir (créneau ouvert) : à la création, liées à la seule sorte « Créneau d'équipe »
+// (indépendant d'un changement de « Partager avec » sous Plus d'options) ; en modification, à tout événement partagé.
+function majChampCreneau() {
+  const perso = document.getElementById("evenement-destination").value === "perso";
+  const cache = EVENEMENT_CREATION ? SORTE_EVENEMENT !== "creneau" : perso;
+  document.getElementById("champ-evenement-creneau").classList.toggle("cache", cache);
+  document.getElementById("champ-evenement-statut").classList.toggle("cache", EVENEMENT_CREATION || cache);
+}
+
+// ---- créneau ouvert : agents affectés, chef d'équipe, prendre/quitter ----
+function dessinerCreneauEvenement(e) {
+  const section = document.getElementById("section-evenement-affectations");
+  const visible = !!(e && e.places_max !== null && e.places_max !== undefined);
+  section.classList.toggle("cache", !visible);
+  if (!visible) return;
+  const affectations = e.affectations || [];
+  document.getElementById("liste-evenement-affectations").innerHTML = affectations.length
+    ? affectations.map(a => `<li><span>${echapper(a.nom)}${a.chef_equipe ? " <small>chef d’équipe</small>" : ""}</span>
+        ${AGENDA_EVENEMENT_MODIFIABLE && !a.chef_equipe ? `<button type="button" class="btn btn-fantome" data-chef-affectation="${a.id}">Nommer chef d’équipe</button>` : ""}</li>`).join("")
+    : `<li class="champ-aide">Personne pour le moment, sur ${e.places_max} place${e.places_max > 1 ? "s" : ""}.</li>`;
+  document.getElementById("actions-evenement-creneau").innerHTML = e.deja_pris
+    ? `<button type="button" class="btn btn-fantome" id="bouton-quitter-creneau">Quitter ce créneau</button>`
+    : e.peut_prendre ? `<button type="button" class="btn btn-or" id="bouton-prendre-creneau">Prendre ce créneau</button>` : "";
+}
+document.getElementById("liste-evenement-affectations").addEventListener("click", async ev => {
+  const b = ev.target.closest("[data-chef-affectation]");
+  if (!b) return;
+  const id = document.getElementById("evenement-id").value;
+  try {
+    await socle.api(`/api/agenda/${id}/affectations/${b.dataset.chefAffectation}/chef`, { method: "PUT", body: { chef_equipe: true } });
+    await chargerAgenda(false);
+    ouvrirEvenementExistant(id);
+  } catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
+});
+document.getElementById("actions-evenement-creneau").addEventListener("click", async ev => {
+  const id = document.getElementById("evenement-id").value;
+  if (ev.target.closest("#bouton-prendre-creneau")) {
+    try { await socle.api(`/api/agenda/${id}/prendre`, { method: "POST", body: {} }); gestion.notifier("Créneau pris ✓"); await chargerAgenda(false); ouvrirEvenementExistant(id); }
+    catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
+  } else if (ev.target.closest("#bouton-quitter-creneau")) {
+    try { await socle.api(`/api/agenda/${id}/quitter`, { method: "POST", body: {} }); gestion.notifier("Créneau quitté ✓"); await chargerAgenda(false); ouvrirEvenementExistant(id); }
+    catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
+  }
+});
 
 let OUVREUR_EVENEMENT = null;
 let AGENDA_EVENEMENT_MODIFIABLE = true;
+// fiche en lecture d'abord : un événement existant s'ouvre en lecture, « Modifier » bascule sur les
+// champs ; une création va directement au formulaire (rien à lire). EVENEMENT_OPTIONS_COURANTES permet de redessiner
+// sans rouvrir (bouton Modifier, après Prendre/Quitter un créneau).
+let EVENEMENT_LECTURE = false;
+let EVENEMENT_OPTIONS_COURANTES = null;
+
+// puces, horaire et notes d'un événement existant — tout ce que la fiche en lecture montre avant « Modifier »
+// (le titre reste dans l'en-tête de la fenêtre, pas répété ici).
+function dessinerLectureEvenement(e) {
+  const puces = [];
+  if (e.absence) {
+    const [libelle, classe] = ETATS_ABSENCE[e.statut_absence] || ETATS_ABSENCE.en_attente;
+    puces.push(`<span class="puce ${classe}">${echapper(libelle)}</span>`);
+  } else {
+    if (e.places_max !== null && e.places_max !== undefined) puces.push(`<span class="puce ${e.statut === "brouillon" ? "puce-neutre" : "puce-ok"}">${e.statut === "brouillon" ? "Brouillon" : "Confirmée"}</span>`);
+    if (typeDe(e)) puces.push(`<span class="puce" style="${styleType(e)}background:var(--vis-fond);color:var(--vis);">${echapper(typeDe(e).nom)}</span>`);
+  }
+  const periode = e.jour === e.jour_fin ? dateCourteFr(e.jour) : `${dateCourteFr(e.jour)} → ${dateCourteFr(e.jour_fin)}`;
+  document.getElementById("evenement-lecture").innerHTML = `
+    <div class="evenement-lecture-puces">${puces.join("")}</div>
+    <p class="evenement-lecture-quand">${echapper(periode)} · ${echapper(texteHoraire(e))}${e.destinataire ? ` · ${echapper(e.destinataire)}` : ""}</p>
+    ${e.notes ? `<p class="contrat-notes">${echapper(e.notes)}</p>` : ""}
+  `;
+}
+
+// ---- fil de messages d'un événement partagé (lecture seule d'abord : on lit, puis on écrit si on est concerné) ----
+let MESSAGES_EVENEMENT_ID = null;
+function dessinerMessages(liste, e) {
+  document.getElementById("liste-evenement-messages").innerHTML = liste.length
+    ? liste.map(m => `<li class="agenda-message${m.mien ? " agenda-message--mien" : ""}">
+        <div class="agenda-message-entete"><strong>${echapper(m.auteur || "Ancien compte")}</strong><time datetime="${echapper(m.cree_le)}">${echapper(new Date(m.cree_le).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</time>
+          ${m.mien || e.modifiable ? `<button type="button" class="agenda-message-retirer" data-retirer-message="${Number(m.id)}" aria-label="Retirer ce message de ${echapper(m.auteur || "cette personne")}"><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>` : ""}</div>
+        <p>${echapper(m.texte)}</p></li>`).join("")
+    : '<li class="champ-aide">Aucun message pour le moment.</li>';
+}
+async function dessinerMessagesEvenement(e) {
+  const section = document.getElementById("section-evenement-messages");
+  const visible = !!e && !e.absence && (e.destination !== "perso" || (e.invites || []).length > 0);
+  section.classList.toggle("cache", !visible);
+  MESSAGES_EVENEMENT_ID = visible ? e.id : null;
+  if (!visible) return;
+  document.getElementById("liste-evenement-messages").innerHTML = '<li class="champ-aide">Chargement…</li>';
+  document.getElementById("saisie-evenement-message").classList.add("cache");
+  try {
+    const r = await socle.api(`/api/agenda/${e.id}/messages`);
+    if (MESSAGES_EVENEMENT_ID !== e.id) return;   // la fenêtre a changé d'événement entre-temps
+    dessinerMessages(r.messages, e);
+    document.getElementById("saisie-evenement-message").classList.toggle("cache", !r.peut_ecrire);
+  } catch (err) {
+    document.getElementById("liste-evenement-messages").innerHTML = `<li class="champ-aide">Impossible de charger les messages : ${echapper(err.message)}</li>`;
+  }
+}
+document.getElementById("bouton-envoyer-message").addEventListener("click", async () => {
+  const champ = document.getElementById("evenement-message-texte"), texte = champ.value.trim();
+  if (!texte || !MESSAGES_EVENEMENT_ID) return;
+  const id = MESSAGES_EVENEMENT_ID;
+  try {
+    await socle.api(`/api/agenda/${id}/messages`, { method: "POST", body: { texte } });
+    champ.value = "";
+    gestion.message("zone-message-modale-evenement", "");
+    const e = CACHE_EVENEMENTS.find(x => String(x.id) === String(id));
+    if (e) dessinerMessagesEvenement(e);
+  } catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
+});
+document.getElementById("liste-evenement-messages").addEventListener("click", async ev => {
+  const b = ev.target.closest("[data-retirer-message]");
+  if (!b || !MESSAGES_EVENEMENT_ID) return;
+  const id = MESSAGES_EVENEMENT_ID;
+  try {
+    await socle.api(`/api/agenda/${id}/messages/${b.dataset.retirerMessage}`, { method: "DELETE" });
+    const e = CACHE_EVENEMENTS.find(x => String(x.id) === String(id));
+    if (e) dessinerMessagesEvenement(e);
+  } catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
+});
+
 function ouvrirModaleEvenement(options) {
-  const o = options || {};
+  EVENEMENT_OPTIONS_COURANTES = options || {};
+  EVENEMENT_LECTURE = !!EVENEMENT_OPTIONS_COURANTES.id;
+  OUVREUR_EVENEMENT = document.activeElement;
+  remplirModaleEvenement();
+}
+
+function remplirModaleEvenement() {
+  const o = EVENEMENT_OPTIONS_COURANTES;
   const e = o.evenement || null;
   const estEdition = !!o.id;
+  const estAbsence = !!(e && e.absence);
   const modifiable = !e || e.modifiable;
   AGENDA_EVENEMENT_MODIFIABLE = modifiable;
-  OUVREUR_EVENEMENT = document.activeElement;
-  document.getElementById("titre-modale-evenement").textContent = !modifiable ? "Événement" : estEdition ? "Modifier l’événement" : "Nouvel événement";
+  document.getElementById("titre-modale-evenement").textContent = EVENEMENT_LECTURE ? e.titre
+    : !modifiable ? (estAbsence ? "Absence" : "Événement") : estEdition ? "Modifier l’événement" : "Nouvel événement";
   document.getElementById("evenement-id").value = o.id || "";
   document.getElementById("evenement-titre").value = o.titre || "";
   document.getElementById("evenement-jour").value = o.jour || maintenantParis().iso;
@@ -547,19 +830,41 @@ function ouvrirModaleEvenement(options) {
   document.getElementById("evenement-heure-debut").value = o.heureDebut || "09:00";
   document.getElementById("evenement-heure-fin").value = o.heureFin || "10:00";
   document.getElementById("evenement-notes").value = o.notes || "";
-  majChampHeures();
 
-  // Type : « Sans type » puis les types de la Direction (un type supprimé depuis : « Sans type »)
+  // choix de la sorte : à la création seulement, jamais changé après (l'édition garde le mode de
+  // l'existant et montre tout le formulaire, Plus d'options déjà ouvert).
+  EVENEMENT_CREATION = !estEdition;
+  document.getElementById("champ-evenement-mode").classList.toggle("cache", estEdition);
+  if (estEdition) {
+    EVENEMENT_MODE = estAbsence ? "absence" : "evenement";
+    document.getElementById("champ-evenement-titre").classList.toggle("cache", estAbsence);
+    document.getElementById("champ-evenement-classement").classList.toggle("cache", estAbsence);
+    document.getElementById("champ-evenement-multi-jours").classList.add("cache");
+    document.getElementById("champ-evenement-jour-fin").classList.remove("cache");
+    document.getElementById("label-evenement-jour").textContent = "Du";
+    document.getElementById("bouton-plus-options").classList.add("cache");
+    ouvrirPlusOptions(true);
+    majChampHeures();
+  } else {
+    SORTE_EVENEMENT = "rdv";
+    document.getElementById("evenement-multi-jours").checked = false;
+    ouvrirPlusOptions(false);
+    majSorteEvenement();
+  }
+
+  // Type : « Sans type » puis les types de la Direction (un type supprimé depuis : « Sans type »). Sert aussi de
+  // motif pour une absence (congé, maladie…) : pas de liste imposée, l'entreprise crée ses propres types.
   const selectType = document.getElementById("evenement-type");
   selectType.innerHTML = `<option value="">Sans type</option>` + AGENDA_TYPES.map(t => `<option value="${Number(t.id)}">${echapper(t.nom)}</option>`).join("");
   selectType.value = e && typeDe(e) ? String(e.type_id) : "";
   ameliorerSelect(selectType, v => AGENDA_TYPES.find(t => String(t.id) === v)?.couleur || COULEUR_SANS_TYPE);
   document.getElementById("champ-evenement-type").classList.toggle("cache", !AGENDA_TYPES.length);
 
-  // Partage : les choix proposés sont limités aux droits de ce compte.
-  const destination = e ? valeurDestination(e) : "perso";
+  // Partage : les choix proposés sont limités aux droits de ce compte. À la création, déduit de la sorte
+  // B) — « tous » pour un créneau d'équipe, « perso » sinon ; changeable ensuite sous Plus d'options.
+  const destination = e ? valeurDestination(e) : (SORTE_EVENEMENT === "creneau" ? "tous" : "perso");
   const choix = [...AGENDA_DROITS.destinations];
-  if (!choix.some(c => c.valeur === destination)) choix.push({ valeur: destination, libelle: e.destinataire || destination });
+  if (!choix.some(c => c.valeur === destination)) choix.push({ valeur: destination, libelle: e?.destinataire || destination });
   const selectDest = document.getElementById("evenement-destination");
   selectDest.innerHTML = choix.map(c => `<option value="${echapper(c.valeur)}">${echapper(c.libelle)}</option>`).join("");
   selectDest.value = destination;
@@ -576,12 +881,23 @@ function ouvrirModaleEvenement(options) {
   dessinerInvitesSelectionnes();
   majChampInvites();
 
-  // absence : case à part, ne se change plus après la création ; statut et validation lus sur l'événement
-  document.getElementById("evenement-absence").checked = !!(e && e.absence);
-  majChampAbsence();
-  const statutAbsence = document.getElementById("evenement-absence-statut");
-  statutAbsence.textContent = e && e.absence ? (e.statut_absence === "approuve" ? "Absence approuvée." : "Absence en attente de validation.") : "";
-  statutAbsence.classList.toggle("cache", !(e && e.absence));
+  // créneau ouvert : statut brouillon/confirmé, places à pourvoir
+  document.querySelector(`[name="evenement-statut"][value="${e?.statut === "brouillon" ? "brouillon" : "confirme"}"]`).checked = true;
+  document.getElementById("evenement-places").value = e && e.places_max !== null && e.places_max !== undefined ? e.places_max : "";
+  majChampCreneau();
+  dessinerCreneauEvenement(e);
+
+  // bandeau d'état d'une absence existante : qui, quand, motif et statut en un coup d'œil (pas qu'un formulaire grisé)
+  const bandeau = document.getElementById("evenement-absence-bandeau");
+  bandeau.classList.toggle("cache", !estAbsence);
+  if (estAbsence) {
+    const [libelleEtat, classeEtat] = ETATS_ABSENCE[e.statut_absence] || ETATS_ABSENCE.en_attente;
+    document.getElementById("evenement-absence-pastille").className = `puce ${classeEtat}`;
+    document.getElementById("evenement-absence-pastille").textContent = libelleEtat;
+    const periode = e.jour === e.jour_fin ? `le ${dateCourteFr(e.jour)}` : `du ${dateCourteFr(e.jour)} au ${dateCourteFr(e.jour_fin)}`;
+    const typeNom = typeDe(e)?.nom;
+    document.getElementById("evenement-absence-resume").textContent = `${e.auteur || "Cette personne"} · ${periode}${typeNom ? ` · ${typeNom}` : ""}`;
+  }
 
   // origine : qui l'a ajouté, qui a été invité et comment les personnes ont été prévenues
   const origine = document.getElementById("evenement-origine");
@@ -598,31 +914,48 @@ function ouvrirModaleEvenement(options) {
   document.querySelectorAll("#formulaire-evenement input, #formulaire-evenement textarea, #formulaire-evenement select")
     .forEach(c => { c.disabled = !modifiable; });
   if (destinationFigee) selectDest.disabled = true;
-  document.getElementById("evenement-absence").disabled = estEdition || !modifiable;   // ne se change plus après coup
-  document.getElementById("bouton-enregistrer-evenement").classList.toggle("cache", !modifiable);
-  document.getElementById("bouton-enregistrer-evenement").textContent = estEdition ? "Enregistrer" : "Ajouter";
-  document.getElementById("bouton-supprimer-evenement").classList.toggle("cache", !estEdition || !modifiable);
+
+  // fiche en lecture : un événement existant s'affiche d'abord en lecture ; « Modifier » (si le droit
+  // existe) bascule sur les champs. Une création n'a rien à lire, elle va directement au formulaire.
+  if (EVENEMENT_LECTURE) dessinerLectureEvenement(e);
+  dessinerMessagesEvenement(EVENEMENT_LECTURE ? e : null);
+  document.getElementById("evenement-lecture").classList.toggle("cache", !EVENEMENT_LECTURE);
+  document.getElementById("evenement-champs-edition").classList.toggle("cache", EVENEMENT_LECTURE);
+  document.getElementById("bouton-modifier-evenement").classList.toggle("cache", !(EVENEMENT_LECTURE && modifiable));
+  document.getElementById("bouton-enregistrer-evenement").classList.toggle("cache", EVENEMENT_LECTURE || !modifiable);
+  if (estEdition) document.getElementById("bouton-enregistrer-evenement").textContent = "Enregistrer";
+  else majBoutonsPiedCreation();
+  document.getElementById("bouton-enregistrer-brouillon").classList.toggle("cache", estEdition || EVENEMENT_LECTURE || !modifiable || SORTE_EVENEMENT !== "creneau");
+  document.getElementById("bouton-supprimer-evenement").classList.toggle("cache", EVENEMENT_LECTURE || !estEdition || !modifiable);
   document.getElementById("bouton-approuver-absence").classList.toggle("cache", !(e && e.peut_valider));
   document.getElementById("bouton-refuser-absence").classList.toggle("cache", !(e && e.peut_valider));
   document.querySelectorAll("#formulaire-evenement .champ-erreur").forEach(p => p.classList.add("cache"));
   gestion.message("zone-message-modale-evenement", "");
   document.getElementById("modale-evenement").classList.remove("cache");
-  const premierChamp = document.getElementById("champ-evenement-type").classList.contains("cache")
-    ? document.getElementById("evenement-titre")
-    : selectType;
-  (modifiable ? premierChamp : document.getElementById("fermer-modale-evenement")).focus();
+  const typeCache = document.getElementById("champ-evenement-type").classList.contains("cache");
+  const premierChamp = !typeCache ? selectType
+    : estAbsence && !estEdition ? document.getElementById("evenement-jour") : document.getElementById("evenement-titre");
+  const aFocaliser = EVENEMENT_LECTURE
+    ? (modifiable ? document.getElementById("bouton-modifier-evenement") : document.getElementById("fermer-modale-evenement"))
+    : (modifiable ? premierChamp : document.getElementById("fermer-modale-evenement"));
+  aFocaliser.focus();
 }
+document.getElementById("bouton-modifier-evenement").addEventListener("click", () => {
+  EVENEMENT_LECTURE = false;
+  remplirModaleEvenement();
+});
 
-// sur plusieurs jours, pas d'horaire : l'événement occupe chaque journée entière (voir segmentJour)
+// sur plusieurs jours, pas d'horaire : l'événement occupe chaque journée entière (voir segmentJour) ; une absence
+// n'a jamais d'horaire, quelle que soit sa durée
 function majChampHeures() {
+  const absence = modeEvenementChoisi() === "absence";
   const jour = document.getElementById("evenement-jour").value, jourFin = document.getElementById("evenement-jour-fin").value;
-  const multi = !!jour && !!jourFin && jourFin !== jour;
+  const multi = absence || (!!jour && !!jourFin && jourFin !== jour);
   document.getElementById("champ-evenement-heures").classList.toggle("cache", multi);
-  document.getElementById("evenement-plusieurs-jours").classList.toggle("cache", !multi);
 }
 document.getElementById("evenement-jour").addEventListener("input", majChampHeures);
 document.getElementById("evenement-jour-fin").addEventListener("input", majChampHeures);
-document.getElementById("evenement-destination").addEventListener("change", () => { majChampInvites(); majChampAbsence(); });
+document.getElementById("evenement-destination").addEventListener("change", () => { majChampInvites(); majChampCreneau(); });
 const rechercheInvites = document.getElementById("recherche-evenement-invites");
 rechercheInvites.addEventListener("focus", () => {
   if (AGENDA_DROITS.peut_inviter && !AGENDA_ERREUR_PERSONNES) afficherSuggestionsInvites();
@@ -712,12 +1045,13 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
   gestion.message("zone-message-modale-evenement", "");
   document.querySelectorAll("#formulaire-evenement .champ-erreur").forEach(p => p.classList.add("cache"));
 
+  const absence = modeEvenementChoisi() === "absence";
   const titre = document.getElementById("evenement-titre").value.trim();
   const jour = document.getElementById("evenement-jour").value;
   const jourFin = document.getElementById("evenement-jour-fin").value;
   const heureDebut = document.getElementById("evenement-heure-debut").value;
   const heureFin = document.getElementById("evenement-heure-fin").value;
-  const multi = !!jour && !!jourFin && jourFin !== jour;
+  const multi = absence || (!!jour && !!jourFin && jourFin !== jour);
   let premierChamp = null;
   if (!jour) {
     document.getElementById("erreur-evenement-jour").classList.remove("cache");
@@ -727,41 +1061,50 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
     document.getElementById("erreur-evenement-jour-fin").classList.remove("cache");
     premierChamp ||= document.getElementById("evenement-jour-fin");
   }
-  if (!titre) {
+  if (!absence && !titre) {
     document.getElementById("erreur-evenement-titre").classList.remove("cache");
     premierChamp = document.getElementById("evenement-titre");
   }
-  if (!multi && (!heureDebut || !heureFin || heureFin <= heureDebut)) {
+  if (!absence && !multi && (!heureDebut || !heureFin || heureFin <= heureDebut)) {
     document.getElementById("erreur-evenement-heures").classList.remove("cache");
     premierChamp ||= document.getElementById("evenement-heure-fin");
   }
   if (premierChamp) { premierChamp.focus(); return; }
 
   const id = document.getElementById("evenement-id").value;
-  const payload = {
-    titre,
-    jour,
-    jour_fin: jourFin,
-    heure_debut: multi ? null : heureDebut,
-    heure_fin: multi ? null : heureFin,
-    notes: document.getElementById("evenement-notes").value.trim(),
-    type_id: document.getElementById("evenement-type").value || null,
-  };
-  // l'absence ne se décide qu'à la création : en édition, la case est désactivée, jamais envoyée
-  if (!id) payload.absence = document.getElementById("evenement-absence").checked;
-  const dest = document.getElementById("evenement-destination").value || "perso";
-  payload.destination = dest.startsWith("grade:") ? "grade" : dest;
-  if (dest.startsWith("grade:")) payload.destination_grade = dest.slice(6);
-  const invitesEmployes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "employe").map(p => Number(p.id));
-  const invitationsExistantes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation").map(p => Number(p.invitation_id));
-  if (dest === "perso") {
-    payload.invites_employe_ids = invitesEmployes;
-    if (id) {
-      payload.invitation_ids = invitationsExistantes;
-      payload.absents_invitation_ids = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation" && p.present === false).map(p => Number(p.invitation_id));
+  const notes = document.getElementById("evenement-notes").value.trim();
+  const typeId = document.getElementById("evenement-type").value || null;
+  const payload = absence
+    ? { jour, jour_fin: jourFin, notes, type_id: typeId, ...(id ? {} : { absence: true }) }
+    : {
+      titre, jour, jour_fin: jourFin,
+      heure_debut: multi ? null : heureDebut, heure_fin: multi ? null : heureFin,
+      notes, type_id: typeId,
+    };
+  let invitesEmployes = [];
+  if (!absence) {
+    const dest = document.getElementById("evenement-destination").value || "perso";
+    payload.destination = dest.startsWith("grade:") ? "grade" : dest;
+    if (dest.startsWith("grade:")) payload.destination_grade = dest.slice(6);
+    if (dest !== "perso") {
+      // à la création, pas de radio : le bouton cliqué dit le statut (« Enregistrer en brouillon »)
+      payload.statut = EVENEMENT_CREATION
+        ? (ev.submitter?.id === "bouton-enregistrer-brouillon" ? "brouillon" : "confirme")
+        : document.querySelector('[name="evenement-statut"]:checked').value;
+      const places = document.getElementById("evenement-places").value;
+      payload.places_max = places === "" ? null : Number(places);
+    }
+    invitesEmployes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "employe").map(p => Number(p.id));
+    const invitationsExistantes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation").map(p => Number(p.invitation_id));
+    if (dest === "perso") {
+      payload.invites_employe_ids = invitesEmployes;
+      if (id) {
+        payload.invitation_ids = invitationsExistantes;
+        payload.absents_invitation_ids = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation" && p.present === false).map(p => Number(p.invitation_id));
+      }
     }
   }
-  const bouton = document.getElementById("bouton-enregistrer-evenement");
+  const bouton = ev.submitter || document.getElementById("bouton-enregistrer-evenement");
   const texteInitial = bouton.textContent;
   bouton.disabled = true;
   bouton.textContent = invitesEmployes.length ? "Enregistrement et invitations…" : "Enregistrement…";
@@ -782,7 +1125,7 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
       reponse?.en_cours && `${reponse.en_cours} ${reponse.en_cours === 1 ? "invitation encore en cours d’envoi" : "invitations encore en cours d’envoi"} sur Discord`,
       reponse?.annulations && `${reponse.annulations} ${reponse.annulations === 1 ? "annulation signalée" : "annulations signalées"} sur Discord`,
     ].filter(Boolean).join(" et ");
-    const action = id ? "Événement enregistré" : "Événement créé";
+    const action = absence ? (id ? "Absence enregistrée" : "Demande d’absence envoyée, en attente de validation") : id ? "Événement enregistré" : "Événement créé";
     if (reponse?.avertissements?.length) {
       gestion.message("zone-message-agenda", `${action}${resume ? ` ; ${resume}` : ""}. ${reponse.avertissements.join(" ")}`);
     } else if (resume) gestion.notifier(`${action} ; ${resume} ✓`);
@@ -844,7 +1187,7 @@ function dessinerTypes() {
         </div>
         <div class="types-actions">
           <button type="button" class="btn btn-or" data-enregistrer-type>Enregistrer</button>
-          <button type="button" class="btn btn-fantome" data-annuler-edition>Annuler</button>
+          <button type="button" class="btn btn-danger" data-annuler-edition>Annuler</button>
         </div>` : `
         <div class="types-identite"><span class="types-pastille" style="background:${echapper(t.couleur)}" aria-hidden="true"></span><strong>${echapper(t.nom)}</strong></div>
         <div class="types-actions">
@@ -946,174 +1289,69 @@ document.addEventListener("keydown", ev => {
 // le paramètre est retiré de l'adresse pour qu'un rechargement ne la rouvre pas
 gestion.coque("agenda").then(async moi => {
   AGENDA_MOI = moi;
-  document.getElementById("agenda-onglets").classList.toggle("cache", !socle.peut(moi, "rh-voir"));
+  document.getElementById("onglet-planning-equipe").classList.toggle("cache", !socle.peut(moi, "rh-voir"));
   await chargerAgenda(true);
+  // onglet par défaut : Mon planning pour un compte sans droit de gestion de l'agenda, Agenda sinon
+  activerOngletAgenda(gereAgenda() ? "calendrier" : "planning");
   if (new URLSearchParams(location.search).get("nouveau") !== "1") return;
   history.replaceState(null, "", location.pathname);
   ouvrirModaleEvenement({ jour: formaterDateISO(aujourdhuiParis()) });
 });
 
 // ---------------------------------------------------------------------------
-// ---- onglets Agenda / Participants (permission rh-voir, comme Quota) ----
-document.querySelectorAll("[data-agenda-onglet]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll("[data-agenda-onglet]").forEach(b => { b.classList.toggle("actif", b === btn); b.setAttribute("aria-selected", String(b === btn)); });
-    const nom = btn.dataset.agendaOnglet;
-    document.getElementById("panneau-agenda-calendrier").classList.toggle("cache", nom !== "calendrier");
-    document.getElementById("panneau-agenda-participants").classList.toggle("cache", nom !== "participants");
-    if (nom === "participants") chargerParticipants();
-  });
-});
-
-/// ---- participants : qui a été invité à un événement personnel terminé, qui était présent, sur la période du
-// sélecteur de l'agenda (jour, semaine ou mois). Les événements à venir sont comptés à part (entreprise/participants.ts).
-let EMPLOYES_PARTICIPANTS = [];
-let FILTRE_PARTICIPANTS = "invites";
-const tauxPresence = e => (e.invitations > 0 ? e.presences / e.invitations : -1);
-const comparerNomParticipant = (a, b) => a.nomComplet.localeCompare(b.nomComplet, "fr", { sensitivity: "base" });
-const TRI_PARTICIPANTS = gestion.creerTri({
-  nom: comparerNomParticipant,
-  grade: (a, b) => a.gradeLibelle.localeCompare(b.gradeLibelle, "fr", { sensitivity: "base" }) || comparerNomParticipant(a, b),
-  presence: (a, b) => tauxPresence(a) - tauxPresence(b) || a.invitations - b.invitations || comparerNomParticipant(a, b),
-  absences: (a, b) => (a.invitations - a.presences) - (b.invitations - b.presences) || comparerNomParticipant(a, b),
-  avenir: (a, b) => a.aVenir - b.aVenir || comparerNomParticipant(a, b),
-});
-const plurielParticipant = (n, mot) => `${n} ${mot}${n > 1 ? "s" : ""}`;
-// vert dès 80 %, orange au-dessous, rouge à 0 ; la barre reste vide à 0 (une barre pleine se lirait « 100 % »)
-const etatPresence = taux => (taux < 0 ? "gris" : taux === 0 ? "rouge" : taux < 0.8 ? "orange" : "vert");
-
-function ligneParticipant(e) {
-  const taux = tauxPresence(e), pct = taux < 0 ? 0 : Math.round(taux * 100), etat = etatPresence(taux);
-  const absences = e.invitations - e.presences;
-  const presence = e.invitations
-    ? `<div class="run-barre run-etat-${etat}" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Présence de ${echapper(e.nomComplet)}"><div class="run-barre-remplie run-etat-${etat}" style="width:${pct}%"></div></div>
-       <span class="run-progression-texte"><strong>${pct} %</strong> · ${e.presences} sur ${e.invitations}</span>`
-    : `<span class="run-progression-texte run-sans-objectif">${e.aVenir ? "Rien de terminé" : "Pas invité"}</span>`;
-  return `<tr>
-    <td><span class="run-personne">
-      <span class="admin-avatar" aria-hidden="true">${echapper(initiales(e.nomComplet))}</span>
-      ${e.evenements.length
-        ? `<button type="button" class="participants-nom" data-detail-participant="${e.id}" aria-label="Voir la participation de ${echapper(e.nomComplet)}">${echapper(e.nomComplet)}</button>`
-        : `<span class="run-nom">${echapper(e.nomComplet)}</span>`}
-    </span></td>
-    <td>${echapper(e.gradeLibelle)}</td>
-    <td class="run-cellule-progression">${presence}</td>
-    <td class="participants-nombre${absences ? " participants-nombre--alerte" : ""}">${e.invitations ? absences : "—"}</td>
-    <td class="participants-nombre">${e.aVenir || "—"}</td>
-  </tr>`;
-}
-function majEnteteParticipants() {
-  const t = TRI_PARTICIPANTS;
-  document.getElementById("participants-entete").innerHTML = `<th data-titre>${t.bouton("nom", "Personne")}</th><th>${t.bouton("grade", "Grade")}</th><th>${t.bouton("presence", "Présence")}</th><th>${t.bouton("absences", "Absences")}</th><th>${t.bouton("avenir", "À venir")}</th>`;
-}
-function afficherParticipants() {
-  const terme = document.getElementById("participants-recherche").value.trim().toLocaleLowerCase("fr");
-  const garder = {
-    invites: e => e.invitations > 0 || e.aVenir > 0,
-    absents: e => e.invitations > e.presences,
-    tous: () => true,
-  }[FILTRE_PARTICIPANTS];
-  const filtres = TRI_PARTICIPANTS.appliquer(EMPLOYES_PARTICIPANTS.filter(e => garder(e) && (!terme || e.nomComplet.toLocaleLowerCase("fr").includes(terme))));
-  const vide = !EMPLOYES_PARTICIPANTS.length ? "Aucun employé actif."
-    : terme ? "Personne ne correspond à cette recherche."
-    : FILTRE_PARTICIPANTS === "absents" ? "Aucune absence sur cette période."
-    : "Personne n’a été invité à un événement sur cette période. Invitez des employés depuis la fiche d’un événement.";
-  document.getElementById("participants-corps").innerHTML = filtres.length
-    ? filtres.map(ligneParticipant).join("")
-    : `<tr><td colspan="5" class="run-vide">${vide}</td></tr>`;
-}
-function afficherSyntheseParticipants(s) {
-  const taux = s.invitations ? Math.round((s.presences / s.invitations) * 100) : null;
-  const etat = etatPresence(s.invitations ? s.presences / s.invitations : -1);
-  document.getElementById("participants-taux").textContent = taux === null ? "—" : `${taux} %`;
-  document.getElementById("participants-taux-libelle").textContent = s.invitations ? `${plurielParticipant(s.presences, "présence")} sur ${plurielParticipant(s.invitations, "invitation")}` : "aucune invitation terminée";
-  const barre = document.getElementById("participants-barre");
-  barre.className = `run-barre run-etat-${etat}`;
-  barre.firstElementChild.className = `run-barre-remplie run-etat-${etat}`;
-  barre.firstElementChild.style.width = `${taux ?? 0}%`;
-  document.getElementById("participants-absences").textContent = String(s.absences);
-  document.getElementById("participants-absences-libelle").textContent = s.absences ? "sur les événements terminés" : "personne n’a manqué un événement";
-  document.getElementById("participants-evenements").textContent = String(s.evenementsPasses);
-  document.getElementById("participants-evenements-libelle").textContent = `${s.evenementsPasses > 1 ? "terminés" : "terminé"}${s.evenementsAVenir ? `, ${s.evenementsAVenir} à venir` : ""}`;
-}
-// « Participation du 20 au 26 oct. » : la période se nomme par ses dates
-function titreParticipants() {
-  const { debut, fin } = periodeParticipants();
-  const court = d => d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
-  document.getElementById("participants-titre").textContent = formaterDateISO(debut) === formaterDateISO(fin)
-    ? `Participation du ${court(debut)}` : `Participation du ${court(debut)} au ${court(fin)}`;
-}
-majEnteteParticipants();
-document.getElementById("participants-table").addEventListener("click", e => {
-  const tri = e.target.closest("[data-tri]");
-  if (tri) {
-    TRI_PARTICIPANTS.cycler(tri.dataset.tri);
-    majEnteteParticipants();
-    afficherParticipants();
-    document.querySelector(`#participants-entete [data-tri="${tri.dataset.tri}"]`)?.focus();
-    return;
-  }
-  const b = e.target.closest("[data-detail-participant]");
-  if (b) ouvrirDetailParticipant(b.dataset.detailParticipant);
-});
-document.getElementById("participants-filtres").addEventListener("click", e => {
-  const b = e.target.closest("[data-participants-filtre]");
-  if (!b) return;
-  document.querySelectorAll("[data-participants-filtre]").forEach(x => { x.classList.toggle("actif", x === b); x.setAttribute("aria-pressed", String(x === b)); });
-  FILTRE_PARTICIPANTS = b.dataset.participantsFiltre;
-  afficherParticipants();
-});
-
-// ---- détail : les événements où cette personne a été invitée sur la période affichée, en frise ----
-const LIBELLES_ETAT_PARTICIPATION = { present: ["Présent", "puce-ok"], absent: ["Absent", "puce-off"], "a-venir": ["À venir", "puce-masquee"] };
-let OUVREUR_PARTICIPANT = null;
-function ouvrirDetailParticipant(id) {
-  const p = EMPLOYES_PARTICIPANTS.find(e => e.id === Number(id));
-  if (!p) return;
-  OUVREUR_PARTICIPANT = document.activeElement;
-  document.getElementById("modale-participant-titre").textContent = p.nomComplet;
-  const absences = p.invitations - p.presences;
-  document.getElementById("modale-participant-resume").textContent = [
-    p.invitations ? `${plurielParticipant(p.presences, "présence")} sur ${p.invitations}` : "",
-    absences ? plurielParticipant(absences, "absence") : "",
-    p.aVenir ? `${p.aVenir} à venir` : "",
-  ].filter(Boolean).join(", ");
-  document.getElementById("liste-participant-evenements").innerHTML = p.evenements.map(ev => {
-    const [libelle, classe] = LIBELLES_ETAT_PARTICIPATION[ev.etat];
-    const date = new Date(`${ev.jour}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
-    return `<li class="participant-etape participant-etape--${ev.etat}" style="--vis:${echapper(ev.type?.couleur || "#9fb4c7")}">
-      <button type="button" class="participant-evenement" data-voir-evenement="${ev.id}" data-jour-evenement="${ev.jour}">
-        <span class="participant-evenement-titre">${echapper(ev.titre)}</span>
-        <span class="participant-evenement-quand">${capitaliser(date)}${ev.heureDebut ? `, ${ev.heureDebut}` : ""}${ev.type ? ` · ${echapper(ev.type.nom)}` : ""}</span>
-      </button>
-      <span class="puce ${classe}">${libelle}</span>
-    </li>`;
-  }).join("");
-  document.getElementById("modale-participant").classList.remove("cache");
-  document.getElementById("fermer-modale-participant").focus();
-}
-const fermerModaleParticipant = () => { document.getElementById("modale-participant").classList.add("cache"); if (OUVREUR_PARTICIPANT?.isConnected) OUVREUR_PARTICIPANT.focus(); };
-document.getElementById("fermer-modale-participant").addEventListener("click", fermerModaleParticipant);
-document.getElementById("modale-participant").addEventListener("click", e => { if (e.target.id === "modale-participant") fermerModaleParticipant(); });
-document.getElementById("liste-participant-evenements").addEventListener("click", async e => {
-  const b = e.target.closest("[data-voir-evenement]");
-  if (!b) return;
-  fermerModaleParticipant();
-  document.querySelector('[data-agenda-onglet="calendrier"]').click();
-  AGENDA_REF = new Date(`${b.dataset.jourEvenement}T00:00`);
-  AGENDA_VUE_CHOISIE = "jour";
-  await chargerAgenda(true);
-  ouvrirEvenementExistant(b.dataset.voirEvenement);
-});
-async function chargerParticipants() {
-  gestion.message("zone-message-participants", "");
-  titreParticipants();
-  const { debut, fin } = periodeParticipants();
+// ---- vue Planning de l'équipe : pivot des créneaux ouverts (places_max posé) et des absences de la
+// période affichée, une ligne par agent affecté ou absent, une ligne « Ouverts » pour les créneaux pas encore
+// complets, et une ligne par agent actif sans rien cette semaine (pastille « Disponible »). Construite depuis
+// CACHE_EVENEMENTS (même données que la grille) et l'effectif actif (rh-voir, chargé une fois, mis en cache),
+// rien d'autre à charger. ----
+let ROSTER_ACTIFS = null;   // noms complets des employés actifs (rh-voir seulement), chargé une fois
+async function rosterActifs() {
+  if (ROSTER_ACTIFS) return ROSTER_ACTIFS;
   try {
-    const r = await socle.api(`/api/agenda/participants?debut=${formaterDateISO(debut)}&fin=${formaterDateISO(fin)}`);
-    EMPLOYES_PARTICIPANTS = r.employes;
-    afficherSyntheseParticipants(r.synthese);
-    afficherParticipants();
-  } catch (e) { gestion.message("zone-message-participants", `Impossible de charger la participation : ${e.message}. Rechargez la page ; si le problème continue, prévenez la personne qui s’occupe du site.`); }
+    const data = await socle.api("/api/rh/employes");
+    ROSTER_ACTIFS = (data.employes || []).filter(e => e.statut === "actif").map(e => e.nomComplet);
+  } catch { ROSTER_ACTIFS = []; }
+  return ROSTER_ACTIFS;
 }
-document.getElementById("participants-recherche").addEventListener("input", afficherParticipants);
+async function rendreParMembre() {
+  const jours = joursDeLaPeriode();
+  const debutIso = formaterDateISO(jours[0]), finIso = formaterDateISO(jours[jours.length - 1]);
+  const dansPeriode = e => e.jour <= finIso && e.jour_fin >= debutIso;
+  const creneaux = CACHE_EVENEMENTS.filter(e => e.places_max !== null && dansPeriode(e));
+  const absences = CACHE_EVENEMENTS.filter(e => e.absence && e.statut_absence !== "refuse" && dansPeriode(e));
+  const ajouter = (map, cle, valeur) => { if (!map.has(cle)) map.set(cle, []); map.get(cle).push(valeur); };
+  const parPersonne = new Map();   // nom -> jour -> [evenement]
+  const ouverts = new Map();       // jour -> [evenement]
+  for (const e of creneaux) {
+    const iso = e.jour;   // un créneau ouvert est toujours sur un seul jour (généré par ronde, ou saisi ainsi)
+    for (const a of e.affectations || []) {
+      if (!parPersonne.has(a.nom)) parPersonne.set(a.nom, new Map());
+      ajouter(parPersonne.get(a.nom), iso, e);
+    }
+    if ((e.affectations || []).length < e.places_max) ajouter(ouverts, iso, e);
+  }
+  // une absence peut courir sur plusieurs jours : une puce par jour couvert, dans la plage affichée
+  for (const e of absences) {
+    if (!parPersonne.has(e.auteur)) parPersonne.set(e.auteur, new Map());
+    for (const d of jours) { const iso = formaterDateISO(d); if (e.jour <= iso && e.jour_fin >= iso) ajouter(parPersonne.get(e.auteur), iso, e); }
+  }
+  const roster = await rosterActifs();
+  for (const nom of roster) if (!parPersonne.has(nom)) parPersonne.set(nom, new Map());
+  const puce = e => `<span class="agenda-mois-evenement${classeAbsence(e)}" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
+    ${e.heure_debut ? `<span class="agenda-mois-heure">${e.heure_debut}</span> ` : ""}${echapper(e.titre)}</span>`;
+  const ligne = (nom, parJour, ouverte) => `<tr${ouverte ? ' class="parmembre-ouverts"' : ""}>
+    <td data-titre><span class="demande-ligne-nom"><strong>${echapper(nom)}</strong>${parJour.size === 0 && roster.includes(nom) ? ' <span class="pastille-disponible">Disponible</span>' : ""}</span></td>
+    ${jours.map(d => { const es = parJour.get(formaterDateISO(d)) || []; return `<td data-libelle="${echapper(nomCourtJour(d))} ${d.getDate()}">${es.map(puce).join("")}</td>`; }).join("")}
+  </tr>`;
+  const entete = document.getElementById("parmembre-entete");
+  entete.innerHTML = `<th data-titre>Agent</th>${jours.map(d => `<th>${capitaliser(nomCourtJour(d))} ${d.getDate()}</th>`).join("")}`;
+  const corps = document.getElementById("parmembre-corps");
+  const lignesPersonnes = [...parPersonne.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr")).map(([nom, parJour]) => ligne(nom, parJour, false));
+  const ligneOuverts = ouverts.size ? ligne("Ouverts", ouverts, true) : "";
+  corps.innerHTML = lignesPersonnes.join("") + ligneOuverts || `<tr><td colspan="${jours.length + 1}" class="run-vide">Aucun créneau ouvert sur cette période.</td></tr>`;
+}
+document.getElementById("parmembre-corps").addEventListener("click", e => {
+  const cible = e.target.closest("[data-id]");
+  if (cible) ouvrirEvenementExistant(cible.dataset.id);
+});
+

@@ -7,11 +7,10 @@
 }
 /* fonds teintés calculés d’avance (pas de color-mix : le navigateur de l’ordinateur en jeu est ancien) */
 
-/* onglets Agenda / Participants : chacun prend le reste de la hauteur (le calendrier garde son propre défilement
-   interne, agenda-grille-conteneur ; Participants défile normalement, comme un tableau de la page Quota) */
+/* onglets Agenda / Mon planning / Planning de l'équipe : chacun prend le reste de la hauteur (le
+   calendrier garde son propre défilement interne, agenda-grille-conteneur) */
 #agenda-onglets { flex-shrink: 0; margin-bottom: 10px; }
 .agenda-sous-panneau { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-#panneau-agenda-participants { overflow-y: auto; }
 
 /* ---- en-tête : titre et période à gauche, commandes à droite ---- */
 .agenda-entete { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 14px 20px; margin-bottom: 10px; flex-shrink: 0; }
@@ -20,7 +19,7 @@
    commandes dessous : elles ne sautent plus d’une semaine à l’autre */
 .agenda-titre { flex: 1 1 200px; min-width: 0; }
 .agenda-commandes { flex: 0 0 auto; margin-top: 6px; }   /* calées en haut, face au titre : un titre de période sur deux lignes ne les fait plus descendre */
-.agenda-periode { margin: 2px 0 0; font-family: var(--display); font-size: var(--fs-6); color: var(--accent-dark); }
+.agenda-periode { margin: 2px 0 0; font-family: var(--display); font-size: var(--fs-6); color: var(--accent-clair); }
 .agenda-commandes { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
 .agenda-vues, .agenda-navigation {
@@ -40,14 +39,14 @@
 .agenda-vue-bouton, .agenda-vue-bouton:hover { border-radius: var(--radius-sm); }
 .agenda-aujourdhui-bouton { padding: 0 12px; min-width: 9.5em; white-space: nowrap; }   /* « Sem. du 28 sept. », le plus long : les boutons voisins ne bougent pas */
 /* hors de la période actuelle, le bouton y ramène : doré, comme une action */
-.agenda-aujourdhui-bouton:not(.sur-periode-actuelle) { color: var(--accent-dark); }
+.agenda-aujourdhui-bouton:not(.sur-periode-actuelle) { color: var(--accent-clair); }
 .agenda-fleche { display: inline-flex; align-items: center; justify-content: center; width: 36px; }
 .agenda-fleche .ico { width: 18px; height: 18px; }
 .agenda-fleche--avant .ico { transform: rotate(90deg); }
 .agenda-fleche--apres .ico { transform: rotate(-90deg); }
 .agenda-ajouter { gap: 8px; }
 .agenda-ajouter .ico { width: 16px; height: 16px; }
-:is(.agenda-vue-bouton, .agenda-aujourdhui-bouton, .agenda-fleche):focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
+:is(.agenda-vue-bouton, .agenda-aujourdhui-bouton, .agenda-fleche):focus-visible { outline: 2px solid var(--accent-clair); outline-offset: 1px; }
 
 /* légende et fenêtre de gestion des types (nom, couleur) : gestion.css (réutilisées par Sanctions) */
 
@@ -88,7 +87,7 @@
   display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 36px; padding: 0 6px; border-radius: 999px;
   font-family: var(--display); font-size: var(--fs-7); line-height: 1; color: var(--text); transition: background var(--transition);
 }
-.aujourdhui > .agenda-jour-nom { color: var(--accent-dark); }
+.aujourdhui > .agenda-jour-nom { color: var(--accent-clair); }
 .aujourdhui > .agenda-jour-num { background: var(--accent); color: var(--on-accent); }
 
 .agenda-horaire-corps { position: relative; display: grid; grid-template-columns: var(--gouttiere) repeat(var(--agenda-jours), minmax(0, 1fr)); }
@@ -104,25 +103,31 @@
 .agenda-case { display: block; width: 100%; height: var(--agenda-heure); padding: 0; border: 0; background: none; cursor: pointer; position: relative; }
 .agenda-case:hover { background: rgba({{couleur_rvb}}, 0.07); }
 .agenda-case:hover::after {
-  content: "+"; position: absolute; left: 8px; top: 4px; font-size: var(--fs-5); line-height: 1; color: var(--accent-dark);
+  content: "+"; position: absolute; left: 8px; top: 4px; font-size: var(--fs-5); line-height: 1; color: var(--accent-clair);
 }
-.agenda-case:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: -2px; }
+.agenda-case:focus-visible { outline: 2px solid var(--accent-clair); outline-offset: -2px; }
 
 .agenda-evenement {
-  position: absolute; z-index: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; padding: 5px 8px 5px 10px;
+  position: absolute; z-index: 1; overflow: hidden; padding: 5px 8px 5px 10px;
   border-radius: 8px; background: linear-gradient(var(--vis-fond), var(--vis-fond)) var(--bg2); border: 1px solid var(--vis-bord); border-left: 3px solid var(--vis);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25); cursor: pointer; transition: background var(--transition), transform var(--transition);
 }
 .agenda-evenement:hover, .agenda-evenement:focus-visible { background: linear-gradient(var(--vis-fond-fort), var(--vis-fond-fort)) var(--bg2); outline: none; z-index: 2; }
 .agenda-evenement:focus-visible { box-shadow: 0 0 0 2px var(--vis); }
+/* collé en haut de la zone visible tant que le bloc défile dessous (long événement) : le titre reste lisible
+   au lieu de disparaître derrière le bord supérieur de la grille qui défile */
+.agenda-evenement-corps { position: sticky; top: 0; display: flex; flex-direction: column; gap: 2px; }
 .agenda-evenement-titre { font-size: var(--fs-2); font-weight: 500; line-height: 1.25; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
 .agenda-evenement-heure { font-size: var(--fs-1); color: var(--vis); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.agenda-evenement.court { flex-direction: row; align-items: center; gap: 8px; padding-top: 0; padding-bottom: 0; }
+.agenda-evenement.court { padding-top: 0; padding-bottom: 0; display: flex; align-items: center; }
+.agenda-evenement.court .agenda-evenement-corps { flex-direction: row; align-items: center; gap: 8px; position: static; }
 /* court : le titre d’abord (c’est lui qui compte), l’heure ensuite si la place le permet */
 .agenda-evenement.court .agenda-evenement-titre { white-space: nowrap; min-width: 0; flex-shrink: 1; }
 .agenda-evenement.court .agenda-evenement-heure { flex-shrink: 0; }
 
-.agenda-maintenant { position: absolute; left: -1px; right: 0; z-index: 3; height: 0; border-top: 2px solid var(--erreur); pointer-events: none; }
+/* sous .agenda-horaire-fixe (z-index 3, en-tête collant des jours) : les deux sont dans la même pile faute de
+   z-index sur leurs parents communs ; à égalité, l'ordre du document ferait sinon passer la ligne par-dessus l'en-tête */
+.agenda-maintenant { position: absolute; left: -1px; right: 0; z-index: 2; height: 0; border-top: 2px solid var(--erreur); pointer-events: none; }
 .agenda-maintenant::before { content: ""; position: absolute; left: -5px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: var(--erreur); }
 
 /* ---- vue mois ---- */
@@ -154,10 +159,10 @@
 }
 .agenda-mois-evenement:hover, .agenda-mois-evenement:focus-visible { background: var(--vis-fond-fort); outline: none; }
 .agenda-mois-heure { color: var(--vis); font-variant-numeric: tabular-nums; }
-.agenda-mois-plus { align-self: flex-start; padding: 0 4px; border: 0; background: none; font: inherit; font-size: var(--fs-1); color: var(--accent-dark); cursor: pointer; }
+.agenda-mois-plus { align-self: flex-start; padding: 0 4px; border: 0; background: none; font: inherit; font-size: var(--fs-1); color: var(--accent-clair); cursor: pointer; }
 .agenda-mois-ajouter {
   position: absolute; top: 6px; right: 6px; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px;
-  border: 0; border-radius: 999px; background: rgba({{couleur_rvb}}, 0.14); color: var(--accent-dark); cursor: pointer; opacity: 0; transition: opacity var(--transition);
+  border: 0; border-radius: 999px; background: rgba({{couleur_rvb}}, 0.14); color: var(--accent-clair); cursor: pointer; opacity: 0; transition: opacity var(--transition);
 }
 .agenda-mois-ajouter .ico { width: 15px; height: 15px; }
 .agenda-mois-case:hover .agenda-mois-ajouter, .agenda-mois-ajouter:focus-visible { opacity: 1; }
@@ -169,7 +174,7 @@
   border: 1px solid transparent; border-radius: 14px; background: none; color: var(--text-muted); font: inherit; cursor: pointer;
 }
 .agenda-bandeau-jour .agenda-jour-num { min-width: 0; height: auto; padding: 0; font-size: var(--fs-7); background: none; }
-.agenda-bandeau-jour.aujourdhui .agenda-jour-num { background: none; color: var(--accent-dark); }
+.agenda-bandeau-jour.aujourdhui .agenda-jour-num { background: none; color: var(--accent-clair); }
 .agenda-bandeau-jour.actif { border-color: var(--accent); background: rgba({{couleur_rvb}}, 0.12); }
 .agenda-bandeau-jour.actif .agenda-jour-nom { color: var(--text); }
 .agenda-points { display: flex; gap: 3px; height: 6px; }
@@ -188,6 +193,58 @@
 .agenda-carte-texte small { font-size: var(--fs-2); color: var(--vis); }
 .agenda-vide { margin: 0 0 14px; padding: 22px 16px; border: 1px dashed rgba({{couleur_rvb}}, 0.25); border-radius: var(--radius); text-align: center; color: var(--text-faint); }
 .agenda-liste-ajouter { width: 100%; gap: 8px; min-height: 44px; }
+
+/* ---- Mon planning : prochain événement, journées et créneaux à prendre ---- */
+.planning-prochaine {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-bottom: 22px; padding: 16px 18px;
+  border: 1px solid rgba({{couleur_rvb}}, 0.35); border-radius: var(--radius); background: rgba({{couleur_rvb}}, 0.07);
+}
+.planning-prochaine-entete { font-size: var(--fs-2); color: var(--accent-clair); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.planning-prochaine-titre { font-size: var(--fs-5); color: var(--text); }
+.planning-prochaine-detail { font-size: var(--fs-3); color: var(--text-muted); }
+.planning-prochaine .btn { margin-top: 6px; }
+
+.planning-jour { margin-bottom: 22px; }
+.planning-jour h3 { margin: 0 0 8px; font-size: var(--fs-3); font-weight: 600; color: var(--text-muted); }
+.planning-jour ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.planning-item {
+  display: flex; align-items: center; gap: 14px; padding: 10px 14px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg-card); cursor: pointer;
+}
+.planning-item[role=listitem] { cursor: default; }
+.planning-item:hover, .planning-item:focus-visible { border-color: rgba({{couleur_rvb}}, 0.5); }
+.planning-item:focus-visible { outline: 2px solid var(--accent-clair); outline-offset: 1px; }
+.planning-heure { flex: 0 0 auto; min-width: 48px; font-size: var(--fs-2); color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.planning-corps { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.planning-corps strong { color: var(--text); overflow-wrap: anywhere; }
+.planning-corps small { font-size: var(--fs-2); color: var(--text-muted); overflow-wrap: anywhere; }
+.planning-chevron { flex: 0 0 auto; width: 16px; height: 16px; color: var(--text-faint); }
+
+/* ---- absences : hachures en attente, teinte pleine approuvée, atténuée et provisoire refusée (toutes vues) ----
+   Un motif dessiné (repeating-linear-gradient), jamais une seule couleur : le texte du statut reste la source sûre. */
+.agenda-toutjour-barre.absence-en-attente {
+  background-image: repeating-linear-gradient(135deg, var(--vis-fond-fort) 0 7px, transparent 7px 14px), linear-gradient(var(--vis-fond), var(--vis-fond));
+  background-color: var(--bg2);
+}
+.agenda-mois-evenement.absence-en-attente, .agenda-carte.absence-en-attente {
+  background-image: repeating-linear-gradient(135deg, var(--vis-fond-fort) 0 7px, transparent 7px 14px), linear-gradient(var(--vis-fond), var(--vis-fond));
+}
+.agenda-toutjour-barre.absence-approuvee { background-image: linear-gradient(var(--vis-fond-fort), var(--vis-fond-fort)); background-color: var(--bg2); }
+.agenda-mois-evenement.absence-approuvee, .agenda-carte.absence-approuvee { background: var(--vis-fond-fort); }
+.agenda-toutjour-barre.absence-refusee, .agenda-mois-evenement.absence-refusee, .agenda-carte.absence-refusee { opacity: 0.55; border-left-style: dashed; }
+
+/* ---- bandeau d'état d'une absence, en tête de sa fiche : qui, quand, motif et statut en un coup d'œil, pour que
+   la personne qui valide n'ait pas qu'un formulaire grisé devant elle ---- */
+.evenement-absence-bandeau {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -6px 0 2px; padding: 10px 14px;
+  border-radius: var(--radius-sm); background: var(--bg3); font-size: var(--fs-3);
+}
+.evenement-absence-bandeau #evenement-absence-resume { color: var(--text-muted); overflow-wrap: anywhere; }
+
+/* ---- fiche en lecture d’un événement existant : puces, horaire, notes — avant tout formulaire ---- */
+.evenement-lecture-puces { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.evenement-lecture-quand { margin: 0 0 4px; font-size: var(--fs-5); font-weight: 600; }
+
 .agenda-liste-ajouter .ico { width: 16px; height: 16px; }
 
 /* téléphone : la vue liste s'impose, donc plus de choix de vue ; ajout en bouton rond dans l'en-tête */
@@ -247,12 +304,12 @@
   padding: 5px; border: 0; border-radius: 50%; background: transparent; color: var(--text-faint); cursor: pointer;
 }
 .agenda-invite-puce button:hover { background: rgba({{couleur_rvb}}, 0.14); color: var(--text); }
-.agenda-invite-puce button:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
+.agenda-invite-puce button:focus-visible { outline: 2px solid var(--accent-clair); outline-offset: 1px; }
 .agenda-invite-puce svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 /* présence (corrigée après coup) : un bouton texte, pas le rond d'icône générique ci-dessus */
 .agenda-invite-puce .agenda-invite-presence {
   width: auto; height: 26px; padding: 0 9px; border-radius: 999px; font-size: var(--fs-1); font-weight: 600;
-  background: rgba({{couleur_rvb}}, 0.12); color: var(--accent-dark);
+  background: rgba({{couleur_rvb}}, 0.12); color: var(--accent-clair);
 }
 .agenda-invite-absent .agenda-invite-presence { background: var(--erreur-soft); color: var(--erreur); }
 .agenda-invite-absent { opacity: 0.75; }
@@ -261,11 +318,41 @@
 .evenement-quand { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .evenement-quand + .evenement-quand { margin-top: 12px; }
 #evenement-origine { margin: -4px 0 14px; }
+
+/* ---- sorte d’entrée (création seulement) : on dit d'abord ce qu'on ajoute ---- */
+.evenement-sortes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.evenement-sorte {
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-start; min-height: 44px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: none; color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.evenement-sorte strong { font-size: var(--fs-3); font-weight: 500; }
+.evenement-sorte span { color: var(--text-muted); font-size: var(--fs-2); }
+.evenement-sorte:hover { border-color: rgba({{couleur_rvb}}, 0.5); }
+.evenement-sorte.actif { border-color: var(--accent); background: rgba({{couleur_rvb}}, 0.1); }
+.evenement-sorte.actif strong { color: var(--accent-clair); font-weight: 600; }
+.evenement-sorte:focus-visible { outline: 2px solid var(--accent-clair); outline-offset: 2px; }
+@media (max-width: 480px) { .evenement-sortes { grid-template-columns: 1fr; } }
+
+/* ---- Plus d'options : réglages rares repliés à la création (type, partage, note), toujours ouverts en modification ---- */
+.plus-options-bouton {
+  display: flex; align-items: center; gap: 8px; width: 100%; margin: 4px 0 16px; padding: 0; border: 0; background: none;
+  color: var(--accent-clair); font: inherit; font-size: var(--fs-3); font-weight: 500; cursor: pointer;
+}
+.plus-options-bouton small { color: var(--text-faint); font-weight: 400; }
+.plus-options-bouton .ico { width: 13px; height: 13px; flex: 0 0 auto; transition: transform 0.15s; }
+.plus-options-bouton.ouvert .ico { transform: rotate(90deg); }
+/* juste sous la date qu'elle révèle (jamais sous Plus d'options, trop loin du champ « Au » qu'elle fait apparaître) */
+.evenement-case { display: flex; align-items: center; gap: 8px; min-height: 24px; margin: -6px 0 16px; font-size: var(--fs-3); color: var(--text); cursor: pointer; }
+.evenement-case input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
 .modale-evenement > form > #zone-message-modale-evenement { flex: 0 0 auto; margin: 0 28px; }
 .modale-evenement > form > #zone-message-modale-evenement:empty { display: none; }
 /* centrage de l'action principale (et Approuver/Refuser l'absence) et Supprimer épinglé à gauche : .pied-centre */
 .evenement-pied { flex: 0 0 auto; margin: 0 28px; padding: 12px 0 20px; border-top: 1px solid var(--border); background: var(--bg-card); }
 .evenement-pied .evenement-supprimer { color: var(--erreur); border-color: var(--erreur); }
+/* seule action principale la plupart du temps (Approuver/Refuser et Enregistrer/Ajouter ne s'affichent jamais
+   ensemble) : elle prend toute la place plutôt que de rester une pastille centrée */
+#bouton-enregistrer-evenement { flex: 1 1 auto; }
 #zone-message-modale-evenement .message { margin: 0 0 12px; }
 @media (prefers-reduced-motion: reduce) {
   .agenda-evenement, .agenda-vue-bouton, .agenda-mois-ajouter { transition: none; }
@@ -281,7 +368,7 @@
 }
 .agenda-touche kbd {
   min-width: 20px; padding: 1px 6px; border-radius: 5px; font: 600 12px/1.4 var(--body); text-align: center;
-  color: var(--accent-dark); border: 1px solid rgba({{couleur_rvb}}, 0.55); border-bottom-width: 2px; background: rgba({{couleur_rvb}}, 0.08);
+  color: var(--accent-clair); border: 1px solid rgba({{couleur_rvb}}, 0.55); border-bottom-width: 2px; background: rgba({{couleur_rvb}}, 0.08);
 }
 @media (hover: hover) {
   .agenda-aujourdhui-bouton:hover + .agenda-touche, .agenda-aujourdhui-bouton:focus-visible + .agenda-touche { opacity: 1; transform: translate(-50%, 0); }
@@ -302,39 +389,31 @@
   .evenement-pied .btn { min-height: 44px; }
 }
 
-/* ---- onglet Participants : titre de la période, chiffres de l'équipe, tableau (même recette que Quota) ---- */
-.participants-entete { margin: 4px 0 0; }
-.participants-titre { margin: 0; font-family: var(--display); font-size: var(--fs-6); color: var(--accent-dark); }
-.participants-aide { margin: 2px 0 0; font-size: var(--fs-3); color: var(--text-muted); }
-.participants-stats { margin: 14px 0 18px; }
-/* le nom ouvre le détail : un lien qui se lit comme le nom, souligné au survol et au clavier */
-.participants-nom {
-  padding: 0; border: 0; background: none; color: var(--text); font: inherit; font-weight: 500; text-align: left; cursor: pointer;
-  text-decoration: underline; text-decoration-color: rgba({{couleur_rvb}}, 0.35); text-underline-offset: 3px;
-}
-.participants-nom:hover, .participants-nom:focus-visible { color: var(--accent-dark); text-decoration-color: currentColor; }
-.participants-nombre { font-variant-numeric: tabular-nums; color: var(--text-muted); }
-.participants-nombre--alerte { color: var(--erreur); font-weight: 600; }
+/* vue Planning de l’équipe : ligne « Ouverts » distinguée, puces d'événement comme dans la vue Mois,
+   pastille « Disponible » sur un agent actif sans rien cette semaine */
+.parmembre-ouverts td { background: var(--bg3); }
+#parmembre-table .agenda-mois-evenement { display: block; margin-bottom: 4px; }
+#parmembre-table td:not([data-titre]) { vertical-align: top; }
+/* colonnes de jours égales (sinon la largeur suit le contenu et les jours ne s'alignent plus d'une ligne à l'autre) */
+/* sous 860 px de place, le tableau devient des cartes (tablesAdaptatives mesure ce min-width) */
+#parmembre-table:not(.en-cartes) { table-layout: fixed; min-width: 860px; }
+#parmembre-table th:first-child { width: 190px; }
+.pastille-disponible { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: var(--fs-1); font-weight: 600; color: var(--ok); background: var(--ok-soft); }
 
-/* ---- détail d'une personne : frise des événements, la couleur du type sur le fil ---- */
-.modale-participant { width: min(520px, 100%); }
-.modale-participant .modale-entete { align-items: flex-start; }
-.participant-resume { margin: 4px 0 0; font-size: var(--fs-3); color: var(--text-muted); }
-.participant-frise { list-style: none; margin: 0; padding: 0 0 0 18px; position: relative; }
-.participant-frise::before { content: ""; position: absolute; left: 5px; top: 10px; bottom: 10px; width: 2px; background: var(--border); }
-.participant-etape { position: relative; display: flex; align-items: center; gap: 12px; padding: 8px 0; }
-/* pastille du type posée sur le fil ; un événement à venir n'a que son contour */
-.participant-etape::before {
-  content: ""; position: absolute; left: -18px; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%;
-  background: var(--vis); box-shadow: 0 0 0 3px var(--bg-card);
-}
-.participant-etape--a-venir::before { background: var(--bg-card); border: 2px solid var(--vis); box-sizing: border-box; }
-.participant-evenement {
-  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; margin: -8px 0;
-  border: 0; border-radius: var(--radius-sm); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
-}
-.participant-evenement:hover, .participant-evenement:focus-visible { background: var(--bg3); }
-.participant-evenement-titre { font-weight: 500; color: var(--text); overflow-wrap: anywhere; }
-.participant-evenement-quand { font-size: var(--fs-2); color: var(--text-muted); }
-.participant-etape--absent .participant-evenement-titre { color: var(--erreur); }
-.participant-etape .puce { flex-shrink: 0; }
+/* ---- fil de messages d'un événement partagé ---- */
+.agenda-messages { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; }
+.agenda-message { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); }
+.agenda-message--mien { border-color: rgba({{couleur_rvb}}, 0.4); }
+.agenda-message-entete { display: flex; align-items: center; gap: 8px; font-size: var(--fs-2); color: var(--text-muted); }
+.agenda-message-entete strong { color: var(--text); font-size: var(--fs-3); }
+.agenda-message-entete time { margin-right: auto; }
+.agenda-message-retirer { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: pointer; }
+.agenda-message-retirer:hover, .agenda-message-retirer:focus-visible { color: var(--erreur); background: rgba({{couleur_rvb}}, 0.1); }
+.agenda-message p { margin: 4px 0 0; font-size: var(--fs-3); white-space: pre-wrap; overflow-wrap: anywhere; }
+.agenda-message-saisie { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.agenda-message-saisie textarea { width: 100%; }
+
+/* agents d'un créneau : nom sur une ligne, action à droite (la liste réutilise .contrat-personnes, trop étroite ici) */
+#liste-evenement-affectations { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0 0 10px; padding: 0; }
+#liste-evenement-affectations li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+#liste-evenement-affectations li > span { white-space: nowrap; }
