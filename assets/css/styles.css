@@ -129,14 +129,14 @@ svg.fleche{width:1.1em;height:1.1em;vertical-align:-.2em;fill:none;stroke:curren
 .champ{display:flex;flex-direction:column;gap:6px;margin:0 0 18px;padding:0;border:0;min-width:0}
 .champ label,.champ legend{padding:0;font-weight:600;font-size:15px}
 .champ small{font-weight:400;color:var(--ink2)}
-.champ input[type=text],.champ textarea{width:100%;min-height:44px;padding:11px 14px;font:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--ink2);border-radius:var(--radius)}
+.champ input:not([type=radio]):not([type=checkbox]),.champ select,.champ textarea{width:100%;min-height:44px;padding:11px 14px;font:inherit;color:var(--ink);background:var(--bg2);border:1px solid var(--ink2);border-radius:var(--radius)}
 .champ textarea{resize:vertical}
-.champ input:focus-visible,.champ textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.champ input:focus-visible,.champ select:focus-visible,.champ textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .champ-aide{margin:0;font-size:14px;color:var(--ink2)}
 .lien{padding:0;border:0;background:none;color:var(--accent);font:inherit;text-decoration:underline;cursor:pointer}
 
 /* fenêtre de dépôt d'un avis (assets/js/avis-depot.js) : note en étoiles = boutons radio, donc flèches du clavier */
-.fenetre-avis{width:min(520px,calc(100% - 32px))}
+.fenetre-avis,.fenetre-demande{width:min(520px,calc(100% - 32px))}
 .avis-bloc,.avis-form{display:flex;flex-direction:column;gap:14px;align-items:flex-start;width:100%}
 .avis-bloc p,.avis-form .champ,.avis-form .avis-etat{margin:0}
 .avis-form .champ{width:100%;margin-bottom:0}

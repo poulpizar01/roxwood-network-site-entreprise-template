@@ -31,6 +31,7 @@ import { accueilPublic } from './routes/accueil-public.js';
 // routes d'un module : importées seulement s'il est allumé (permission() refuse, au chargement, la clé d'un module éteint)
 const routesVitrine = moduleActif('vitrine') ? [(await import('./routes/vitrine.js')).vitrine] : [];
 const routesAvis = moduleActif('avis') ? [(await import('./routes/avis.js')).avis] : [];
+const routesDemandes = moduleActif('demandes') ? [(await import('./routes/demandes.js')).demandes] : [];
 
 export const entreprise: Entreprise = {
   // niveau d'accès de chaque page de gestion/ (sans .html) : 'public', 'connecte', 'valide' ou une permission.
@@ -62,7 +63,7 @@ export const entreprise: Entreprise = {
   pagesPubliquesInactives,
 
   // apparence en premier : elle répond sur les adresses des images de la marque, avant le fichier livré
-  routes: [apparence, accueilPublic, agenda, rh, run, compta, contrats, echeanciers, paie, services, accueil, compte, ...routesVitrine, ...routesAvis],
+  routes: [apparence, accueilPublic, agenda, rh, run, compta, contrats, echeanciers, paie, services, accueil, compte, ...routesVitrine, ...routesAvis, ...routesDemandes],
 
   // page Paramètres (socle) : liens et réglages de ce site, déclarés dans parametres.ts
   parametres: PARAMETRES,

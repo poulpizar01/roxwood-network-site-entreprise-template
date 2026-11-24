@@ -3344,3 +3344,6 @@ p.service-apercu-titre { margin-bottom: 8px; font-size: var(--fs-6); font-weight
 .avis-fiche-auteur { margin-top: 8px; font-size: var(--fs-2); font-weight: 600; overflow-wrap: anywhere; }
 .avis-fiche-auteur span { display: block; font-weight: 400; color: var(--text-faint); }
 .avis-fiche-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+/* ---- Demandes (demandes.html) : colonnes de la liste (demandeur, type, service, suivi par, statut, reçue le) ---- */
+.liste-demandes { --cols: minmax(0, 1.6fr) minmax(70px, 0.5fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(90px, 0.6fr) minmax(70px, 0.5fr) 20px; }

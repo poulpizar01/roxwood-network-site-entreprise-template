@@ -21,6 +21,7 @@ accueilPublic.get(['/', '/index.html'], async (_req, res, next) => {
       html = injecterVitrine(html, await servicesPublics(s => urlPhoto(s, photos.get(`service-${s.id}`))), await postesPublics());
     }
     if (moduleActif('avis')) html = injecterAvis(html, await listerAvisAccueil());
+    if (moduleActif('demandes')) html = html.replace(/ data-si-demandes hidden/g, '');   // boutons « Demander un devis » / « Nous écrire »
     res.type('text/html').send(withNonce(html, res));
   } catch (e) { next(e); }
 });

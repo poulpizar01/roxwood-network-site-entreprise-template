@@ -11,7 +11,7 @@ export const MODULES: Record<string, { pages: Record<string, string>; permission
   // deux onglets, chacun avec sa permission (vitrine-voir, postes-voir) : la page est ouverte à tout compte validé
   vitrine: { pages: { vitrine: 'valide' }, permissions: ['vitrine-voir', 'vitrine', 'postes-voir', 'postes'] },
   avis: { pages: { avis: 'avis-voir' }, permissions: ['avis-voir', 'avis'], publiques: ['avis'] },
-  demandes: { pages: {}, permissions: [] },
+  demandes: { pages: { demandes: 'demandes-voir' }, permissions: ['demandes-voir', 'demandes-gerer'] },
 };
 
 // une faute de frappe dans site.json se voit au démarrage, pas par un module qui ne s'allume jamais

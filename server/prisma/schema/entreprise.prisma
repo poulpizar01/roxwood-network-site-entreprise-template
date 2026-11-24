@@ -657,3 +657,33 @@ model Avis {
   @@index([discordId])
   @@map("avis")
 }
+
+// ---------- Demandes (module « demandes » : formulaires publics, boîte dans gestion/demandes.html, entreprise/demandes.ts) ----------
+
+// Demande reçue par le site (contact ou devis) : identité Discord vérifiée exigée (socle discord-leger), jamais saisie. Un
+// salon Discord de suivi s'ouvre à l'envoi (catégorie réglée dans Paramètres) ; la conversion en contrat client le reprend.
+// contratId et prisEnChargeParId : sans relation Prisma (le schéma du socle ne se modifie pas pour ça).
+model Demande {
+  id               Int       @id @default(autoincrement())
+  type             String    @db.VarChar(10) // contact | devis
+  statut           String    @default("nouvelle") @db.VarChar(10) // nouvelle | en_cours | traitee | refusee
+  nom              String    @db.VarChar(100)
+  discordId        String    @map("discord_id") @db.VarChar(22)
+  pseudoDiscord    String    @map("pseudo_discord") @db.VarChar(100)
+  entrepriseNom    String?   @map("entreprise_nom") @db.VarChar(100)
+  contactEmail     String?   @map("contact_email") @db.VarChar(200)
+  contactTelephone String?   @map("contact_telephone") @db.VarChar(30)
+  prestation       String?   @db.VarChar(120) // service souhaité (devis)
+  dateSouhaitee    String?   @map("date_souhaitee") @db.VarChar(100) // texte libre du client, non validé
+  budget           String?   @db.VarChar(60) // texte libre du client, non validé
+  message          String    @default("") @db.VarChar(2000)
+  notes            String    @default("") @db.VarChar(2000) // notes internes
+  salonDiscordId   String?   @map("salon_discord_id") @db.VarChar(22)
+  contratId        Int?      @map("contrat_id")
+  prisEnChargeParId Int?     @map("pris_en_charge_par_id")
+  creeLe           DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  @@index([statut, creeLe(sort: Desc)])
+  @@index([discordId])
+  @@map("demandes")
+}

@@ -44,6 +44,9 @@ const declarees: Permission[] = [
   // Site : module « avis » (site.json) — file de modération des avis déposés sur la vitrine
   { cle: 'avis-voir', domaine: 'Site', libelle: 'Consulter les avis', description: 'Voir la file de modération des avis déposés sur la vitrine' },
   { cle: 'avis', domaine: 'Site', libelle: 'Modérer les avis', description: 'Publier, refuser, épingler ou supprimer un avis', requiert: ['avis-voir'] },
+  // Site : module « demandes » (site.json) — boîte des demandes de contact et de devis reçues du site
+  { cle: 'demandes-voir', domaine: 'Site', libelle: 'Consulter les demandes', description: 'Voir la boîte des demandes de contact et de devis reçues du site' },
+  { cle: 'demandes-gerer', domaine: 'Site', libelle: 'Traiter les demandes', description: 'Prendre en charge, refuser, annoter une demande ; la convertir en contrat exige aussi la gestion des contrats', requiert: ['demandes-voir'] },
 ];
 
 // celles d'un module éteint (site.json) ne sont pas déclarées : absentes de la page Grades, refusées par les routes

@@ -37,6 +37,7 @@ const GESTION_NAV = [
   { groupe: 'Site' },
   // module « vitrine » (site.json) : visible avec l'une ou l'autre des deux lectures (services, postes ouverts)
   { cle: 'vitrine', href: 'vitrine.html', label: 'Vitrine', icone: 'grid', permission: 'vitrine-voir', ou: 'postes-voir', module: 'vitrine' },
+  { cle: 'demandes', href: 'demandes.html', label: 'Demandes', icone: 'inbox', permission: 'demandes-voir', module: 'demandes' },
   { cle: 'avis', href: 'avis.html', label: 'Avis', icone: 'star', permission: 'avis-voir', module: 'avis' },
   // le site public (même onglet)
   { cle: 'site', href: '/', label: 'Voir le site', icone: 'globe' },
@@ -55,7 +56,7 @@ const GESTION_ICONES = {
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
   // avertissement (Sanctions) : triangle sur toute la hauteur de la grille, lisible à 18 px
   alerte: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
-  star: '<path d="M12 3l2.6 5.9 6.4.6-4.8 4.3 1.4 6.2L12 17.3 6.4 20.2l1.4-6.2L3 9.6l6.2-.9z"/>',
+  inbox: '<path d="M3 13l3-8h12l3 8"/><path d="M3 13v6h18v-6h-5a4 4 0 0 1-8 0z"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',
   // carte de membre (Bénéficiaires) : qui est couvert par un contrat
   carte: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.5"/><path d="M5.5 16.5c.6-1.6 2-2.5 3.5-2.5s2.9.9 3.5 2.5M15 10h3M15 13.5h3"/>',
@@ -840,6 +841,17 @@ window.gestion = {
   // Notification en bas de l'écran, visible quel que soit le défilement (une confirmation affichée en haut de page
   // passait inaperçue quand on avait cliqué en bas) ; lue par les lecteurs d'écran ; s'efface après quelques secondes.
   notifier(texte, type = 'succes') { notifier(texte, type); },
+
+  // Redessine un tiroir en gardant ce qui y est en cours de saisie : un champ modifié (note, message…) retrouve sa valeur après le
+  // redessin, au lieu de revenir à celle du serveur à chaque rafraîchissement (clic sur un bouton voisin).
+  conserverSaisies(zone, redessiner) {
+    const el = typeof zone === 'string' ? document.getElementById(zone) : zone;
+    const saisies = new Map();
+    el?.querySelectorAll('textarea[id], input[id]:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden])')
+      .forEach(c => { if (c.value !== c.defaultValue) saisies.set(c.id, c.value); });
+    redessiner();
+    saisies.forEach((valeur, id) => { const c = document.getElementById(id); if (c) c.value = valeur; });
+  },
 
   // message dans une zone de la page (texte seulement, jamais de HTML) ; type : 'succes' ou 'erreur'
   message(zone, texte, type = 'erreur') {

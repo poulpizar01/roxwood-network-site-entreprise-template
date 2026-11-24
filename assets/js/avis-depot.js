@@ -17,9 +17,12 @@
     const p = document.createElementNS(NS, 'path'); p.setAttribute('d', 'M10 1l2.6 5.9 6.4.6-4.8 4.3 1.4 6.2L10 14.9 4.4 18l1.4-6.2L1 7.5l6.4-.6z'); s.append(p); return s;
   };
 
-  const retour = new URLSearchParams(location.search).get('discord');
+  // retour de Discord : ?avis=1&discord=ok|erreur (le marqueur « avis » distingue ce retour de celui d'une demande : les deux
+  // fenêtres peuvent se trouver sur la même page)
+  const params = new URLSearchParams(location.search);
+  const retour = params.get('avis') ? params.get('discord') : null;
   if (retour) {   // l'adresse redevient propre ; la fenêtre se rouvre plus bas
-    const p = new URLSearchParams(location.search); p.delete('discord');
+    const p = new URLSearchParams(location.search); p.delete('discord'); p.delete('avis');
     history.replaceState(null, '', location.pathname + (p.toString() ? `?${p}` : '') + location.hash);
   }
 
@@ -31,7 +34,7 @@
   // étape 1 : connexion Discord
   const bloc = el('div', 'avis-bloc');
   const lien = el('a', 'btn btn--accent', 'Se connecter avec Discord');
-  lien.href = `/api/discord/connecter?next=${encodeURIComponent(location.pathname + location.search)}`;
+  lien.href = `/api/discord/connecter?next=${encodeURIComponent(`${location.pathname}?avis=1`)}`;
   const erreurDiscord = el('p', 'avis-etat', 'La connexion avec Discord a échoué. Réessayez.'); erreurDiscord.setAttribute('role', 'alert'); erreurDiscord.hidden = retour !== 'erreur';
   bloc.append(el('p', '', 'Pour déposer un avis, connectez-vous avec Discord : nous gardons votre pseudo Discord avec votre avis, pour la modération. Il n’est jamais affiché.'), lien, erreurDiscord);
 

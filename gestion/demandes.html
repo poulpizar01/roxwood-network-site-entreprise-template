@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Demandes — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — module « demandes » (site.json), permissions « demandes-voir » / « demandes-gerer » : demandes de contact et de
+       devis reçues du site (identité Discord vérifiée). Une ligne ouvre la fiche (tiroir) : détail, salon Discord, notes,
+       changement de statut, conversion en contrat. Serveur : entreprise/routes/demandes.ts, entreprise/demandes.ts. -->
+  <main class="admin-contenu">
+    <section id="panneau-demandes">
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Demandes</h1>
+          <p style="margin:0;font-size:var(--fs-3);">Messages de contact et demandes de devis reçus depuis le site.</p>
+        </div>
+      </div>
+      <div id="zone-message-demandes" role="status"></div>
+
+      <div class="comptes-outils">
+        <div class="comptes-filtres" role="group" aria-label="Afficher">
+          <button type="button" class="comptes-filtre actif" data-statut-demande="" aria-pressed="true">Toutes</button>
+          <button type="button" class="comptes-filtre" data-statut-demande="nouvelle" aria-pressed="false">Nouvelles</button>
+          <button type="button" class="comptes-filtre" data-statut-demande="en_cours" aria-pressed="false">En cours</button>
+          <button type="button" class="comptes-filtre" data-statut-demande="traitee" aria-pressed="false">Traitées</button>
+          <button type="button" class="comptes-filtre" data-statut-demande="refusee" aria-pressed="false">Refusées</button>
+        </div>
+        <div class="comptes-recherche">
+          <svg class="ico" aria-hidden="true"><use href="#ico-search"></use></svg>
+          <input type="search" id="recherche-demandes" aria-label="Rechercher une demande par nom" placeholder="Nom">
+        </div>
+      </div>
+      <div class="liste-lignes liste-demandes" id="demandes-liste"></div>
+    </section>
+  </main>
+
+<!-- Fiche d'une demande : tiroir à droite (plein écran sur téléphone). Bandeau et pied fixes, seul le corps défile. -->
+<div class="modale-fond tiroir-fond cache" id="tiroir-demande" data-echap>
+  <div class="tiroir" role="dialog" aria-modal="true" aria-labelledby="tiroir-demande-titre">
+    <div class="tiroir-entete">
+      <span class="admin-avatar" id="tiroir-demande-avatar" aria-hidden="true"></span>
+      <div class="tiroir-identite">
+        <h2 id="tiroir-demande-titre"></h2>
+        <p class="tiroir-sous-titre" id="tiroir-demande-sous-titre"></p>
+      </div>
+      <button type="button" id="fermer-tiroir-demande" aria-label="Fermer">✕</button>
+    </div>
+    <div class="tiroir-corps" id="tiroir-demande-corps"></div>
+    <div class="tiroir-pied" id="tiroir-demande-pied"></div>
+  </div>
+</div>
+
+<!-- Convertir en contrat client : champs minimaux, modifiables ensuite depuis Contrats. Le salon de la demande devient celui du contrat. -->
+<div class="modale-fond cache" id="modale-contrat-demande" data-echap>
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-contrat-demande-titre">
+    <div class="modale-entete">
+      <h2 id="modale-contrat-demande-titre" class="modale-titre">Convertir en contrat</h2>
+      <button type="button" id="fermer-modale-contrat-demande" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-contrat-demande"></div>
+    <form id="formulaire-contrat-demande" autocomplete="off" novalidate>
+      <div class="champ"><label for="contrat-demande-partenaire">Entreprise</label><input type="text" id="contrat-demande-partenaire" maxlength="100" required></div>
+      <fieldset class="contrat-choix">
+        <legend>Rythme de paiement</legend>
+        <div class="contrat-choix-options contrat-choix-options--trois" id="contrat-demande-periodicite">
+          <label class="contrat-option"><input type="radio" name="contrat-demande-periodicite" value="journalier"><span><strong>Par jour</strong></span></label>
+          <label class="contrat-option"><input type="radio" name="contrat-demande-periodicite" value="hebdomadaire" checked><span><strong>Par semaine</strong></span></label>
+          <label class="contrat-option"><input type="radio" name="contrat-demande-periodicite" value="mensuel"><span><strong>Par mois</strong></span></label>
+        </div>
+      </fieldset>
+      <div class="champ"><label for="contrat-demande-montant" id="contrat-demande-montant-libelle">Montant par semaine</label><div class="champ-dollar"><input type="number" id="contrat-demande-montant" min="1" step="1" required></div></div>
+      <div class="champ-deux">
+        <div class="champ"><label for="contrat-demande-debut">Début</label><input type="date" id="contrat-demande-debut" required></div>
+        <div class="champ"><label for="contrat-demande-fin">Fin <small>facultatif</small></label><input type="date" id="contrat-demande-fin"></div>
+      </div>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or">Ajouter</button>
+        <button type="button" class="btn btn-danger" id="annuler-modale-contrat-demande">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <script src="/gestion/demandes.js"></script>
+</body>
+</html>

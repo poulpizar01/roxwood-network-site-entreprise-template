@@ -4,6 +4,7 @@
 //   - publics : liens des pages publiques (GET /api/liens, data-lien) ; un lien vide masque son bouton.
 import type { GroupeParametres } from '../socle/contrat.js';
 import { entierParametre, idsParametre, lienParametre, parametre } from '../socle/parametres.js';
+import { moduleActif } from '../socle/site.js';
 import { JOURS_SEMAINE } from './texte.js';
 
 // Onglets de la page Paramètres : Discord (Apparence : propre à la page). Les aides parlent à la direction, pas à un
@@ -15,6 +16,10 @@ export const PARAMETRES: GroupeParametres[] = [
   // les prises et fins de service arrivent du bot (événement monitoring.duty, services.ts) ; rien à régler ici — l'état
   // de l'abonnement s'affiche plus bas (afficherEtats, gestion/parametres.html)
   // Agenda : qui voit, crée et modifie quoi se règle par grade (page Grades) ; ici, seulement où trouver les tickets
+  // module « demandes » : le salon de suivi de chaque demande (salon-dossier.ts) ; groupe absent si le module est éteint
+  ...(moduleActif('demandes') ? [{ onglet: 'Discord', titre: 'Demandes : salon par dossier', intro: 'À l’envoi d’une demande, un salon s’ouvre pour le suivi et la personne qui l’a envoyée y est ajoutée (son Discord est vérifié). Le salon reprend exactement les droits de la catégorie choisie ; sans catégorie ou sans bot relié : la demande existe quand même, sans salon (bouton « Créer le salon » sur sa fiche).', reglages: [
+    { cle: 'demandes_categorie_discord', type: 'id-discord' as const, discord: 'categorie' as const, libelle: 'Catégorie des salons de demandes', aide: 'Catégorie où ouvrir le salon de chaque demande (le bot doit pouvoir y créer des salons et en régler les droits). Qui voit ces salons se règle sur la catégorie, dans Discord.' },
+  ] }] : []),
   { onglet: 'Discord', titre: 'Agenda : prévenir sur Discord', intro: 'Un événement créé pour quelqu’un d’autre lui est posté sur Discord : dans son ticket s’il en a un, sinon en message privé. Qui voit, crée et modifie les événements se règle dans la fiche de chaque grade.', reglages: [
     { cle: 'agenda_categories_tickets', type: 'ids-discord', discord: 'categorie', libelle: 'Catégories des tickets',
       aide: 'Les catégories où le bot de tickets les ouvre : le site y cherche le ticket de la personne (le bot doit pouvoir y voir les salons et écrire). Vide : message privé seulement.' },

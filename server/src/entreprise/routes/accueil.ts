@@ -8,6 +8,8 @@ import { valide } from '../../socle/http.js';
 import { droitsAgenda, peutValiderAbsences } from '../agenda-regles.js';
 import { nombreContratsAFacturer } from '../echeanciers.js';
 import { EN_SUSPENS } from '../rh.js';
+import { nombreDemandesNouvelles } from '../demandes.js';
+import { moduleActif } from '../modules.js';
 import { nombreSalonsIntrouvables } from '../salon-discord.js';
 import { debutSemaineParis } from '../texte.js';
 
@@ -25,6 +27,10 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
   if (peut(c, 'rh-voir') && peut(c, 'rh-creer')) {
     const n = await prisma.arriveeBot.count({ where: { resultat: { in: EN_SUSPENS } } });
     if (n) taches.push({ cle: 'candidatures', nombre: n, texte: `${pluriel(n, 'candidature')} à traiter`, lien: 'rh.html#rh-bot' });
+  }
+  if (moduleActif('demandes') && peut(c, 'demandes-voir')) {
+    const n = await nombreDemandesNouvelles();
+    if (n) taches.push({ cle: 'demandes', nombre: n, texte: `${pluriel(n, 'demande')} à traiter`, lien: 'demandes.html' });
   }
   if (peut(c, 'factures-voir')) {
     // semaine en cours seulement : Facturation n'affiche qu'une semaine à la fois, le lien doit montrer ce qu'il compte
