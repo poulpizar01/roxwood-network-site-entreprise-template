@@ -44,6 +44,7 @@ export const entreprise: Entreprise = {
     beneficiaires: 'contrats-beneficiaires',
     'contrat-client': 'public',   // espace du client lui-même, par lien à jeton (sans compte) — routes/contrats.ts
     facturation: 'factures-voir',
+    'facture-signature': 'public',   // lecture confirmée par le client, par lien à jeton + connexion Discord — routes/compta.ts
     echeanciers: 'factures-voir',
     paie: 'paie-voir',
     parametres: 'parametres',

@@ -43,3 +43,67 @@ test('envoi : sans salon du contrat, l’identifiant donné doit être valide ; 
   await modifierContrat(c.id, { ...donnees, salonDiscordId: '123456789012345678' });
   assert.deepEqual([...await contratsAvecSalon([c.id])], [c.id]);
 });
+
+// ---- confirmation de lecture par le client (accusé de lecture prouvé par Discord) ----
+import type { AddressInfo } from 'node:net';
+import express from 'express';
+import { compta } from '../src/entreprise/routes/compta.js';
+import { valeurCookieIdentite } from '../src/socle/routes/discord-leger.js';
+import { envoyerLienSignature, factureSignable, infoLienSignature, signerFacture } from '../src/entreprise/facture.js';
+
+test('signature : lien à usage unique, 7 jours, copie figée, identité Discord enregistrée', async () => {
+  const c = await prisma.contrat.create({ data: { ...donnees, dateDebut: new Date('2026-01-05'), salonDiscordId: '999999999999999996' } });
+  contrats.push(c.id);
+  const f = await prisma.facture.create({ data: { source: 'manuel', numeroFacture: 'zz-test', clientNom: 'zz-test', total: 100, sousTotal: 100, contratId: c.id } });
+  assert.equal(factureSignable(f), true);
+  assert.equal(factureSignable({ contratId: null, source: 'monitoring', clientNom: 'X' }), false, 'un paiement en jeu n’a personne à qui envoyer un lien');
+  // l'envoi échoue (salon inconnu du bot simulé) mais le lien existe déjà : posé avant l'envoi
+  await assert.rejects(envoyerLienSignature(f.id));
+  const pose = await prisma.facture.findUniqueOrThrow({ where: { id: f.id } });
+  assert.ok(pose.signatureJeton && pose.signatureExpireLe);
+  assert.ok(Math.abs(pose.signatureExpireLe.getTime() - (Date.now() + 7 * 24 * 3600e3)) < 60_000, 'valable 7 jours');
+  const jeton = pose.signatureJeton;
+  assert.equal((await infoLienSignature(jeton)).total, 100);
+  await assert.rejects(signerFacture('0'.repeat(48), { id: '123456789012345678', pseudo: 'x' }), /n’existe pas/);
+  await signerFacture(jeton, { id: '123456789012345678', pseudo: 'client.discord' });
+  const signee = await prisma.facture.findUniqueOrThrow({ where: { id: f.id } });
+  assert.equal(signee.signatureJeton, null, 'jeton effacé : usage unique');
+  assert.equal(signee.signatureDiscordId, '123456789012345678');
+  assert.equal(signee.signatureDiscordPseudo, 'client.discord');
+  assert.equal((signee.signatureDocumentFige as { total: number }).total, 100);
+  await assert.rejects(signerFacture(jeton, { id: '123456789012345678', pseudo: 'x' }), /n’existe pas|déjà servi/);
+  // la copie reste celle qui a été lue, même si la facture change ensuite
+  await prisma.facture.update({ where: { id: f.id }, data: { total: 999 } });
+  assert.equal(((await prisma.facture.findUniqueOrThrow({ where: { id: f.id } })).signatureDocumentFige as { total: number }).total, 100);
+  await assert.rejects(envoyerLienSignature(f.id), /déjà signée/);
+});
+
+test('signature : un lien périmé est refusé ; la route exige une connexion Discord et ne montre jamais le jeton', async () => {
+  const f = await prisma.facture.create({ data: { source: 'manuel', numeroFacture: 'zz-test', clientNom: 'zz-test', total: 50 } });
+  const jeton = 'a'.repeat(48);
+  await prisma.facture.update({ where: { id: f.id }, data: { signatureJeton: jeton, signatureExpireLe: new Date(Date.now() - 1000) } });
+  await assert.rejects(infoLienSignature(jeton), /expiré/);
+  await prisma.facture.update({ where: { id: f.id }, data: { signatureExpireLe: new Date(Date.now() + 60_000) } });
+
+  const app = express();
+  app.use(express.json());
+  app.use(compta);
+  const srv = app.listen(0);
+  const url = `http://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+  try {
+    const lire = await fetch(`${url}/api/compta/factures/signature/${jeton}`);
+    assert.equal(lire.status, 200);
+    const corps = await lire.json() as { facture: { total: number }; discord: unknown };
+    assert.equal(corps.facture.total, 50);
+    assert.equal(corps.discord, null);
+    assert.equal(JSON.stringify(corps).includes(jeton), false, 'le jeton n’est jamais renvoyé');
+    const sansIdentite = await fetch(`${url}/api/compta/factures/signature/${jeton}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    assert.equal(sansIdentite.status, 401);
+    // cookie falsifié : refusé comme s'il n'y en avait pas
+    const faux = await fetch(`${url}/api/compta/factures/signature/${jeton}`, { method: 'POST', headers: { 'content-type': 'application/json', cookie: 'discord_leger=123456789012345678.9999999999999.x.deadbeef' }, body: '{}' });
+    assert.equal(faux.status, 401);
+    const bon = await fetch(`${url}/api/compta/factures/signature/${jeton}`, { method: 'POST', headers: { 'content-type': 'application/json', cookie: `discord_leger=${encodeURIComponent(valeurCookieIdentite('123456789012345679', 'client.vrai'))}` }, body: '{}' });
+    assert.equal(bon.status, 200);
+    assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: f.id } })).signatureDiscordPseudo, 'client.vrai');
+  } finally { srv.close(); }
+});

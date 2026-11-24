@@ -232,6 +232,7 @@ function actionsFacture(f) {
     items.push(`<button type="button" class="btn btn-fantome" data-exige="factures" data-facture-plusieurs-fois="${f.id}">${gestion.ico("coins")} Payer en plusieurs fois</button>`);
   }
   // facture d'un contrat avec salon : envoi direct ; sinon l'identifiant du salon est demandé (jamais mémorisé)
+  if (f.signable && !f.signature?.signeeLe && f.statutPaiement !== "ANNULEE") items.push(`<button type="button" class="btn btn-fantome" data-exige="factures" data-facture-signature="${f.id}">${gestion.ico("pencil")} ${f.signature?.lienEnvoye ? "Renvoyer le lien de confirmation" : "Envoyer le lien de confirmation"}</button>`);
   if (f.statutPaiement !== "ANNULEE") items.push(`<button type="button" class="btn btn-fantome" data-exige="factures" data-facture-discord="${f.id}">${gestion.ico("sync")} Envoyer sur Discord</button>`);
   if (["PAID", "PAYEE"].includes(f.statutPaiement) && !f.avoirDeId && !f.avoirEmis) {
     items.push(`<button type="button" class="btn btn-fantome" data-exige="factures" data-facture-avoir="${f.id}">${gestion.ico("receipt")} Créer un avoir</button>`);
@@ -261,6 +262,10 @@ document.getElementById("facture-pied").addEventListener("click", ev => {
     return actionFactureLigne(Number(bouton.dataset.factureStatut), "statut", { libelle: a.libelle, confirmation: a.confirmation, corps: { statut: cible } });
   }
   if (bouton.dataset.factureDiscord) { envoyerFactureDiscord(Number(bouton.dataset.factureDiscord)); return; }
+  if (bouton.dataset.factureSignature) {
+    actionFactureLigne(Number(bouton.dataset.factureSignature), "signature", { libelle: "Lien de confirmation envoyé", confirmation: { texte: "Un lien personnel, valable 7 jours, est envoyé dans le salon Discord du contrat. Le client s’y connecte avec Discord pour confirmer qu’il a relu la facture ; un nouveau lien remplace l’ancien.", titre: "Envoyer le lien de confirmation ?", bouton: "Envoyer le lien" } });
+    return;
+  }
   if (bouton.dataset.facturePlusieursFois) { location.href = `echeanciers.html?nouveauPaiement=${bouton.dataset.facturePlusieursFois}`; return; }
   if (bouton.dataset.factureAvoir) {
     actionFactureLigne(Number(bouton.dataset.factureAvoir), "avoir",
@@ -632,6 +637,7 @@ async function ouvrirFactureForm(id) {
   }
   FACTURE_COURANTE = f;
   noteContratFacture(f?.contratId ? { debut: f.periodeDebut?.slice(0, 10), fin: f.periodeFin?.slice(0, 10) } : null);
+  etatSignatureFacture(f);
   // un avoir n'est pas modifiable : il reprend tels quels les montants qu'il annule (server/src/entreprise/routes/compta.ts)
   const editable = !f || (f.source === "manuel" && !f.avoirDeId);
 
@@ -730,6 +736,16 @@ document.getElementById("formulaire-facture").addEventListener("submit", async (
     gestion.message("zone-message-modale-facture", e.message);
   }
 });
+
+// lecture confirmée par le client (connexion Discord) : qui et quand ; ou lien envoyé, en attente
+function etatSignatureFacture(f) {
+  const p = document.getElementById("facture-signature-etat"), s = f?.signature;
+  let texte = "";
+  if (s?.signeeLe) texte = `Lecture confirmée par ${s.signeePar || "le client"} (Discord) le ${new Date(s.signeeLe).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "long", year: "numeric" })}. Le site garde une copie figée de la facture telle qu’elle a été lue.`;
+  else if (s?.lienEnvoye) texte = "Lien de confirmation envoyé au client : en attente de sa lecture (valable 7 jours).";
+  p.textContent = texte;
+  p.classList.toggle("cache", !texte);
+}
 
 // facture d'un contrat (créée depuis son échéancier) : la note dit quelles périodes elle couvre
 const jourCourtFacture = iso => new Date(`${iso}T00:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" });

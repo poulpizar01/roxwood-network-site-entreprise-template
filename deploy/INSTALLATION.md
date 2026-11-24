@@ -26,6 +26,7 @@ Dernière section de [`.env.example`](../.env.example). *À compléter : chaque 
 
 **Adresses de retour (OAuth2 → Redirects)** à déclarer dans l'application :
 - `https://<domaine>/auth/discord/callback` — connexion à la gestion ;
+- `https://<domaine>/api/discord/callback` — vérification Discord légère (confirmer la lecture d'une facture, sans compte) ;
 - *à compléter : toute autre adresse de retour du site, ou rien.*
 
 **Bot** : inviter sur le serveur de l'entreprise (OAuth2 → URL Generator, scope `bot`) avec ces droits :

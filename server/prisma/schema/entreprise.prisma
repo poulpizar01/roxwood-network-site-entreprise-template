@@ -182,6 +182,15 @@ model Facture {
   periodeDebut   DateTime? @map("periode_debut") @db.Date
   periodeFin     DateTime? @map("periode_fin") @db.Date
   majLe          DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+  // signature par le client (accusé de lecture prouvé par sa connexion Discord) : lien à usage unique valable 7 jours,
+  // jeton effacé une fois signée ; copie figée du document au moment de la signature (jamais rejouée si la facture
+  // change ensuite), avec l'identité Discord de la personne qui a signé (facture.ts)
+  signatureJeton        String?   @unique @map("signature_jeton") @db.VarChar(64)
+  signatureExpireLe     DateTime? @map("signature_expire_le") @db.Timestamptz(6)
+  signatureSigneeLe     DateTime? @map("signature_signee_le") @db.Timestamptz(6)
+  signatureDocumentFige Json?     @map("signature_document_fige")
+  signatureDiscordId    String?   @map("signature_discord_id") @db.VarChar(22)
+  signatureDiscordPseudo String?  @map("signature_discord_pseudo") @db.VarChar(100)
   echeances      Echeance[]   @relation("EcheanceFacturee") // échéances de contrat qu'elle règle (une facture peut couvrir plusieurs périodes)
   planPaiement   Echeancier?  @relation("FacturePaiement") // règlement en plusieurs fois de cette facture
 

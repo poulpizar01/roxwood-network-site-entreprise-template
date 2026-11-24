@@ -10,6 +10,8 @@ import type { EvenementBot } from '../socle/contrat.js';
 import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { ID_DISCORD, posterMessage } from '../socle/discord.js';
+import type { IdentiteVerifiee } from '../socle/routes/discord-leger.js';
+import { config } from '../socle/config.js';
 import { entierRegle } from './parametres.js';
 import { Refus } from './refus.js';
 import { nomComplet } from './rh.js';
@@ -73,6 +75,80 @@ export async function envoyerFactureManuel(factureId: number, salonManuel: strin
 export async function contratsAvecSalon(contratIds: readonly number[]): Promise<Set<number>> {
   if (!contratIds.length) return new Set();
   return new Set((await prisma.contrat.findMany({ where: { id: { in: [...contratIds] }, salonDiscordId: { not: null } }, select: { id: true } })).map(c => c.id));
+}
+
+// ---------- signature par le client : accusé de lecture, prouvé par sa connexion Discord ----------
+// Lien à usage unique, valable 7 jours, envoyé dans le salon du contrat. Le client relit la facture, se connecte avec
+// Discord (identité vérifiée, jamais saisie) et confirme : le site garde une copie figée du document et qui l'a signé.
+// Réservée aux factures qui ont un client identifié (contrat, ou saisie manuelle avec un nom) : un paiement constaté en
+// jeu n'a personne à qui envoyer un lien. Ce n'est pas une signature au sens juridique, seulement une trace de lecture.
+const VALIDITE_LIEN_MS = 7 * 24 * 3600e3;
+export const factureSignable = (f: { contratId: number | null; source: string; clientNom: string; avoirDeId?: number | null }): boolean =>
+  f.avoirDeId == null && (f.contratId !== null || (f.source === 'manuel' && f.clientNom.trim() !== ''));
+
+// champs figés au moment de la signature : ceux de l'aperçu de la facture (facturation.js, rendreDocumentFacture) ; une
+// correction après coup (date, statut) ne change pas rétroactivement ce que le client a lu
+export const champsDocument = (f: { numeroFacture: string; clientNom: string; sousTotal: number; livraison: number; reduction: number; total: number; statutPaiement: string; dateFacture: Date; dateEcheance: Date | null; details: Prisma.JsonValue | null; source: string }) => ({
+  numeroFacture: f.numeroFacture, clientNom: f.clientNom, sousTotal: f.sousTotal, livraison: f.livraison,
+  reduction: f.reduction, total: f.total, statutPaiement: f.statutPaiement, dateFacture: f.dateFacture,
+  dateEcheance: f.dateEcheance, details: (f.details ?? Prisma.JsonNull) as Prisma.InputJsonValue, source: f.source,
+});
+
+// lien envoyé dans le salon du contrat : un nouveau jeton à chaque envoi (un renvoi invalide le précédent non signé)
+export async function envoyerLienSignature(factureId: number): Promise<void> {
+  const f = await prisma.facture.findUnique({ where: { id: factureId } });
+  if (!f) throw new Refus('Facture introuvable.', 404);
+  if (!factureSignable(f)) throw new Refus('Cette facture n’a pas de client identifié à qui envoyer un lien de signature.', 403);
+  if (f.statutPaiement === 'ANNULEE') throw new Refus('Une facture annulée ne se signe pas.', 409);
+  if (f.signatureSigneeLe) throw new Refus('Cette facture est déjà signée.', 409);
+  const salon = await salonDuContrat(f.contratId);
+  if (!salon || !f.contratId) throw new Refus('Aucun salon Discord n’est renseigné sur le contrat de cette facture : le lien y est envoyé.', 404);
+  const jeton = crypto.randomBytes(24).toString('hex');
+  await prisma.facture.update({ where: { id: factureId }, data: { signatureJeton: jeton, signatureExpireLe: new Date(Date.now() + VALIDITE_LIEN_MS) } });
+  const lien = `${config.baseUrl}/gestion/facture-signature.html?jeton=${jeton}`;
+  try {
+    await posterMessage(salon, { content: `Facture ${f.numeroFacture || `n° ${f.id}`} — merci de la relire et de confirmer votre lecture en ligne (connexion Discord, lien valable 7 jours) : ${lien}` });
+    await marquerSalon(f.contratId, false);
+  } catch (e) {
+    if (salonIntrouvable(e)) await marquerSalon(f.contratId, true);
+    throw e;
+  }
+}
+
+// facture désignée par un lien : inconnu, déjà servi ou périmé répondent pareil (rien n'indique qu'un jeton a existé)
+async function factureDuJeton(jeton: string) {
+  const f = /^[0-9a-f]{48}$/.test(jeton) ? await prisma.facture.findUnique({ where: { signatureJeton: jeton } }) : null;
+  if (!f || !f.signatureExpireLe || f.signatureExpireLe.getTime() < Date.now()) throw new Refus('Ce lien n’existe pas, a déjà servi ou a expiré. Demandez-en un nouveau.', 404);
+  return f;
+}
+export async function infoLienSignature(jeton: string) { return champsDocument(await factureDuJeton(jeton)); }
+
+// signature : copie figée du document + identité Discord du signataire, jeton effacé (usage unique), puis confirmation
+// dans le salon du contrat. Conditionnée au jeton encore posé : deux signatures simultanées n'en valident qu'une.
+export async function signerFacture(jeton: string, identite: IdentiteVerifiee): Promise<void> {
+  const f = await factureDuJeton(jeton);
+  const { count } = await prisma.facture.updateMany({
+    where: { id: f.id, signatureJeton: jeton },
+    data: { signatureSigneeLe: new Date(), signatureDocumentFige: champsDocument(f), signatureJeton: null, signatureExpireLe: null, signatureDiscordId: identite.id, signatureDiscordPseudo: identite.pseudo.slice(0, 100) },
+  });
+  if (!count) throw new Refus('Ce lien a déjà servi. Demandez-en un nouveau.', 404);
+  const salon = await salonDuContrat(f.contratId);
+  if (salon && f.contratId) {
+    try { await posterMessage(salon, { content: `✅ Facture ${f.numeroFacture || `n° ${f.id}`} lue et confirmée par ${identite.pseudo.replace(/[\\*_~`|>@#[\]()-]/g, c => `\\${c}`)} (Discord).` }); await marquerSalon(f.contratId, false); }
+    catch (e) {
+      if (salonIntrouvable(e)) await marquerSalon(f.contratId, true);
+      // la signature est déjà enregistrée : une panne Discord ne doit pas la faire échouer
+      else console.error('[facture] confirmation de signature (salon)', e);
+    }
+  }
+}
+
+// ce que la liste montre d'une signature, sans jamais renvoyer le jeton (secret d'accès) ni la copie figée
+export function resumeSignature(f: { signatureJeton: string | null; signatureExpireLe: Date | null; signatureSigneeLe: Date | null; signatureDiscordPseudo: string | null }) {
+  return {
+    signeeLe: f.signatureSigneeLe, signeePar: f.signatureSigneeLe ? f.signatureDiscordPseudo : null,
+    lienEnvoye: !!f.signatureJeton && !!f.signatureExpireLe && f.signatureExpireLe.getTime() > Date.now(),
+  };
 }
 
 // ---------- catalogue de prestations : raccourci de saisie d'un article de facture, jamais obligatoire ----------

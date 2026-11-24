@@ -27,6 +27,9 @@ Pages de `gestion/` : mêmes niveaux, contrôlés par le serveur avant tout envo
 |---|---|---|
 | `GET /auth/discord` | public | Démarre la connexion Discord (en dev avec `DEV_LOGIN=1` : connexion directe au compte « Dev local », ou `?compte=<ID Discord>`) |
 | `GET /auth/discord/callback` | public | Retour de Discord : vérifie l'appartenance au serveur, crée ou met à jour le compte, son grade, son statut ; erreurs renvoyées à `gestion/?erreur=pas-membre\|oauth\|jeton\|discord\|serveur` |
+| `GET /api/discord/connecter?next=/chemin` | public | Vérification Discord **légère** (scope `identify` seul) pour une page publique : pose le cookie signé `discord_leger` (15 min) puis revient sur `next` (chemin du site seulement) avec `&discord=ok\|erreur`. Aucun compte ni session. En dev (`DEV_LOGIN=1`), identité fictive. Voir `socle/routes/discord-leger.ts` |
+| `GET /api/discord/callback` | public | Retour de Discord pour la vérification légère (adresse à déclarer dans le portail) |
+| `GET /api/discord/moi` · `POST /api/discord/oublier` | public | Identité vérifiée en cours (ou `null`) · l'oublie |
 | `GET /auth/folkos` | public | Connexion « IG » depuis l'ordinateur en jeu (si FolkOS est configuré, voir [folkos.md](folkos.md)) : `?folkos_ticket=` vérifié auprès du SSO, compte retrouvé par son ID Discord, `?next=` (chemin du site) honoré ; erreurs renvoyées à `gestion/?erreur=folkos-config\|ticket\|reseau\|inconnu\|discord\|serveur` |
 | `POST /auth/logout` | public | Ferme la session |
 | `GET /api/moi` | connecté | Mon compte : `id, discordId, pseudo, nom, avatar, statut, proprietaire, grade { cle, libelle, couleur }, permissions[]` (vide tant que le compte n'est pas validé) |

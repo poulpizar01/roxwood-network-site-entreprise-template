@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <title>Confirmer la lecture d’une facture — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — page publique (déclarée 'public' dans entreprise/index.ts) : le client relit une facture et confirme sa
+       lecture. Accès par lien à jeton (?jeton=…, envoyé dans le salon du contrat, valable 7 jours), sans compte : son
+       identité est prouvée par une connexion Discord légère (socle/routes/discord-leger.ts), jamais saisie. Le site
+       garde une copie figée de la facture et le pseudo Discord de qui a confirmé : un accusé de lecture, pas une signature
+       au sens juridique. Serveur : /api/compta/factures/signature/:jeton (routes/compta.ts, facture.ts). -->
+  <div class="ecran-connexion">
+    <main class="carte-connexion" style="max-width:640px;">
+      <div class="logo-connexion"><img src="/assets/logo.png" alt="" width="64" height="64"><span>{{nom}}</span></div>
+      <h1 class="connexion-titre">Confirmer la lecture de la facture</h1>
+      <div id="zone-message" role="status"></div>
+      <section id="etape-facture" class="cache">
+        <div id="facture-apercu" style="margin-top:1rem;"></div>
+        <!-- étape 1 : se connecter avec Discord ; étape 2 : cocher et confirmer -->
+        <div id="bloc-connexion" class="cache" style="margin-top:1.25rem;">
+          <p class="champ-aide">Pour confirmer, connectez-vous avec Discord : le site garde votre pseudo Discord avec cette confirmation, rien d’autre.</p>
+          <div class="modale-boutons"><a class="btn btn-or" id="lien-connexion" href="#">Se connecter avec Discord</a></div>
+        </div>
+        <form id="formulaire-signature" class="cache" novalidate>
+          <p class="champ-aide" style="margin-top:1.25rem;">Connecté en tant que <strong id="pseudo-connecte"></strong>. <button type="button" class="lien-discret" id="changer-compte">Ce n’est pas vous ?</button></p>
+          <label style="margin-top:.75rem;display:flex;gap:.75rem;align-items:flex-start;cursor:pointer;text-transform:none;letter-spacing:normal;font-size:var(--fs-3);color:var(--text);">
+            <input type="checkbox" id="signature-case" required style="margin-top:.1875rem;">
+            <span>J’ai relu cette facture et je le confirme.</span>
+          </label>
+          <div class="modale-boutons"><button type="submit" class="btn btn-or">Confirmer ma lecture</button></div>
+        </form>
+      </section>
+      <section id="etape-fini" class="cache">
+        <p class="client-contrat">C’est fait : votre confirmation est enregistrée, l’équipe en est informée.</p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const formaterArgent = v => `${Math.round(Number(v) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} $`;
+    const formaterJour = iso => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' }); };
+    function rendreApercuFacture(f) {
+      const d = f.details || {};
+      const articles = Array.isArray(d.articles) ? d.articles : [];
+      return `<div class="facture-doc">
+        <header class="facture-doc-entete">
+          <div class="facture-doc-marque"><img src="/assets/logo.png" alt="" class="facture-doc-logo"><strong>${echapper(socle.nomSite)}</strong></div>
+          <div class="facture-doc-ref">
+            <span class="facture-doc-ref-libelle">Facture</span>
+            <strong>${echapper(f.numeroFacture) || 'Sans numéro'}</strong>
+            <span class="facture-doc-date">${echapper(formaterJour(f.dateFacture))}${f.dateEcheance ? ` · échéance ${echapper(formaterJour(f.dateEcheance))}` : ''}</span>
+          </div>
+        </header>
+        <div class="facture-doc-bandeau" aria-hidden="true"></div>
+        <div class="facture-doc-infos"><div><span class="facture-doc-petit">Client</span><strong>${echapper(f.clientNom) || 'Client inconnu'}</strong></div></div>
+        ${articles.length ? `<table class="facture-doc-table"><thead><tr><th>Article</th><th>Qté</th><th>Prix unitaire</th><th>Montant</th></tr></thead><tbody>${
+          articles.map(a => `<tr><td>${echapper(a.name)}</td><td>${echapper(a.quantity)}</td><td>${formaterArgent(a.unitPrice)}</td><td>${formaterArgent(a.quantity * a.unitPrice)}</td></tr>`).join('')
+        }</tbody></table>` : ''}
+        <div class="facture-doc-totaux">
+          <div><span>Sous-total</span><span>${formaterArgent(f.sousTotal)}</span></div>
+          <div><span>Livraison</span><span>${formaterArgent(f.livraison)}</span></div>
+          ${f.reduction ? `<div><span>Réduction</span><span>${formaterArgent(-f.reduction)}</span></div>` : ''}
+          <div class="facture-doc-total"><span>Total</span><span>${formaterArgent(f.total)}</span></div>
+        </div>
+      </div>`;
+    }
+    const JETON = new URLSearchParams(location.search).get('jeton') || '';
+    const adresse = `/api/compta/factures/signature/${encodeURIComponent(JETON)}`;
+    const montrer = (id, oui) => document.getElementById(id).classList.toggle('cache', !oui);
+    function dessiner(r) {
+      document.getElementById('facture-apercu').innerHTML = rendreApercuFacture(r.facture);
+      montrer('etape-facture', true);
+      montrer('bloc-connexion', !r.discord);
+      montrer('formulaire-signature', !!r.discord);
+      if (r.discord) document.getElementById('pseudo-connecte').textContent = r.discord.pseudo;
+      // retour de la connexion Discord (?discord=ok|erreur) : un message seulement en cas d'échec
+      if (new URLSearchParams(location.search).get('discord') === 'erreur') gestion.message('zone-message', 'La connexion avec Discord a échoué. Réessayez.');
+    }
+    document.getElementById('lien-connexion').href = `/api/discord/connecter?next=${encodeURIComponent(`/gestion/facture-signature.html?jeton=${JETON}`)}`;
+    socle.api(adresse).then(dessiner).catch(e => gestion.message('zone-message', e.message));
+    document.getElementById('changer-compte').addEventListener('click', async () => {
+      await socle.api('/api/discord/oublier', { method: 'POST', body: {} }).catch(() => {});
+      location.href = document.getElementById('lien-connexion').href;
+    });
+    document.getElementById('formulaire-signature').addEventListener('submit', async e => {
+      e.preventDefault();
+      gestion.message('zone-message', '');
+      if (!document.getElementById('signature-case').checked) { gestion.message('zone-message', 'Cochez la case pour confirmer que vous avez relu la facture.'); return; }
+      try {
+        await socle.api(adresse, { method: 'POST', body: {} });
+        montrer('etape-facture', false);
+        montrer('etape-fini', true);
+      } catch (err) { gestion.message('zone-message', err.message); }
+    });
+  </script>
+</body>
+</html>

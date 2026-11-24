@@ -18,6 +18,7 @@ import { cspNonce, securityHeaders } from './socle/security.js';
 import { site, pages, renderFile, withNonce } from './socle/site.js';
 import { auth, PAGE_ACCUEIL, PAGE_ATTENTE, PAGE_CONNEXION } from './socle/routes/auth.js';
 import { comptes } from './socle/routes/comptes.js';
+import { discordLeger } from './socle/routes/discord-leger.js';
 import { grades } from './socle/routes/grades.js';
 import { declarerParametres, parametres } from './socle/parametres.js';
 import { webhooks } from './socle/routes/webhooks.js';
@@ -108,7 +109,7 @@ app.get('/api/csrf', (req, res) => {
 
 app.use('/auth', limits.auth);
 app.use('/api', limits.api);
-app.use(auth, comptes, grades, parametres, webhooksJournal, webhooksAbonnements, aide, ...entreprise.routes);
+app.use(auth, discordLeger, comptes, grades, parametres, webhooksJournal, webhooksAbonnements, aide, ...entreprise.routes);
 // adresse d'API inconnue : 404 en JSON (pas la page 404 du site)
 app.use('/api', (_req, res) => { res.status(404).json({ error: 'introuvable' }); });
 

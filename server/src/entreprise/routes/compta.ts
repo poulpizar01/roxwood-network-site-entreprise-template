@@ -15,7 +15,9 @@ import {
 import { verifierFacturationContrat } from '../contrats.js';
 import { lierEcheancesAFacture, planPaiementDeFacture } from '../echeanciers.js';
 import { ErreurDiscord } from '../../socle/discord.js';
-import { ajouterArticleCatalogue, classementFactures, contratsAvecSalon, definirQuotaFacture, envoyerFactureManuel, listerCatalogue, modifierArticleCatalogue, quotasFacture, supprimerArticleCatalogue } from '../facture.js';
+import { identiteVerifiee } from '../../socle/routes/discord-leger.js';
+import { limiter } from '../../socle/limites.js';
+import { ajouterArticleCatalogue, classementFactures, contratsAvecSalon, definirQuotaFacture, envoyerFactureManuel, envoyerLienSignature, factureSignable, infoLienSignature, listerCatalogue, resumeSignature, signerFacture, modifierArticleCatalogue, quotasFacture, supprimerArticleCatalogue } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
 import { servicesEnSuspensSemaine } from '../services.js';
 import { caBrutReleve, estLigneTotal } from '../stats/releve.js';
@@ -151,6 +153,12 @@ const SOURCES_FACTURE = ['order', 'monitoring', 'manuel'];
 const STATUTS_PAYES = ['PAID', 'PAYEE'];   // valeurs de statutPaiement valant « payée », bot ou saisie manuelle
 
 // nom affiché de l'auteur d'une saisie manuelle (même règle que dernierReleve)
+// le jeton de signature est un secret d'accès, la copie figée est lue par la page de signature seulement : jamais renvoyés
+function sansSecrets<T extends { signatureJeton?: unknown; signatureDocumentFige?: unknown }>(f: T) {
+  const { signatureJeton: _jeton, signatureDocumentFige: _fige, ...reste } = f;
+  return reste;
+}
+
 async function avecAuteurs<T extends { compteId: number | null }>(lignes: T[]) {
   const ids = [...new Set(lignes.map(l => l.compteId).filter((id): id is number => id != null))];
   const comptes = ids.length ? await prisma.compte.findMany({ where: { id: { in: ids } }, select: { id: true, nom: true, pseudo: true } }) : [];
@@ -192,7 +200,7 @@ compta.get('/api/compta/factures', ...voirFactures, async (req, res) => {
   const plans = ids.length ? await prisma.echeancier.findMany({ where: { factureId: { in: ids } }, select: { id: true, factureId: true } }) : [];
   const planDe = new Map(plans.map(p => [p.factureId, p.id]));
   const avecSalon = await contratsAvecSalon([...new Set(factures.map(f => f.contratId).filter((id): id is number => id !== null))]);
-  res.json({ factures: (await avecAuteurs(factures)).map(f => ({ ...f, avoirEmis: avoirsDe.has(f.id), planPaiementId: planDe.get(f.id) ?? null, salonDiscord: f.contratId !== null && avecSalon.has(f.contratId) })) });
+  res.json({ factures: (await avecAuteurs(factures)).map(f => ({ ...sansSecrets(f), avoirEmis: avoirsDe.has(f.id), planPaiementId: planDe.get(f.id) ?? null, salonDiscord: f.contratId !== null && avecSalon.has(f.contratId), signable: factureSignable(f) && f.contratId !== null && avecSalon.has(f.contratId), signature: resumeSignature(f) })) });
 });
 
 // quota hebdomadaire de montant facturé par grade : réglé dans la fiche du grade (page Grades), mêmes routes que
@@ -213,12 +221,35 @@ compta.put('/api/compta/factures/quotas/:grade', ...permission('grades'), traite
   res.json({ ok: true });
 }));
 
+// ---------- signature par le client (publique, par lien à jeton) : déclarée avant /:id pour ne pas être avalée par elle ----------
+const limiteSignature = limiter(1, 30, 'Trop de tentatives : patientez une minute.');
+compta.get('/api/compta/factures/signature/:jeton', limiteSignature, traiter(async (req, res) => {
+  res.json({ facture: await infoLienSignature(String(req.params.jeton)), discord: identiteVerifiee(req) });
+}));
+compta.post('/api/compta/factures/signature/:jeton', limiteSignature, traiter(async (req, res) => {
+  const identite = identiteVerifiee(req);
+  if (!identite) throw new Refus('Connectez-vous avec Discord pour confirmer votre lecture.', 401);
+  await signerFacture(String(req.params.jeton), identite);
+  res.json({ ok: true });
+}));
+
 compta.get('/api/compta/factures/:id', ...voirFactures, async (req, res) => {
   const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
   if (!f) { res.status(404).json({ error: 'Facture introuvable.' }); return; }
   const avoir = await prisma.facture.findFirst({ where: { avoirDeId: f.id }, select: { id: true } });
-  res.json({ ...(await avecAuteurs([f]))[0], avoirEmis: !!avoir, salonDiscord: f.contratId !== null && (await contratsAvecSalon([f.contratId])).size > 0 });
+  const salon = f.contratId !== null && (await contratsAvecSalon([f.contratId])).size > 0;
+  res.json({ ...sansSecrets((await avecAuteurs([f]))[0]), avoirEmis: !!avoir, salonDiscord: salon, signable: factureSignable(f) && salon, signature: resumeSignature(f) });
 });
+
+// envoyer le lien de signature dans le salon du contrat
+compta.post('/api/compta/factures/:id/signature', ...gererFactures, traiter(async (req, res) => {
+  try { await envoyerLienSignature(intParam(req, 'id')); }
+  catch (e) {
+    if (e instanceof Refus) throw e;
+    throw new Refus(e instanceof ErreurDiscord ? e.message : 'Envoi à Discord impossible.', e instanceof ErreurDiscord ? e.statut : 502);
+  }
+  res.json({ ok: true });
+}));
 
 // envoyer la facture sur Discord : salon de son contrat par défaut ; sans contrat, le salon donné à la main (salonId,
 // demandé par la page faute de salon à en déduire)

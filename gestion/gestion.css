@@ -3211,3 +3211,6 @@ button.echeancier-ligne-ouvrir:hover, button.echeancier-ligne-ouvrir:focus-visib
 .echeancier-ligne-montant { font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: auto; }
 .echeancier-type { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: var(--fs-1); font-weight: 500; background: var(--bg3); color: var(--text-muted); }
 .echeancier-type--paiement { background: var(--accent-soft); color: var(--accent-clair); }
+
+/* lien d'appoint dans une phrase (ex. « Ce n'est pas vous ? ») : un bouton qui se lit comme un lien */
+.lien-discret { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-clair); text-decoration: underline; cursor: pointer; }
