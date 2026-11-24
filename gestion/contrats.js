@@ -182,6 +182,7 @@ function sectionResume(c) {
   return `<dl class="contrat-resume">
     <div><dt>Montant</dt><dd><span class="contrat-montant">${formaterMontant(c.montant)}</span> ${p.par}</dd></div>
     <div><dt>Début</dt><dd>${jourFr(c.dateDebut)}</dd></div>
+    ${c.facturationAutomatique ? '<div><dt>Facturation</dt><dd>Automatique</dd></div>' : ''}
     <div><dt>Fin</dt><dd>${c.dateFin ? jourFr(c.dateFin) : `Reconduit ${p.chaque}`}</dd></div>
     ${c.statut === 'actif' && c.prochaineEcheance ? `<div><dt>Prochaine échéance</dt><dd>${jourFr(c.prochaineEcheance, { weekday: 'long', day: 'numeric', month: 'long' })}</dd></div>` : ''}
   </dl>`;
@@ -377,7 +378,13 @@ function majLibellesPeriodicite() {
   $c('contrat-montant-libelle').textContent = `Montant ${p.par}`;
   $c('contrat-fin-aide').textContent = `Sans date de fin, le contrat est reconduit ${p.chaque} jusqu’à ce que vous y mettiez fin.`;
 }
-$c('contrat-partie').addEventListener('change', () => { rafraichirTypesFormulaire(null); $c('champ-contrat-salon').classList.toggle('cache', valeurRadio('contrat-partie') !== 'client'); });
+// salon et facturation automatique : seulement pour un contrat client (lui seul se facture)
+function majZoneClient() {
+  const client = valeurRadio('contrat-partie') === 'client';
+  $c('champ-contrat-salon').classList.toggle('cache', !client);
+  $c('contrat-automatique-zone').classList.toggle('cache', !client);
+}
+$c('contrat-partie').addEventListener('change', () => { rafraichirTypesFormulaire(null); majZoneClient(); });
 $c('contrat-periodicite').addEventListener('change', majLibellesPeriodicite);
 champDateFr($c('contrat-debut'));
 champDateFr($c('contrat-fin'));
@@ -397,7 +404,8 @@ function ouvrirModaleContrat(id) {
   $c('contrat-fin').value = c?.dateFin || '';
   $c('contrat-notes').value = c ? c.notes : '';
   $c('contrat-salon').value = c?.salonDiscordId || '';
-  $c('champ-contrat-salon').classList.toggle('cache', valeurRadio('contrat-partie') !== 'client');
+  $c('contrat-automatique').checked = !!c?.facturationAutomatique;
+  majZoneClient();
   // déjà facturé : rythme et date de début verrouillés (les périodes facturées se calent dessus) ; partie aussi
   const verrou = !!c?.factures;
   document.querySelectorAll('[name="contrat-periodicite"], [name="contrat-partie"]').forEach(r => { r.disabled = verrou; });
@@ -424,7 +432,13 @@ $c('formulaire-contrat').addEventListener('submit', async e => {
     typeId: $c('contrat-type').value ? Number($c('contrat-type').value) : null,
     notes: $c('contrat-notes').value.trim(),
     salonDiscordId: $c('contrat-salon').value.trim() || null,
+    facturationAutomatique: valeurRadio('contrat-partie') === 'client' && $c('contrat-automatique').checked,
   };
+  if (corps.facturationAutomatique && !corps.salonDiscordId) { gestion.message('zone-message-modale-contrat', 'Indiquez le salon Discord du contrat pour activer la facturation automatique : les factures y sont envoyées.'); $c('contrat-salon').focus(); return; }
+  // activation sur un contrat qui a déjà des périodes dues : elles sont facturées dans l'heure, une confirmation évite la surprise
+  const existant = CONTRAT_EN_EDITION ? CACHE_CONTRATS.find(x => x.id === CONTRAT_EN_EDITION) : null;
+  if (corps.facturationAutomatique && !existant?.facturationAutomatique && existant?.aFacturer
+    && !await gestion.confirmer(`${pluriel(existant.aFacturer.nombre, 'échéance', 'échéances')} déjà due${existant.aFacturer.nombre > 1 ? 's' : ''} (${formaterMontant(existant.aFacturer.montant)}) seront facturées et envoyées sur Discord dans l’heure qui suit.`, 'Activer la facturation automatique ?', 'Activer', { danger: false })) return;
   if (corps.salonDiscordId && !/^\d{15,22}$/.test(corps.salonDiscordId)) { gestion.message('zone-message-modale-contrat', 'L’identifiant du salon Discord est un nombre de 15 à 22 chiffres.'); $c('contrat-salon').focus(); return; }
   if (!corps.partenaire) { gestion.message('zone-message-modale-contrat', 'Indiquez le nom de l’autre entreprise.'); $c('contrat-partenaire').focus(); return; }
   if (!(corps.montant > 0)) { gestion.message('zone-message-modale-contrat', 'Indiquez un montant supérieur à 0 $.'); $c('contrat-montant').focus(); return; }

@@ -8,7 +8,7 @@ import { planifierNettoyageImages } from './images-retirees.js';
 import { PARAMETRES } from './parametres.js';
 import { planifierPurge } from './purge.js';
 import { planifierFinContrats } from './contrats.js';
-import { planifierEcheanciers } from './echeanciers.js';
+import { planifierEcheanciers, planifierFacturationAutomatique } from './echeanciers.js';
 import { recevoirFactureCommande, recevoirFactureMonitoring } from './facture.js';
 import { recevoirCandidature } from './rh.js';
 import { recevoirRun } from './run.js';
@@ -124,6 +124,7 @@ export const entreprise: Entreprise = {
     planifierVerrouillageDot();
     planifierFinContrats();
     planifierEcheanciers();
+    planifierFacturationAutomatique();
     simulerBotsDiscord();   // développement seulement (DISCORD_BOT_TOKEN=simulation)
   },
 };

@@ -10,6 +10,7 @@
 import { Prisma } from '../generated/prisma/client.js';
 import { prisma } from '../socle/db.js';
 import { debutPeriode, indexPeriode, periode, type Periodicite } from './contrats-periodes.js';
+import { envoyerFactureSurDiscord } from './facture.js';
 import { Refus } from './refus.js';
 import { jourParis, jourValide, versDate, versJour } from './texte.js';
 
@@ -298,6 +299,42 @@ export async function facturerEcheances(echeancierId: number, ids: number[], com
     }
   });
   return crees;
+}
+
+// ---- facturation automatique (option « facturationAutomatique » du contrat, contrats.ts) ----
+// Chaque heure : facture seule les échéances dues d'un contrat CLIENT EN COURS qui l'a activée, puis poste chaque
+// facture créée dans le salon du contrat (exigé à l'activation). Un contrat terminé n'est jamais facturé seul : ses
+// périodes restantes se facturent à la main. La facture est créée même si l'envoi Discord échoue (elle reste à
+// envoyer à la main) ; un envoi en échec n'est jamais retenté seul, pour ne pas poster deux fois.
+export async function facturerEtEnvoyerAutomatique(): Promise<{ facturees: number; envoyees: number; erreurs: number }> {
+  const echeanciers = await prisma.echeancier.findMany({
+    where: { type: 'facturation', contrat: { facturationAutomatique: true, statut: 'actif', partie: 'client' } },
+    select: { id: true, contratId: true },
+  });
+  let facturees = 0, envoyees = 0, erreurs = 0;
+  for (const { id } of echeanciers) {
+    const dues = await echeancierOu404(id);
+    const avoirs = await facturesAvecAvoir(dues.echeances.map(x => x.factureId));
+    const aujourdhui = jourParis();
+    if (!dues.echeances.some(x => !verrouillee(x, avoirs) && versJour(x.datePrevue) <= aujourdhui)) continue;
+    let crees: number[];
+    try { crees = await facturerEcheances(id, [], null); }
+    catch (err) { erreurs++; console.error(`[echeanciers] facturation automatique (échéancier ${id})`, err); continue; }
+    facturees += crees.length;
+    for (const factureId of crees) {
+      try { if (await envoyerFactureSurDiscord(factureId)) envoyees++; }
+      catch (err) { erreurs++; console.error(`[echeanciers] envoi Discord automatique (facture ${factureId})`, err); }
+    }
+  }
+  return { facturees, envoyees, erreurs };
+}
+
+export function planifierFacturationAutomatique(): void {
+  const run = () => facturerEtEnvoyerAutomatique()
+    .then(({ facturees, envoyees, erreurs }) => { if (facturees || erreurs) console.log(`[echeanciers] facturation automatique : ${facturees} facture(s) créée(s), ${envoyees} envoyée(s) sur Discord${erreurs ? `, ${erreurs} erreur(s)` : ''}`); })
+    .catch(e => console.error('[echeanciers] facturation automatique', e));
+  setTimeout(run, 60e3).unref();   // une minute après le démarrage (la reprise des contrats est passée), puis toutes les heures
+  setInterval(run, 3600e3).unref();
 }
 
 // ---- paiement en plusieurs fois : réglé à la main seulement ----

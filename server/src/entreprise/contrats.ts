@@ -63,6 +63,13 @@ async function lireChamps(b: Record<string, unknown>, existant?: LigneContrat & 
     throw new Refus('Ce contrat a déjà des factures : sa date de début et sa périodicité ne changent plus. Pour changer de rythme, mettez fin à ce contrat et créez-en un nouveau.', 409);
   const salonDiscordId = b.salonDiscordId === null || b.salonDiscordId === undefined || b.salonDiscordId === '' ? null : String(b.salonDiscordId).trim();
   if (salonDiscordId !== null && !ID_DISCORD.test(salonDiscordId)) throw new Refus('Identifiant de salon Discord invalide : 15 à 22 chiffres.');
+  // facturation automatique : seulement un contrat client (lui seul a un échéancier de facturation), et seulement avec
+  // un salon (la facture y est envoyée) — jamais activée par défaut ni par la reprise
+  const facturationAutomatique = b.facturationAutomatique === true;
+  if (facturationAutomatique) {
+    if (partie !== 'client') throw new Refus('La facturation automatique n’existe que pour un contrat client.');
+    if (!salonDiscordId) throw new Refus('Indiquez un salon Discord pour ce contrat avant d’activer la facturation automatique : les factures y sont envoyées.');
+  }
   const typeIdBrut = b.typeId === null || b.typeId === undefined || b.typeId === '' ? null : Number(b.typeId);
   let typeId: number | null = null;
   if (typeIdBrut !== null && Number.isInteger(typeIdBrut)) {
@@ -75,7 +82,7 @@ async function lireChamps(b: Record<string, unknown>, existant?: LigneContrat & 
   const memeFin = (existant?.dateFin ? versJour(existant.dateFin) : null) === dateFin;
   const statut = dateFin !== null && dateFin < jourParis() ? 'termine' : existant?.statut === 'termine' && memeFin ? 'termine' : 'actif';
   return {
-    partenaire, partie, montant: Math.round(montant), notes: texte(b.notes, 500), typeId, periodicite, salonDiscordId,
+    partenaire, partie, montant: Math.round(montant), notes: texte(b.notes, 500), typeId, periodicite, salonDiscordId, facturationAutomatique,
     // un salon qui change (ou est retiré) efface le repère « introuvable » du précédent
     ...(salonDiscordId !== (existant?.salonDiscordId ?? null) ? { salonIntrouvableLe: null } : {}),
     dateDebut: versDate(dateDebut), dateFin: dateFin === null ? null : versDate(dateFin), statut,

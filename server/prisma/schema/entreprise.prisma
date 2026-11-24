@@ -493,6 +493,9 @@ model Contrat {
   // posé par un envoi qui échoue en 404 (salon-discord.ts) ; effacé par un envoi réussi ou une nouvelle saisie du salon
   // — affiché en erreur sur la fiche (gestion/contrats.js)
   salonIntrouvableLe DateTime? @map("salon_introuvable_le") @db.Timestamptz(6)
+  // échéancier de facturation (contrat client) facturé et envoyé sur Discord seul, sans action humaine
+  // (echeanciers.ts planifierFacturationAutomatique) ; exige un salon sur le contrat, jamais activé par la reprise
+  facturationAutomatique Boolean   @default(false) @map("facturation_automatique")
   // accès client (lien à jeton, sans compte) : remplit ses bénéficiaires lui-même, seulement les jours réglés dans
   // Paramètres (parametres.ts, contrats_jours_acces). null = accès non donné. jamais renvoyé en liste (routes/contrats.ts).
   jeton         String?  @unique @db.VarChar(64)

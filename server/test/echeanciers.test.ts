@@ -9,7 +9,7 @@ import { creerContrat, modifierContrat } from '../src/entreprise/contrats.js';
 import { etatsPeriodes, periode, type FactureContrat } from '../src/entreprise/contrats-periodes.js';
 import {
   creerEcheancierPaiement, echeanciersDeContrats, facturerEcheances, marquerEcheancePayee, planPaiementDeFacture,
-  prolongerEcheanciers, repartir, reprendreContratsExistants, synchroniserEcheancierContrat,
+  facturerEtEnvoyerAutomatique, prolongerEcheanciers, repartir, reprendreContratsExistants, synchroniserEcheancierContrat,
 } from '../src/entreprise/echeanciers.js';
 import { jourParis, versDate, versJour } from '../src/entreprise/texte.js';
 
@@ -133,4 +133,29 @@ test('paiement en plusieurs fois : la facture se solde au dernier règlement, la
   assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: f.id } })).statutPaiement, 'EN_ATTENTE');
   await marquerEcheancePayee(echeances[2].id, 'Espèces');
   assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: f.id } })).statutPaiement, 'PAYEE');
+});
+
+test('facturation automatique : seulement un contrat client en cours qui l’a activée, avec un salon ; jamais deux fois', async () => {
+  const base = { partenaire: 'zz-test client', partie: 'client', montant: 100, periodicite: 'hebdomadaire', dateDebut: DEBUT };
+  await assert.rejects(creerContrat({ ...base, facturationAutomatique: true }, 1), /salon/);
+  await assert.rejects(creerContrat({ ...base, partie: 'fournisseur', salonDiscordId: '123456789012345678', facturationAutomatique: true }, 1), /contrat client/);
+  const auto = await creerContrat({ ...base, salonDiscordId: '999999999999999993', facturationAutomatique: true }, 1);
+  const manuel = await creerContrat(base, 1);
+  const fini = await creerContrat({ ...base, salonDiscordId: '999999999999999994', facturationAutomatique: true, dateFin: ajouter(-3) }, 1);
+  contrats.push(auto.id, manuel.id, fini.id);
+  const bilan = await facturerEtEnvoyerAutomatique();
+  assert.ok(bilan.facturees >= 9, 'les 9 périodes commencées du contrat automatique');
+  const facturesDe = (id: number) => prisma.facture.count({ where: { contratId: id } });
+  assert.equal(await facturesDe(auto.id), 9);
+  assert.equal(await facturesDe(manuel.id), 0, 'un contrat sans l’option n’est jamais facturé seul');
+  assert.equal(await facturesDe(fini.id), 0, 'un contrat terminé non plus');
+  assert.equal(bilan.envoyees, 0, 'le salon est inconnu du bot simulé : rien n’est parti, mais les factures existent');
+  assert.ok((await prisma.contrat.findUniqueOrThrow({ where: { id: auto.id } })).salonIntrouvableLe, 'repère « salon introuvable » posé');
+  await prisma.facture.updateMany({ where: { contratId: auto.id }, data: { numeroFacture: 'zz-test' } });
+  const second = await facturerEtEnvoyerAutomatique();
+  assert.equal(await facturesDe(auto.id), 9, 'rien n’est refacturé');
+  assert.ok(second.facturees < 9);
+  // la reprise des contrats n'active jamais l'option
+  await reprendreContratsExistants();
+  assert.equal((await prisma.contrat.findUniqueOrThrow({ where: { id: manuel.id } })).facturationAutomatique, false);
 });

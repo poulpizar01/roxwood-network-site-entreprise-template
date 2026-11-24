@@ -35,6 +35,23 @@ export function contenuMessageFacture(f: { id: number; numeroFacture: string; cl
   return `**Facture ${f.numeroFacture || `n° ${f.id}`}**\nClient : ${f.clientNom || 'Client inconnu'}\nTotal : ${f.total.toLocaleString('fr-FR')} $\nStatut : ${f.statutPaiement}`;
 }
 
+// envoi automatique (echeanciers.ts) : pas de salon sur le contrat = ignoré en silence (la facturation automatique a
+// exigé un salon à l'activation, mais il a pu être retiré depuis)
+export async function envoyerFactureSurDiscord(factureId: number): Promise<boolean> {
+  const f = await prisma.facture.findUnique({ where: { id: factureId } });
+  if (!f?.contratId) return false;
+  const salon = await salonDuContrat(f.contratId);
+  if (!salon) return false;
+  try {
+    await posterMessage(salon, { content: contenuMessageFacture(f) });
+    await marquerSalon(f.contratId, false);
+    return true;
+  } catch (e) {
+    if (salonIntrouvable(e)) await marquerSalon(f.contratId, true);
+    throw e;
+  }
+}
+
 // envoi manuel (bouton de la fiche de facture) : salon du contrat par défaut ; à défaut, le salon donné à la main
 export async function envoyerFactureManuel(factureId: number, salonManuel: string): Promise<void> {
   const f = await prisma.facture.findUnique({ where: { id: factureId } });
