@@ -22,18 +22,13 @@ model EvenementAgenda {
   // destiné à : « perso » (l'auteur et ses invités), « tous », ou « grade » (selon les droits exacts réglés par grade, agenda-regles.ts)
   destination      String   @default("perso") @db.VarChar(10)
   destinationGrade String?  @map("destination_grade") @db.VarChar(20)
-  // absence (congé, maladie…) : null = événement normal ; sinon « en_attente » ou « approuve », jamais changée après
-  // la création (le détail va dans le titre ou les notes) ; un refus retire l'événement (routes/agenda.ts)
+  // absence (congé, maladie…) : null = événement normal ; sinon « en_attente », « approuve » ou « refuse »
+  // (routes/agenda.ts). Une absence refusée n'est plus modifiable et garde son motif : elle est purgée 30 jours après
+  // la décision (purge.ts), le temps que son auteur la voie.
   statutAbsence    String?  @map("statut_absence") @db.VarChar(10)
+  absenceMotifRefus String? @map("absence_motif_refus") @db.VarChar(200) // motif facultatif saisi par qui refuse
+  absenceDecideLe  DateTime? @map("absence_decide_le") @db.Timestamptz(6) // approuvée ou refusée le
   invitations      InvitationAgenda[]
-  affectations     AffectationAgenda[]
-  messages         MessageAgenda[]
-  // créneau ouvert : null = événement normal ; posé = nombre de personnes attendues, qui le prennent elles-mêmes
-  // (POST /api/agenda/:id/prendre) tant que les places ne sont pas toutes prises
-  placesMax        Int?     @map("places_max")
-  // brouillon | confirme, ignoré pour un événement perso : un brouillon ne se voit que par qui peut le modifier
-  // (agenda-regles.ts, voit()) — la direction publie, les agents se positionnent
-  statut           String   @default("confirme") @db.VarChar(10)
   creeLe           DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
   majLe            DateTime @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
@@ -57,37 +52,6 @@ model InvitationAgenda {
   @@unique([evenementId, discordId])
   @@index([discordId, evenementId])
   @@map("agenda_invitations")
-}
-
-// Prise d'un créneau ouvert : libre-service, on ne s'affecte que soi-même (prendre / quitter). Jamais une invitation
-// (réservées aux événements perso). compteId nu (sans relation Prisma), nettoyé par avantSuppressionCompte.
-model AffectationAgenda {
-  id          Int             @id @default(autoincrement())
-  evenementId Int             @map("evenement_id")
-  evenement   EvenementAgenda @relation(fields: [evenementId], references: [id], onDelete: Cascade)
-  compteId    Int?            @map("compte_id")
-  nom         String          @db.VarChar(100)
-  chefEquipe  Boolean         @default(false) @map("chef_equipe") // un seul par événement, revalidé côté serveur
-  prisLe      DateTime        @default(now()) @map("pris_le") @db.Timestamptz(6)
-
-  @@unique([evenementId, compteId])
-  @@index([compteId])
-  @@map("agenda_affectations")
-}
-
-// Fil de messages d'un événement partagé : questions et consignes de l'équipe, lisibles par qui voit l'événement.
-// compteId nu ; à la suppression du compte le message reste, sans son nom (avantSuppressionCompte).
-model MessageAgenda {
-  id          Int             @id @default(autoincrement())
-  evenementId Int             @map("evenement_id")
-  evenement   EvenementAgenda @relation(fields: [evenementId], references: [id], onDelete: Cascade)
-  compteId    Int?            @map("compte_id")
-  auteurNom   String          @default("") @map("auteur_nom") @db.VarChar(100)
-  texte       String          @db.VarChar(500)
-  creeLe      DateTime        @default(now()) @map("cree_le") @db.Timestamptz(6)
-
-  @@index([evenementId, creeLe])
-  @@map("agenda_messages")
 }
 
 // Types d'événements de l'agenda : simple classement (nom, couleur), gérés par la permission « agenda-types »

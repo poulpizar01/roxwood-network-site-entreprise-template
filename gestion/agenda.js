@@ -356,7 +356,7 @@ grilleAgenda.addEventListener("keydown", ev => {
   if (el && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); ouvrirEvenementExistant(el.dataset.id); }
 });
 
-// ---- Mon planning : tout ce qui me concerne — mes événements, créneaux pris ou à prendre — sur deux semaines,
+// ---- Mon planning : tout ce qui me concerne — mes événements et mes absences — sur deux semaines,
 // indépendant de la période choisie pour le calendrier. Vue par défaut d'un compte sans droit de gestion de l'agenda
 // (aucun droit de création au-delà de « perso »). ----
 let PLANNING_EVENEMENTS = [];
@@ -380,9 +380,8 @@ document.getElementById("agenda-onglets").addEventListener("click", e => {
   activerOngletAgenda(b.dataset.agendaOnglet);
 });
 
-// « mien » au sens de Mon planning : un événement personnel ou un créneau déjà pris. Un créneau encore à pourvoir
-// (pas pris) n'est pas « mien » : il apparaît dans sa propre section, « Créneaux que vous pouvez prendre ».
-const estMienPourPlanning = e => e.mien || e.deja_pris || (e.affectations || []).some(a => a.moi);
+// « mien » au sens de Mon planning : ce que j'ai créé ou ce pour quoi j'ai été invité.
+const estMienPourPlanning = e => e.mien;
 
 async function chargerMonPlanning() {
   const zone = document.getElementById("panneau-mon-planning");
@@ -399,11 +398,11 @@ async function chargerMonPlanning() {
 
 // sous-titre d'une ligne : les notes, sinon le destinataire, sinon le type
 const planningSousTitre = e => e.notes || e.destinataire || (typeDe(e)?.nom ?? "");
-function planningLigne(e, bouton) {
-  return `<li class="planning-item" data-id="${e.id}" tabindex="${bouton ? -1 : 0}" role="${bouton ? "listitem" : "button"}">
+function planningLigne(e) {
+  return `<li class="planning-item" data-id="${e.id}" tabindex="0" role="button">
     <span class="planning-heure">${e.heure_debut ? echapper(e.heure_debut) : "Toute la journée"}</span>
     <span class="planning-corps"><strong>${echapper(e.titre)}</strong><small>${echapper(planningSousTitre(e))}</small></span>
-    ${bouton || '<span class="planning-chevron" aria-hidden="true">' + fleche("droite") + "</span>"}
+    <span class="planning-chevron" aria-hidden="true">${fleche("droite")}</span>
   </li>`;
 }
 function dessinerMonPlanning() {
@@ -414,7 +413,6 @@ function dessinerMonPlanning() {
   const prochaine = mines[0] || null;
   const parJour = new Map();
   for (const e of mines.slice(1)) { if (!parJour.has(e.jour)) parJour.set(e.jour, []); parJour.get(e.jour).push(e); }
-  const creneaux = PLANNING_EVENEMENTS.filter(e => e.peut_prendre);
 
   const blocs = [];
   if (prochaine) {
@@ -430,19 +428,9 @@ function dessinerMonPlanning() {
   for (const [jour, evts] of parJour) {
     blocs.push(`<div class="planning-jour"><h3>${echapper(jourLong(new Date(jour + "T12:00:00")))}</h3><ul>${evts.map(e => planningLigne(e)).join("")}</ul></div>`);
   }
-  if (creneaux.length) {
-    blocs.push(`<div class="planning-jour"><h3>Créneaux que vous pouvez prendre · ${creneaux.length}</h3><ul>${creneaux.map(e => planningLigne(e,
-      `<button type="button" class="btn btn-or btn-petit" data-planning-prendre="${e.id}">Prendre</button>`)).join("")}</ul></div>`);
-  }
   zone.innerHTML = blocs.join("");
 }
 document.getElementById("panneau-mon-planning").addEventListener("click", async e => {
-  const prendre = e.target.closest("[data-planning-prendre]");
-  if (prendre) {
-    try { await socle.api(`/api/agenda/${prendre.dataset.planningPrendre}/prendre`, { method: "POST", body: {} }); gestion.notifier("Créneau pris ✓"); await chargerMonPlanning(); }
-    catch (err) { gestion.message("zone-message-agenda", err.message); }
-    return;
-  }
   const id = e.target.closest("[data-planning-ouvrir]")?.dataset.planningOuvrir || e.target.closest(".planning-item")?.dataset.id;
   if (!id) return;
   const ev = PLANNING_EVENEMENTS.find(x => String(x.id) === String(id));
@@ -629,7 +617,7 @@ let EVENEMENT_MODE = "evenement";
 let EVENEMENT_CREATION = true;
 const modeEvenementChoisi = () => EVENEMENT_MODE;
 
-// quatre sortes à la création : remplace « Partager avec », les places et la bascule Absence — chaque
+// trois sortes à la création : remplace « Partager avec » et la bascule Absence — chaque
 // sorte ne montre que ses champs utiles. En modification, la sorte d'origine ne se change plus (comme avant), tout
 // le formulaire reste visible (voir ESTEDITION dans remplirModaleEvenement).
 let SORTE_EVENEMENT = "rdv";
@@ -640,7 +628,7 @@ function majSorteEvenement() {
   document.querySelectorAll("#evenement-sortes [data-sorte]").forEach(b => { const actif = b.dataset.sorte === sorte; b.classList.toggle("actif", actif); b.setAttribute("aria-pressed", String(actif)); });
   document.getElementById("champ-evenement-titre").classList.toggle("cache", absence);
   document.getElementById("champ-evenement-classement").classList.toggle("cache", absence);
-  if (!absence) document.getElementById("evenement-destination").value = sorte === "creneau" ? "tous" : "perso";
+  if (!absence) document.getElementById("evenement-destination").value = "perso";
   document.getElementById("champ-evenement-multi-jours").classList.toggle("cache", absence);
   document.getElementById("champ-evenement-jour-fin").classList.toggle("cache", !absence && !document.getElementById("evenement-multi-jours").checked);
   document.getElementById("label-evenement-jour").textContent = absence || document.getElementById("evenement-multi-jours").checked ? "Du" : "Date";
@@ -648,7 +636,6 @@ function majSorteEvenement() {
   document.getElementById("bouton-plus-options").classList.toggle("cache", absence);
   if (absence) ouvrirPlusOptions(true);
   majChampHeures();
-  majChampCreneau();
   majChampInvites();
   majBoutonsPiedCreation();
 }
@@ -671,11 +658,9 @@ document.getElementById("evenement-multi-jours").addEventListener("change", e =>
   if (!e.target.checked) document.getElementById("evenement-jour-fin").value = document.getElementById("evenement-jour").value;
   majChampHeures();
 });
-// pied de la fenêtre à la création : libellé du bouton principal selon la sorte, « Enregistrer en
-// brouillon » en secondaire pour un créneau d'équipe seulement.
+// pied de la fenêtre à la création : « Ajouter » (jamais un synonyme selon la sorte)
 function majBoutonsPiedCreation() {
   document.getElementById("bouton-enregistrer-evenement").textContent = "Ajouter";
-  document.getElementById("bouton-enregistrer-brouillon").classList.toggle("cache", SORTE_EVENEMENT !== "creneau");
 }
 
 const dateCourteFr = iso => new Date(iso + "T00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
@@ -685,56 +670,11 @@ const ETATS_ABSENCE = {
   refuse: ["Refusée", "puce-off"],
 };
 
-// places à pourvoir (créneau ouvert) : à la création, liées à la seule sorte « Créneau d'équipe »
-// (indépendant d'un changement de « Partager avec » sous Plus d'options) ; en modification, à tout événement partagé.
-function majChampCreneau() {
-  const perso = document.getElementById("evenement-destination").value === "perso";
-  const cache = EVENEMENT_CREATION ? SORTE_EVENEMENT !== "creneau" : perso;
-  document.getElementById("champ-evenement-creneau").classList.toggle("cache", cache);
-  document.getElementById("champ-evenement-statut").classList.toggle("cache", EVENEMENT_CREATION || cache);
-}
-
-// ---- créneau ouvert : agents affectés, chef d'équipe, prendre/quitter ----
-function dessinerCreneauEvenement(e) {
-  const section = document.getElementById("section-evenement-affectations");
-  const visible = !!(e && e.places_max !== null && e.places_max !== undefined);
-  section.classList.toggle("cache", !visible);
-  if (!visible) return;
-  const affectations = e.affectations || [];
-  document.getElementById("liste-evenement-affectations").innerHTML = affectations.length
-    ? affectations.map(a => `<li><span>${echapper(a.nom)}${a.chef_equipe ? " <small>chef d’équipe</small>" : ""}</span>
-        ${AGENDA_EVENEMENT_MODIFIABLE && !a.chef_equipe ? `<button type="button" class="btn btn-fantome" data-chef-affectation="${a.id}">Nommer chef d’équipe</button>` : ""}</li>`).join("")
-    : `<li class="champ-aide">Personne pour le moment, sur ${e.places_max} place${e.places_max > 1 ? "s" : ""}.</li>`;
-  document.getElementById("actions-evenement-creneau").innerHTML = e.deja_pris
-    ? `<button type="button" class="btn btn-fantome" id="bouton-quitter-creneau">Quitter ce créneau</button>`
-    : e.peut_prendre ? `<button type="button" class="btn btn-or" id="bouton-prendre-creneau">Prendre ce créneau</button>` : "";
-}
-document.getElementById("liste-evenement-affectations").addEventListener("click", async ev => {
-  const b = ev.target.closest("[data-chef-affectation]");
-  if (!b) return;
-  const id = document.getElementById("evenement-id").value;
-  try {
-    await socle.api(`/api/agenda/${id}/affectations/${b.dataset.chefAffectation}/chef`, { method: "PUT", body: { chef_equipe: true } });
-    await chargerAgenda(false);
-    ouvrirEvenementExistant(id);
-  } catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
-});
-document.getElementById("actions-evenement-creneau").addEventListener("click", async ev => {
-  const id = document.getElementById("evenement-id").value;
-  if (ev.target.closest("#bouton-prendre-creneau")) {
-    try { await socle.api(`/api/agenda/${id}/prendre`, { method: "POST", body: {} }); gestion.notifier("Créneau pris ✓"); await chargerAgenda(false); ouvrirEvenementExistant(id); }
-    catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
-  } else if (ev.target.closest("#bouton-quitter-creneau")) {
-    try { await socle.api(`/api/agenda/${id}/quitter`, { method: "POST", body: {} }); gestion.notifier("Créneau quitté ✓"); await chargerAgenda(false); ouvrirEvenementExistant(id); }
-    catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
-  }
-});
-
 let OUVREUR_EVENEMENT = null;
 let AGENDA_EVENEMENT_MODIFIABLE = true;
 // fiche en lecture d'abord : un événement existant s'ouvre en lecture, « Modifier » bascule sur les
 // champs ; une création va directement au formulaire (rien à lire). EVENEMENT_OPTIONS_COURANTES permet de redessiner
-// sans rouvrir (bouton Modifier, après Prendre/Quitter un créneau).
+// sans rouvrir (bouton Modifier).
 let EVENEMENT_LECTURE = false;
 let EVENEMENT_OPTIONS_COURANTES = null;
 
@@ -746,7 +686,6 @@ function dessinerLectureEvenement(e) {
     const [libelle, classe] = ETATS_ABSENCE[e.statut_absence] || ETATS_ABSENCE.en_attente;
     puces.push(`<span class="puce ${classe}">${echapper(libelle)}</span>`);
   } else {
-    if (e.places_max !== null && e.places_max !== undefined) puces.push(`<span class="puce ${e.statut === "brouillon" ? "puce-neutre" : "puce-ok"}">${e.statut === "brouillon" ? "Brouillon" : "Confirmée"}</span>`);
     if (typeDe(e)) puces.push(`<span class="puce" style="${styleType(e)}background:var(--vis-fond);color:var(--vis);">${echapper(typeDe(e).nom)}</span>`);
   }
   const periode = e.jour === e.jour_fin ? dateCourteFr(e.jour) : `${dateCourteFr(e.jour)} → ${dateCourteFr(e.jour_fin)}`;
@@ -756,56 +695,6 @@ function dessinerLectureEvenement(e) {
     ${e.notes ? `<p class="contrat-notes">${echapper(e.notes)}</p>` : ""}
   `;
 }
-
-// ---- fil de messages d'un événement partagé (lecture seule d'abord : on lit, puis on écrit si on est concerné) ----
-let MESSAGES_EVENEMENT_ID = null;
-function dessinerMessages(liste, e) {
-  document.getElementById("liste-evenement-messages").innerHTML = liste.length
-    ? liste.map(m => `<li class="agenda-message${m.mien ? " agenda-message--mien" : ""}">
-        <div class="agenda-message-entete"><strong>${echapper(m.auteur || "Ancien compte")}</strong><time datetime="${echapper(m.cree_le)}">${echapper(new Date(m.cree_le).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}</time>
-          ${m.mien || e.modifiable ? `<button type="button" class="agenda-message-retirer" data-retirer-message="${Number(m.id)}" aria-label="Retirer ce message de ${echapper(m.auteur || "cette personne")}"><svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>` : ""}</div>
-        <p>${echapper(m.texte)}</p></li>`).join("")
-    : '<li class="champ-aide">Aucun message pour le moment.</li>';
-}
-async function dessinerMessagesEvenement(e) {
-  const section = document.getElementById("section-evenement-messages");
-  const visible = !!e && !e.absence && (e.destination !== "perso" || (e.invites || []).length > 0);
-  section.classList.toggle("cache", !visible);
-  MESSAGES_EVENEMENT_ID = visible ? e.id : null;
-  if (!visible) return;
-  document.getElementById("liste-evenement-messages").innerHTML = '<li class="champ-aide">Chargement…</li>';
-  document.getElementById("saisie-evenement-message").classList.add("cache");
-  try {
-    const r = await socle.api(`/api/agenda/${e.id}/messages`);
-    if (MESSAGES_EVENEMENT_ID !== e.id) return;   // la fenêtre a changé d'événement entre-temps
-    dessinerMessages(r.messages, e);
-    document.getElementById("saisie-evenement-message").classList.toggle("cache", !r.peut_ecrire);
-  } catch (err) {
-    document.getElementById("liste-evenement-messages").innerHTML = `<li class="champ-aide">Impossible de charger les messages : ${echapper(err.message)}</li>`;
-  }
-}
-document.getElementById("bouton-envoyer-message").addEventListener("click", async () => {
-  const champ = document.getElementById("evenement-message-texte"), texte = champ.value.trim();
-  if (!texte || !MESSAGES_EVENEMENT_ID) return;
-  const id = MESSAGES_EVENEMENT_ID;
-  try {
-    await socle.api(`/api/agenda/${id}/messages`, { method: "POST", body: { texte } });
-    champ.value = "";
-    gestion.message("zone-message-modale-evenement", "");
-    const e = CACHE_EVENEMENTS.find(x => String(x.id) === String(id));
-    if (e) dessinerMessagesEvenement(e);
-  } catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
-});
-document.getElementById("liste-evenement-messages").addEventListener("click", async ev => {
-  const b = ev.target.closest("[data-retirer-message]");
-  if (!b || !MESSAGES_EVENEMENT_ID) return;
-  const id = MESSAGES_EVENEMENT_ID;
-  try {
-    await socle.api(`/api/agenda/${id}/messages/${b.dataset.retirerMessage}`, { method: "DELETE" });
-    const e = CACHE_EVENEMENTS.find(x => String(x.id) === String(id));
-    if (e) dessinerMessagesEvenement(e);
-  } catch (err) { gestion.message("zone-message-modale-evenement", err.message); }
-});
 
 function ouvrirModaleEvenement(options) {
   EVENEMENT_OPTIONS_COURANTES = options || {};
@@ -860,9 +749,9 @@ function remplirModaleEvenement() {
   ameliorerSelect(selectType, v => AGENDA_TYPES.find(t => String(t.id) === v)?.couleur || COULEUR_SANS_TYPE);
   document.getElementById("champ-evenement-type").classList.toggle("cache", !AGENDA_TYPES.length);
 
-  // Partage : les choix proposés sont limités aux droits de ce compte. À la création, déduit de la sorte
-  // B) — « tous » pour un créneau d'équipe, « perso » sinon ; changeable ensuite sous Plus d'options.
-  const destination = e ? valeurDestination(e) : (SORTE_EVENEMENT === "creneau" ? "tous" : "perso");
+  // Partage : les choix proposés sont limités aux droits de ce compte. À la création, « perso » ; changeable
+  // ensuite sous Plus d'options.
+  const destination = e ? valeurDestination(e) : "perso";
   const choix = [...AGENDA_DROITS.destinations];
   if (!choix.some(c => c.valeur === destination)) choix.push({ valeur: destination, libelle: e?.destinataire || destination });
   const selectDest = document.getElementById("evenement-destination");
@@ -881,12 +770,6 @@ function remplirModaleEvenement() {
   dessinerInvitesSelectionnes();
   majChampInvites();
 
-  // créneau ouvert : statut brouillon/confirmé, places à pourvoir
-  document.querySelector(`[name="evenement-statut"][value="${e?.statut === "brouillon" ? "brouillon" : "confirme"}"]`).checked = true;
-  document.getElementById("evenement-places").value = e && e.places_max !== null && e.places_max !== undefined ? e.places_max : "";
-  majChampCreneau();
-  dessinerCreneauEvenement(e);
-
   // bandeau d'état d'une absence existante : qui, quand, motif et statut en un coup d'œil (pas qu'un formulaire grisé)
   const bandeau = document.getElementById("evenement-absence-bandeau");
   bandeau.classList.toggle("cache", !estAbsence);
@@ -896,8 +779,10 @@ function remplirModaleEvenement() {
     document.getElementById("evenement-absence-pastille").textContent = libelleEtat;
     const periode = e.jour === e.jour_fin ? `le ${dateCourteFr(e.jour)}` : `du ${dateCourteFr(e.jour)} au ${dateCourteFr(e.jour_fin)}`;
     const typeNom = typeDe(e)?.nom;
-    document.getElementById("evenement-absence-resume").textContent = `${e.auteur || "Cette personne"} · ${periode}${typeNom ? ` · ${typeNom}` : ""}`;
+    document.getElementById("evenement-absence-resume").textContent = `${e.auteur || "Cette personne"} · ${periode}${typeNom ? ` · ${typeNom}` : ""}${e.absence_motif_refus ? ` · ${e.absence_motif_refus}` : ""}`;
   }
+  document.getElementById("champ-refus-absence-motif").classList.toggle("cache", !(e && e.peut_valider));
+  document.getElementById("refus-absence-motif").value = "";
 
   // origine : qui l'a ajouté, qui a été invité et comment les personnes ont été prévenues
   const origine = document.getElementById("evenement-origine");
@@ -918,15 +803,14 @@ function remplirModaleEvenement() {
   // fiche en lecture : un événement existant s'affiche d'abord en lecture ; « Modifier » (si le droit
   // existe) bascule sur les champs. Une création n'a rien à lire, elle va directement au formulaire.
   if (EVENEMENT_LECTURE) dessinerLectureEvenement(e);
-  dessinerMessagesEvenement(EVENEMENT_LECTURE ? e : null);
   document.getElementById("evenement-lecture").classList.toggle("cache", !EVENEMENT_LECTURE);
   document.getElementById("evenement-champs-edition").classList.toggle("cache", EVENEMENT_LECTURE);
   document.getElementById("bouton-modifier-evenement").classList.toggle("cache", !(EVENEMENT_LECTURE && modifiable));
   document.getElementById("bouton-enregistrer-evenement").classList.toggle("cache", EVENEMENT_LECTURE || !modifiable);
   if (estEdition) document.getElementById("bouton-enregistrer-evenement").textContent = "Enregistrer";
   else majBoutonsPiedCreation();
-  document.getElementById("bouton-enregistrer-brouillon").classList.toggle("cache", estEdition || EVENEMENT_LECTURE || !modifiable || SORTE_EVENEMENT !== "creneau");
   document.getElementById("bouton-supprimer-evenement").classList.toggle("cache", EVENEMENT_LECTURE || !estEdition || !modifiable);
+  if (e && e.peut_valider) document.getElementById("refus-absence-motif").disabled = false;   // la personne qui valide peut toujours écrire un motif de refus
   document.getElementById("bouton-approuver-absence").classList.toggle("cache", !(e && e.peut_valider));
   document.getElementById("bouton-refuser-absence").classList.toggle("cache", !(e && e.peut_valider));
   document.querySelectorAll("#formulaire-evenement .champ-erreur").forEach(p => p.classList.add("cache"));
@@ -955,7 +839,7 @@ function majChampHeures() {
 }
 document.getElementById("evenement-jour").addEventListener("input", majChampHeures);
 document.getElementById("evenement-jour-fin").addEventListener("input", majChampHeures);
-document.getElementById("evenement-destination").addEventListener("change", () => { majChampInvites(); majChampCreneau(); });
+document.getElementById("evenement-destination").addEventListener("change", majChampInvites);
 const rechercheInvites = document.getElementById("recherche-evenement-invites");
 rechercheInvites.addEventListener("focus", () => {
   if (AGENDA_DROITS.peut_inviter && !AGENDA_ERREUR_PERSONNES) afficherSuggestionsInvites();
@@ -1086,14 +970,6 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
     const dest = document.getElementById("evenement-destination").value || "perso";
     payload.destination = dest.startsWith("grade:") ? "grade" : dest;
     if (dest.startsWith("grade:")) payload.destination_grade = dest.slice(6);
-    if (dest !== "perso") {
-      // à la création, pas de radio : le bouton cliqué dit le statut (« Enregistrer en brouillon »)
-      payload.statut = EVENEMENT_CREATION
-        ? (ev.submitter?.id === "bouton-enregistrer-brouillon" ? "brouillon" : "confirme")
-        : document.querySelector('[name="evenement-statut"]:checked').value;
-      const places = document.getElementById("evenement-places").value;
-      payload.places_max = places === "" ? null : Number(places);
-    }
     invitesEmployes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "employe").map(p => Number(p.id));
     const invitationsExistantes = AGENDA_INVITES_SELECTIONNES.filter(p => p.source === "invitation").map(p => Number(p.invitation_id));
     if (dest === "perso") {
@@ -1155,11 +1031,13 @@ document.getElementById("bouton-supprimer-evenement").addEventListener("click", 
 async function validerAbsence(approuve) {
   const id = document.getElementById("evenement-id").value;
   if (!id) return;
-  if (!approuve && !await gestion.confirmer("L’absence est retirée de l’agenda ; son auteur n’en est pas averti sur Discord.", "Refuser cette absence ?", "Refuser l’absence", { danger: true })) return;
+  const motif = document.getElementById("refus-absence-motif").value.trim();
+  if (!approuve && !await gestion.confirmer("L’auteur en est prévenu sur Discord, avec le motif indiqué s’il y en a un. L’absence reste visible un mois puis disparaît.", "Refuser cette absence ?", "Refuser l’absence", { danger: true })) return;
   try {
-    await socle.api(`/api/agenda/${id}/absence`, { method: "POST", body: { approuve } });
+    const reponse = await socle.api(`/api/agenda/${id}/absence`, { method: "POST", body: { approuve, motif: approuve ? undefined : motif } });
     fermerModaleEvenement();
     gestion.notifier(approuve ? "Absence approuvée ✓" : "Absence refusée ✓");
+    if (reponse?.avertissement) gestion.message("zone-message-agenda", reponse.avertissement);
     chargerAgenda(false);
   } catch (e) {
     gestion.message("zone-message-modale-evenement", e.message);
@@ -1299,11 +1177,9 @@ gestion.coque("agenda").then(async moi => {
 });
 
 // ---------------------------------------------------------------------------
-// ---- vue Planning de l'équipe : pivot des créneaux ouverts (places_max posé) et des absences de la
-// période affichée, une ligne par agent affecté ou absent, une ligne « Ouverts » pour les créneaux pas encore
-// complets, et une ligne par agent actif sans rien cette semaine (pastille « Disponible »). Construite depuis
-// CACHE_EVENEMENTS (même données que la grille) et l'effectif actif (rh-voir, chargé une fois, mis en cache),
-// rien d'autre à charger. ----
+// ---- vue Planning de l'équipe : une ligne par employé actif, avec ses absences et les événements où il est invité
+// sur la période affichée (pastille « Disponible » s'il n'a rien). Construite depuis CACHE_EVENEMENTS (mêmes données
+// que la grille) et l'effectif actif (rh-voir, chargé une fois, mis en cache), rien d'autre à charger. ----
 let ROSTER_ACTIFS = null;   // noms complets des employés actifs (rh-voir seulement), chargé une fois
 async function rosterActifs() {
   if (ROSTER_ACTIFS) return ROSTER_ACTIFS;
@@ -1317,18 +1193,16 @@ async function rendreParMembre() {
   const jours = joursDeLaPeriode();
   const debutIso = formaterDateISO(jours[0]), finIso = formaterDateISO(jours[jours.length - 1]);
   const dansPeriode = e => e.jour <= finIso && e.jour_fin >= debutIso;
-  const creneaux = CACHE_EVENEMENTS.filter(e => e.places_max !== null && dansPeriode(e));
   const absences = CACHE_EVENEMENTS.filter(e => e.absence && e.statut_absence !== "refuse" && dansPeriode(e));
+  const reunions = CACHE_EVENEMENTS.filter(e => !e.absence && (e.invites || []).length && dansPeriode(e));
   const ajouter = (map, cle, valeur) => { if (!map.has(cle)) map.set(cle, []); map.get(cle).push(valeur); };
   const parPersonne = new Map();   // nom -> jour -> [evenement]
-  const ouverts = new Map();       // jour -> [evenement]
-  for (const e of creneaux) {
-    const iso = e.jour;   // un créneau ouvert est toujours sur un seul jour (généré par ronde, ou saisi ainsi)
-    for (const a of e.affectations || []) {
-      if (!parPersonne.has(a.nom)) parPersonne.set(a.nom, new Map());
-      ajouter(parPersonne.get(a.nom), iso, e);
+  // un événement peut courir sur plusieurs jours : une puce par jour couvert, dans la plage affichée
+  for (const e of reunions) {
+    for (const i of e.invites) {
+      if (!parPersonne.has(i.nom)) parPersonne.set(i.nom, new Map());
+      for (const d of jours) { const iso = formaterDateISO(d); if (e.jour <= iso && e.jour_fin >= iso) ajouter(parPersonne.get(i.nom), iso, e); }
     }
-    if ((e.affectations || []).length < e.places_max) ajouter(ouverts, iso, e);
   }
   // une absence peut courir sur plusieurs jours : une puce par jour couvert, dans la plage affichée
   for (const e of absences) {
@@ -1339,16 +1213,15 @@ async function rendreParMembre() {
   for (const nom of roster) if (!parPersonne.has(nom)) parPersonne.set(nom, new Map());
   const puce = e => `<span class="agenda-mois-evenement${classeAbsence(e)}" style="${styleType(e)}" data-id="${e.id}" tabindex="0" role="button" aria-label="${echapper(descriptionEvenement(e))}">
     ${e.heure_debut ? `<span class="agenda-mois-heure">${e.heure_debut}</span> ` : ""}${echapper(e.titre)}</span>`;
-  const ligne = (nom, parJour, ouverte) => `<tr${ouverte ? ' class="parmembre-ouverts"' : ""}>
+  const ligne = (nom, parJour) => `<tr>
     <td data-titre><span class="demande-ligne-nom"><strong>${echapper(nom)}</strong>${parJour.size === 0 && roster.includes(nom) ? ' <span class="pastille-disponible">Disponible</span>' : ""}</span></td>
     ${jours.map(d => { const es = parJour.get(formaterDateISO(d)) || []; return `<td data-libelle="${echapper(nomCourtJour(d))} ${d.getDate()}">${es.map(puce).join("")}</td>`; }).join("")}
   </tr>`;
   const entete = document.getElementById("parmembre-entete");
-  entete.innerHTML = `<th data-titre>Agent</th>${jours.map(d => `<th>${capitaliser(nomCourtJour(d))} ${d.getDate()}</th>`).join("")}`;
+  entete.innerHTML = `<th data-titre>Employé</th>${jours.map(d => `<th>${capitaliser(nomCourtJour(d))} ${d.getDate()}</th>`).join("")}`;
   const corps = document.getElementById("parmembre-corps");
-  const lignesPersonnes = [...parPersonne.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr")).map(([nom, parJour]) => ligne(nom, parJour, false));
-  const ligneOuverts = ouverts.size ? ligne("Ouverts", ouverts, true) : "";
-  corps.innerHTML = lignesPersonnes.join("") + ligneOuverts || `<tr><td colspan="${jours.length + 1}" class="run-vide">Aucun créneau ouvert sur cette période.</td></tr>`;
+  const lignesPersonnes = [...parPersonne.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr")).map(([nom, parJour]) => ligne(nom, parJour));
+  corps.innerHTML = lignesPersonnes.join("") || `<tr><td colspan="${jours.length + 1}" class="run-vide">Aucun employé actif.</td></tr>`;
 }
 document.getElementById("parmembre-corps").addEventListener("click", e => {
   const cible = e.target.closest("[data-id]");

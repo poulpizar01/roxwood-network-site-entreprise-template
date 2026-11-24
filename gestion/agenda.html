@@ -60,16 +60,16 @@
         </div>
       </div>
 
-      <!-- Mon planning : tout ce qui me concerne (événements, créneaux pris ou à prendre) sur deux semaines,
-           indépendant de la période choisie pour le calendrier. -->
+      <!-- Mon planning : mes événements et mes absences sur deux semaines, indépendant de la période choisie
+           pour le calendrier. -->
       <div id="panneau-mon-planning" class="cache" aria-live="polite"></div>
 
-      <!-- Planning de l'équipe : qui est sur quel créneau ouvert ou en absence cette semaine, les créneaux encore
-           sans personne (ligne « Ouverts ») et les agents sans rien cette semaine (pastille « Disponible »). Pas de
-           sélecteur propre : la période est celle de l'agenda, en tête de page. Construite côté client depuis les
-           événements déjà chargés (CACHE_EVENEMENTS) et l'effectif actif (rh-voir), rien d'autre à charger. -->
+      <!-- Planning de l'équipe : une ligne par employé actif, avec ses absences et les événements où il est invité
+           sur la période affichée, et la pastille « Disponible » s'il n'a rien. Pas de sélecteur propre : la période
+           est celle de l'agenda, en tête de page. Construite côté client depuis les événements déjà chargés
+           (CACHE_EVENEMENTS) et l'effectif actif (rh-voir), rien d'autre à charger. -->
       <div id="panneau-agenda-parmembre" class="cache agenda-sous-panneau">
-        <p class="champ-aide">Créneaux, absences et disponibilités de la période affichée (statut, flèches et « Aujourd’hui » en tête de page).</p>
+        <p class="champ-aide">Absences, réunions et disponibilités de la période affichée (sélecteur, flèches et « Aujourd’hui » en tête de page).</p>
         <div id="zone-message-parmembre" role="status"></div>
         <div class="carte-table">
           <table class="table-admin" id="parmembre-table">
@@ -95,12 +95,11 @@
         <div class="cache" id="evenement-lecture"></div>
         <div id="evenement-champs-edition">
         <!-- choix à la création seulement : on dit d'abord ce qu'on ajoute, jamais changé après coup.
-             Remplace « Partager avec », les places et la bascule Absence : chaque sorte montre ses seuls champs. -->
+             Remplace « Partager avec » et la bascule Absence : chaque sorte montre ses seuls champs. -->
         <div class="champ cache" id="champ-evenement-mode">
           <div class="evenement-sortes" role="group" aria-label="Qu’ajoutez-vous ?" id="evenement-sortes">
             <button type="button" class="evenement-sorte" data-sorte="rdv" aria-pressed="false"><strong>Rendez-vous</strong><span>Pour moi seul</span></button>
             <button type="button" class="evenement-sorte" data-sorte="reunion" aria-pressed="false"><strong>Réunion</strong><span>J’invite des personnes</span></button>
-            <button type="button" class="evenement-sorte" data-sorte="creneau" aria-pressed="false"><strong>Créneau d’équipe</strong><span>Des places à pourvoir</span></button>
             <button type="button" class="evenement-sorte" data-sorte="absence" data-zone="sorte-absence" aria-pressed="false"><strong>Absence</strong><span>À faire valider</span></button>
           </div>
         </div>
@@ -134,17 +133,6 @@
           </div>
         </div>
         <p class="champ-erreur cache evenement-erreur-heures" id="erreur-evenement-heures">Heures au format 24 h (14:30) ; la fin doit être après le début.</p>
-        <div class="champ cache evenement-classement" id="champ-evenement-creneau">
-          <!-- statut confirmé/brouillon : visible en modification seulement — à la création par sorte,
-               « Enregistrer en brouillon » est un bouton du pied, pas un champ (evenement.js) -->
-          <div class="contrat-choix-options cache" id="champ-evenement-statut" role="group" aria-label="Statut">
-            <label class="contrat-option"><input type="radio" name="evenement-statut" value="confirme" checked><span><strong>Confirmé</strong><small>visible de tous ceux qui consultent</small></span></label>
-            <label class="contrat-option"><input type="radio" name="evenement-statut" value="brouillon"><span><strong>Brouillon</strong><small>visible seulement de qui peut modifier</small></span></label>
-          </div>
-          <label for="evenement-places">Places à pourvoir</label>
-          <input type="number" id="evenement-places" min="0" max="50" step="1" placeholder="Laisser vide : pas un créneau ouvert">
-          <p class="champ-aide">Posé, les agents concernés peuvent prendre eux-mêmes une place depuis l’agenda.</p>
-        </div>
         <fieldset class="champ agenda-invitations cache" id="champ-evenement-invites">
           <legend>Inviter des personnes <small>facultatif</small></legend>
           <p class="champ-aide" id="aide-evenement-invites">Les personnes invitées verront l’événement dans leur agenda et seront prévenues sur Discord. Si vous les retirez, l’événement disparaît de leur agenda et une annulation leur est envoyée si le bot est disponible. Elles ne peuvent pas répondre depuis le site.</p>
@@ -184,22 +172,11 @@
           <span class="puce" id="evenement-absence-pastille"></span>
           <span id="evenement-absence-resume"></span>
         </div>
-        <section class="tiroir-section cache" id="section-evenement-affectations" aria-labelledby="titre-evenement-affectations">
-          <h3 id="titre-evenement-affectations">Agents sur ce créneau</h3>
-          <ul class="contrat-personnes" id="liste-evenement-affectations"></ul>
-          <div class="modale-boutons" id="actions-evenement-creneau"></div>
-        </section>
         <p class="champ-aide cache" id="evenement-origine"></p>
-        <!-- fil de messages d'un événement partagé (existant, en lecture) : questions et consignes de l'équipe -->
-        <section class="tiroir-section cache" id="section-evenement-messages" aria-labelledby="titre-evenement-messages">
-          <h3 id="titre-evenement-messages">Messages</h3>
-          <ul class="agenda-messages" id="liste-evenement-messages" aria-live="polite"></ul>
-          <div class="champ agenda-message-saisie cache" id="saisie-evenement-message">
-            <label for="evenement-message-texte" class="visuellement-cache">Votre message</label>
-            <textarea id="evenement-message-texte" data-sans-confirmation maxlength="500" rows="2" placeholder="Une question, une consigne…"></textarea>
-            <button type="button" class="btn btn-or" id="bouton-envoyer-message">Envoyer</button>
-          </div>
-        </section>
+        <div class="champ cache" id="champ-refus-absence-motif">
+          <label for="refus-absence-motif">Motif du refus <small>facultatif</small></label>
+          <textarea id="refus-absence-motif" maxlength="200" rows="2" placeholder="Visible par l’auteur, y compris sur Discord"></textarea>
+        </div>
       </div>
       <div id="zone-message-modale-evenement" role="status"></div>
       <div class="evenement-pied pied-centre">
@@ -208,7 +185,6 @@
           <button type="button" class="btn btn-danger cache" id="bouton-refuser-absence">Refuser l’absence</button>
           <button type="button" class="btn btn-or cache" id="bouton-approuver-absence">Approuver l’absence</button>
           <button type="button" class="btn btn-or cache" id="bouton-modifier-evenement">Modifier</button>
-          <button type="submit" class="btn btn-fantome cache" id="bouton-enregistrer-brouillon">Enregistrer en brouillon</button>
           <button type="submit" class="btn btn-or cache" id="bouton-enregistrer-evenement">Ajouter</button>
         </div>
       </div>

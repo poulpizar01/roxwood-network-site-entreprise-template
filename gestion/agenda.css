@@ -389,9 +389,8 @@
   .evenement-pied .btn { min-height: 44px; }
 }
 
-/* vue Planning de l’équipe : ligne « Ouverts » distinguée, puces d'événement comme dans la vue Mois,
-   pastille « Disponible » sur un agent actif sans rien cette semaine */
-.parmembre-ouverts td { background: var(--bg3); }
+/* vue Planning de l’équipe : puces d'événement comme dans la vue Mois,
+   pastille « Disponible » sur un employé actif sans rien cette semaine */
 #parmembre-table .agenda-mois-evenement { display: block; margin-bottom: 4px; }
 #parmembre-table td:not([data-titre]) { vertical-align: top; }
 /* colonnes de jours égales (sinon la largeur suit le contenu et les jours ne s'alignent plus d'une ligne à l'autre) */
@@ -399,21 +398,3 @@
 #parmembre-table:not(.en-cartes) { table-layout: fixed; min-width: 860px; }
 #parmembre-table th:first-child { width: 190px; }
 .pastille-disponible { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: var(--fs-1); font-weight: 600; color: var(--ok); background: var(--ok-soft); }
-
-/* ---- fil de messages d'un événement partagé ---- */
-.agenda-messages { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; }
-.agenda-message { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); }
-.agenda-message--mien { border-color: rgba({{couleur_rvb}}, 0.4); }
-.agenda-message-entete { display: flex; align-items: center; gap: 8px; font-size: var(--fs-2); color: var(--text-muted); }
-.agenda-message-entete strong { color: var(--text); font-size: var(--fs-3); }
-.agenda-message-entete time { margin-right: auto; }
-.agenda-message-retirer { display: inline-grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: pointer; }
-.agenda-message-retirer:hover, .agenda-message-retirer:focus-visible { color: var(--erreur); background: rgba({{couleur_rvb}}, 0.1); }
-.agenda-message p { margin: 4px 0 0; font-size: var(--fs-3); white-space: pre-wrap; overflow-wrap: anywhere; }
-.agenda-message-saisie { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.agenda-message-saisie textarea { width: 100%; }
-
-/* agents d'un créneau : nom sur une ligne, action à droite (la liste réutilise .contrat-personnes, trop étroite ici) */
-#liste-evenement-affectations { display: flex; flex-direction: column; gap: 6px; list-style: none; margin: 0 0 10px; padding: 0; }
-#liste-evenement-affectations li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
-#liste-evenement-affectations li > span { white-space: nowrap; }
