@@ -83,12 +83,14 @@ export const historiqueDe = (employeId: number) =>
 const PIECE_JOURS = 90;
 // Pose (ou retire, `nouvelle` nul) la pièce. L'image remplacée n'est pas effacée ici : elle part dans la file de
 // nettoyage du stockage (images-retirees.ts) dans la même transaction, jamais un fichier en ligne sans trace en base.
-export async function changerPieceIdentite(id: number, nouvelle: ImageEnregistree | null, auteur: string, texteHistorique?: string): Promise<void> {
+export async function changerPieceIdentite(id: number, nouvelle: ImageEnregistree | null, auteur: string, texteHistorique?: string, seulementSiParti?: Date): Promise<void> {
   await prisma.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'piece-identite:' + id}))`;
-    const avant = await tx.employe.findUnique({ where: { id }, select: { pieceIdentiteCle: true, pieceIdentiteUrl: true, pieceIdentiteCleMini: true, pieceIdentiteUrlMini: true } });
+    const avant = await tx.employe.findUnique({ where: { id }, select: { statut: true, dateDepart: true, pieceIdentiteCle: true, pieceIdentiteUrl: true, pieceIdentiteCleMini: true, pieceIdentiteUrlMini: true } });
     if (!avant) throw new Refus('Employé introuvable.', 404);
     if (!nouvelle && !avant.pieceIdentiteCle) return;
+    // purge : l'employé a pu être réintégré entre la lecture de la liste et ce verrou
+    if (seulementSiParti && !(avant.statut === 'inactif' && avant.dateDepart && avant.dateDepart < seulementSiParti)) return;
     await tx.employe.update({ where: { id }, data: nouvelle
       ? { pieceIdentiteCle: nouvelle.cle, pieceIdentiteUrl: nouvelle.url, pieceIdentiteCleMini: nouvelle.cleMini, pieceIdentiteUrlMini: nouvelle.urlMini }
       : { pieceIdentiteCle: null, pieceIdentiteUrl: null, pieceIdentiteCleMini: null, pieceIdentiteUrlMini: null } });
@@ -101,8 +103,13 @@ export async function changerPieceIdentite(id: number, nouvelle: ImageEnregistre
 export async function purgerPiecesIdentite(): Promise<number> {
   const limite = new Date(Date.now() - PIECE_JOURS * 24 * 3600e3);
   const fiches = await prisma.employe.findMany({ where: { statut: 'inactif', dateDepart: { lt: limite }, pieceIdentiteCle: { not: null } }, select: { id: true } });
-  for (const f of fiches) await changerPieceIdentite(f.id, null, 'Automatique', `Pièce d’identité effacée (${PIECE_JOURS} jours après le départ)`);
-  return fiches.length;
+  let effacees = 0;
+  for (const f of fiches) {
+    // une fiche en échec ne bloque ni les autres, ni le reste de la purge du jour
+    try { await changerPieceIdentite(f.id, null, 'Automatique', `Pièce d’identité effacée (${PIECE_JOURS} jours après le départ)`, limite); effacees++; }
+    catch (e) { console.error('[purge] pièce d’identité', f.id, e); }
+  }
+  return effacees;
 }
 
 // Fiche de son propre compte (Mon compte) : téléphone et RIB modifiables par l'employé lui-même — seule exception à
@@ -122,7 +129,12 @@ export async function definirMaFiche(discordId: string | null | undefined, b: Re
   const data: { telephone?: string; rib?: string } = {};
   if (b.telephone !== undefined) data.telephone = texte(b.telephone, 30);
   if (b.rib !== undefined) data.rib = texte(b.rib, 60);
-  if (Object.keys(data).length) await prisma.employe.update({ where: { id: e.id }, data });
+  if (Object.keys(data).length) {
+    await prisma.$transaction(async tx => {
+      await tx.employe.update({ where: { id: e.id }, data });
+      await consignerHistorique(tx, e.id, nomComplet(e), lignesHistorique(e, data));
+    });
+  }
 }
 
 // ordre d'affichage : actifs d'abord, puis par grade (position dans la page Grades), puis par nom

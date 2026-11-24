@@ -96,7 +96,9 @@ rh.get('/api/rh/employes/:id', ...voir, async (req, res) => {
 rh.get('/api/rh/employes/:id/historique', ...voir, traiter(async (req, res) => {
   const id = intParam(req, 'id');
   if (!await prisma.employe.count({ where: { id } })) throw new Refus('Employé introuvable.', 404);
-  res.json({ historique: await historiqueDe(id) });
+  // « pièce » et « contact » (téléphone, RIB) ne se lisent qu'avec le droit de voir ces données elles-mêmes
+  const droits = droitsRh(req.compte);
+  res.json({ historique: (await historiqueDe(id)).filter(h => (h.type !== 'piece' || droits.has('piece-voir')) && (h.type !== 'contact' || droits.has('sensible-voir'))) });
 }));
 
 // pièce d'identité : rh-piece, sur une fiche sous son grade ; la fiche est contrôlée avant de traiter l'image
@@ -107,7 +109,11 @@ rh.post('/api/rh/employes/:id/piece-identite', ...voir, exiger('piece', 'Vous n�
   const image = await enregistrerImage('identites', req.file);
   // échec de l'enregistrement : le fichier tout juste déposé est retiré (jamais un fichier sans trace en base)
   try { await changerPieceIdentite(intParam(req, 'id'), image, nomActeur(req)); }
-  catch (e) { await retirerImage(image).catch(() => {}); throw e; }
+  catch (e) {
+    // retrait impossible (stockage injoignable) : la file de nettoyage le réessaiera, jamais une pièce en ligne sans trace en base
+    await retirerImage(image).catch(() => prisma.imageRetiree.create({ data: { cle: image.cle, url: image.url, cleMini: image.cleMini, urlMini: image.urlMini } }).catch(() => {}));
+    throw e;
+  }
   res.json({ ok: true });
 }));
 

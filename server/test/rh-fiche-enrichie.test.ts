@@ -85,6 +85,17 @@ test('la pièce d’un employé parti depuis plus de 90 jours est effacée, pas 
   assert.match((await historiqueDe(ancien.id))[0].texte, /effacée \(90 jours/);
 });
 
+test('une fiche réintégrée entre la lecture et le verrou garde sa pièce (garde de la purge)', async () => {
+  const limite = new Date(Date.now() - 90 * 24 * 3600e3);
+  const f = await creer('zz-test-h8', { statut: 'actif' });
+  await changerPieceIdentite(f.id, image('g'), 'Testeur');
+  await changerPieceIdentite(f.id, null, 'Automatique', 'x', limite);   // fiche active : la garde refuse
+  assert.ok((await prisma.employe.findUniqueOrThrow({ where: { id: f.id } })).pieceIdentiteUrl);
+  await prisma.employe.update({ where: { id: f.id }, data: { statut: 'inactif' } });   // inactive mais sans date de départ : jamais purgée
+  await purgerPiecesIdentite();
+  assert.ok((await prisma.employe.findUniqueOrThrow({ where: { id: f.id } })).pieceIdentiteUrl);
+});
+
 test('l’adresse de la pièce n’est envoyée qu’avec rh-piece-voir', async () => {
   const f = await creer('zz-test-h6');
   await changerPieceIdentite(f.id, image('f'), 'Testeur');
@@ -101,4 +112,9 @@ test('routes : sans rh-piece on ne pose ni ne retire la pièce, rh-voir lit l’
   assert.equal((await appel('lecteur', 'GET', `/api/rh/employes/${f.id}/historique`)).status, 200);
   assert.equal((await appel('piece', 'DELETE', `/api/rh/employes/${f.id}/piece-identite`)).status, 200);
   assert.equal((await appel('piece', 'GET', '/api/rh/employes/999999999/historique')).status, 404);
+  // l'historique ne révèle pas la pièce à qui ne peut pas la voir
+  await changerPieceIdentite(f.id, image('h'), 'Testeur');
+  const textes = async (profil: string) => ((await (await appel(profil, 'GET', `/api/rh/employes/${f.id}/historique`)).json()) as { historique: { texte: string }[] }).historique.map(h => h.texte);
+  assert.equal((await textes('lecteur')).some(t => t.includes('Pièce')), false);
+  assert.equal((await textes('piece')).some(t => t.includes('Pièce')), true);
 });

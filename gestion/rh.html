@@ -136,13 +136,13 @@
       <button type="button" id="fermer-modale-employe" aria-label="Fermer">✕</button>
     </div>
     <div class="compta-sous-onglets fiche-onglets cache" id="employe-onglets" role="tablist" aria-label="Rubriques de la fiche">
-      <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="employe-panneau-profil" data-fiche-onglet="profil">Profil</button>
-      <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="employe-panneau-activite" data-fiche-onglet="activite">Activité</button>
+      <button type="button" class="compta-sous-onglet actif" role="tab" id="onglet-fiche-profil" aria-selected="true" aria-controls="employe-panneau-profil" data-fiche-onglet="profil">Profil</button>
+      <button type="button" class="compta-sous-onglet" role="tab" id="onglet-fiche-activite" aria-selected="false" aria-controls="employe-panneau-activite" data-fiche-onglet="activite">Activité</button>
     </div>
     <div id="zone-message-modale-employe"></div>
     <form id="formulaire-employe" class="tiroir-form" autocomplete="off">
       <div class="tiroir-corps">
-        <div id="employe-panneau-profil" role="tabpanel">
+        <div id="employe-panneau-profil" role="tabpanel" aria-labelledby="onglet-fiche-profil">
           <div class="champ-deux">
             <div class="champ"><label for="employe-prenom">Prénom</label><input type="text" id="employe-prenom" required maxlength="60"></div>
             <div class="champ"><label for="employe-nom">Nom</label><input type="text" id="employe-nom" required maxlength="60"></div>
@@ -166,7 +166,7 @@
           <div class="champ"><label for="employe-notes">Notes internes</label><textarea id="employe-notes" rows="4" maxlength="1000" aria-describedby="aide-employe-notes"></textarea><p class="champ-aide" id="aide-employe-notes">Visibles de toute personne qui consulte les fiches, jamais de l’employé.</p></div>
           <section class="tiroir-section cache" id="employe-piece" aria-labelledby="titre-employe-piece"></section>
         </div>
-        <div id="employe-panneau-activite" role="tabpanel" class="cache">
+        <div id="employe-panneau-activite" role="tabpanel" aria-labelledby="onglet-fiche-activite" class="cache">
           <div class="champ-aide" id="employe-historique"></div>
           <p class="champ-aide cache" id="employe-service"></p>
           <section class="tiroir-section" aria-labelledby="titre-employe-journal">

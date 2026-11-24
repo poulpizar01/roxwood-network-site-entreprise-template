@@ -290,14 +290,20 @@ function dessinerPiece(f) {
     if (!fichier) return;
     const corps = new FormData(); corps.append('image', fichier);
     gestion.notifier('Envoi de la pièce d’identité…');
-    try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/piece-identite`, { method: 'POST', body: corps }); gestion.notifier('Pièce d’identité enregistrée ✓'); ouvrirFicheEmploye(FICHE_OUVERTE); }
+    try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/piece-identite`, { method: 'POST', body: corps }); gestion.notifier('Pièce d’identité enregistrée ✓'); rafraichirPiece(); }
     catch (err) { gestion.message('zone-message-modale-employe', err.message); e.target.value = ''; }
   });
   zone.querySelector('[data-piece-retirer]')?.addEventListener('click', async () => {
     if (!await gestion.confirmer('La pièce d’identité de cette fiche sera définitivement retirée.', 'Retirer la pièce d’identité ?', 'Retirer la pièce')) return;
-    try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/piece-identite`, { method: 'DELETE' }); gestion.notifier('Pièce d’identité retirée ✓'); ouvrirFicheEmploye(FICHE_OUVERTE); }
+    try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/piece-identite`, { method: 'DELETE' }); gestion.notifier('Pièce d’identité retirée ✓'); rafraichirPiece(); }
     catch (err) { gestion.message('zone-message-modale-employe', err.message); }
   });
+}
+// après un envoi ou un retrait : seule la pièce est redessinée, la saisie en cours dans le profil reste intacte
+async function rafraichirPiece() {
+  const id = FICHE_OUVERTE;
+  try { const f = await socle.api(`/api/rh/employes/${id}`); if (id === FICHE_OUVERTE) dessinerPiece(f); }
+  catch (e) { gestion.message('zone-message-modale-employe', e.message); }
 }
 $rh('fermer-modale-piece').addEventListener('click', () => $rh('modale-piece').classList.add('cache'));
 $rh('modale-piece').addEventListener('click', e => { if (e.target.id === 'modale-piece') $rh('modale-piece').classList.add('cache'); });
