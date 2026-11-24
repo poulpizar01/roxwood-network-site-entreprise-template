@@ -102,7 +102,7 @@ export async function changerPieceIdentite(id: number, nouvelle: ImageEnregistre
 // Suppression définitive d'une fiche : ce qui identifiait la personne part avec elle (sanctions, historique, pièce
 // d'identité, candidature). Sur les semaines DOT verrouillées (leur copie JSON est figée) tout part : factures encaissées,
 // ventes, services, primes, « payé ». Sur les semaines non verrouillées, chiffre d'affaires, quotas et services ne bougent
-// pas : factures, ventes et services restent, détachés de la personne, et les primes aussi. La pièce passe par la file de
+// pas : factures, ventes et services restent, détachés de la personne. Ses primes partent sur toutes les semaines. La pièce passe par la file de
 // nettoyage du stockage.
 export async function supprimerFiche(id: number): Promise<string> {
   const nom = await prisma.$transaction(async tx => {
@@ -119,7 +119,7 @@ export async function supprimerFiche(id: number): Promise<string> {
     await tx.facture.deleteMany({ where: { id: { in: f.figes } } }); await tx.facture.updateMany({ where: { id: { in: f.ouverts } }, data: { employeId: null } });
     await tx.run.deleteMany({ where: { id: { in: r.figes } } }); await tx.run.updateMany({ where: { id: { in: r.ouverts } }, data: { employeId: null } });
     await tx.service.deleteMany({ where: { id: { in: s.figes } } }); await tx.service.updateMany({ where: { id: { in: s.ouverts } }, data: { employeId: null } });
-    await tx.primeEmployeSemaine.deleteMany({ where: { employeId: id, semaine: { in: [...verrouillees].map(versDate) } } });
+    await tx.primeEmployeSemaine.deleteMany(lie);
     await tx.arriveeBot.deleteMany(lie); await tx.sanction.deleteMany(lie); await tx.paiementFicheDot.deleteMany(lie); await tx.historiqueEmploye.deleteMany(lie);
     if (e.pieceIdentiteCle) await tx.imageRetiree.create({ data: { cle: e.pieceIdentiteCle, url: e.pieceIdentiteUrl ?? '', cleMini: e.pieceIdentiteCleMini ?? '', urlMini: e.pieceIdentiteUrlMini ?? '' } });
     await tx.employe.delete({ where: { id } });

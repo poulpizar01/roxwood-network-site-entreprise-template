@@ -326,7 +326,7 @@ $rh('formulaire-employe').addEventListener('submit', async e => {
 
 async function supprimerEmploye(id) {
   const nom = CACHE_EMPLOYES.find(x => x.id === id)?.nomComplet ?? 'Cet employé';
-  if (!await gestion.confirmer(`La fiche de ${nom} est effacée définitivement, avec son historique et ses sanctions. Sur les semaines déjà verrouillées, ses factures, ventes, services et primes sont effacés aussi ; sur les semaines en cours, chiffre d’affaires, quotas et services ne bougent pas (ils perdent seulement son nom). Pour un simple départ, utilisez « Désactiver ».`, 'Supprimer cette fiche ?', 'Supprimer la fiche')) return;
+  if (!await gestion.confirmer(`La fiche de ${nom} est effacée définitivement, avec son historique et ses sanctions. Ses primes sont effacées sur toutes les semaines. Sur les semaines déjà verrouillées, ses factures, ventes et services le sont aussi ; sur les semaines en cours, chiffre d’affaires, quotas et services ne bougent pas (ils perdent seulement son nom). Pour un simple départ, utilisez « Désactiver ».`, 'Supprimer cette fiche ?', 'Supprimer la fiche')) return;
   try {
     await socle.api(`/api/rh/employes/${id}`, { method: 'DELETE' });
     gestion.notifier(`La fiche de ${nom} est supprimée ✓`);
