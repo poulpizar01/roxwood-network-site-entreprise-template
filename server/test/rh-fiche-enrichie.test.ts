@@ -119,7 +119,7 @@ test('routes : sans rh-piece on ne pose ni ne retire la pièce, rh-voir lit l’
   assert.equal((await textes('piece')).some(t => t.includes('Pièce')), true);
 });
 
-test('supprimer une fiche : efface l’identité, détache les factures, met la pièce en nettoyage', async () => {
+test('supprimer une fiche : efface l’identité, efface ses factures, met la pièce en nettoyage', async () => {
   const f = await creer('zz-test-h9');
   await changerPieceIdentite(f.id, image('s'), 'Testeur');
   const fa = await prisma.facture.create({ data: { source: 'manuel', clientNom: 'zz-test-sup', employeId: f.id } });
@@ -127,8 +127,8 @@ test('supprimer une fiche : efface l’identité, détache les factures, met la 
     await supprimerFiche(f.id);
     assert.equal(await prisma.employe.count({ where: { id: f.id } }), 0);
     assert.equal(await prisma.historiqueEmploye.count({ where: { employeId: f.id } }), 0);
-    assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: fa.id } })).employeId, null);
+    assert.equal(await prisma.facture.count({ where: { id: fa.id } }), 0);
     assert.equal(await prisma.imageRetiree.count({ where: { cle: 'zz-test-s' } }), 1);
     await assert.rejects(supprimerFiche(f.id), /introuvable/);
-  } finally { await prisma.facture.delete({ where: { id: fa.id } }); }
+  } finally { await prisma.facture.deleteMany({ where: { id: fa.id } }); }
 });

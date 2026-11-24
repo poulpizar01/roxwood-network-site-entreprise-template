@@ -99,17 +99,16 @@ export async function changerPieceIdentite(id: number, nouvelle: ImageEnregistre
   });
 }
 
-// Suppression définitive d'une fiche. Ce qui l'identifiait (sanctions, primes, « payé », historique) part avec elle ; ce qui
-// compte pour l'argent et les quotas (factures, ventes, services, candidatures) reste, détaché de la personne. Les
-// déclarations DOT figées gardent leur copie JSON. La pièce d'identité passe par la file de nettoyage du stockage.
+// Suppression définitive d'une fiche : tout ce qui se rattache à la personne part avec elle (sanctions, primes, « payé »,
+// historique, factures encaissées, ventes, services, candidature). Les déclarations DOT figées gardent leur copie JSON.
+// La pièce d'identité passe par la file de nettoyage du stockage.
 export async function supprimerFiche(id: number): Promise<string> {
   const nom = await prisma.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'piece-identite:' + id}))`;
     const e = await tx.employe.findUnique({ where: { id } });
     if (!e) throw new Refus('Employé introuvable.', 404);
-    const detache = { where: { employeId: id }, data: { employeId: null } };
-    await tx.facture.updateMany(detache); await tx.run.updateMany(detache); await tx.service.updateMany(detache); await tx.arriveeBot.updateMany(detache);
     const lie = { where: { employeId: id } };
+    await tx.facture.deleteMany(lie); await tx.run.deleteMany(lie); await tx.service.deleteMany(lie); await tx.arriveeBot.deleteMany(lie);
     await tx.sanction.deleteMany(lie); await tx.primeEmployeSemaine.deleteMany(lie); await tx.paiementFicheDot.deleteMany(lie); await tx.historiqueEmploye.deleteMany(lie);
     if (e.pieceIdentiteCle) await tx.imageRetiree.create({ data: { cle: e.pieceIdentiteCle, url: e.pieceIdentiteUrl ?? '', cleMini: e.pieceIdentiteCleMini ?? '', urlMini: e.pieceIdentiteUrlMini ?? '' } });
     await tx.employe.delete({ where: { id } });
