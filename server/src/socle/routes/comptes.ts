@@ -5,6 +5,7 @@ import type { Compte } from '../../generated/prisma/client.js';
 import { body, connecte, intParam, permission, text, valide } from '../http.js';
 import { auDessusDe, gradeDe, peutAccorder, permissions, permissionsDe, rang } from '../droits.js';
 import { entreprise } from '../../entreprise/index.js';
+import { modulesActifs } from '../site.js';
 import { gradesImposes, type GradeImpose } from '../grades-imposes.js';
 
 export const comptes = Router();
@@ -33,7 +34,7 @@ const supprimerCompte = (id: number) => prisma.$transaction(async tx => {
 comptes.get('/api/moi', ...connecte, async (req, res) => {
   const c = await prisma.compte.findUnique({ where: { id: req.session.compteId } });
   if (!c) { req.session.destroy(() => res.status(401).json({ error: 'non-connecte' })); return; }
-  res.json({ ...comptePublic(c), permissions: c.statut === 'valide' ? [...permissionsDe(c)] : [] });
+  res.json({ ...comptePublic(c), permissions: c.statut === 'valide' ? [...permissionsDe(c)] : [], modules: [...modulesActifs] });
 });
 
 comptes.patch('/api/moi', ...valide, async (req, res) => {

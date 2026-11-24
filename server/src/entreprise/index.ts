@@ -5,6 +5,7 @@ import { prisma } from '../socle/db.js';
 import { actualiserGrades } from '../socle/grades-imposes.js';
 import { simulerBotsDiscord } from './discord-simulation.js';
 import { planifierNettoyageImages } from './images-retirees.js';
+import { pagesInactives } from './modules.js';
 import { PARAMETRES } from './parametres.js';
 import { planifierPurge } from './purge.js';
 import { planifierFinContrats } from './contrats.js';
@@ -49,6 +50,9 @@ export const entreprise: Entreprise = {
     paie: 'paie-voir',
     parametres: 'parametres',
   },
+
+  // pages des modules éteints dans site.json (modules.ts) : 404
+  pagesInactives,
 
   // apparence en premier : elle répond sur les adresses des images de la marque, avant le fichier livré
   routes: [apparence, agenda, rh, run, compta, contrats, echeanciers, paie, services, accueil, compte],

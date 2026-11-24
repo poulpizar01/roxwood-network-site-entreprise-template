@@ -4,10 +4,11 @@
 // Libellé : lu sous le titre de son domaine dans la page Grades (« Ressources humaines », « Comptabilité »…) : il ne
 // répète pas le domaine, mais se comprend seul (« Ajouter un employé », pas « Ajouter »).
 import type { Permission } from '../socle/contrat.js';
+import { permissionsInactives } from './modules.js';
 
 const RH = 'Ressources humaines';
 
-export const permissions: Permission[] = [
+const declarees: Permission[] = [
   // Ressources humaines : chaque permission rh-* suppose rh-voir (vérifié par les routes)
   { cle: 'rh-voir', domaine: RH, libelle: 'Consulter les fiches', description: 'Voir les fiches employés, l’effectif et les candidatures reçues' },
   { cle: 'rh-sensible-voir', domaine: RH, libelle: 'Consulter le téléphone et le RIB', description: 'Voir le téléphone et le RIB des employés, sans pouvoir les modifier' },
@@ -36,3 +37,6 @@ export const permissions: Permission[] = [
   { cle: 'contrats-beneficiaires', domaine: 'Comptabilité', libelle: 'Consulter les bénéficiaires', description: 'Vérifier qui est couvert par un contrat client en cours, sans voir les montants ni gérer les contrats' },
   { cle: 'agenda-types', domaine: 'Agenda', libelle: 'Gérer les types d’événements', description: 'Créer, renommer, colorer et supprimer les types qui classent les événements de l’agenda' },
 ];
+
+// celles d'un module éteint (site.json) ne sont pas déclarées : absentes de la page Grades, refusées par les routes
+export const permissions: Permission[] = declarees.filter(p => !permissionsInactives.has(p.cle));

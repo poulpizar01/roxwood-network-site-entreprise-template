@@ -148,6 +148,7 @@ app.use('/gestion', (req, res, next) => {
   const page = pageDemandee(req.path);
   // une page HTML (pas un .css ni un .js) : niveau déclaré, ou compte validé par défaut
   if (page === null) return next();
+  if (entreprise.pagesInactives?.includes(page)) return void res.status(404).type('html').send(withNonce(renderFile(join(config.root, '404.html')), res));
   const niveau = NIVEAU_PAGE[page] ?? 'valide';
   sessions(req, res, () => { accesPage(req, res, next, page, niveau).catch(next); });
 });
