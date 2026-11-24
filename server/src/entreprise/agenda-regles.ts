@@ -50,16 +50,20 @@ const droitSurGrade = (autorisations: readonly string[], destination: string, de
 // régler, et personne ne peut valider sa propre absence (vérifié en plus par l'appelant, routes/agenda.ts).
 export const peutValiderAbsences = (d: DroitsAgenda): boolean => d.tout || (d.consulterTous && d.gererTous);
 
-export type EvenementVu = { compteId: number | null; destination: string; destinationGrade: string | null; invitesDiscordIds?: readonly string[]; statutAbsence?: string | null };
+export type EvenementVu = {
+  compteId: number | null; destination: string; destinationGrade: string | null;
+  invitesDiscordIds?: readonly string[]; statutAbsence?: string | null; statut?: string;
+};
 export type Lecteur = { id: number; discordId: string | null };
 
-export function voit(e: EvenementVu, moi: Lecteur, d: DroitsAgenda, _grades: readonly string[]): boolean {
+export function voit(e: EvenementVu, moi: Lecteur, d: DroitsAgenda, grades: readonly string[]): boolean {
   if (e.compteId === moi.id) return true;
   // une absence (même « perso » et sans invitation) se voit par qui peut la valider : sinon rien ne la lui montrerait
   if (e.statutAbsence && peutValiderAbsences(d)) return true;
   if (e.destination === 'perso') return !!moi.discordId && !!e.invitesDiscordIds?.includes(moi.discordId);
-  if (e.destination === 'tous') return d.tout || d.consulterTous;
-  return d.tout || droitSurGrade(d.consulter, e.destination, e.destinationGrade);
+  const visible = e.destination === 'tous' ? d.tout || d.consulterTous : d.tout || droitSurGrade(d.consulter, e.destination, e.destinationGrade);
+  // brouillon : seulement visible à qui peut le modifier (la direction publie, les agents se positionnent)
+  return visible && (e.statut !== 'brouillon' || modifiable(e, moi, d, grades));
 }
 
 export function modifiable(e: EvenementVu, moi: Lecteur, d: DroitsAgenda, _grades: readonly string[]): boolean {
@@ -120,3 +124,18 @@ export function choisirTicket(salons: unknown, discordId: string, categories: re
   if (!tickets.length) return null;
   return String(tickets.reduce((a, b) => (b > a ? b : a)));
 }
+
+// ---- créneaux ouverts : places à pourvoir, prises par les agents eux-mêmes ----
+export type Intervalle = { jour: string; jourFin: string; heureDebut: string | null; heureFin: string | null };
+// bornes comparables (AAAA-MM-JJTHH:MM, ordre lexicographique) ; heure absente = toute la journée
+const borneDebut = (i: Intervalle): string => `${i.jour}T${i.heureDebut ?? '00:00'}`;
+const borneFin = (i: Intervalle): string => `${i.jourFin}T${i.heureFin ?? '23:59'}`;
+export const chevauchement = (a: Intervalle, b: Intervalle): boolean => borneDebut(a) <= borneFin(b) && borneDebut(b) <= borneFin(a);
+
+// première absence approuvée qui chevauche le créneau visé (pour le message bloquant), ou null
+export const conflitAbsence = (creneau: Intervalle, absencesApprouvees: readonly Intervalle[]): Intervalle | null =>
+  absencesApprouvees.find(a => chevauchement(creneau, a)) ?? null;
+
+// un créneau ouvert se prend soi-même : jamais un événement perso ni une absence, des places doivent rester, pas déjà pris
+export const peutPrendreCreneau = (e: { destination: string; placesMax: number | null; statutAbsence?: string | null }, prises: number, dejaPris: boolean): boolean =>
+  e.destination !== 'perso' && !e.statutAbsence && e.placesMax !== null && !dejaPris && prises < e.placesMax;

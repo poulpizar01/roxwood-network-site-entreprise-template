@@ -14,9 +14,8 @@ import { appelBot, ErreurDiscord, posterMessage } from '../../socle/discord.js';
 import { auDessusDe, gradeDe, tousLesGrades } from '../../socle/droits.js';
 import { body, couleur, entier, intParam, permission, text, valide } from '../../socle/http.js';
 import { site } from '../../socle/site.js';
-import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutValiderAbsences, voit, type Destination, type DroitsAgenda } from '../agenda-regles.js';
+import { ajoutsNonDetenus, choisirTicket, conflitAbsence, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutPrendreCreneau, peutValiderAbsences, voit, type Destination, type DroitsAgenda, type Intervalle } from '../agenda-regles.js';
 import { idsRegles } from '../parametres.js';
-import { classementParticipants } from '../participants.js';
 import { Refus, traiter } from '../refus.js';
 import { nomComplet } from '../rh.js';
 
@@ -42,7 +41,8 @@ const libelleDestination = (e: Pick<EvenementAgenda, 'destination' | 'destinatio
       : invitations.length === 1 ? `Personnel — ${invitations[0].nom}`
         : invitations.length ? `Personnel — ${invitations.length} invités` : 'Personnel — moi uniquement';
 
-type EvenementAvecInvitations = EvenementAgenda & { invitations: InvitationAgenda[] };
+type Affectation = { id: number; compteId: number | null; nom: string; chefEquipe: boolean };
+type EvenementAvecInvitations = EvenementAgenda & { invitations: InvitationAgenda[]; affectations?: Affectation[] };
 const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAgenda) => ({
   id: e.id, titre: e.titre, jour: e.jour.toISOString().slice(0, 10), jour_fin: e.jourFin.toISOString().slice(0, 10),
   heure_debut: e.heureDebut, heure_fin: e.heureFin, notes: e.notes,
@@ -55,6 +55,11 @@ const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAge
   modifiable: modifiable(e, lecteur(req), droits, clesGrades()),
   absence: !!e.statutAbsence, statut_absence: e.statutAbsence,
   peut_valider: e.statutAbsence === 'en_attente' && e.compteId !== req.compte.id && peutValiderAbsences(droits),
+  // créneau ouvert
+  places_max: e.placesMax, statut: e.statut,
+  affectations: (e.affectations ?? []).map(a => ({ id: a.id, nom: a.nom, chef_equipe: a.chefEquipe, moi: a.compteId === req.compte.id })),
+  deja_pris: (e.affectations ?? []).some(a => a.compteId === req.compte.id),
+  peut_prendre: peutPrendreCreneau(e, (e.affectations ?? []).length, (e.affectations ?? []).some(a => a.compteId === req.compte.id)),
 });
 
 type Champs = { titre: string; jour: Date; jourFin: Date; heureDebut: string | null; heureFin: string | null; notes: string; typeId: number | null };
@@ -90,6 +95,17 @@ function lireDestination(b: Record<string, unknown>): { destination: Destination
   if (!g) throw new Refus('Ce grade n’existe plus : choisissez à qui l’événement est destiné.');
   return { destination, destinationGrade: g.cle };
 }
+// créneau ouvert : places à pourvoir et statut brouillon/confirmé, seulement pour un événement partagé
+function lireCreneau(b: Record<string, unknown>, destination: Destination): { placesMax: number | null; statut: string } {
+  if (destination === 'perso') return { placesMax: null, statut: 'confirme' };
+  let placesMax: number | null = null;
+  if (b.places_max !== undefined && b.places_max !== null && b.places_max !== '') {
+    placesMax = entier(b.places_max);
+    if (placesMax === null || placesMax < 1 || placesMax > 50) throw new Refus('Le nombre de places doit être un entier de 1 à 50.');
+  }
+  return { placesMax, statut: b.statut === 'brouillon' ? 'brouillon' : 'confirme' };
+}
+
 const refusDestination = (d: { destination: Destination; destinationGrade: string | null }) => new Refus(d.destination === 'tous'
   ? 'Votre grade ne permet pas de créer un événement pour tout le monde.'
   : `Votre grade ne permet pas de créer un événement destiné à « ${gradeDe(d.destinationGrade)?.libelle ?? 'ce grade'} ».`, 403);
@@ -314,7 +330,7 @@ agenda.get('/api/agenda', ...valide, async (req, res) => {
     },
     orderBy: [{ jour: 'asc' }, { heureDebut: 'asc' }],
     take: 2000,
-    include: { invitations: true },
+    include: { invitations: true, affectations: true },
   });
   // destinations proposées à la création : personnel, toute l'équipe, puis chaque grade autorisé
   const destinations = [{ valeur: 'perso', libelle: 'Personnel' }];
@@ -336,7 +352,7 @@ agenda.get('/api/agenda/personnes', ...valide, traiter(async (req, res) => {
 }));
 
 agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
-  const b = body(req), d = await lire(b), dest = lireDestination(b);
+  const b = body(req), d = await lire(b), dest = lireDestination(b), creneau = lireCreneau(b, dest.destination);
   const droits = await droitsDe(req), grades = clesGrades();
   if (!peutCreer(droits, dest.destination, dest.destinationGrade, grades)) throw refusDestination(dest);
   const estAbsence = !!b.absence;
@@ -373,6 +389,7 @@ agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
     data: {
       ...d, ...dest, compteId: req.compte.id, auteurNom: auteur.slice(0, 64),
       statutAbsence: estAbsence ? 'en_attente' : null,
+      placesMax: estAbsence ? null : creneau.placesMax, statut: estAbsence ? 'confirme' : creneau.statut,
       invitations: { create: personnes.map(p => ({ ...p })) },
     },
     include: { invitations: true },
@@ -388,7 +405,7 @@ agenda.post('/api/agenda', ...valide, traiter(async (req, res) => {
 
 // un événement qu'on ne peut pas modifier répond 404 s'il est invisible, 403 s'il est seulement visible
 async function modifiableOuRefus(req: Request) {
-  const e = await prisma.evenementAgenda.findUnique({ where: { id: intParam(req, 'id') }, include: { invitations: true } });
+  const e = await prisma.evenementAgenda.findUnique({ where: { id: intParam(req, 'id') }, include: { invitations: true, affectations: true } });
   const droits = await droitsDe(req), grades = clesGrades();
   if (!e || !voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, lecteur(req), droits, grades)) throw new Refus('Événement introuvable.', 404);
   if (!modifiable(e, lecteur(req), droits, grades)) throw new Refus('Votre grade ne permet pas de modifier cet événement.', 403);
@@ -449,6 +466,11 @@ agenda.put('/api/agenda/:id', ...valide, traiter(async (req, res) => {
   if ((invitationIds.length || nouvellesPersonnes.length) && dest.destination !== 'perso') {
     throw new Refus('Les personnes ne peuvent être invitées que pour un événement personnel.');
   }
+  const creneau = lireCreneau(b, dest.destination);
+  if (creneau.placesMax !== null) {
+    const actuelles = await prisma.affectationAgenda.count({ where: { evenementId: e.id } });
+    if (actuelles > creneau.placesMax) throw new Refus(`Ce créneau a déjà ${actuelles} personne(s) : posez au moins ce nombre de places.`, 409);
+  }
   // présence des invités déjà là (corrigée après coup) : liste de ceux marqués absents, parmi ceux conservés ;
   // absente du corps = rien à changer (une modification qui ne touche pas aux invités ne doit pas tout remettre « présent »)
   const absentsBrut = b.absents_invitation_ids;
@@ -465,7 +487,7 @@ agenda.put('/api/agenda/:id', ...valide, traiter(async (req, res) => {
 
   const retires = e.invitations.filter(i => !invitationIds.includes(i.id));
   const ajoutes = await prisma.$transaction(async tx => {
-    await tx.evenementAgenda.update({ where: { id: e.id }, data: { ...d, ...dest } });
+    await tx.evenementAgenda.update({ where: { id: e.id }, data: { ...d, ...dest, ...(e.statutAbsence ? {} : { placesMax: creneau.placesMax, statut: creneau.statut }) } });
     if (retires.length) await tx.invitationAgenda.deleteMany({ where: { id: { in: retires.map(i => i.id) } } });
     if (absents) await Promise.all(invitationIds.map(id => tx.invitationAgenda.update({ where: { id }, data: { present: !absents!.has(id) } } )));
     return nouvellesPersonnes.length
@@ -504,11 +526,89 @@ agenda.post('/api/agenda/:id/absence', ...valide, traiter(async (req, res) => {
   res.json({ ok: true, approuve });
 }));
 
-// Participation aux événements personnels (réunions, formations…) : qui a été invité, qui était présent, sur la
-// période affichée par le sélecteur partagé de l'agenda (jour, semaine ou mois). Page Agenda, onglet Participants ;
-// même permission que Quota (rh-voir).
-agenda.get('/api/agenda/participants', ...permission('rh-voir'), traiter(async (req, res) => {
-  const { debut, fin } = req.query;
-  if (typeof debut !== 'string' || typeof fin !== 'string' || !dateValide(debut) || !dateValide(fin)) throw new Refus('Période invalide.', 400);
-  res.json(await classementParticipants(debut, fin));
+// ---- créneaux ouverts : on ne prend et ne quitte que pour soi-même ----
+async function absencesApprouvees(compteId: number): Promise<Intervalle[]> {
+  const lignes = await prisma.evenementAgenda.findMany({ where: { compteId, statutAbsence: 'approuve' }, select: { jour: true, jourFin: true, heureDebut: true, heureFin: true } });
+  return lignes.map(l => ({ jour: l.jour.toISOString().slice(0, 10), jourFin: l.jourFin.toISOString().slice(0, 10), heureDebut: l.heureDebut, heureFin: l.heureFin }));
+}
+const jourFr = (j: string) => j.split('-').reverse().join('/');
+const texteConflit = (a: Intervalle) => a.jour === a.jourFin ? `Vous avez une absence validée le ${jourFr(a.jour)}.` : `Vous avez une absence validée du ${jourFr(a.jour)} au ${jourFr(a.jourFin)}.`;
+
+// événement visible par le compte (404 sinon), avec ses affectations
+async function evenementVisible(req: Request) {
+  const e = await prisma.evenementAgenda.findUnique({ where: { id: intParam(req, 'id') }, include: { invitations: true, affectations: true } });
+  const droits = await droitsDe(req), grades = clesGrades();
+  if (!e || !voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, lecteur(req), droits, grades)) throw new Refus('Événement introuvable.', 404);
+  return { e, droits, grades };
+}
+
+agenda.post('/api/agenda/:id/prendre', ...valide, traiter(async (req, res) => {
+  const { e } = await evenementVisible(req);
+  const nom = req.compte.nom || req.compte.pseudo;
+  const intervalle: Intervalle = { jour: e.jour.toISOString().slice(0, 10), jourFin: e.jourFin.toISOString().slice(0, 10), heureDebut: e.heureDebut, heureFin: e.heureFin };
+  const conflit = conflitAbsence(intervalle, await absencesApprouvees(req.compte.id));
+  if (conflit) throw new Refus(texteConflit(conflit), 409);
+  // places et doublon revérifiés sous verrou : deux prises simultanées ne dépassent jamais les places
+  await prisma.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'agenda-creneau:' + e.id}))`;
+    const prises = await tx.affectationAgenda.findMany({ where: { evenementId: e.id }, select: { compteId: true } });
+    if (!peutPrendreCreneau(e, prises.length, prises.some(a => a.compteId === req.compte.id))) throw new Refus('Ce créneau ne peut plus être pris.', 409);
+    await tx.affectationAgenda.create({ data: { evenementId: e.id, compteId: req.compte.id, nom } });
+  });
+  res.status(201).json({ ok: true });
+}));
+
+agenda.post('/api/agenda/:id/quitter', ...valide, traiter(async (req, res) => {
+  const { e } = await evenementVisible(req);
+  await prisma.affectationAgenda.deleteMany({ where: { evenementId: e.id, compteId: req.compte.id } });
+  res.json({ ok: true });
+}));
+
+// chef d'équipe d'un créneau : réservé à qui peut modifier l'événement
+agenda.put('/api/agenda/:id/affectations/:affectationId/chef', ...valide, traiter(async (req, res) => {
+  const { e } = await modifiableOuRefus(req);
+  const affectationId = intParam(req, 'affectationId');
+  const chefEquipe = !!body(req).chef_equipe;
+  await prisma.$transaction(async tx => {
+    const a = await tx.affectationAgenda.findFirst({ where: { id: affectationId, evenementId: e.id } });
+    if (!a) throw new Refus('Affectation introuvable.', 404);
+    if (chefEquipe) await tx.affectationAgenda.updateMany({ where: { evenementId: e.id }, data: { chefEquipe: false } });
+    await tx.affectationAgenda.update({ where: { id: affectationId }, data: { chefEquipe } });
+  });
+  res.json({ ok: true });
+}));
+
+// ---- fil de messages d'un événement partagé ----
+// Lecture : qui voit l'événement. Écriture : les personnes concernées (auteur, inscrites, invitées) et qui peut le
+// modifier. Retrait : son propre message, ou qui peut modifier l'événement.
+const MAX_MESSAGES = 200;
+const concerne = (e: { compteId: number | null; invitations: { discordId: string }[]; affectations: { compteId: number | null }[] }, req: Request) =>
+  e.compteId === req.compte.id || e.affectations.some(a => a.compteId === req.compte.id) || (!!req.compte.discordId && e.invitations.some(i => i.discordId === req.compte.discordId));
+const messageClient = (m: { id: number; compteId: number | null; auteurNom: string; texte: string; creeLe: Date }, req: Request) =>
+  ({ id: m.id, auteur: m.auteurNom, texte: m.texte, cree_le: m.creeLe.toISOString(), mien: m.compteId === req.compte.id });
+
+agenda.get('/api/agenda/:id/messages', ...valide, traiter(async (req, res) => {
+  const { e, droits, grades } = await evenementVisible(req);
+  const messages = await prisma.messageAgenda.findMany({ where: { evenementId: e.id }, orderBy: { creeLe: 'asc' }, take: MAX_MESSAGES });
+  res.json({ messages: messages.map(m => messageClient(m, req)), peut_ecrire: !e.statutAbsence && (concerne(e, req) || modifiable(e, lecteur(req), droits, grades)) });
+}));
+
+agenda.post('/api/agenda/:id/messages', ...valide, traiter(async (req, res) => {
+  const { e, droits, grades } = await evenementVisible(req);
+  if (e.statutAbsence) throw new Refus('Une absence n’a pas de fil de messages.', 409);
+  if (!concerne(e, req) && !modifiable(e, lecteur(req), droits, grades)) throw new Refus('Seules les personnes concernées par cet événement peuvent y écrire.', 403);
+  const texte = text(body(req).texte, 500);
+  if (!texte) throw new Refus('Écrivez un message avant de l’envoyer.');
+  if (await prisma.messageAgenda.count({ where: { evenementId: e.id } }) >= MAX_MESSAGES) throw new Refus('Le fil de cet événement est plein.', 409);
+  const m = await prisma.messageAgenda.create({ data: { evenementId: e.id, compteId: req.compte.id, auteurNom: (req.compte.nom || req.compte.pseudo).slice(0, 100), texte } });
+  res.status(201).json(messageClient(m, req));
+}));
+
+agenda.delete('/api/agenda/:id/messages/:messageId', ...valide, traiter(async (req, res) => {
+  const { e, droits, grades } = await evenementVisible(req);
+  const m = await prisma.messageAgenda.findFirst({ where: { id: intParam(req, 'messageId'), evenementId: e.id } });
+  if (!m) throw new Refus('Message introuvable.', 404);
+  if (m.compteId !== req.compte.id && !modifiable(e, lecteur(req), droits, grades)) throw new Refus('Vous ne pouvez retirer que vos propres messages.', 403);
+  await prisma.messageAgenda.delete({ where: { id: m.id } });
+  res.json({ ok: true });
 }));

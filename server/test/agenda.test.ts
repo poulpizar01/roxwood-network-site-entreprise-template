@@ -2,7 +2,7 @@
 // Une erreur ici ouvrirait un événement de direction à tout le monde sans rien d'anormal à l'écran.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutValiderAbsences, voit } from '../src/entreprise/agenda-regles.js';
+import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutValiderAbsences, voit, conflitAbsence, peutPrendreCreneau } from '../src/entreprise/agenda-regles.js';
 
 const GRADES = ['patron', 'directeur', 'manager', 'agent'];   // du sommet à la base
 const ev = (destination: string, destinationGrade: string | null = null, compteId: number | null = 99, invitesDiscordIds: string[] = [], statutAbsence: string | null = null) =>
@@ -146,4 +146,30 @@ test('on n’accorde que des droits d’agenda qu’on a soi-même ; retirer ou 
   assert.deepEqual(ajoutsNonDetenus(manager, manager.consulter, ['manager'], []), [], 'retirer : toujours permis');
   const proprietaire = droitsAgenda(G, null, true, null);
   assert.deepEqual(ajoutsNonDetenus(proprietaire, proprietaire.consulter, [], G), [], 'le propriétaire a tout');
+});
+
+test('brouillon : visible seulement par qui peut le modifier', () => {
+  const direction = droitsAgenda(GRADES, 'manager', false, { consulter: [], creer: [], modifier: [], consulterTous: true, gererTous: true });
+  const agent = droitsAgenda(GRADES, 'agent', false, { consulter: [], creer: [], modifier: [], consulterTous: true, gererTous: false });
+  const brouillon = { ...ev('tous'), statut: 'brouillon' };
+  assert.equal(voit(brouillon, MOI, direction, GRADES), true);
+  assert.equal(voit(brouillon, MOI, agent, GRADES), false, 'un agent ne voit pas le brouillon');
+  assert.equal(voit({ ...brouillon, statut: 'confirme' }, MOI, agent, GRADES), true);
+  assert.equal(voit({ ...brouillon, compteId: MOI.id }, MOI, agent, GRADES), true, 'son auteur voit toujours son brouillon');
+});
+
+test('créneau ouvert : places, doublon, événement perso et absence', () => {
+  const creneau = { destination: 'tous', placesMax: 2 };
+  assert.equal(peutPrendreCreneau(creneau, 1, false), true);
+  assert.equal(peutPrendreCreneau(creneau, 2, false), false, 'complet');
+  assert.equal(peutPrendreCreneau(creneau, 0, true), false, 'déjà pris');
+  assert.equal(peutPrendreCreneau({ destination: 'tous', placesMax: null }, 0, false), false, 'pas un créneau ouvert');
+  assert.equal(peutPrendreCreneau({ destination: 'perso', placesMax: 2 }, 0, false), false);
+  assert.equal(peutPrendreCreneau({ ...creneau, statutAbsence: 'approuve' }, 0, false), false);
+});
+
+test('une absence approuvée bloque un créneau qui la chevauche', () => {
+  const absence = { jour: '2026-12-01', jourFin: '2026-12-03', heureDebut: null, heureFin: null };
+  assert.ok(conflitAbsence({ jour: '2026-12-02', jourFin: '2026-12-02', heureDebut: '10:00', heureFin: '12:00' }, [absence]));
+  assert.equal(conflitAbsence({ jour: '2026-12-04', jourFin: '2026-12-04', heureDebut: '10:00', heureFin: '12:00' }, [absence]), null);
 });
