@@ -1,20 +1,22 @@
-/* VITRINE — services et postes ouverts de la page d'accueil, lus dans la base (gestion → Vitrine). Module « vitrine » de
-   site.json : éteint, rien n'est demandé et les sections restent cachées. Tout texte arrive par textContent. */
+/* VITRINE — fiche « Découvrir » d'un service. Les cartes et les postes ouverts sont déjà dans le HTML (rendus par le serveur,
+   server/src/entreprise/routes/vitrine.ts) : ce script n'ajoute rien à la page, il n'ouvre que la fiche. Tout texte
+   arrive par textContent. */
 (() => {
-  const modules = (document.querySelector('meta[name="modules"]')?.content || '').split(' ');
-  if (!modules.includes('vitrine')) return;
+  const donnees = document.getElementById('vitrine-services');
+  if (!donnees) return;
+  let services;
+  try { services = JSON.parse(donnees.textContent); } catch { return; }
   const el = (tag, classe, texte) => { const n = document.createElement(tag); if (classe) n.className = classe; if (texte !== undefined) n.textContent = texte; return n; };
-  const montrer = attribut => document.querySelectorAll(`[${attribut}]`).forEach(n => { n.hidden = false; });
-  const lire = url => fetch(url).then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))));
 
-  function etiquette(t) {
-    const n = el('span', 'etiquette', t.nom);
-    if (/^#[0-9a-f]{6}$/i.test(t.couleur)) n.style.setProperty('--etiquette', t.couleur);
-    return n;
-  }
-  const etiquettes = liste => { const p = el('p', 'etiquettes'); liste.forEach(t => p.append(etiquette(t))); return p; };
+  // couleur d'une étiquette : posée par script (un attribut style en ligne est refusé par la CSP) ; seul le point de couleur change
+  document.querySelectorAll('.etiquette[data-couleur]').forEach(n => n.style.setProperty('--etiquette', n.dataset.couleur));
+  const etiquettes = liste => {
+    const p = el('p', 'etiquettes');
+    liste.forEach(t => { const n = el('span', 'etiquette', t.nom); if (/^#[0-9a-f]{6}$/i.test(t.couleur)) n.style.setProperty('--etiquette', t.couleur); p.append(n); });
+    return p;
+  };
 
-  // fiche d'un service : <dialog> natif (focus piégé, Échap, fond inerte) ; le focus revient au bouton qui l'a ouverte
+  // fiche : <dialog> natif (focus piégé, Échap, fond inerte) ; le focus revient au bouton qui l'a ouverte
   const dialogue = el('dialog', 'fiche-service');
   dialogue.setAttribute('aria-labelledby', 'fiche-service-titre');
   document.body.append(dialogue);
@@ -34,31 +36,5 @@
     dialogue.addEventListener('close', () => declencheur.focus(), { once: true });
     dialogue.showModal();
   }
-
-  lire('/api/services/public').then(({ services }) => {
-    if (!services.length) return;
-    const liste = document.getElementById('services-liste');
-    for (const s of services) {
-      const carte = el('article', 'carte carte--service');
-      if (s.urlPhoto) { const img = el('img', 'carte__photo'); img.src = s.urlPhoto; img.alt = ''; img.loading = 'lazy'; img.width = 340; img.height = 191; carte.append(img); }
-      carte.append(el('h3', '', s.nom));
-      if (s.resume) carte.append(el('p', '', s.resume));
-      if (s.etiquettes.length) carte.append(etiquettes(s.etiquettes));
-      if (s.description || s.inclus.length) {
-        const b = el('button', 'btn btn--ligne', 'Découvrir'); b.type = 'button';
-        b.setAttribute('aria-label', `Découvrir : ${s.nom}`);
-        b.addEventListener('click', () => ouvrir(s, b));
-        carte.append(b);
-      }
-      liste.append(carte);
-    }
-    montrer('data-si-services');
-  }).catch(() => {});
-
-  lire('/api/postes/public').then(({ postes }) => {
-    if (!postes.length) return;
-    const ul = document.getElementById('postes-liste');
-    for (const p of postes) { const li = el('li', 'poste'); li.append(el('strong', '', p.nom), el('span', 'poste__places', `${p.nombre} place${p.nombre > 1 ? 's' : ''}`)); ul.append(li); }
-    montrer('data-si-postes');
-  }).catch(() => {});
+  document.querySelectorAll('[data-service]').forEach(b => b.addEventListener('click', () => ouvrir(services[Number(b.dataset.service)], b)));
 })();

@@ -133,3 +133,28 @@ export async function servicesPublics(urlPhoto: (s: ServiceVitrine) => string | 
   }));
 }
 export const postesPublics = async () => (await listerPostes()).filter(p => p.nombre > 0);
+
+// ---- page d'accueil : sections rendues par le serveur, dans le HTML envoyé (rien ne se redessine après l'arrivée de la page) ----
+// index.html garde ses sections cachées (`data-si-services`, `data-si-postes` + `hidden`) et deux conteneurs vides ; on remplit
+// les conteneurs et on retire `hidden` seulement s'il y a quelque chose à montrer. Fonction pure (testée).
+const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+type ServicePublic = Awaited<ReturnType<typeof servicesPublics>>[number];
+type PostePublic = { nom: string; nombre: number };
+
+const etiquettesHtml = (liste: ServicePublic['etiquettes']) => liste.length
+  ? `<p class="etiquettes">${liste.map(t => `<span class="etiquette"${/^#[0-9a-f]{6}$/i.test(t.couleur) ? ` data-couleur="${t.couleur}"` : ''}>${esc(t.nom)}</span>`).join('')}</p>` : '';
+
+export function injecterVitrine(html: string, services: ServicePublic[], postes: PostePublic[]): string {
+  if (services.length) {
+    const cartes = services.map((s, i) => `<article class="carte carte--service">${s.urlPhoto ? `<img class="carte__photo" src="${esc(s.urlPhoto)}" alt="" loading="lazy" width="340" height="191">` : ''}<h3>${esc(s.nom)}</h3>${s.resume ? `<p>${esc(s.resume)}</p>` : ''}${etiquettesHtml(s.etiquettes)}${s.description || s.inclus.length ? `<button type="button" class="btn btn--ligne" data-service="${i}" aria-label="Découvrir : ${esc(s.nom)}">Découvrir</button>` : ''}</article>`).join('');
+    // données de la fiche (fenêtre « Découvrir ») : « < » échappé, le bloc ne peut pas se refermer sur une saisie
+    const donnees = JSON.stringify(services).replace(/</g, '\\u003c');
+    html = html.replace('<div class="cartes cartes--services" id="services-liste"></div>', () => `<div class="cartes cartes--services" id="services-liste">${cartes}</div><script type="application/json" id="vitrine-services">${donnees}</script>`)
+      .replace(/ data-si-services hidden/g, '');
+  }
+  if (postes.length) {
+    const lignes = postes.map(p => `<li class="poste"><strong>${esc(p.nom)}</strong><span class="poste__places">${p.nombre} place${p.nombre > 1 ? 's' : ''}</span></li>`).join('');
+    html = html.replace('<ul class="postes" id="postes-liste"></ul>', () => `<ul class="postes" id="postes-liste">${lignes}</ul>`).replace(/ data-si-postes hidden/g, '');
+  }
+  return html;
+}

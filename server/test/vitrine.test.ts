@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import '../src/entreprise/index.js';   // d'abord : charge les routes dans l'ordre voulu (sinon dépendance circulaire)
 import { prisma } from '../src/socle/db.js';
 import {
-  creerEtiquette, creerPoste, creerService, lireService, listerEtiquettes, listerServices, ordonnerServices, postesPublics, supprimerEtiquette, supprimerService,
+  creerEtiquette, creerPoste, injecterVitrine, creerService, lireService, listerEtiquettes, listerServices, ordonnerServices, postesPublics, supprimerEtiquette, supprimerService,
 } from '../src/entreprise/vitrine.js';
 
 after(async () => {
@@ -62,4 +62,22 @@ test('postes : nombre entre 0 et 999 ; seuls ceux à pourvoir sont publics', asy
   const publics = (await postesPublics()).map(p => p.nom);
   assert.ok(publics.includes('zz-test ouvert'));
   assert.ok(!publics.includes('zz-test complet'));
+});
+
+const PAGE = '<section id="services" data-si-services hidden><div class="cartes cartes--services" id="services-liste"></div></section><section id="recrutement" data-si-postes hidden><ul class="postes" id="postes-liste"></ul></section>';
+const service = { id: 1, nom: 'Conseil <b>', resume: 'r', description: 'd </script><script>x', inclus: ['un'], urlPhoto: '/assets/img/service-1.webp?v=1', etiquettes: [{ nom: 'Rdv', couleur: '#e11d48' }] };
+
+test('injecterVitrine : sections remplies et montrées, saisies échappées, données JSON sans « < »', () => {
+  const html = injecterVitrine(PAGE, [service], [{ nom: 'Vendeur', nombre: 2 }]);
+  assert.ok(!html.includes('hidden'));
+  assert.ok(html.includes('Conseil &lt;b&gt;'));
+  assert.ok(html.includes('data-couleur="#e11d48"'));
+  assert.ok(html.includes('2 places'));
+  const json = html.match(/id="vitrine-services">(.*?)<\/script>/s)![1];
+  assert.ok(!json.includes('<'));
+  assert.equal(JSON.parse(json)[0].description, 'd </script><script>x');
+});
+
+test('injecterVitrine : rien à montrer, sections laissées cachées', () => {
+  assert.equal(injecterVitrine(PAGE, [], []), PAGE);
 });
