@@ -1642,7 +1642,6 @@ main.admin-contenu:focus { outline: none; }
 .rh-outils-droite .comptes-recherche { flex: 1 1 220px; }
 
 /* liste : colonnes triables, nom cliquable (= ouvrir la fiche) */
-.rh-liste .comptes-entete, .rh-liste .comptes-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(110px, 0.8fr) minmax(130px, 1fr) 100px 44px; }
 .contrats-liste .comptes-entete, .contrats-liste .comptes-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(130px, 0.9fr) minmax(130px, 0.9fr) 44px; }
 .sanctions-liste .comptes-entete, .sanctions-liste .comptes-ligne { grid-template-columns: minmax(0, 1.4fr) minmax(120px, 0.8fr) minmax(110px, 0.7fr) minmax(0, 1.2fr) minmax(110px, 0.8fr) 44px; }
 /* Sanctions : type en pastille teintée de sa couleur (bordure et point : pas de color-mix, navigateur en jeu ancien),
@@ -1955,12 +1954,6 @@ main.admin-contenu:focus { outline: none; }
 .import-tablette-pied .btn-or { flex: 1; }
 
 @media (max-width: 760px) {
-  .rh-liste .comptes-ligne { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; grid-template-areas: "id id menu" "grade discord discord" "arrivee arrivee arrivee"; }
-  .rh-liste .comptes-ligne > .rh-employe { grid-area: id; }
-  .rh-liste .comptes-ligne > .rh-cellule:nth-of-type(1) { grid-area: grade; }
-  .rh-liste .comptes-ligne > .rh-cellule:nth-of-type(2) { grid-area: discord; }
-  .rh-liste .comptes-ligne > .rh-cellule:nth-of-type(3) { grid-area: arrivee; }
-  .rh-liste .comptes-ligne > .comptes-menu { grid-area: menu; }
   .rh-cellule::before { content: attr(data-libelle); display: block; font-size: var(--fs-1); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-faint); }
   .contrats-liste .comptes-ligne { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; grid-template-areas: "id id menu" "montant montant montant" "date date date"; }
   .contrats-liste .comptes-ligne > .comptes-identite { grid-area: id; }
@@ -2685,47 +2678,53 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .filtre-type.actif { color: var(--text); border-color: var(--vis); font-weight: 500; }
 
 /* liste : chaque contrat est un bouton qui ouvre sa fiche. Colonnes : partenaire, montant, échéance, facturation (clients) */
-.contrats-liste-v2 { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); overflow: hidden; }
-.contrats-liste-v2 > .comptes-vide { margin: 0; padding: 22px 18px; }
-.contrat-entete, .contrat-ligne {
-  display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(130px, 0.8fr) minmax(150px, 1fr) minmax(130px, 0.8fr) 20px;
-  align-items: center; gap: 16px; padding: 12px 18px;
+/* ---- liste en lignes (contrats, employés, factures…) : une ligne par élément, des cartes quand la place MESURÉE manque ----
+   gestion.listeEnCartes(liste, seuil) pose .liste-lignes--etroite d'après la largeur réelle de la liste (menu, barre de
+   défilement), jamais d'après celle de l'écran. Les colonnes se déclarent par --cols sur la liste ; chaque cellule porte
+   son data-libelle, qui s'affiche devant la valeur en carte (jamais de placement par rang). */
+.liste-lignes { border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); overflow: hidden; }
+.liste-lignes > .comptes-vide { margin: 0; padding: 22px 18px; }
+.liste-entete, .ligne-liste {
+  display: grid; grid-template-columns: var(--cols); align-items: center; gap: 16px; padding: 12px 18px;
 }
-.contrats-liste-v2--fournisseurs .contrat-entete, .contrats-liste-v2--fournisseurs .contrat-ligne { grid-template-columns: minmax(0, 1.5fr) minmax(130px, 0.8fr) minmax(150px, 1fr) 20px; }
-.contrat-entete { padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); font-size: var(--fs-2); color: var(--text-faint); }
-.contrat-ligne {
-  width: 100%; border: 0; border-bottom: 1px solid var(--border); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
-  transition: background var(--transition);
-}
-.contrat-ligne:last-child { border-bottom: 0; }
-.contrat-ligne:hover, .contrat-ligne:focus-visible { background: rgba({{couleur_rvb}}, 0.07); outline: none; }
-.contrat-ligne:focus-visible { box-shadow: inset 3px 0 0 var(--accent); }
-.contrat-ligne--terminee .contrat-ligne-identite, .contrat-ligne--terminee .contrat-montant { opacity: 0.6; }
-.contrat-ligne-identite { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.contrat-ligne-nom { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
-.contrat-ligne-nom strong { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
-.contrat-ligne-nom .sanction-type { min-height: 22px; padding: 0 8px 0 6px; }
-.contrat-ligne-cellule { min-width: 0; font-size: var(--fs-3); color: var(--text-muted); }
+.liste-entete { padding-top: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); font-size: var(--fs-2); color: var(--text-faint); }
+.ligne-liste { border-bottom: 1px solid var(--border); color: inherit; font: inherit; text-align: left; transition: background var(--transition); }
+.ligne-liste:last-child { border-bottom: 0; }
+.ligne-liste:hover { background: rgba({{couleur_rvb}}, 0.07); }
+/* ligne entièrement cliquable (un bouton) */
+button.ligne-liste { width: 100%; border-top: 0; border-left: 0; border-right: 0; background: none; cursor: pointer; }
+button.ligne-liste:focus-visible { background: rgba({{couleur_rvb}}, 0.07); outline: none; box-shadow: inset 3px 0 0 var(--accent); }
+.ligne-liste--terminee .ligne-identite, .ligne-liste--terminee .contrat-montant { opacity: 0.6; }
+.ligne-identite { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ligne-nom { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.ligne-nom strong { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.ligne-nom .sanction-type { min-height: 22px; padding: 0 8px 0 6px; }
+.ligne-cellule { min-width: 0; font-size: var(--fs-3); color: var(--text-muted); overflow-wrap: anywhere; }
+.ligne-cellule small { color: var(--text-faint); white-space: nowrap; }
+.ligne-chevron { display: flex; justify-content: flex-end; color: var(--text-faint); }
+.ligne-liste:hover .ligne-chevron { color: var(--accent-dark); }
+/* place mesurée trop étroite : une carte par ligne, l'identité en tête, chaque cellule sous son libellé */
+.liste-lignes--etroite .liste-entete { display: none; }
+.liste-lignes--etroite .ligne-liste { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; }
+.liste-lignes--etroite .ligne-identite { grid-column: 1; }
+.liste-lignes--etroite .ligne-chevron, .liste-lignes--etroite .ligne-actions { grid-column: 2; grid-row: 1; }
+.liste-lignes--etroite .ligne-cellule { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; text-align: right; }
+.liste-lignes--etroite .ligne-cellule::before { content: attr(data-libelle); flex: none; font-size: var(--fs-1); color: var(--text-faint); text-align: left; }
+/* liste dont les lignes portent un menu qui dépasse du cadre (employés) : rien n'est coupé, les angles suivent */
+.liste-lignes--menu { overflow: visible; }
+.liste-lignes--menu > .liste-entete { border-radius: var(--radius) var(--radius) 0 0; }
+.liste-lignes--menu > .ligne-liste:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+.liste-lignes--etroite .ligne-actions { justify-self: end; }
+/* contrats : montant, échéance, état de facturation */
 .contrat-montant { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.contrat-ligne-cellule small { color: var(--text-faint); white-space: nowrap; }
 .contrat-echeance--proche { color: var(--alerte); font-weight: 500; }
 .contrat-echeance--terminee { color: var(--text-faint); }
 .contrat-facturation { color: var(--text-faint); }
 .contrat-facturation--a-faire { color: var(--erreur); font-weight: 500; }
 .contrat-facturation--ok { color: var(--ok); }
-.contrat-ligne-chevron { display: flex; justify-content: flex-end; color: var(--text-faint); }
-.contrat-ligne:hover .contrat-ligne-chevron { color: var(--accent-dark); }
-/* place mesurée trop étroite (contrats.js) : une carte par contrat, l'identité en tête, les cellules dessous */
-.contrats-liste-v2--etroite .contrat-entete { display: none; }
-.contrats-liste-v2--etroite .contrat-ligne, .contrats-liste-v2--etroite.contrats-liste-v2--fournisseurs .contrat-ligne {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 20px; grid-template-areas: "id id chevron" "montant echeance echeance" "facturation facturation facturation"; gap: 10px 14px;
-}
-.contrats-liste-v2--etroite .contrat-ligne-identite { grid-area: id; }
-.contrats-liste-v2--etroite .contrat-ligne-chevron { grid-area: chevron; }
-.contrats-liste-v2--etroite .contrat-ligne-cellule:nth-of-type(2) { grid-area: montant; }
-.contrats-liste-v2--etroite .contrat-ligne-cellule:nth-of-type(3) { grid-area: echeance; }
-.contrats-liste-v2--etroite .contrat-ligne-cellule:nth-of-type(4) { grid-area: facturation; }
-.contrats-liste-v2--etroite .contrat-ligne-cellule::before { content: attr(data-libelle); display: block; font-size: var(--fs-1); color: var(--text-faint); }
+.liste-contrats { --cols: minmax(0, 1.5fr) minmax(130px, 0.8fr) minmax(150px, 1fr) minmax(130px, 0.8fr) 20px; }
+.liste-contrats--fournisseurs { --cols: minmax(0, 1.5fr) minmax(130px, 0.8fr) minmax(150px, 1fr) 20px; }
+.liste-employes { --cols: minmax(0, 1.6fr) minmax(110px, 0.8fr) minmax(130px, 1fr) 100px 44px; }
 
 /* ---- tiroir (fiche d'un contrat) : à droite, toute la hauteur ; bandeau et pied fixes, seul le corps défile ---- */
 .tiroir-fond { justify-content: flex-end; align-items: stretch; padding: 0; }

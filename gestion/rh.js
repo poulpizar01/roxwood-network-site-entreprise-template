@@ -108,16 +108,16 @@ function afficherEmployes() {
       e.statut === 'actif' && aDroitRh('desactiver') ? `<button type="button" role="menuitem" data-rh-desactiver="${e.id}">${gestion.ico('lock')} Désactiver (départ)</button>` : '',
       e.statut !== 'actif' && aDroitRh('reactiver') ? `<button type="button" role="menuitem" data-rh-reactiver="${e.id}">${gestion.ico('sync')} Réactiver</button>` : '',
     ].join('');
-    return `<div class="comptes-ligne rh-ligne${e.statut === 'inactif' ? ' refuse' : ''}">
+    return `<div class="ligne-liste${e.statut === 'inactif' ? ' ligne-liste--terminee' : ''}">
       <button type="button" class="rh-employe" data-rh-fiche="${e.id}">
         <span class="admin-avatar" aria-hidden="true">${echapper(initiales(e.nomComplet))}</span>
         <span class="rh-employe-texte"><span class="comptes-nom"><strong>${echapper(e.nomComplet)}</strong>${etiquettes}</span>
           <span class="comptes-pseudo">${echapper(e.idUnique)}${e.idProvisoire ? ' · provisoire' : ''}</span></span>
       </button>
-      <span class="rh-cellule" data-libelle="Grade"><span class="pastille-grade" style="background:${echapper(e.gradeCouleur || '#8a93b8')}"></span>${echapper(e.gradeLibelle)}</span>
-      <span class="rh-cellule" data-libelle="Discord">${e.discordPseudo ? `${echapper(e.discordPseudo)}` : '<span class="comptes-discret">—</span>'}${e.discordId ? `<span class="rh-id-discord">${echapper(e.discordId)}</span>` : ''}</span>
-      <span class="rh-cellule" data-libelle="Arrivée">${dateCourte(e.dateArrivee)}</span>
-      <div class="comptes-menu">
+      <span class="ligne-cellule" data-libelle="Grade"><span><span class="pastille-grade" style="background:${echapper(e.gradeCouleur || '#8a93b8')}"></span>${echapper(e.gradeLibelle)}</span></span>
+      <span class="ligne-cellule" data-libelle="Discord"><span>${e.discordPseudo ? `${echapper(e.discordPseudo)}` : '<span class="comptes-discret">—</span>'}${e.discordId ? `<span class="rh-id-discord">${echapper(e.discordId)}</span>` : ''}</span></span>
+      <span class="ligne-cellule" data-libelle="Arrivée">${dateCourte(e.dateArrivee)}</span>
+      <div class="comptes-menu ligne-actions">
         <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(e.nomComplet)}">${gestion.ico('points')}</button>
         <div class="comptes-menu-liste cache" role="menu">${actions}</div>
       </div>
@@ -125,12 +125,14 @@ function afficherEmployes() {
   }).join('');
 
   $rh('rh-liste').innerHTML = liste.length
-    ? `<div class="comptes-entete entete-tri">${entete}<span></span></div>${lignes}`
+    ? `<div class="liste-entete entete-tri">${entete}<span></span></div>${lignes}`
     : `<p class="comptes-vide">${CACHE_EMPLOYES.length ? 'Aucun employé ne correspond à ces critères.' : 'Aucune fiche pour le moment. Ajoutez un membre pour commencer.'}</p>`;
 }
 $rh('recherche-employes').addEventListener('input', afficherEmployes);
 $rh('filtre-rh-grade').addEventListener('change', afficherEmployes);
 document.querySelectorAll('[data-statut]').forEach(b => b.addEventListener('click', () => choisirStatut(b.dataset.statut)));
+// cartes plutôt que colonnes quand la place réellement disponible manque (menu, barre de défilement)
+gestion.listeEnCartes($rh('rh-liste'), 720);
 
 // clics de la liste : tri, fiche, menu « ⋯ » et ses actions (un seul écouteur : la liste est redessinée à chaque fois)
 let MENU_OUVERT = null;

@@ -842,6 +842,12 @@ window.gestion = {
     if (type === 'succes') el.closest(FICHE)?.removeAttribute('data-saisie');   // enregistré : cette fiche repart de zéro
   },
 
+  // Une liste en lignes (.liste-lignes) devient une liste de cartes quand sa place MESURÉE passe sous seuil (px) : la place
+  // dépend du menu, de la barre de défilement, du contenu — jamais de la largeur de l'écran (docs/design.md §4).
+  listeEnCartes(liste, seuil = 700) {
+    new ResizeObserver(([e]) => liste.classList.toggle('liste-lignes--etroite', e.contentRect.width < seuil)).observe(liste);
+  },
+
   // Confirmation dans la page (aucune boîte de dialogue du navigateur : l'ordinateur en jeu ne les affiche pas).
   // libelle : le bouton dit l'action (« Supprimer le grade »), jamais « Confirmer » ; danger = false pour une action
   // qui ne détruit rien (bouton plein). Le focus reste dans la fenêtre, Échap annule, puis le focus revient où il était.

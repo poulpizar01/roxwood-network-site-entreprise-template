@@ -95,15 +95,15 @@ function facturationDe(c) {
 }
 function ligneContrat(c) {
   const e = echeanceDe(c);
-  return `<button type="button" class="contrat-ligne${c.statut === 'termine' ? ' contrat-ligne--terminee' : ''}" data-ouvrir-contrat="${c.id}" aria-label="Ouvrir le contrat avec ${echapper(c.partenaire)}">
-    <span class="contrat-ligne-identite">
+  return `<button type="button" class="ligne-liste${c.statut === 'termine' ? ' ligne-liste--terminee' : ''}" data-ouvrir-contrat="${c.id}" aria-label="Ouvrir le contrat avec ${echapper(c.partenaire)}">
+    <span class="ligne-identite">
       <span class="admin-avatar" aria-hidden="true">${echapper(initiales(c.partenaire))}</span>
-      <span class="contrat-ligne-nom"><strong>${echapper(c.partenaire)}</strong>${c.type ? `<span class="sanction-type" style="--vis:${echapper(c.type.couleur)}">${echapper(c.type.nom)}</span>` : ''}</span>
+      <span class="ligne-nom"><strong>${echapper(c.partenaire)}</strong>${c.type ? `<span class="sanction-type" style="--vis:${echapper(c.type.couleur)}">${echapper(c.type.nom)}</span>` : ''}</span>
     </span>
-    <span class="contrat-ligne-cellule" data-libelle="Montant"><span class="contrat-montant">${formaterMontant(c.montant)}</span> <small>${PERIODES[c.periodicite].court}</small></span>
-    <span class="contrat-ligne-cellule ${e.classe}" data-libelle="Échéance">${e.texte}</span>
-    ${c.partie === 'client' ? `<span class="contrat-ligne-cellule" data-libelle="Facturation">${facturationDe(c)}</span>` : ''}
-    <span class="contrat-ligne-chevron" aria-hidden="true">${fleche('droite')}</span>
+    <span class="ligne-cellule" data-libelle="Montant"><span><span class="contrat-montant">${formaterMontant(c.montant)}</span> <small>${PERIODES[c.periodicite].court}</small></span></span>
+    <span class="ligne-cellule ${e.classe}" data-libelle="Échéance">${e.texte}</span>
+    ${c.partie === 'client' ? `<span class="ligne-cellule" data-libelle="Facturation">${facturationDe(c)}</span>` : ''}
+    <span class="ligne-chevron" aria-hidden="true">${fleche('droite')}</span>
   </button>`;
 }
 function afficherStats(contrats) {
@@ -133,19 +133,18 @@ function afficherContrats() {
   const client = FILTRE_PARTIE === 'client';
   const colonnes = [['partenaire', 'Partenaire'], ['montant', 'Montant'], ['echeance', 'Échéance'], ...(client ? [['facturation', 'Facturation']] : [])];
   const liste = $c('contrats-liste');
-  liste.classList.toggle('contrats-liste-v2--fournisseurs', !client);
+  liste.classList.toggle('liste-contrats--fournisseurs', !client);
   const vide = !dePartie.length
     ? `Aucun contrat ${FILTRE_PARTIE === 'client' ? 'client' : 'fournisseur'} pour le moment. « Nouveau contrat » en crée un.`
     : FILTRE_STATUT === 'actif' && !terme && !FILTRE_TYPE ? 'Aucun contrat en cours. Les contrats terminés restent dans « Terminés ».'
     : 'Aucun contrat ne correspond à ces critères.';
   liste.innerHTML = filtres.length
-    ? `<div class="contrat-entete entete-tri">${colonnes.map(([cle, libelle]) => TRI_CONTRATS.bouton(cle, libelle)).join('')}<span></span></div>${filtres.map(ligneContrat).join('')}`
+    ? `<div class="liste-entete entete-tri">${colonnes.map(([cle, libelle]) => TRI_CONTRATS.bouton(cle, libelle)).join('')}<span></span></div>${filtres.map(ligneContrat).join('')}`
     : `<p class="comptes-vide">${vide}</p>`;
 }
 $c('recherche-contrats').addEventListener('input', afficherContrats);
-// cartes plutôt que colonnes quand la place réellement disponible manque (menu, barre de défilement), pas d'après
-// la largeur de l'écran
-new ResizeObserver(([e]) => $c('contrats-liste').classList.toggle('contrats-liste-v2--etroite', e.contentRect.width < 700)).observe($c('contrats-liste'));
+// cartes plutôt que colonnes quand la place réellement disponible manque (menu, barre de défilement)
+gestion.listeEnCartes($c('contrats-liste'), 700);
 document.querySelectorAll('[data-statut-contrat]').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('[data-statut-contrat]').forEach(x => { x.classList.toggle('actif', x === b); x.setAttribute('aria-pressed', String(x === b)); });
   FILTRE_STATUT = b.dataset.statutContrat;
