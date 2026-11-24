@@ -16,7 +16,7 @@
 </head>
 <body>
   <!-- VITRINE (module « avis » de site.json : cette page répond 404 s'il est éteint) — liste paginée des avis publiés et
-       formulaire de dépôt. Déposer exige une connexion Discord (vérification légère du socle, aucun compte créé) : le pseudo
+       bouton qui ouvre la fenêtre de dépôt (assets/js/avis-depot.js). Déposer exige une connexion Discord (vérification légère du socle, aucun compte créé) : le pseudo
        Discord est gardé avec l'avis pour la modération, jamais affiché. Serveur : /api/avis (entreprise/routes/avis.ts). -->
   <header class="entete">
     <div class="wrap entete__barre">
@@ -52,34 +52,9 @@
     <section class="section section--alt" id="donner">
       <div class="wrap">
         <p class="surtitre">Votre avis</p>
-        <h2 class="section__titre">Donner votre avis</h2>
-        <div class="avis-depot">
-          <div id="avis-discord-bloc" hidden>
-            <p>Pour déposer un avis, connectez-vous avec Discord : nous gardons votre pseudo Discord avec votre avis, pour la modération. Il n'est jamais affiché.</p>
-            <p><a class="btn btn--accent" id="avis-connecter" href="/api/discord/connecter?next=/avis.html">Se connecter avec Discord</a></p>
-            <p class="avis-etat" id="avis-erreur-discord" role="alert" hidden>La connexion avec Discord a échoué. Réessayez.</p>
-          </div>
-          <form id="avis-formulaire" novalidate hidden>
-            <p class="avis-etat">Connecté en tant que <strong id="avis-pseudo"></strong>. <button type="button" class="lien" id="avis-changer">Ce n'est pas vous ?</button></p>
-            <div class="champ"><label for="av-nom">Nom affiché</label><input type="text" id="av-nom" maxlength="100" autocomplete="name" required></div>
-            <div class="champ"><label for="av-entreprise">Entreprise <small>facultatif</small></label><input type="text" id="av-entreprise" maxlength="100" autocomplete="organization"></div>
-            <fieldset class="champ avis-note">
-              <legend>Note</legend>
-              <div class="avis-note__choix">
-                <label><input type="radio" name="note" value="1"><span>1</span></label>
-                <label><input type="radio" name="note" value="2"><span>2</span></label>
-                <label><input type="radio" name="note" value="3"><span>3</span></label>
-                <label><input type="radio" name="note" value="4"><span>4</span></label>
-                <label><input type="radio" name="note" value="5" checked><span>5</span></label>
-              </div>
-              <p class="champ-aide">De 1 (décevant) à 5 (excellent).</p>
-            </fieldset>
-            <div class="champ"><label for="av-texte">Votre avis</label><textarea id="av-texte" maxlength="800" rows="5" required></textarea></div>
-            <p class="avis-etat" id="avis-message" role="alert" hidden></p>
-            <button type="submit" class="btn btn--accent">Envoyer mon avis</button>
-          </form>
-          <p class="avis-etat" id="avis-merci" role="status" hidden>Merci ! Votre avis est enregistré : il sera visible après vérification.</p>
-        </div>
+        <h2 class="section__titre">Vous nous connaissez ?</h2>
+        <p class="avis-etat">Racontez-nous votre expérience : votre avis sera publié après vérification.</p>
+        <p><button type="button" class="btn btn--accent" data-ouvrir-avis>Donner votre avis</button></p>
       </div>
     </section>
   </main>
@@ -105,5 +80,6 @@
   <script src="/socle/socle.js"></script>
   <script src="/assets/js/main.js"></script>
   <script src="/assets/js/avis.js"></script>
+  <script src="/assets/js/avis-depot.js"></script>
 </body>
 </html>

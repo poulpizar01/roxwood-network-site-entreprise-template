@@ -133,10 +133,19 @@ svg.fleche{width:1.1em;height:1.1em;vertical-align:-.2em;fill:none;stroke:curren
 .champ textarea{resize:vertical}
 .champ input:focus-visible,.champ textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .champ-aide{margin:0;font-size:14px;color:var(--ink2)}
-.avis-note__choix{display:flex;gap:8px}
-.avis-note__choix label{position:relative;cursor:pointer}
-.avis-note__choix input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
-.avis-note__choix span{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--ink2);border-radius:var(--radius);font-weight:600}
-.avis-note__choix input:checked+span{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.avis-note__choix input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 .lien{padding:0;border:0;background:none;color:var(--accent);font:inherit;text-decoration:underline;cursor:pointer}
+
+/* fenêtre de dépôt d'un avis (assets/js/avis-depot.js) : note en étoiles = boutons radio, donc flèches du clavier */
+.fenetre-avis{width:min(520px,calc(100% - 32px))}
+.avis-bloc,.avis-form{display:flex;flex-direction:column;gap:14px;align-items:flex-start;width:100%}
+.avis-bloc p,.avis-form .champ,.avis-form .avis-etat{margin:0}
+.avis-form .champ{width:100%;margin-bottom:0}
+.avis-boutons{display:flex;flex-wrap:wrap;gap:12px}
+.avis-note__etoiles{display:flex;gap:2px}
+.avis-note__etoiles label{position:relative;display:block;cursor:pointer}
+.avis-note__etoiles input{position:absolute;inset:0;margin:0;opacity:0;cursor:pointer}
+.avis-note__etoile{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:var(--radius)}
+.avis-note__etoile svg{width:30px;height:30px;fill:var(--line);stroke:var(--ink2);stroke-width:1}
+.avis-note__etoiles label.est-pleine svg{fill:var(--accent);stroke:var(--accent)}
+.avis-note__etoiles input:focus-visible+.avis-note__etoile{outline:2px solid var(--accent);outline-offset:1px}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
