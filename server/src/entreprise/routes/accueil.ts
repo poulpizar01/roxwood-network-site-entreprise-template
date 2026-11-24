@@ -6,7 +6,7 @@ import { prisma } from '../../socle/db.js';
 import { peut, tousLesGrades } from '../../socle/droits.js';
 import { valide } from '../../socle/http.js';
 import { droitsAgenda, peutValiderAbsences } from '../agenda-regles.js';
-import { nombreContratsAFacturer } from '../contrats.js';
+import { nombreContratsAFacturer } from '../echeanciers.js';
 import { EN_SUSPENS } from '../rh.js';
 import { debutSemaineParis } from '../texte.js';
 

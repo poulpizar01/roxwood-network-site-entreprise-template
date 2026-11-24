@@ -3191,3 +3191,21 @@ body.sans-compta [data-exige="compta"] { display: none !important; }
 body.sans-paie [data-exige="paie"] { display: none !important; }
 .facture-articles-boutons { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 2px; }
 .facture-articles-boutons .facture-article-ajouter { margin-top: 0; }
+
+/* ---- Échéanciers (gestion/echeanciers.js) : liste en lignes à ouvrir ; dans la fiche, une ligne par échéance, qui
+   passe à la ligne sous une largeur réduite (jamais de défilement latéral) ---- */
+.liste-echeanciers { --cols: minmax(0, 1.5fr) minmax(150px, 1fr) minmax(110px, 0.7fr) minmax(130px, 0.8fr) 20px; }
+.echeancier-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px 20px; margin: 16px 0 20px; }
+.echeancier-stats dt { font-size: var(--fs-2); color: var(--text-faint); }
+.echeancier-stats dd { margin: 2px 0 0; font-family: var(--display); font-size: var(--fs-5); color: var(--text); }
+.echeancier-liste { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; padding: 0; list-style: none; }
+.echeancier-ligne { display: flex; align-items: center; gap: 10px; }
+.echeancier-ligne input[type="checkbox"], .echeancier-case { flex: none; width: 20px; height: 20px; }
+.echeancier-ligne-ouvrir { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-card); color: inherit; font: inherit; text-align: left; }
+button.echeancier-ligne-ouvrir { cursor: pointer; }
+button.echeancier-ligne-ouvrir:hover, button.echeancier-ligne-ouvrir:focus-visible { border-color: var(--accent); }
+.echeancier-ligne-date { font-weight: 500; font-variant-numeric: tabular-nums; min-width: 92px; }
+.echeancier-ligne-note { color: var(--text-faint); font-size: var(--fs-2); }
+.echeancier-ligne-montant { font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: auto; }
+.echeancier-type { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: var(--fs-1); font-weight: 500; background: var(--bg3); color: var(--text-muted); }
+.echeancier-type--paiement { background: var(--accent-soft); color: var(--accent-clair); }

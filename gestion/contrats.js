@@ -114,7 +114,7 @@ function afficherStats(contrats) {
   $c('carte-stat-facturer').classList.toggle('cache', !client);
   if (client) {
     const aFacturer = contrats.filter(c => c.aFacturer);
-    const total = aFacturer.reduce((s, c) => s + c.aFacturer.nombre * c.montant, 0);
+    const total = aFacturer.reduce((s, c) => s + c.aFacturer.montant, 0);
     $c('stat-facturer').textContent = formaterMontant(total);
     $c('stat-facturer-libelle').textContent = aFacturer.length ? `sur ${pluriel(aFacturer.length, 'contrat', 'contrats')}, périodes commencées` : 'tout est facturé';
   }
@@ -196,8 +196,8 @@ function sectionFacturation(c) {
   const a = c.aFacturer;
   const action = a
     ? peutFacturer()
-      ? `<button type="button" class="btn btn-or contrat-facturer" data-facturer>Facturer ${pluriel(a.nombre, p.unite, p.unites)} · ${formaterMontant(a.nombre * c.montant)}</button>
-         <p class="champ-aide">Du ${jourFr(a.debut)} au ${jourFr(a.fin)}. Le formulaire de facture s’ouvre pré-rempli : vérifiez puis validez.</p>`
+      ? `<button type="button" class="btn btn-or contrat-facturer" data-exige="factures" data-facturer>Facturer ${pluriel(a.nombre, p.unite, p.unites)} · ${formaterMontant(a.montant)}</button>
+         <p class="champ-aide">Du ${jourFr(a.debut)} au ${jourFr(a.fin)} : une facture par ${p.unite}, à retrouver dans Facturation. Le détail des échéances et leurs montants : <a href="echeanciers.html?id=${c.echeancierId}">page Échéanciers</a>.</p>`
       : `<p class="champ-aide">${pluriel(a.nombre, p.unite, p.unites)} à facturer, du ${jourFr(a.debut)} au ${jourFr(a.fin)}. Demandez-le à une personne qui gère les factures.</p>`
     : `<p class="champ-aide">${c.periodes.length ? 'Toutes les périodes commencées sont facturées.' : 'Le contrat n’a pas encore commencé.'}</p>`;
   return `<section class="tiroir-section" aria-labelledby="titre-facturation-contrat">
@@ -283,12 +283,17 @@ $c('tiroir-contrat').addEventListener('click', async e => {
   else if (e.target.closest('[data-revoquer-acces]')) revoquerAcces(c);
 });
 
-// facture : formulaire de Facturation pré-rempli avec les périodes à facturer (le serveur les revérifie)
-function facturerContrat(c) {
+// facturer : une facture par échéance due (le serveur revérifie, jamais deux fois la même période)
+async function facturerContrat(c) {
   const a = c.aFacturer, p = PERIODES[c.periodicite];
-  if (!a) return;
-  const params = new URLSearchParams({ depuisContrat: String(c.id), client: c.partenaire, montant: String(c.montant), nombre: String(a.nombre), unite: p.unite, debut: a.debut, fin: a.fin });
-  location.href = `facturation.html?${params}`;
+  if (!a || !c.echeancierId) return;
+  if (!await gestion.confirmer(`${pluriel(a.nombre, p.unite, p.unites)} seront facturées (une facture chacune), soit ${formaterMontant(a.montant)}, du ${jourFr(a.debut)} au ${jourFr(a.fin)}.`,
+    `Facturer ${c.partenaire} ?`, 'Facturer', { danger: false })) return;
+  try {
+    const { factureIds } = await socle.api(`/api/echeanciers/${c.echeancierId}/facturer`, { method: 'POST', body: { ids: [] } });
+    gestion.notifier(`${pluriel(factureIds.length, 'facture créée', 'factures créées')} ✓`);
+    chargerContrats();
+  } catch (e) { gestion.message('zone-message-contrats', e.message); }
 }
 
 async function copierAcces(c, nouveau) {

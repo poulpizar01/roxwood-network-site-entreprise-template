@@ -8,6 +8,7 @@ import { planifierNettoyageImages } from './images-retirees.js';
 import { PARAMETRES } from './parametres.js';
 import { planifierPurge } from './purge.js';
 import { planifierFinContrats } from './contrats.js';
+import { planifierEcheanciers } from './echeanciers.js';
 import { recevoirFactureCommande, recevoirFactureMonitoring } from './facture.js';
 import { recevoirCandidature } from './rh.js';
 import { recevoirRun } from './run.js';
@@ -19,6 +20,7 @@ import { apparence } from './routes/apparence.js';
 import { compte } from './routes/compte.js';
 import { compta } from './routes/compta.js';
 import { contrats } from './routes/contrats.js';
+import { echeanciers } from './routes/echeanciers.js';
 import { paie } from './routes/paie.js';
 import { rh } from './routes/rh.js';
 import { run } from './routes/run.js';
@@ -42,12 +44,13 @@ export const entreprise: Entreprise = {
     beneficiaires: 'contrats-beneficiaires',
     'contrat-client': 'public',   // espace du client lui-même, par lien à jeton (sans compte) — routes/contrats.ts
     facturation: 'factures-voir',
+    echeanciers: 'factures-voir',
     paie: 'paie-voir',
     parametres: 'parametres',
   },
 
   // apparence en premier : elle répond sur les adresses des images de la marque, avant le fichier livré
-  routes: [apparence, agenda, rh, run, compta, contrats, paie, services, accueil, compte],
+  routes: [apparence, agenda, rh, run, compta, contrats, echeanciers, paie, services, accueil, compte],
 
   // page Paramètres (socle) : liens et réglages de ce site, déclarés dans parametres.ts
   parametres: PARAMETRES,
@@ -72,6 +75,7 @@ export const entreprise: Entreprise = {
     await tx.apparenceImage.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.sanction.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.contrat.updateMany({ where: { compteId }, data: { compteId: null } });
+    await tx.echeancier.updateMany({ where: { compteId }, data: { compteId: null } });
     if (compte) await tx.invitationAgenda.deleteMany({ where: { discordId: compte.discordId } });
     await tx.evenementAgenda.deleteMany({ where: { compteId, destination: 'perso' } });
     await tx.evenementAgenda.updateMany({ where: { compteId }, data: { compteId: null, auteurNom: '' } });
@@ -119,6 +123,7 @@ export const entreprise: Entreprise = {
     planifierServices();
     planifierVerrouillageDot();
     planifierFinContrats();
+    planifierEcheanciers();
     simulerBotsDiscord();   // développement seulement (DISCORD_BOT_TOKEN=simulation)
   },
 };

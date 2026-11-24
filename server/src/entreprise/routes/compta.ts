@@ -13,6 +13,7 @@ import {
   enregistrerReleve, estVerrouillee, graphiqueDot, marquerFichePaiePayee, publierFichesPaie, refuserSiVerrouillee, resumeDot, salariesDot, semaineCourante, semaineDate, semaineDemandee,
 } from '../dot.js';
 import { verifierFacturationContrat } from '../contrats.js';
+import { lierEcheancesAFacture, planPaiementDeFacture } from '../echeanciers.js';
 import { ajouterArticleCatalogue, classementFactures, definirQuotaFacture, listerCatalogue, modifierArticleCatalogue, quotasFacture, supprimerArticleCatalogue } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
 import { servicesEnSuspensSemaine } from '../services.js';
@@ -186,7 +187,10 @@ compta.get('/api/compta/factures', ...voirFactures, async (req, res) => {
   const ids = factures.map(f => f.id);
   const avoirs = ids.length ? await prisma.facture.findMany({ where: { avoirDeId: { in: ids } }, select: { avoirDeId: true } }) : [];
   const avoirsDe = new Set(avoirs.map(a => a.avoirDeId));
-  res.json({ factures: (await avecAuteurs(factures)).map(f => ({ ...f, avoirEmis: avoirsDe.has(f.id) })) });
+  // planPaiementId : règlement en plusieurs fois (page Échéanciers) ; son statut suit alors les échéances
+  const plans = ids.length ? await prisma.echeancier.findMany({ where: { factureId: { in: ids } }, select: { id: true, factureId: true } }) : [];
+  const planDe = new Map(plans.map(p => [p.factureId, p.id]));
+  res.json({ factures: (await avecAuteurs(factures)).map(f => ({ ...f, avoirEmis: avoirsDe.has(f.id), planPaiementId: planDe.get(f.id) ?? null })) });
 });
 
 // quota hebdomadaire de montant facturé par grade : réglé dans la fiche du grade (page Grades), mêmes routes que
@@ -273,7 +277,9 @@ compta.post('/api/compta/factures', ...gererFactures, traiter(async (req, res) =
     ? await prisma.facture.create({ data })
     : await prisma.$transaction(async tx => {
       const p = await verifierFacturationContrat(tx, contratId, b.periodeDebut, b.periodeFin);
-      return tx.facture.create({ data: { ...data, contratId, periodeDebut: p.debut, periodeFin: p.fin } });
+      const creee = await tx.facture.create({ data: { ...data, contratId, periodeDebut: p.debut, periodeFin: p.fin } });
+      await lierEcheancesAFacture(tx, contratId, p.debut, p.fin, creee.id, creee.total);   // l'échéancier suit la facture
+      return creee;
     });
   res.status(201).json({ id: f.id });
 }));
@@ -311,6 +317,7 @@ compta.delete('/api/compta/factures/:id', ...gererFactures, traiter(async (req, 
   const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
   if (!f) throw new Refus('Facture introuvable.', 404);
   if (f.source !== 'manuel') throw new Refus('Seule une facture saisie à la main peut être supprimée.', 403);
+  if (await planPaiementDeFacture(f.id)) throw new Refus('Cette facture est réglée en plusieurs fois : supprimez d’abord son plan de règlement (page Échéanciers).', 409);
   await prisma.facture.delete({ where: { id: f.id } });
   res.json({ ok: true });
 }));
@@ -328,6 +335,7 @@ compta.post('/api/compta/factures/:id/statut', ...gererFactures, traiter(async (
   const statut = String(body(req).statut ?? '');
   if (!STATUTS_MANUELS.includes(statut)) throw new Refus('Statut invalide.');
   if (statut === f.statutPaiement) { res.json({ ok: true }); return; }
+  if (statut !== 'ANNULEE' && await planPaiementDeFacture(f.id)) throw new Refus('Cette facture est réglée en plusieurs fois : son statut suit ses échéances (page Échéanciers).', 409);
   if (f.statutPaiement === 'PAYEE') {
     const avoir = await prisma.facture.findFirst({ where: { avoirDeId: f.id }, select: { id: true } });
     if (avoir) throw new Refus('Un avoir a été émis pour cette facture : son statut ne peut plus changer.', 409);

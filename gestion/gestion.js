@@ -24,6 +24,7 @@ const GESTION_NAV = [
   { cle: 'services', href: 'services.html', label: 'Anomalies', icone: 'clock', permission: 'rh-voir' },
   { groupe: 'Comptabilité' },
   { cle: 'facturation', href: 'facturation.html', label: 'Facturation', icone: 'receipt', permission: 'factures-voir' },
+  { cle: 'echeanciers', href: 'echeanciers.html', label: 'Échéanciers', icone: 'list', permission: 'factures-voir' },
   { cle: 'contrats', href: 'contrats.html', label: 'Contrats', icone: 'archive', permission: 'contrats-voir' },
   { cle: 'paie', href: 'paie.html', label: 'Paie', icone: 'coins', permission: 'paie-voir' },
   { cle: 'dot', href: 'dot.html', label: 'DOT', icone: 'calc', permission: 'compta-voir' },
