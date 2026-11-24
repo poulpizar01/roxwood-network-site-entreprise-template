@@ -3214,3 +3214,122 @@ button.echeancier-ligne-ouvrir:hover, button.echeancier-ligne-ouvrir:focus-visib
 
 /* lien d'appoint dans une phrase (ex. « Ce n'est pas vous ? ») : un bouton qui se lit comme un lien */
 .lien-discret { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-clair); text-decoration: underline; cursor: pointer; }
+
+/* ---- Vitrine (vitrine.html) : un service = une carte (photo, nom, extrait) ; son nom ouvre la fiche, et toute la
+   carte avec lui (::after), sauf les flèches d'ordre posées au-dessus ---- */
+.vitrine-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; max-width: 1100px; }
+ol.vitrine-grille { margin: 0; padding: 0; list-style: none; }
+.vitrine-carte {
+  position: relative; display: flex; flex-direction: column; min-width: 0; color: var(--text);
+  background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+  transition: border-color .15s;
+}
+.vitrine-carte:hover { border-color: rgba({{couleur_rvb}}, 0.55); }
+.vitrine-carte-ouvrir { all: unset; cursor: pointer; font-size: var(--fs-5); font-weight: 500; overflow-wrap: anywhere; }
+.vitrine-carte-ouvrir::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.vitrine-carte-ouvrir:focus-visible::after { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* poignée de glisser-déposé (Sortable, comme la page Grades) : au-dessus du bouton qui couvre toute la carte */
+.vitrine-carte-poignee {
+  position: relative; z-index: 1; flex: 0 0 auto; width: 28px; height: 28px; display: flex; align-items: center;
+  justify-content: center; border: 0; border-radius: 999px; background: none; color: var(--text-faint); font-size: var(--fs-5);
+  cursor: grab;
+}
+.vitrine-carte-poignee:hover { color: var(--accent-clair); background: rgba({{couleur_rvb}}, 0.12); }
+.vitrine-carte-poignee:focus-visible { outline: 2px solid var(--accent-clair); outline-offset: -2px; }
+.vitrine-carte--masquee .vitrine-carte-photo img { filter: grayscale(1); opacity: .45; }
+.vitrine-carte.squelette { height: 292px; cursor: default; }
+/* proportion portée par l'image elle-même : sur son conteneur, une photo en hauteur l'étirerait (min-height: auto) */
+.vitrine-carte-photo { display: block; background: var(--bg2); }
+.vitrine-carte-sans-photo { display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; font-size: var(--fs-2); color: var(--text-faint); }
+.vitrine-carte-photo img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+.vitrine-carte-corps { display: flex; flex: 1; flex-direction: column; gap: 6px; padding: 14px 16px 16px; }
+.vitrine-carte-extrait {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  font-size: var(--fs-3); line-height: 1.45; color: var(--text-faint);
+}
+.vitrine-carte-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 8px; font-size: var(--fs-2); color: var(--text-faint); }
+.vitrine-carte-meta .puce { height: 22px; }
+
+/* fiche : formulaire à gauche, aperçu de la fenêtre publique à droite ; tête et pied fixes, seul le corps défile */
+.modale.modale-service {
+  display: flex; flex-direction: column; max-width: 1040px; padding: 0; overflow: hidden;
+  height: min(88vh, 780px); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px);
+}
+.modale-service > .modale-entete h2 { margin: 0; font-size: var(--fs-8); overflow-wrap: anywhere; }
+.modale-service > .modale-entete { flex: 0 0 auto; margin: 0; padding: 22px 28px 14px; border-bottom: 1px solid var(--border); }
+.modale-service > form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.service-fiche-corps {
+  /* fond opaque : sans lui, Chrome (écran à 100 %) ne délègue pas ce défilement à la carte graphique et repasse
+     chaque position par le fil principal — barre de défilement saccadée */
+  background: var(--bg-card);
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 28px 8px;
+  display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start;
+  scrollbar-width: thin; scrollbar-color: rgba({{couleur_rvb}}, 0.36) transparent;
+}
+.service-fiche-bloc { margin: 0 0 22px; }
+.service-fiche-bloc h3, .service-apercu h3 { margin: 0 0 10px; font-family: var(--body); font-size: var(--fs-5); font-weight: 500; color: var(--text); }
+.service-champ-tete { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.service-champ-tete h3 { margin-bottom: 10px; }
+.service-champ-tete label { margin-bottom: 8px; }
+.service-noms + .champ-aide { margin: -6px 0 14px; }
+.service-compteur { font-size: var(--fs-2); color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.service-photo { display: flex; gap: 16px; align-items: flex-start; }
+.service-photo > img { flex: 0 0 168px; width: 168px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; background: var(--bg2); }
+.service-photo-infos { min-width: 0; flex: 1; }
+.service-photo-infos .apparence-actions { padding-top: 8px; }
+.service-inclus { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* .ligne-triable porte le bloc visuel (bordure, fond, coins) : un seul contour pendant le glissé, pas trois éléments
+   séparés (poignée, champ, bouton) qui semblaient se découper les uns des autres. */
+.service-point.champ { margin: 0; }
+.service-point { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 5px; }
+.service-point input { min-height: 44px; padding: 8px 12px; }
+.service-point .actions-icone { min-width: 36px; min-height: 36px; }
+/* poignée de glisser-déposé (Sortable, même système que la page Grades) */
+.service-point-poignee {
+  flex: 0 0 auto; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-faint); font-size: var(--fs-5); cursor: grab;
+}
+.service-point-poignee:hover { color: var(--accent-clair); background: rgba({{couleur_rvb}}, 0.12); }
+.service-point-poignee:focus-visible { outline: 2px solid var(--accent-clair); outline-offset: -2px; }
+/* aperçu : reprend la fenêtre « Découvrir » de la vitrine (photo, titre, texte, liste cochée, bouton d'action) */
+.service-apercu { position: sticky; top: 0; }
+.service-apercu-fenetre { border: 1px solid var(--border-light); border-radius: var(--radius); overflow: hidden; background: var(--bg); }
+.service-apercu-fenetre > img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--bg2); }
+.service-apercu-texte { padding: 16px 18px 18px; font-size: var(--fs-3); line-height: 1.5; color: var(--text-faint); overflow-wrap: anywhere; }
+.service-apercu-texte p { margin: 0 0 10px; }
+.service-apercu-sur { font-size: var(--fs-1); color: var(--accent); }
+p.service-apercu-titre { margin-bottom: 8px; font-size: var(--fs-6); font-weight: 600; color: var(--text); }
+.service-apercu-inclus { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 6px; color: var(--text); }
+.service-apercu-inclus li { position: relative; padding-left: 20px; }
+.service-apercu-inclus li::before {
+  content: ""; position: absolute; left: 3px; top: .35em; width: 5px; height: 9px;
+  border: solid var(--accent); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.service-apercu-bouton { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 999px; background: var(--accent); color: var(--on-accent, #fff); font-size: var(--fs-2); font-weight: 500; }
+/* étiquettes : pastilles à bascule, une par étiquette du catalogue (modale « Gérer les étiquettes ») */
+.service-etiquettes-choix { display: flex; flex-wrap: wrap; gap: 8px; }
+.service-etiquette-choix {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 4px 12px 4px 10px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--bg2); color: var(--text-muted);
+  font: inherit; font-size: var(--fs-3); cursor: pointer;
+}
+.service-etiquette-choix::before { content: ""; width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--vis); }
+.service-etiquette-choix:hover, .service-etiquette-choix:focus-visible { border-color: var(--vis); color: var(--text); }
+.service-etiquette-choix.actif { border-color: var(--vis); background: var(--bg3); color: var(--text); font-weight: 500; }
+.service-fiche-pied { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; padding: 14px 28px 20px; border-top: 1px solid var(--border); background: var(--bg-card); }
+.service-fiche-pied .param-modifie { margin-right: auto; }
+@media (max-width: 860px) {
+  .service-fiche-corps { grid-template-columns: minmax(0, 1fr); padding: 16px 18px 8px; }
+  .service-apercu { position: static; }
+  .modale-service > .modale-entete { padding: 18px 18px 12px; }
+  .service-fiche-pied { padding: 12px 18px 16px; }
+}
+@media (max-width: 520px) {
+  .service-noms { grid-template-columns: 1fr; }
+  .service-photo { flex-direction: column; }
+  .service-photo > img { width: 100%; flex-basis: auto; }
+}
+
+/* ---- fiche avec interrupteurs (Vitrine) : pas l'habillage majuscule des étiquettes de champ (label, en tête de ce fichier) ---- */
+.catalogue-options { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 6px; }
+.catalogue-options .grade-permission { margin: 0 -10px; text-transform: none; letter-spacing: 0; font-size: var(--fs-3); }

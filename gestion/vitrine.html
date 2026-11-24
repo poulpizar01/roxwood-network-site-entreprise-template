@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <!-- polices annoncées tout de suite : prêtes au premier affichage, le texte ne se redessine plus en arrivant -->
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <script src="/gestion/vendor/Sortable.min.js"></script>
+  <title>Vitrine — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — contenu de la vitrine publique (module « vitrine » : permissions vitrine-voir / vitrine pour les services et leurs
+       étiquettes, postes-voir / postes pour les postes ouverts). Services : autant qu'on veut, ordre réglable, masqués ou
+       supprimés définitivement ; chacun a une photo envoyée (facultative). Serveur : entreprise/vitrine.ts, routes/vitrine.ts. -->
+  <main class="admin-contenu">
+    <div class="entete-admin">
+      <div>
+        <h1 style="margin-bottom:2px;">Vitrine</h1>
+        <p style="margin:0;font-size:var(--fs-3);" id="vitrine-sous-titre">Les services affichés sur la page d’accueil.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;" id="vitrine-actions-services">
+        <button type="button" class="btn btn-fantome" id="bouton-gerer-etiquettes">Gérer les étiquettes</button>
+        <button type="button" class="btn btn-or" id="bouton-nouveau-service"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Nouveau service</button>
+      </div>
+    </div>
+
+    <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques de la vitrine">
+      <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" aria-controls="panneau-vitrine-services" data-vitrine-onglet="services"><svg class="ico" aria-hidden="true"><use href="#ico-list"></use></svg> Services</button>
+      <button type="button" class="compta-sous-onglet" role="tab" aria-selected="false" aria-controls="panneau-vitrine-recrutement" data-vitrine-onglet="recrutement"><svg class="ico" aria-hidden="true"><use href="#ico-briefcase"></use></svg> Recrutement</button>
+    </div>
+
+    <section id="panneau-vitrine-services">
+      <div id="zone-message" role="status"></div>
+      <p class="compta-aide" style="margin:4px 0 16px;">L’ordre est celui de la page d’accueil. Un service qui ne sert plus se masque.</p>
+      <div class="vitrine-grille" id="vitrine-services" aria-busy="true">
+        <div class="vitrine-carte squelette" aria-hidden="true"></div>
+        <div class="vitrine-carte squelette" aria-hidden="true"></div>
+        <div class="vitrine-carte squelette" aria-hidden="true"></div>
+        <div class="vitrine-carte squelette" aria-hidden="true"></div>
+        <div class="vitrine-carte squelette" aria-hidden="true"></div>
+        <div class="vitrine-carte squelette" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section id="panneau-vitrine-recrutement" class="cache">
+      <div id="zone-message-postes" role="status"></div>
+      <div class="types-corps" style="padding:0;margin-top:20px;">
+        <p class="champ-aide types-intro">Affichés dans la section Recrutement de la page d’accueil, avec leur nombre de places. Le nombre est réglé à la main, sans lien avec l’effectif réel.</p>
+        <div class="types-section-entete">
+          <h3 class="types-sous-titre">Postes existants</h3>
+          <span class="types-compte" id="types-postes-compte"></span>
+        </div>
+        <ul class="types-liste" id="types-postes-liste"></ul>
+      </div>
+      <div class="types-pied" style="padding:0;margin-top:14px;background:none;">
+        <form class="types-ajout" id="form-poste" novalidate>
+          <h3 class="types-sous-titre">Créer un poste</h3>
+          <div class="types-ajout-champs">
+            <div class="champ">
+              <label for="poste-nom">Nom</label>
+              <input type="text" id="poste-nom" maxlength="80" placeholder="Ex. Conseiller">
+            </div>
+            <div class="champ types-nombre">
+              <label for="poste-nombre">Places</label>
+              <input type="number" id="poste-nombre" min="0" max="999" value="1">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-or">Ajouter</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- fiche d'un service : formulaire à gauche, aperçu de la fenêtre « Découvrir » publique à droite, mis à jour à la frappe -->
+  <div class="modale-fond cache" id="modale-service" data-echap>
+    <div class="modale modale-service" role="dialog" aria-modal="true" aria-labelledby="titre-modale-service">
+      <div class="modale-entete">
+        <h2 id="titre-modale-service">Nouveau service</h2>
+        <button type="button" id="fermer-modale-service" aria-label="Fermer">✕</button>
+      </div>
+      <form id="formulaire-service" novalidate>
+        <div class="service-fiche-corps">
+          <div class="service-fiche-champs">
+            <div id="zone-message-service" role="status"></div>
+            <section class="service-fiche-bloc" aria-labelledby="titre-service-photo">
+              <h3 id="titre-service-photo">Photo</h3>
+              <div class="service-photo">
+                <img id="service-photo-apercu" src="" alt="">
+                <div class="service-photo-infos">
+                  <p class="champ-aide" id="service-photo-etat"></p>
+                  <div class="apparence-actions">
+                    <button type="button" class="btn btn-fantome btn-petit" id="service-photo-remplacer">Choisir une photo</button>
+                    <button type="button" class="btn btn-fantome btn-petit cache" id="service-photo-retirer">Retirer la photo</button>
+                  </div>
+                  <p class="champ-aide seulement-en-jeu">En jeu, si le choix du fichier ne s’ouvre pas, envoyez la photo depuis un navigateur, avec le même compte.</p>
+                </div>
+              </div>
+              <input type="file" id="service-photo-fichier" accept="image/png,image/jpeg,image/webp" class="cache">
+            </section>
+            <section class="service-fiche-bloc">
+              <div class="champ-deux service-noms">
+                <div class="champ"><label for="service-nom">Nom</label><input type="text" id="service-nom" maxlength="60" required></div>
+              </div>
+              <div class="champ">
+                <div class="service-champ-tete"><label for="service-resume">Résumé</label><span class="service-compteur" id="service-resume-compteur"></span></div>
+                <input type="text" id="service-resume" maxlength="120" aria-describedby="aide-service-resume">
+                <p class="champ-aide" id="aide-service-resume">Une phrase sous le nom, dans la liste des services de la page d’accueil.</p>
+              </div>
+              <div class="champ">
+                <div class="service-champ-tete"><label for="service-description">Présentation</label><span class="service-compteur" id="service-description-compteur"></span></div>
+                <textarea id="service-description" rows="5" maxlength="400" aria-describedby="service-description-aide"></textarea>
+                <p class="champ-aide" id="service-description-aide">Affichée dans la fenêtre «&nbsp;Découvrir&nbsp;», 400 caractères au plus.</p>
+              </div>
+            </section>
+            <section class="service-fiche-bloc" aria-labelledby="titre-service-inclus">
+              <div class="service-champ-tete"><h3 id="titre-service-inclus">Ce qui est inclus</h3><span class="service-compteur" id="service-inclus-compteur"></span></div>
+              <ol class="service-inclus" id="service-inclus"></ol>
+              <button type="button" class="btn btn-fantome btn-petit" id="service-inclus-ajouter">Ajouter un point</button>
+              <p class="champ-aide">Six points de 60 caractères au plus, dans l’ordre d’affichage.</p>
+            </section>
+
+            <section class="service-fiche-bloc" aria-labelledby="titre-service-etiquettes">
+              <h3 id="titre-service-etiquettes">Étiquettes</h3>
+              <div class="service-etiquettes-choix" id="service-etiquettes-choix" role="group" aria-label="Étiquettes affichées sous ce service"></div>
+              <p class="champ-aide">Affichées sous le service dans la liste de la page d’accueil. Gérées depuis la page Vitrine (« Gérer les étiquettes »).</p>
+            </section>
+            <section class="service-fiche-bloc catalogue-options">
+              <label class="grade-permission" data-zone="masquer-service"><span class="d8-switch"><input type="checkbox" id="service-masque"><span class="d8-switch-piste"></span></span>
+                <span><strong>Masqué</strong><small>Retiré de la page d’accueil. Il reste ici, prêt à revenir.</small></span></label>
+            </section>
+          </div>
+          <aside class="service-apercu" aria-labelledby="titre-service-apercu">
+            <h3 id="titre-service-apercu">Aperçu sur le site</h3>
+            <div class="service-apercu-fenetre">
+              <img id="apercu-photo" src="" alt="">
+              <div class="service-apercu-texte">
+                <p class="service-apercu-sur">Nos services</p>
+                <p class="service-apercu-titre" id="apercu-titre"></p>
+                <p id="apercu-description"></p>
+                <ul class="service-apercu-inclus" id="apercu-inclus"></ul>
+                <span class="service-apercu-bouton" aria-hidden="true">Nous contacter</span>
+              </div>
+            </div>
+          </aside>
+        </div>
+        <div class="service-fiche-pied">
+          <button type="button" class="btn btn-danger cache" id="service-supprimer"><svg class="ico" aria-hidden="true"><use href="#ico-trash"></use></svg> Supprimer</button>
+          <span class="param-modifie" id="service-modifie" hidden><span class="param-modifie-long">Modifications non enregistrées</span><span class="param-modifie-court">Non enregistré</span></span>
+          <button type="button" class="btn btn-danger" id="service-annuler">Annuler</button>
+          <button type="submit" class="btn btn-or" id="service-enregistrer" data-zone="enregistrer-service">Ajouter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modale-fond cache" id="modale-etiquettes" data-echap>
+    <div class="modale modale-types" role="dialog" aria-modal="true" aria-labelledby="titre-modale-etiquettes">
+      <div class="modale-entete">
+        <h2 id="titre-modale-etiquettes">Étiquettes des services</h2>
+        <button id="fermer-modale-etiquettes" type="button" aria-label="Fermer">✕</button>
+      </div>
+      <div class="types-corps">
+        <p class="champ-aide types-intro">Les étiquettes s'affichent sous un service dans la liste de la page d’accueil. Un service en choisit plusieurs.</p>
+        <div class="types-section-entete">
+          <h3 class="types-sous-titre">Étiquettes existantes</h3>
+          <span class="types-compte" id="types-etiquettes-compte"></span>
+        </div>
+        <ul class="types-liste" id="types-etiquettes-liste"></ul>
+      </div>
+      <div class="types-pied">
+        <form class="types-ajout" id="form-etiquette" novalidate>
+          <h3 class="types-sous-titre">Créer une étiquette</h3>
+          <div class="types-ajout-champs">
+            <div class="champ">
+              <label for="etiquette-nom">Nom</label>
+              <input type="text" id="etiquette-nom" maxlength="40" placeholder="Ex. Sur réservation">
+            </div>
+            <div class="champ types-couleur">
+              <label for="etiquette-couleur">Couleur</label>
+              <input type="color" id="etiquette-couleur" aria-label="Couleur de la nouvelle étiquette">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-or">Ajouter</button>
+        </form>
+        <div id="zone-message-etiquettes" role="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+    const RESUME_MAX = 120, DESCRIPTION_MAX = 400, INCLUS_MAX = 6, POINT_MAX = 60;
+    let vitrine = { stockage: false, services: [], etiquettes: [] }, fiche = null, ficheModifiee = false, etiquettesChoisies = [];
+    // photo choisie pendant la création : gardée ici, envoyée juste après la création du service (il n'a pas encore d'identifiant)
+    let photoEnAttente = null, apercuEnAttente = null;
+    let postes = { postes: [] };
+    // deux onglets sans droit commun (D11, round 2) : vitrine-voir/vitrine pour Services, postes-voir/postes pour
+    // Recrutement — posés par gestion.coque('vitrine').then(moi => …) ci-dessous
+    let PEUT_VOIR_SERVICES = false, PEUT_GERER_SERVICES = false, PEUT_VOIR_POSTES = false, PEUT_GERER_POSTES = false;
+    // miniature : grille et fiche affichent au plus 340 px, jamais la photo pleine taille (jusqu'à 1 Mo, pensée pour
+    // la fenêtre « Découvrir » publique ou le fond de l'accueil) — sinon la page charge jusqu'à 7 images lourdes à
+    // chaque ouverture et à chaque réordonnancement.
+
+    // ---- liste : une carte par service, dans l'ordre de la page d'accueil ----
+    async function chargerVitrine() {
+      try {
+        vitrine = await socle.api('/api/vitrine/services');
+        $('vitrine-services').innerHTML = vitrine.services.length ? vitrine.services.map(sv => `
+          <article class="vitrine-carte${sv.masque ? ' vitrine-carte--masquee' : ''}" data-id="${sv.id}">
+            <span class="vitrine-carte-photo">${sv.photo.apercuMini ? `<img src="${echapper(sv.photo.apercuMini)}" alt="" loading="lazy">` : '<span class="vitrine-carte-sans-photo">Pas de photo</span>'}</span>
+            <span class="vitrine-carte-corps">
+              <button type="button" class="vitrine-carte-ouvrir" data-service="${sv.id}">${echapper(sv.nom)}</button>
+              <span class="vitrine-carte-extrait">${echapper(sv.resume || sv.description) || 'Pas encore de texte.'}</span>
+              <span class="vitrine-carte-meta">
+                <span class="catalogue-puces">${sv.masque ? '<span class="puce puce-masquee">Masqué</span>' : '<span class="puce puce-ok">Page d’accueil</span>'}</span>
+                ${PEUT_GERER_SERVICES ? `<button type="button" class="vitrine-carte-poignee" aria-label="Déplacer « ${echapper(sv.nom)} » (flèches haut et bas)">⠿</button>` : ''}
+              </span>
+            </span>
+          </article>`).join('') : '<p class="etat-vide" style="grid-column:1/-1;">Aucun service : « Nouveau service » crée le premier.</p>';
+        $('vitrine-services').removeAttribute('aria-busy');
+        if (fiche?.id) { fiche = vitrine.services.find(sv => sv.id === fiche.id); remplirPhoto(fiche); }
+      } catch (e) { gestion.message('zone-message', e.message); }
+    }
+    async function chargerPostes() {
+      try {
+        postes = await socle.api('/api/vitrine/postes');
+        dessinerPostes();
+      } catch (e) { gestion.message('zone-message-postes', e.message); }
+    }
+    $('vitrine-services').addEventListener('click', e => {
+      const ouvrir = e.target.closest('[data-service]');
+      if (ouvrir) ouvrirFiche(vitrine.services.find(sv => sv.id === Number(ouvrir.dataset.service)));
+    });
+    // ordre : glisser-déposé ou flèches sur la poignée (triable(), gestion.js — même système que la page Grades)
+    async function enregistrerOrdreServices(ids, focusId) {
+      try { await socle.api('/api/vitrine/services/ordre', { method: 'PUT', body: { ids } }); }
+      catch (err) { gestion.notifier(err.message, 'erreur'); }
+      await chargerVitrine();
+      if (focusId) $('vitrine-services').querySelector(`[data-id="${focusId}"] .vitrine-carte-poignee`)?.focus();
+    }
+    triable($('vitrine-services'), {
+      ligne: '.vitrine-carte', poignee: '.vitrine-carte-poignee',
+      surReordre: item => enregistrerOrdreServices([...$('vitrine-services').querySelectorAll('[data-id]')].map(el => Number(el.dataset.id)), Number(item.dataset.id)),
+    });
+    $('bouton-nouveau-service').addEventListener('click', () => ouvrirFiche(null));
+
+    // ---- fiche ----
+    function ouvrirFiche(sv) {
+      fiche = sv;
+      $('titre-modale-service').textContent = sv ? sv.nom : 'Nouveau service';
+      $('service-nom').value = sv?.nom || '';
+      $('service-resume').value = sv?.resume || '';
+      $('service-description').value = sv?.description || '';
+      $('service-masque').checked = !!sv?.masque;
+      $('service-enregistrer').textContent = sv ? 'Enregistrer' : 'Ajouter';
+      $('service-supprimer').classList.toggle('cache', !sv || !PEUT_GERER_SERVICES);
+      $('service-enregistrer').classList.toggle('cache', !PEUT_GERER_SERVICES);
+      $('formulaire-service').querySelectorAll('input, textarea').forEach(el => { if (el.type !== 'file') el.disabled = !PEUT_GERER_SERVICES; });
+      dessinerInclus(sv?.inclus || []);
+      etiquettesChoisies = sv?.etiquetteIds ? [...sv.etiquetteIds] : [];
+      dessinerChoixEtiquettes();
+      definirPhotoEnAttente(null);
+      remplirPhoto(sv);
+      gestion.message('zone-message-service', '');
+      ficheModifiee = false; $('service-modifie').hidden = true;
+      majApercu();
+      $('modale-service').classList.remove('cache');
+      document.querySelector('.service-fiche-corps').scrollTop = 0;   // une fiche s'ouvre toujours en haut
+      $('service-nom').focus({ preventScroll: true });
+    }
+    function definirPhotoEnAttente(fichier) {
+      if (apercuEnAttente) URL.revokeObjectURL(apercuEnAttente);
+      photoEnAttente = fichier; apercuEnAttente = fichier ? URL.createObjectURL(fichier) : null;
+    }
+    // envoi d'une photo (traitement d'images du socle, stockage distant) : pour un service existant, ou juste après sa création
+    async function envoyerPhotoService(id, fichierPhoto) {
+      const corps = new FormData();
+      corps.append('image', fichierPhoto);
+      const r = await fetch(`/api/vitrine/services/${id}/photo`, { method: 'POST', credentials: 'same-origin', headers: { Accept: 'application/json' }, body: corps });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(data?.error || 'L’envoi de la photo a échoué. Réessayez avec une image PNG, JPEG ou WebP.');
+    }
+    function remplirPhoto(sv) {
+      // la fiche n'affiche la photo qu'en petit (168 et ~340 px) : la miniature suffit, pas la pleine taille
+      const url = sv ? sv.photo.apercuMini : apercuEnAttente;   // sans photo : aucune image, ni dans la fiche ni dans l'aperçu
+      for (const id of ['service-photo-apercu', 'apercu-photo']) { const img = $(id); if (url) img.src = url; else img.removeAttribute('src'); img.hidden = !url; }
+      $('service-photo-etat').textContent = !sv ? (!vitrine.stockage ? 'Le stockage des images n’est pas configuré : demandez-le à la personne qui s’occupe du site.'
+          : photoEnAttente ? `« ${photoEnAttente.name} » sera enregistrée avec le service.` : 'Facultative : vous pouvez aussi l’ajouter plus tard. Format conseillé : paysage, 1 600 × 1 000 environ.')
+        : !vitrine.stockage ? 'Le stockage des images n’est pas configuré : la photo actuelle reste en place. Demandez-le à la personne qui s’occupe du site.'
+        : sv.photo.personnalisee ? 'Photo envoyée, enregistrée dès l’envoi. Format conseillé : paysage, 1 600 × 1 000 environ.'
+        : 'Aucune photo : le service s’affiche sans image. Format conseillé : paysage, 1 600 × 1 000 environ.';
+      $('service-photo-remplacer').disabled = !vitrine.stockage || !PEUT_GERER_SERVICES;
+      $('service-photo-remplacer').textContent = sv?.photo.personnalisee || photoEnAttente ? 'Remplacer la photo' : 'Choisir une photo';
+      $('service-photo-retirer').classList.toggle('cache', sv ? !sv.photo.personnalisee : !photoEnAttente);
+    }
+
+    // points inclus : une ligne par point. Ajouter, retirer ou réordonner ne touche jamais qu'un seul nœud (jamais de
+    // redessin global) — c'est ce qui rend le geste fluide, même système que les grades et la liste des services.
+    const pointsSaisis = () => [...$('service-inclus').querySelectorAll('input')].map(i => i.value);
+    function ligneInclus(valeur) {
+      const li = document.createElement('li');
+      li.className = 'service-point ligne-triable champ';
+      li.innerHTML = `
+        <button type="button" class="service-point-poignee" aria-label="Déplacer ce point (flèches haut et bas)">⠿</button>
+        <input type="text" value="${echapper(valeur)}" maxlength="${POINT_MAX}" aria-label="Point" autocomplete="off">
+        <button type="button" class="actions-icone actions-icone--erreur" data-point-retirer aria-label="Retirer ce point">${gestion.ico('trash')}</button>`;
+      return li;
+    }
+    function majCompteurInclus() {
+      const n = $('service-inclus').children.length;
+      $('service-inclus-compteur').textContent = `${n} / ${INCLUS_MAX}`;
+      $('service-inclus-ajouter').disabled = n >= INCLUS_MAX;
+    }
+    // dessin complet : seulement à l'ouverture d'une fiche (ouvrirFiche) ; ajouter/retirer/réordonner ensuite ne
+    // touchent qu'un seul nœud, voir plus bas.
+    function dessinerInclus(points) {
+      $('service-inclus').innerHTML = '';
+      points.forEach(p => $('service-inclus').appendChild(ligneInclus(p)));
+      majCompteurInclus();
+    }
+    triable($('service-inclus'), { ligne: '.service-point', poignee: '.service-point-poignee', surReordre: modifierFiche });
+    $('service-inclus').addEventListener('click', e => {
+      const b = e.target.closest('[data-point-retirer]');
+      if (!b) return;
+      const ligne = b.closest('.service-point'), voisine = ligne.nextElementSibling || ligne.previousElementSibling;
+      ligne.remove();
+      majCompteurInclus();
+      (voisine?.querySelector('input') || $('service-inclus-ajouter')).focus();
+      modifierFiche();
+    });
+    $('service-inclus-ajouter').addEventListener('click', () => {
+      const ligne = ligneInclus('');
+      $('service-inclus').appendChild(ligne);
+      majCompteurInclus();
+      ligne.querySelector('input').focus();
+      modifierFiche();
+    });
+    // Entrée dans un point : ajoute le suivant (saisie d'une liste au clavier) au lieu d'envoyer le formulaire
+    $('service-inclus').addEventListener('keydown', e => {
+      if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+      e.preventDefault();
+      if (!$('service-inclus-ajouter').disabled) $('service-inclus-ajouter').click();
+    });
+
+    function majApercu() {
+      $('apercu-titre').textContent = $('service-nom').value.trim() || 'Nom du service';
+      $('apercu-description').textContent = $('service-description').value.trim();
+      $('service-description-compteur').textContent = `${$('service-description').value.length} / ${DESCRIPTION_MAX}`;
+      $('service-resume-compteur').textContent = `${$('service-resume').value.length} / ${RESUME_MAX}`;
+      $('apercu-inclus').innerHTML = pointsSaisis().map(p => p.trim()).filter(Boolean).map(p => `<li>${echapper(p)}</li>`).join('');
+    }
+    function modifierFiche() { ficheModifiee = true; $('service-modifie').hidden = false; majApercu(); }
+    $('formulaire-service').addEventListener('input', e => { if (e.target.type !== 'file') modifierFiche(); });
+    $('formulaire-service').addEventListener('change', e => { if (e.target.type === 'checkbox') modifierFiche(); });
+
+    async function fermerFiche() {
+      if (ficheModifiee && !await gestion.confirmer('Les modifications de ce service ne sont pas enregistrées.', 'Fermer la fiche ?', 'Abandonner les modifications')) return;
+      $('modale-service').classList.add('cache');
+      fiche = null;
+    }
+    $('fermer-modale-service').addEventListener('click', fermerFiche);
+    $('modale-service').addEventListener('click', e => { if (e.target.id === 'modale-service') fermerFiche(); });
+
+    $('formulaire-service').addEventListener('submit', async e => {
+      e.preventDefault();
+      gestion.message('zone-message-service', '');
+      if (!$('service-nom').value.trim()) { gestion.message('zone-message-service', 'Donnez un nom au service.'); $('service-nom').focus(); return; }
+      const corps = {
+        nom: $('service-nom').value.trim(), resume: $('service-resume').value.trim(),
+        description: $('service-description').value.trim(), inclus: pointsSaisis().map(p => p.trim()).filter(Boolean),
+        etiquetteIds: etiquettesChoisies, masque: $('service-masque').checked,
+      };
+      $('service-enregistrer').disabled = true;
+      try {
+        if (fiche) {
+          await socle.api(`/api/vitrine/services/${fiche.id}`, { method: 'PUT', body: corps });
+          gestion.notifier(`« ${corps.nom} » enregistré ✓`);
+          ficheModifiee = false;
+          $('modale-service').classList.add('cache');
+          fiche = null;
+          await chargerVitrine();
+        } else {
+          const { id } = await socle.api('/api/vitrine/services', { method: 'POST', body: corps });
+          let photoEnvoyee = true;
+          if (photoEnAttente) {
+            try { await envoyerPhotoService(id, photoEnAttente); } catch (err) { photoEnvoyee = false; await chargerVitrine(); ouvrirFiche(vitrine.services.find(sv => sv.id === id)); gestion.message('zone-message-service', `Service créé, mais la photo n’a pas pu être envoyée : ${err.message}`); }
+          }
+          if (photoEnvoyee) {
+            gestion.notifier(`« ${corps.nom} » créé ✓`);
+            ficheModifiee = false; definirPhotoEnAttente(null);
+            $('modale-service').classList.add('cache');
+            fiche = null;
+            await chargerVitrine();
+          }
+        }
+      } catch (err) { gestion.message('zone-message-service', err.message); }
+      finally { $('service-enregistrer').disabled = false; }
+    });
+
+    // Annuler = la croix : même garde « Fermer sans enregistrer ? » si la fiche a été modifiée
+    $('service-annuler').addEventListener('click', () => $('fermer-modale-service').click());
+    $('service-supprimer').addEventListener('click', async () => {
+      if (!fiche) return;
+      const ok = await gestion.confirmer('Ce service sera définitivement supprimé. Il disparaîtra de la page d’accueil.', `Supprimer « ${fiche.nom} » ?`, 'Supprimer le service');
+      if (!ok) return;
+      try {
+        await socle.api(`/api/vitrine/services/${fiche.id}`, { method: 'DELETE' });
+        gestion.notifier(`« ${fiche.nom} » supprimé`);
+        $('modale-service').classList.add('cache');
+        fiche = null;
+        await chargerVitrine();
+      } catch (err) { gestion.message('zone-message-service', err.message); }
+    });
+
+    // photo : envoyée aussitôt (traitement d'images du socle, stockage distant), indépendamment du bouton Enregistrer
+    $('service-photo-remplacer').addEventListener('click', () => $('service-photo-fichier').click());
+    $('service-photo-fichier').addEventListener('change', async e => {
+      const fichierPhoto = e.target.files?.[0];
+      e.target.value = '';
+      if (!fichierPhoto) return;
+      if (fichierPhoto.size > 15 * 1024 * 1024) { gestion.message('zone-message-service', 'Image trop lourde : 15 Mo au plus.'); return; }
+      if (!fiche) { definirPhotoEnAttente(fichierPhoto); remplirPhoto(null); modifierFiche(); return; }   // création : envoyée avec le service
+      gestion.notifier('Envoi de la photo…');
+      try {
+        await envoyerPhotoService(fiche.id, fichierPhoto);
+        gestion.notifier('Photo enregistrée ✓', 'succes');
+        chargerVitrine();
+      } catch (err) { gestion.message('zone-message-service', err.message); }
+    });
+    $('service-photo-retirer').addEventListener('click', async () => {
+      if (!fiche) { definirPhotoEnAttente(null); remplirPhoto(null); return; }
+      if (!await gestion.confirmer('Le service s’affichera sans image en attendant une autre photo.', 'Retirer la photo ?', 'Retirer la photo', { danger: true })) return;
+      try { await socle.api(`/api/vitrine/services/${fiche.id}/photo`, { method: 'DELETE' }); gestion.notifier('Photo retirée ✓'); chargerVitrine(); }
+      catch (err) { gestion.message('zone-message-service', err.message); }
+    });
+
+    // ---- choix des étiquettes sur la fiche : pastilles à bascule, dans le catalogue tenu par la modale ci-dessous ----
+    function dessinerChoixEtiquettes() {
+      const catalogue = vitrine.etiquettes || [];
+      $('service-etiquettes-choix').innerHTML = catalogue.length ? catalogue.map(et => `
+        <button type="button" class="service-etiquette-choix${etiquettesChoisies.includes(et.id) ? ' actif' : ''}" data-etiquette="${et.id}" aria-pressed="${etiquettesChoisies.includes(et.id)}" style="--vis:${echapper(et.couleur)}">${echapper(et.nom)}</button>`).join('')
+        : '<p class="etat-vide">Aucune étiquette créée. « Gérer les étiquettes » pour en ajouter.</p>';
+    }
+    $('service-etiquettes-choix').addEventListener('click', e => {
+      const b = e.target.closest('[data-etiquette]');
+      if (!b) return;
+      const id = Number(b.dataset.etiquette);
+      etiquettesChoisies = etiquettesChoisies.includes(id) ? etiquettesChoisies.filter(x => x !== id) : [...etiquettesChoisies, id];
+      dessinerChoixEtiquettes();
+      modifierFiche();
+    });
+
+    // ---- modale « Gérer les étiquettes » : classement libre (nom, couleur), même système que les types de sanction ----
+    const PALETTE_ETIQUETTES = ['#6fb7e8', '#5fd39a', '#ef7f73', '#a99cf5', '#e89a5f', '#d784c4', '#9fb4c7', '#e3cf6f'];
+    let OUVREUR_ETIQUETTES = null, ETIQUETTE_EN_EDITION = null;
+    function dessinerEtiquettes() {
+      const ul = $('types-etiquettes-liste'), catalogue = vitrine.etiquettes || [];
+      $('types-etiquettes-compte').textContent = `${catalogue.length} étiquette${catalogue.length === 1 ? '' : 's'}`;
+      ul.innerHTML = catalogue.length ? catalogue.map(et => `
+        <li class="types-ligne${ETIQUETTE_EN_EDITION === et.id ? ' en-edition' : ''}" data-type="${Number(et.id)}">
+          ${ETIQUETTE_EN_EDITION === et.id ? `
+            <div class="types-edition-champs">
+              <div class="champ"><label for="etiquette-nom-${Number(et.id)}">Nom de l’étiquette</label><input type="text" id="etiquette-nom-${Number(et.id)}" value="${echapper(et.nom)}" maxlength="40" data-champ="nom"></div>
+              <div class="champ types-couleur"><label for="etiquette-couleur-${Number(et.id)}">Couleur</label><input type="color" id="etiquette-couleur-${Number(et.id)}" value="${echapper(et.couleur)}" data-champ="couleur"></div>
+            </div>
+            <div class="types-actions">
+              <button type="button" class="btn btn-or" data-enregistrer-type>Enregistrer</button>
+              <button type="button" class="btn btn-danger" data-annuler-edition>Annuler</button>
+            </div>` : `
+            <div class="types-identite"><span class="types-pastille" style="background:${echapper(et.couleur)}" aria-hidden="true"></span><strong>${echapper(et.nom)}</strong></div>
+            <div class="types-actions">
+              <button type="button" class="btn btn-fantome" data-modifier-type>Modifier</button>
+              <button type="button" class="types-supprimer" data-supprimer>Supprimer</button>
+            </div>`}
+        </li>`).join('') : '<li class="types-vide">Aucune étiquette créée. Ajoutez-en une ci-dessous.</li>';
+      const libres = PALETTE_ETIQUETTES.filter(c => !catalogue.some(et => et.couleur === c));
+      $('etiquette-couleur').value = libres[0] || PALETTE_ETIQUETTES[catalogue.length % PALETTE_ETIQUETTES.length];
+    }
+    async function etiquettesModifiees(promesse, notification) {
+      try {
+        vitrine.etiquettes = (await promesse).etiquettes || [];
+        gestion.message('zone-message-etiquettes', '');
+        if (notification) gestion.notifier(notification);
+        dessinerEtiquettes();
+        // une étiquette supprimée disparait aussi de la sélection en cours, sur la fiche ouverte derrière
+        etiquettesChoisies = etiquettesChoisies.filter(id => vitrine.etiquettes.some(et => et.id === id));
+        dessinerChoixEtiquettes();
+        return true;
+      } catch (e) { gestion.message('zone-message-etiquettes', e.message); }
+      return false;
+    }
+    function ouvrirEtiquettes() {
+      OUVREUR_ETIQUETTES = document.activeElement;
+      ETIQUETTE_EN_EDITION = null;
+      dessinerEtiquettes();
+      gestion.message('zone-message-etiquettes', '');
+      $('modale-etiquettes').classList.remove('cache');
+      $('etiquette-nom').focus();
+    }
+    function fermerEtiquettes() {
+      $('modale-etiquettes').classList.add('cache');
+      (OUVREUR_ETIQUETTES?.isConnected ? OUVREUR_ETIQUETTES : $('bouton-gerer-etiquettes'))?.focus();
+    }
+    $('bouton-gerer-etiquettes').addEventListener('click', ouvrirEtiquettes);
+    $('fermer-modale-etiquettes').addEventListener('click', fermerEtiquettes);
+    $('modale-etiquettes').addEventListener('click', e => { if (e.target.id === 'modale-etiquettes') fermerEtiquettes(); });
+    $('form-etiquette').addEventListener('submit', e => {
+      e.preventDefault();
+      const nom = $('etiquette-nom').value.trim();
+      if (!nom) { gestion.message('zone-message-etiquettes', 'Donnez un nom à l’étiquette avant de l’ajouter.'); $('etiquette-nom').focus(); return; }
+      etiquettesModifiees(socle.api('/api/vitrine/etiquettes', { method: 'POST', body: { nom, couleur: $('etiquette-couleur').value } }), `Étiquette « ${nom} » ajoutée ✓`)
+        .then(ok => { if (ok) { $('etiquette-nom').value = ''; $('etiquette-nom').focus(); } });
+    });
+    $('types-etiquettes-liste').addEventListener('click', async e => {
+      const ligne = e.target.closest('[data-type]');
+      if (!ligne) return;
+      const id = Number(ligne.dataset.type);
+      if (e.target.closest('[data-modifier-type]')) {
+        ETIQUETTE_EN_EDITION = id;
+        dessinerEtiquettes();
+        $(`etiquette-nom-${id}`).focus();
+        return;
+      }
+      if (e.target.closest('[data-annuler-edition]')) {
+        ETIQUETTE_EN_EDITION = null;
+        dessinerEtiquettes();
+        document.querySelector(`[data-type="${id}"] [data-modifier-type]`)?.focus();
+        return;
+      }
+      if (e.target.closest('[data-enregistrer-type]')) {
+        const nom = ligne.querySelector('[data-champ="nom"]').value.trim();
+        const couleur = ligne.querySelector('[data-champ="couleur"]').value;
+        if (!nom) { gestion.message('zone-message-etiquettes', 'Donnez un nom à l’étiquette.'); ligne.querySelector('[data-champ="nom"]').focus(); return; }
+        const ok = await etiquettesModifiees(socle.api(`/api/vitrine/etiquettes/${id}`, { method: 'PUT', body: { nom, couleur } }), `Étiquette « ${nom} » enregistrée ✓`);
+        if (ok) { ETIQUETTE_EN_EDITION = null; dessinerEtiquettes(); document.querySelector(`[data-type="${id}"] [data-modifier-type]`)?.focus(); }
+        return;
+      }
+      const b = e.target.closest('[data-supprimer]');
+      if (!b) return;
+      const et = (vitrine.etiquettes || []).find(x => x.id === id);
+      if (!et || !await gestion.confirmer('Elle sera retirée des services qui la portent.', `Supprimer l’étiquette « ${et.nom} » ?`, 'Supprimer l’étiquette', { danger: true })) return;
+      const ok = await etiquettesModifiees(socle.api(`/api/vitrine/etiquettes/${et.id}`, { method: 'DELETE' }), `Étiquette « ${et.nom} » supprimée ✓`);
+      if (ok) $('etiquette-nom').focus();
+    });
+
+    // ---- onglet « Recrutement » : postes ouverts, classement libre (nom, nombre de places), même système que les étiquettes ----
+    let POSTE_EN_EDITION = null;
+    function dessinerPostes() {
+      const ul = $('types-postes-liste'), catalogue = postes.postes || [];
+      $('types-postes-compte').textContent = `${catalogue.length} poste${catalogue.length === 1 ? '' : 's'}`;
+      ul.innerHTML = catalogue.length ? catalogue.map(p => `
+        <li class="types-ligne${POSTE_EN_EDITION === p.id ? ' en-edition' : ''}" data-type="${Number(p.id)}">
+          ${POSTE_EN_EDITION === p.id ? `
+            <div class="types-edition-champs">
+              <div class="champ"><label for="poste-nom-${Number(p.id)}">Nom du poste</label><input type="text" id="poste-nom-${Number(p.id)}" value="${echapper(p.nom)}" maxlength="80" data-champ="nom"></div>
+              <div class="champ types-nombre"><label for="poste-nombre-${Number(p.id)}">Places</label><input type="number" id="poste-nombre-${Number(p.id)}" value="${Number(p.nombre)}" min="0" max="999" data-champ="nombre"></div>
+            </div>
+            <div class="types-actions">
+              <button type="button" class="btn btn-or" data-enregistrer-type>Enregistrer</button>
+              <button type="button" class="btn btn-danger" data-annuler-edition>Annuler</button>
+            </div>` : `
+            <div class="types-identite"><strong>${echapper(p.nom)}</strong><span class="champ-aide" style="margin:0;">${p.nombre} place${p.nombre === 1 ? '' : 's'}${p.nombre === 0 ? ' · masqué de la page d’accueil' : ''}</span></div>
+            ${PEUT_GERER_POSTES ? `<div class="types-actions">
+              <button type="button" class="btn btn-fantome" data-modifier-type>Modifier</button>
+              <button type="button" class="types-supprimer" data-supprimer>Supprimer</button>
+            </div>` : ''}`}
+        </li>`).join('') : '<li class="types-vide">Aucun poste créé. Ajoutez-en un ci-dessous.</li>';
+      $('form-poste').classList.toggle('cache', !PEUT_GERER_POSTES);
+    }
+    async function postesModifies(promesse, notification) {
+      try {
+        postes.postes = (await promesse).postes || [];
+        gestion.message('zone-message-postes', '');
+        if (notification) gestion.notifier(notification);
+        dessinerPostes();
+        return true;
+      } catch (e) { gestion.message('zone-message-postes', e.message); }
+      return false;
+    }
+    $('form-poste').addEventListener('submit', e => {
+      e.preventDefault();
+      const nom = $('poste-nom').value.trim();
+      if (!nom) { gestion.message('zone-message-postes', 'Donnez un nom au poste avant de l’ajouter.'); $('poste-nom').focus(); return; }
+      postesModifies(socle.api('/api/vitrine/postes', { method: 'POST', body: { nom, nombre: Number($('poste-nombre').value) || 0 } }), `Poste « ${nom} » ajouté ✓`)
+        .then(ok => { if (ok) { $('poste-nom').value = ''; $('poste-nombre').value = '1'; $('poste-nom').focus(); } });
+    });
+    $('types-postes-liste').addEventListener('click', async e => {
+      const ligne = e.target.closest('[data-type]');
+      if (!ligne) return;
+      const id = Number(ligne.dataset.type);
+      if (e.target.closest('[data-modifier-type]')) {
+        POSTE_EN_EDITION = id;
+        dessinerPostes();
+        $(`poste-nom-${id}`).focus();
+        return;
+      }
+      if (e.target.closest('[data-annuler-edition]')) {
+        POSTE_EN_EDITION = null;
+        dessinerPostes();
+        document.querySelector(`[data-type="${id}"] [data-modifier-type]`)?.focus();
+        return;
+      }
+      if (e.target.closest('[data-enregistrer-type]')) {
+        const nom = ligne.querySelector('[data-champ="nom"]').value.trim();
+        const nombre = Number(ligne.querySelector('[data-champ="nombre"]').value);
+        if (!nom) { gestion.message('zone-message-postes', 'Donnez un nom au poste.'); ligne.querySelector('[data-champ="nom"]').focus(); return; }
+        const ok = await postesModifies(socle.api(`/api/vitrine/postes/${id}`, { method: 'PUT', body: { nom, nombre } }), `Poste « ${nom} » enregistré ✓`);
+        if (ok) { POSTE_EN_EDITION = null; dessinerPostes(); document.querySelector(`[data-type="${id}"] [data-modifier-type]`)?.focus(); }
+        return;
+      }
+      const b = e.target.closest('[data-supprimer]');
+      if (!b) return;
+      const p = (postes.postes || []).find(x => x.id === id);
+      if (!p || !await gestion.confirmer('Il disparaîtra de la section Recrutement de la page d’accueil.', `Supprimer le poste « ${p.nom} » ?`, 'Supprimer le poste', { danger: true })) return;
+      const ok = await postesModifies(socle.api(`/api/vitrine/postes/${p.id}`, { method: 'DELETE' }), `Poste « ${p.nom} » supprimé ✓`);
+      if (ok) $('poste-nom').focus();
+    });
+
+    // ---- onglets Services / Recrutement ----
+    function ouvrirOngletVitrine(nom) {
+      const surServices = nom === 'services';
+      document.querySelectorAll('[data-vitrine-onglet]').forEach(b => { const actif = b.dataset.vitrineOnglet === nom; b.classList.toggle('actif', actif); b.setAttribute('aria-selected', String(actif)); });
+      $('panneau-vitrine-services').classList.toggle('cache', !surServices);
+      $('panneau-vitrine-recrutement').classList.toggle('cache', surServices);
+      $('vitrine-actions-services').classList.toggle('cache', !surServices || !PEUT_GERER_SERVICES);
+      $('vitrine-sous-titre').textContent = surServices
+        ? 'Les services affichés sur la page d’accueil.'
+        : 'Les postes affichés dans la section Recrutement de la page d’accueil.';
+    }
+    document.querySelectorAll('[data-vitrine-onglet]').forEach(btn => btn.addEventListener('click', () => ouvrirOngletVitrine(btn.dataset.vitrineOnglet)));
+
+    // page ouverte à tout compte validé (D11, round 2) : deux onglets sans droit commun, chacun masqué et chargé
+    // séparément selon son propre droit de lecture
+    gestion.coque('vitrine').then(moi => {
+      PEUT_VOIR_SERVICES = socle.peut(moi, 'vitrine-voir');
+      PEUT_GERER_SERVICES = socle.peut(moi, 'vitrine');
+      PEUT_VOIR_POSTES = socle.peut(moi, 'postes-voir');
+      PEUT_GERER_POSTES = socle.peut(moi, 'postes');
+      document.querySelector('[data-vitrine-onglet="services"]').classList.toggle('cache', !PEUT_VOIR_SERVICES);
+      document.querySelector('[data-vitrine-onglet="recrutement"]').classList.toggle('cache', !PEUT_VOIR_POSTES);
+      if (!PEUT_VOIR_SERVICES && !PEUT_VOIR_POSTES) {
+        document.querySelector('.compta-sous-onglets').classList.add('cache');
+        $('panneau-vitrine-services').innerHTML = '<p class="etat-vide">Aucun des deux onglets de cette page ne vous est ouvert.</p>';
+        return;
+      }
+      ouvrirOngletVitrine(PEUT_VOIR_SERVICES ? 'services' : 'recrutement');
+      if (PEUT_VOIR_SERVICES) chargerVitrine(); else { $('vitrine-services').innerHTML = ''; $('vitrine-services').removeAttribute('aria-busy'); }
+      if (PEUT_VOIR_POSTES) chargerPostes();
+    }).catch(e => gestion.message('zone-message', e.message));
+  </script>
+</body>
+</html>

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="application-name" content="{{nom}}">
+  <meta name="modules" content="{{modules}}">
   <title>{{nom}} — {{slogan}}</title>
   <meta name="description" content="{{description}}">
   <link rel="canonical" href="{{url}}/">
@@ -29,7 +30,7 @@
       <a class="marque" href="/"><img src="/assets/logo.png" alt="" width="36" height="36"><span>{{nom}}</span></a>
       <button class="burger" type="button" aria-expanded="false" aria-controls="menu" aria-label="Menu"><span></span></button>
       <nav class="menu" id="menu">
-        <a href="#services">Services</a>
+        <a href="#services" data-si-services hidden>Services</a>
         <a href="#entreprise">L'entreprise</a>
         <a href="#contact">Contact</a>
         <a class="btn btn--accent" href="/gestion/">Espace employés</a>
@@ -47,31 +48,29 @@
           <p class="hero__texte">{{description}}</p>
           <div class="hero__actions">
             <a class="btn btn--accent" href="#contact">Nous contacter</a>
-            <a class="btn btn--ligne" href="#services">Nos services</a>
+            <a class="btn btn--ligne" href="#services" data-si-services hidden>Nos services</a>
           </div>
         </div>
         <img class="hero__logo" src="/assets/logo.png" alt="Logo de {{nom}}" width="360" height="360">
       </div>
     </section>
 
-    <section class="section" id="services">
+    <!-- Services : lus dans la base (gestion → Vitrine, module « vitrine » de site.json) ; section absente tant qu'il n'y en a aucun
+         ou si le module est éteint. Chaque carte ouvre sa fiche (assets/js/vitrine.js). -->
+    <section class="section" id="services" data-si-services hidden>
       <div class="wrap">
         <p class="surtitre">Services</p>
         <h2 class="section__titre">Ce que nous proposons</h2>
-        <div class="cartes">
-          <article class="carte">
-            <h3>Service un</h3>
-            <p>Texte à remplacer : une ou deux phrases qui décrivent le service.</p>
-          </article>
-          <article class="carte">
-            <h3>Service deux</h3>
-            <p>Texte à remplacer : une ou deux phrases qui décrivent le service.</p>
-          </article>
-          <article class="carte">
-            <h3>Service trois</h3>
-            <p>Texte à remplacer : une ou deux phrases qui décrivent le service.</p>
-          </article>
-        </div>
+        <div class="cartes cartes--services" id="services-liste"></div>
+      </div>
+    </section>
+
+    <!-- Postes ouverts : réglés à la main dans la gestion (Vitrine → Recrutement) ; section absente s'il n'y en a aucun -->
+    <section class="section" id="recrutement" data-si-postes hidden>
+      <div class="wrap">
+        <p class="surtitre">Recrutement</p>
+        <h2 class="section__titre">Postes ouverts</h2>
+        <ul class="postes" id="postes-liste"></ul>
       </div>
     </section>
 
@@ -122,5 +121,6 @@
   </div>
   <script src="/socle/socle.js"></script>
   <script src="/assets/js/main.js"></script>
+  <script src="/assets/js/vitrine.js"></script>
 </body>
 </html>

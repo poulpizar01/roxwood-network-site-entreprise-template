@@ -28,6 +28,8 @@ const GESTION_NAV = [
   { cle: 'contrats', href: 'contrats.html', label: 'Contrats', icone: 'archive', permission: 'contrats-voir' },
   { cle: 'paie', href: 'paie.html', label: 'Paie', icone: 'coins', permission: 'paie-voir' },
   { cle: 'dot', href: 'dot.html', label: 'DOT', icone: 'calc', permission: 'compta-voir' },
+  // module « vitrine » (site.json) : visible avec l'une ou l'autre des deux lectures (services, postes ouverts)
+  { cle: 'vitrine', href: 'vitrine.html', label: 'Vitrine', icone: 'grid', permission: 'vitrine-voir', ou: 'postes-voir', module: 'vitrine' },
   // réglages, en dernier : on y vient rarement, ils ne passent pas avant le travail de tous les jours
   { groupe: 'Administration' },
   { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'grade', permission: 'grades' },
@@ -245,9 +247,13 @@ const miniature = svg => svg.replace('<svg ', '<svg preserveAspectRatio="xMidYMi
 const reperesHtml = reperes => reperes.map((r, i) => `<span class="rep${r.a ? ' a' : ''}" style="left:${r.x}%;top:${r.y}%" aria-hidden="true">${i + 1}</span>`).join('');
 const suiPage = (cle, reperes = []) => schemaPage(cle) ? `<div class="sui">${schemaPage(cle)}${reperesHtml(reperes)}</div>` : '';
 
+// une rubrique est visible avec sa permission (ou l'alternative « ou ») et si son module est allumé dans site.json (modules : liste
+// des modules actifs, renvoyée par /api/moi ; absente = pas de filtre)
+const rubriqueVisible = (l, peutFn, modules) => (!l.module || !modules || modules.includes(l.module)) && (!l.permission || peutFn(l.permission) || (l.ou && peutFn(l.ou)));
+
 // pages du menu que ce compte peut ouvrir (hors Aide) : même règle que la barre latérale
 function pagesMenu(moi) {
-  return GESTION_NAV.filter(l => !l.groupe && l.cle !== 'aide' && l.cle !== 'site' && (!l.permission || socle.peut(moi, l.permission)));
+  return GESTION_NAV.filter(l => !l.groupe && l.cle !== 'aide' && l.cle !== 'site' && rubriqueVisible(l, cle => socle.peut(moi, cle), moi.modules));
 }
 
 // Repères d'une figure : le numéro N de la légende se pose au centre de l'élément [data-repere="N"] (ou de la zone
@@ -622,8 +628,8 @@ window.gestion = {
 
   // rubriques visibles du menu pour un filtre de permission donné (coque, et l'aperçu d'un grade dans grades.html) :
   // regroupées sous leur titre, un groupe sans aucune rubrique visible n'apparaît pas.
-  rubriques(peutFn) {
-    const visibles = GESTION_NAV.filter(l => l.groupe || !l.permission || peutFn(l.permission));
+  rubriques(peutFn, modules) {
+    const visibles = GESTION_NAV.filter(l => l.groupe || rubriqueVisible(l, peutFn, modules));
     return visibles.filter((l, i) => !l.groupe || (visibles[i + 1] && !visibles[i + 1].groupe));
   },
 
@@ -732,7 +738,7 @@ window.gestion = {
       try { fermes = new Set(JSON.parse(localStorage.getItem(cleGroupes)) || []); } catch { fermes = new Set(); }
       const lien = l => `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`;
       // un groupe sans aucune rubrique visible n'est pas affiché (gestion.rubriques)
-      const lignes = gestion.rubriques(cle => socle.peut(moi, cle));
+      const lignes = gestion.rubriques(cle => socle.peut(moi, cle), moi.modules);
       let groupeActif = null, g = null;
       for (const l of lignes) { if (l.groupe) g = l.groupe; else if (l.cle === rubrique) groupeActif = g; }
       let html = '', groupeOuvert = false;

@@ -5,7 +5,7 @@ import { prisma } from '../socle/db.js';
 import { actualiserGrades } from '../socle/grades-imposes.js';
 import { simulerBotsDiscord } from './discord-simulation.js';
 import { planifierNettoyageImages } from './images-retirees.js';
-import { pagesInactives } from './modules.js';
+import { moduleActif, pagesInactives } from './modules.js';
 import { PARAMETRES } from './parametres.js';
 import { planifierPurge } from './purge.js';
 import { planifierFinContrats } from './contrats.js';
@@ -26,6 +26,9 @@ import { paie } from './routes/paie.js';
 import { rh } from './routes/rh.js';
 import { run } from './routes/run.js';
 import { services } from './routes/services.js';
+
+// routes d'un module : importées seulement s'il est allumé (permission() refuse, au chargement, la clé d'un module éteint)
+const routesVitrine = moduleActif('vitrine') ? [(await import('./routes/vitrine.js')).vitrine] : [];
 
 export const entreprise: Entreprise = {
   // niveau d'accès de chaque page de gestion/ (sans .html) : 'public', 'connecte', 'valide' ou une permission.
@@ -48,6 +51,7 @@ export const entreprise: Entreprise = {
     'facture-signature': 'public',   // lecture confirmée par le client, par lien à jeton + connexion Discord — routes/compta.ts
     echeanciers: 'factures-voir',
     paie: 'paie-voir',
+    vitrine: 'valide',   // module « vitrine » : deux onglets, chacun avec sa permission (vitrine-voir, postes-voir)
     parametres: 'parametres',
   },
 
@@ -55,7 +59,7 @@ export const entreprise: Entreprise = {
   pagesInactives,
 
   // apparence en premier : elle répond sur les adresses des images de la marque, avant le fichier livré
-  routes: [apparence, agenda, rh, run, compta, contrats, echeanciers, paie, services, accueil, compte],
+  routes: [apparence, agenda, rh, run, compta, contrats, echeanciers, paie, services, accueil, compte, ...routesVitrine],
 
   // page Paramètres (socle) : liens et réglages de ce site, déclarés dans parametres.ts
   parametres: PARAMETRES,

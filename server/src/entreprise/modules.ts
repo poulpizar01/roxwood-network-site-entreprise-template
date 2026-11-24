@@ -6,7 +6,7 @@ import { modulesActifs, moduleActif } from '../socle/site.js';
 
 // pages : pages de gestion/ du module (sans .html) ; permissions : clés déclarées dans permissions.ts, retirées si le module est éteint
 export const MODULES: Record<string, { pages: string[]; permissions: string[] }> = {
-  vitrine: { pages: [], permissions: [] },
+  vitrine: { pages: ['vitrine'], permissions: ['vitrine-voir', 'vitrine', 'postes-voir', 'postes'] },
   avis: { pages: [], permissions: [] },
   demandes: { pages: [], permissions: [] },
 };

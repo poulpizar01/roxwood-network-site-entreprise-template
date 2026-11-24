@@ -598,3 +598,40 @@ model Echeance {
   @@index([factureId])
   @@map("echeances")
 }
+
+// ---------- Vitrine (module « vitrine » : page Vitrine de la gestion, entreprise/vitrine.ts) ----------
+
+// Services de la page d'accueil : jamais lus par id ailleurs (suppression libre). Photo : image d'apparence
+// « service-<id> » (table apparence_images), facultative. Ordre = position.
+model ServiceVitrine {
+  id           Int     @id @default(autoincrement())
+  nom          String  @db.VarChar(60)
+  resume       String  @default("") @db.VarChar(120) // phrase sous le nom, dans la liste des services
+  description  String  @default("") @db.VarChar(400) // fenêtre « Découvrir »
+  inclus       Json    @default("[]") // 6 points au plus, 60 caractères chacun
+  etiquetteIds Int[]   @default([]) @map("etiquette_ids") // sans relation Prisma : retirées à la suppression d'une étiquette
+  position     Int
+  masque       Boolean @default(false)
+
+  @@map("services_vitrine")
+}
+
+// Étiquettes des services (« Sur réservation », « 24h/24 »…) : classement libre (nom, couleur).
+model EtiquetteService {
+  id       Int    @id @default(autoincrement())
+  nom      String @unique @db.VarChar(40)
+  couleur  String @db.VarChar(7)
+  position Int    @default(0)
+
+  @@map("etiquettes_services")
+}
+
+// Postes ouverts affichés sur la page d'accueil : réglés à la main, jamais calculés depuis l'effectif réel.
+model PosteOuvert {
+  id       Int    @id @default(autoincrement())
+  nom      String @db.VarChar(80)
+  nombre   Int    @default(1)
+  position Int    @default(0)
+
+  @@map("postes_ouverts")
+}

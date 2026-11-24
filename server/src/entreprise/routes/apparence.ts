@@ -35,7 +35,7 @@ const lecturesEnCours = new Map<string, Promise<Buffer>>();
 const echecs = new Map<string, number>();
 const ECHEC_RETENU_MS = 2 * 60_000;
 
-function lireImage(url: string): Promise<Buffer> {
+export function lireImage(url: string): Promise<Buffer> {
   const enCache = octetsParUrl.get(url);
   if (enCache) return Promise.resolve(enCache);
   if ((echecs.get(url) ?? 0) > Date.now()) return Promise.reject(new Error('échec récent, nouvel essai dans un instant'));
@@ -84,7 +84,7 @@ async function lireImageUneFois(url: string): Promise<Buffer> {
 
 // images réglées, gardées en mémoire (ces fichiers sont demandés à chaque page) : rechargées à chaque changement
 let reglees: Map<string, { url: string; majLe: Date }> | null = null;
-async function imagesReglees() {
+export async function imagesReglees() {
   reglees ??= new Map((await prisma.apparenceImage.findMany({ select: { cle: true, url: true, majLe: true } })).map(r => [r.cle, r]));
   return reglees;
 }
@@ -94,7 +94,7 @@ export const apparence = Router();
 // chaque fichier de la marque : l'image réglée si elle existe et se lit, sinon le fichier livré. Les deux avec un cache
 // court : les autres fichiers de assets/ sont gardés 7 jours par les navigateurs, un logo remplacé ne s'afficherait pas
 // avant une semaine chez qui a déjà l'ancien.
-const CACHE_COURT = 'public, max-age=300';
+export const CACHE_COURT = 'public, max-age=300';
 for (const d of IMAGES_MARQUE) {
   apparence.get(d.fichier, async (_req, res) => {
     const livre = () => res.sendFile(join(config.root, d.fichier), { headers: { 'Cache-Control': CACHE_COURT } });
@@ -132,7 +132,7 @@ const definition = (req: Request) => {
 // fichier en ligne sans trace : la suppression est réessayée au passage suivant. Un verrou par image fait se suivre deux
 // remplacements simultanés : chacun envoie bien au nettoyage l'image du précédent.
 type Ligne = { cleImage: string; url: string; cleMini: string; urlMini: string };
-async function changerImage(cle: string, nouvelle: (Ligne & { compteId: number }) | null): Promise<void> {
+export async function changerImage(cle: string, nouvelle: (Ligne & { compteId: number }) | null): Promise<void> {
   await prisma.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'apparence:' + cle}))`;
     const avant = await tx.apparenceImage.findUnique({ where: { cle } });

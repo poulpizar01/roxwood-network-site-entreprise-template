@@ -36,6 +36,11 @@ const declarees: Permission[] = [
   // indépendante de « contrats » : la Direction coche les deux pour voir aussi la page Bénéficiaires
   { cle: 'contrats-beneficiaires', domaine: 'Comptabilité', libelle: 'Consulter les bénéficiaires', description: 'Vérifier qui est couvert par un contrat client en cours, sans voir les montants ni gérer les contrats' },
   { cle: 'agenda-types', domaine: 'Agenda', libelle: 'Gérer les types d’événements', description: 'Créer, renommer, colorer et supprimer les types qui classent les événements de l’agenda' },
+  // Site : module « vitrine » (site.json) — services, étiquettes et postes ouverts de la page d'accueil, chacun sa paire consulter / gérer
+  { cle: 'vitrine-voir', domaine: 'Site', libelle: 'Consulter la vitrine', description: 'Voir le catalogue de services affiché sur l’accueil et ses étiquettes' },
+  { cle: 'vitrine', domaine: 'Site', libelle: 'Gérer la vitrine', description: 'Créer, modifier, ordonner ou supprimer un service ou une étiquette', requiert: ['vitrine-voir'] },
+  { cle: 'postes-voir', domaine: 'Site', libelle: 'Consulter les postes ouverts', description: 'Voir les postes affichés dans la section Recrutement de l’accueil' },
+  { cle: 'postes', domaine: 'Site', libelle: 'Gérer les postes ouverts', description: 'Créer, modifier ou supprimer un poste ouvert', requiert: ['postes-voir'] },
 ];
 
 // celles d'un module éteint (site.json) ne sont pas déclarées : absentes de la page Grades, refusées par les routes
