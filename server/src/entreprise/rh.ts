@@ -12,7 +12,7 @@ import { auDessusDe, gradeDe, peut, tousLesGrades } from '../socle/droits.js';
 import { actualiserGrades } from '../socle/grades-imposes.js';
 import { definirReglage, reglage } from '../socle/reglages.js';
 import type { EvenementBot } from '../socle/contrat.js';
-import { jourParis, jourValide, normaliserPseudo, normaliserTexte, versDate, versJour } from './texte.js';
+import { debutSemaineParis, jourDeSemaineParis, jourParis, jourValide, normaliserPseudo, normaliserTexte, versDate, versJour } from './texte.js';
 
 export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'supprimer', 'sensible-voir', 'sensible', 'piece-voir', 'piece', 'parametrer', 'sanctions-voir', 'sanctionner'] as const;
 export type DroitRh = typeof DROITS_RH[number];
@@ -99,17 +99,28 @@ export async function changerPieceIdentite(id: number, nouvelle: ImageEnregistre
   });
 }
 
-// Suppression définitive d'une fiche : tout ce qui se rattache à la personne part avec elle (sanctions, primes, « payé »,
-// historique, factures encaissées, ventes, services, candidature). Les déclarations DOT figées gardent leur copie JSON.
-// La pièce d'identité passe par la file de nettoyage du stockage.
+// Suppression définitive d'une fiche : ce qui identifiait la personne part avec elle (sanctions, historique, pièce
+// d'identité, candidature). Sur les semaines DOT verrouillées (leur copie JSON est figée) tout part : factures encaissées,
+// ventes, services, primes, « payé ». Sur les semaines non verrouillées, chiffre d'affaires, quotas et services ne bougent
+// pas : factures, ventes et services restent, détachés de la personne, et les primes aussi. La pièce passe par la file de
+// nettoyage du stockage.
 export async function supprimerFiche(id: number): Promise<string> {
   const nom = await prisma.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'piece-identite:' + id}))`;
     const e = await tx.employe.findUnique({ where: { id } });
     if (!e) throw new Refus('Employé introuvable.', 404);
     const lie = { where: { employeId: id } };
-    await tx.facture.deleteMany(lie); await tx.run.deleteMany(lie); await tx.service.deleteMany(lie); await tx.arriveeBot.deleteMany(lie);
-    await tx.sanction.deleteMany(lie); await tx.primeEmployeSemaine.deleteMany(lie); await tx.paiementFicheDot.deleteMany(lie); await tx.historiqueEmploye.deleteMany(lie);
+    const verrouillees = new Set((await tx.declarationDot.findMany({ select: { semaine: true } })).map(d => versJour(d.semaine)));
+    const figee = (instant: Date) => verrouillees.has(jourDeSemaineParis(debutSemaineParis(jourParis(instant))));
+    const separer = <T extends { id: number }>(l: T[], date: (x: T) => Date) => ({ figes: l.filter(x => figee(date(x))).map(x => x.id), ouverts: l.filter(x => !figee(date(x))).map(x => x.id) });
+    const f = separer(await tx.facture.findMany({ ...lie, select: { id: true, dateFacture: true } }), x => x.dateFacture);
+    const r = separer(await tx.run.findMany({ ...lie, select: { id: true, creeLe: true } }), x => x.creeLe);
+    const s = separer(await tx.service.findMany({ ...lie, select: { id: true, debut: true } }), x => x.debut);
+    await tx.facture.deleteMany({ where: { id: { in: f.figes } } }); await tx.facture.updateMany({ where: { id: { in: f.ouverts } }, data: { employeId: null } });
+    await tx.run.deleteMany({ where: { id: { in: r.figes } } }); await tx.run.updateMany({ where: { id: { in: r.ouverts } }, data: { employeId: null } });
+    await tx.service.deleteMany({ where: { id: { in: s.figes } } }); await tx.service.updateMany({ where: { id: { in: s.ouverts } }, data: { employeId: null } });
+    await tx.primeEmployeSemaine.deleteMany({ where: { employeId: id, semaine: { in: [...verrouillees].map(versDate) } } });
+    await tx.arriveeBot.deleteMany(lie); await tx.sanction.deleteMany(lie); await tx.paiementFicheDot.deleteMany(lie); await tx.historiqueEmploye.deleteMany(lie);
     if (e.pieceIdentiteCle) await tx.imageRetiree.create({ data: { cle: e.pieceIdentiteCle, url: e.pieceIdentiteUrl ?? '', cleMini: e.pieceIdentiteCleMini ?? '', urlMini: e.pieceIdentiteUrlMini ?? '' } });
     await tx.employe.delete({ where: { id } });
     return e;

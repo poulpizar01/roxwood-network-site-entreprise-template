@@ -119,16 +119,20 @@ test('routes : sans rh-piece on ne pose ni ne retire la pièce, rh-voir lit l’
   assert.equal((await textes('piece')).some(t => t.includes('Pièce')), true);
 });
 
-test('supprimer une fiche : efface l’identité, efface ses factures, met la pièce en nettoyage', async () => {
+test('supprimer une fiche : efface l’identité, semaine verrouillée effacée, semaine ouverte détachée, met la pièce en nettoyage', async () => {
   const f = await creer('zz-test-h9');
   await changerPieceIdentite(f.id, image('s'), 'Testeur');
+  const ancienne = new Date('2020-03-04T12:00:00Z');   // semaine verrouillée pour l'occasion
+  await prisma.declarationDot.create({ data: { semaine: new Date('2020-03-02'), statut: 'auto', resume: {}, salaries: [], ecritures: [] } });
   const fa = await prisma.facture.create({ data: { source: 'manuel', clientNom: 'zz-test-sup', employeId: f.id } });
+  const fv = await prisma.facture.create({ data: { source: 'manuel', clientNom: 'zz-test-sup', employeId: f.id, dateFacture: ancienne } });
   try {
     await supprimerFiche(f.id);
     assert.equal(await prisma.employe.count({ where: { id: f.id } }), 0);
     assert.equal(await prisma.historiqueEmploye.count({ where: { employeId: f.id } }), 0);
-    assert.equal(await prisma.facture.count({ where: { id: fa.id } }), 0);
+    assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: fa.id } })).employeId, null, 'semaine ouverte : la facture reste, sans nom');
+    assert.equal(await prisma.facture.count({ where: { id: fv.id } }), 0, 'semaine verrouillée : effacée');
     assert.equal(await prisma.imageRetiree.count({ where: { cle: 'zz-test-s' } }), 1);
     await assert.rejects(supprimerFiche(f.id), /introuvable/);
-  } finally { await prisma.facture.deleteMany({ where: { id: fa.id } }); }
+  } finally { await prisma.facture.deleteMany({ where: { id: { in: [fa.id, fv.id] } } }); await prisma.declarationDot.deleteMany({ where: { semaine: new Date('2020-03-02') } }); }
 });
