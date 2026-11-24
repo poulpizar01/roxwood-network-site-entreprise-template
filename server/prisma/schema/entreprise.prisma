@@ -95,11 +95,33 @@ model Employe {
   statut                 String    @default("actif") @db.VarChar(8) // actif | inactif
   dateArrivee            DateTime? @map("date_arrivee") @db.Date
   dateDepart             DateTime? @map("date_depart") @db.Date
+  notes                  String    @default("") @db.VarChar(1000) // notes internes RH, libres (visibles avec rh-voir)
+  // pièce d'identité RP (image envoyée, socle/images.ts) : visible avec rh-piece-voir, posée avec rh-piece, effacée du
+  // stockage 90 jours après le départ (rh.ts, purgerPiecesIdentite) — l'image remplacée ou retirée passe par images_retirees
+  pieceIdentiteCle       String?   @map("piece_identite_cle") @db.VarChar(200)
+  pieceIdentiteUrl       String?   @map("piece_identite_url") @db.VarChar(512)
+  pieceIdentiteCleMini   String?   @map("piece_identite_cle_mini") @db.VarChar(200)
+  pieceIdentiteUrlMini   String?   @map("piece_identite_url_mini") @db.VarChar(512)
   creeLe                 DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
   majLe                  DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@index([statut, gradeCle])
   @@map("employes")
+}
+
+// Historique d'une fiche, écrit par le serveur à chaque changement (jamais saisi) : création, grade, statut, identité,
+// dates, notes, téléphone/RIB (sans leur valeur), pièce d'identité. type : creation | grade | statut | identite | dates |
+// contact | notes | piece. Sans relation Prisma (une fiche ne se supprime pas ; un test la retire à la main).
+model HistoriqueEmploye {
+  id        Int      @id @default(autoincrement())
+  employeId Int      @map("employe_id")
+  type      String   @db.VarChar(12)
+  texte     String   @db.VarChar(300)
+  auteur    String   @default("") @db.VarChar(100)
+  creeLe    DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  @@index([employeId, creeLe(sort: Desc)])
+  @@map("historique_employes")
 }
 
 // Candidature reçue du bot Discord (webhook recruitment.updated), une ligne par ticket : un renvoi du même ticket ne

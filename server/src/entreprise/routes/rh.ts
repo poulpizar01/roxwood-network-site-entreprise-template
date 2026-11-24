@@ -6,7 +6,8 @@ import { prisma } from '../../socle/db.js';
 import { auDessusDe, gradeDe, peut } from '../../socle/droits.js';
 import { actualiserGrades } from '../../socle/grades-imposes.js';
 import { body, couleur, entier, intParam, permission, text } from '../../socle/http.js';
-import { arriveesBot, droitsRh, ecarter, fichePublique, gradesEmployes, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
+import { enregistrerImage, recevoirImage, retirerImage } from '../../socle/images.js';
+import { arriveesBot, changerPieceIdentite, consignerHistorique, droitsRh, ecarter, fichePublique, gradesEmployes, historiqueDe, lignesHistorique, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
 import { ajouterSanction, listeTypesSanction, retirerSanction, toutesSanctions } from '../sanctions.js';
 import { terminerServiceDe } from '../services.js';
@@ -91,6 +92,30 @@ rh.get('/api/rh/employes/:id', ...voir, async (req, res) => {
   });
 });
 
+// historique de la fiche (onglet Activité) : écrit par le serveur, lisible avec rh-voir
+rh.get('/api/rh/employes/:id/historique', ...voir, traiter(async (req, res) => {
+  const id = intParam(req, 'id');
+  if (!await prisma.employe.count({ where: { id } })) throw new Refus('Employé introuvable.', 404);
+  res.json({ historique: await historiqueDe(id) });
+}));
+
+// pièce d'identité : rh-piece, sur une fiche sous son grade ; la fiche est contrôlée avant de traiter l'image
+const nomActeur = (req: Request) => req.compte.nom || req.compte.pseudo || 'Compte';
+rh.post('/api/rh/employes/:id/piece-identite', ...voir, exiger('piece', 'Vous n’avez pas le droit de gérer les pièces d’identité.'), async (req, res, next) => {
+  try { await ficheSousMonGrade(req); next(); } catch (e) { if (e instanceof Refus) res.status(e.status).json({ error: e.message }); else next(e); }
+}, ...recevoirImage, traiter(async (req, res) => {
+  const image = await enregistrerImage('identites', req.file);
+  // échec de l'enregistrement : le fichier tout juste déposé est retiré (jamais un fichier sans trace en base)
+  try { await changerPieceIdentite(intParam(req, 'id'), image, nomActeur(req)); }
+  catch (e) { await retirerImage(image).catch(() => {}); throw e; }
+  res.json({ ok: true });
+}));
+
+rh.delete('/api/rh/employes/:id/piece-identite', ...voir, exiger('piece', 'Vous n’avez pas le droit de gérer les pièces d’identité.'), traiter(async (req, res) => {
+  await changerPieceIdentite((await ficheSousMonGrade(req)).id, null, nomActeur(req));
+  res.json({ ok: true });
+}));
+
 // terminer le service en cours de cette fiche (bouton RH) : utile quand le bot ne l'a pas annoncé, sans attendre la
 // clôture automatique de 16 h
 rh.post('/api/rh/employes/:id/service/terminer', ...voir, exiger('modifier', 'Vous n’avez pas le droit de modifier un employé.'), traiter(async (req, res) => {
@@ -161,7 +186,11 @@ rh.post('/api/rh/employes', ...voir, exiger('creer', 'Vous n’avez pas le droit
   pasSaPropreFiche(req, champs.discordId);
   if (champs.gradeCle) await verifierDroitsDuCompte(req, champs.discordId, champs.gradeCle);
   await verifierUnicite(champs);
-  const e = await prisma.employe.create({ data: { statut: 'actif', ...champs } as Parameters<typeof prisma.employe.create>[0]['data'] }).catch(refusUnicite);
+  const e = await prisma.$transaction(async tx => {
+    const f = await tx.employe.create({ data: { statut: 'actif', ...champs } as Parameters<typeof prisma.employe.create>[0]['data'] });
+    await consignerHistorique(tx, f.id, nomActeur(req), [{ type: 'creation', texte: 'Fiche créée' }]);
+    return f;
+  }).catch(refusUnicite);
   await actualiserGrades([e.discordId]);
   res.status(201).json({ id: e.id });
 }));
@@ -187,7 +216,10 @@ rh.patch('/api/rh/employes/:id', ...voir, exiger('modifier', 'Vous n’avez pas 
     await verifierDroitsDuCompte(req, apres.discordId, apres.gradeCle);
   }
   await verifierUnicite(champs, id);
-  await prisma.employe.update({ where: { id }, data: champs }).catch(refusUnicite);
+  await prisma.$transaction(async tx => {
+    await tx.employe.update({ where: { id }, data: champs });
+    await consignerHistorique(tx, id, nomActeur(req), lignesHistorique(existante, champs));
+  }).catch(refusUnicite);
   await actualiserGrades([existante.discordId, apres.discordId]);   // l'ancien compte relié perd le grade de la fiche
   res.json({ ok: true });
 }));
@@ -212,7 +244,10 @@ async function changerStatut(req: Request, res: Response, statut: 'actif' | 'ina
     dateDepart = versDate(v);
     if (e.dateArrivee && dateDepart < e.dateArrivee) throw new Refus('La date de départ ne peut pas précéder la date d’arrivée.');
   } else { gradeExistePourReactivation(e.gradeCle); await verifierDroitsDuCompte(req, e.discordId, e.gradeCle); }   // réactiver redonne le grade de la fiche
-  await prisma.employe.update({ where: { id: e.id }, data: { statut, dateDepart } });
+  await prisma.$transaction(async tx => {
+    await tx.employe.update({ where: { id: e.id }, data: { statut, dateDepart } });
+    await consignerHistorique(tx, e.id, nomActeur(req), lignesHistorique(e, { statut, dateDepart }));
+  });
   await actualiserGrades([e.discordId]);   // départ : le compte retombe sur son rôle Discord
   res.json({ ok: true, employe: nomComplet(e) });
 }

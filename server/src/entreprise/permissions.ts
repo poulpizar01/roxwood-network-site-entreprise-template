@@ -12,6 +12,8 @@ export const permissions: Permission[] = [
   { cle: 'rh-voir', domaine: RH, libelle: 'Consulter les fiches', description: 'Voir les fiches employés, l’effectif et les candidatures reçues' },
   { cle: 'rh-sensible-voir', domaine: RH, libelle: 'Consulter le téléphone et le RIB', description: 'Voir le téléphone et le RIB des employés, sans pouvoir les modifier' },
   { cle: 'rh-sensible', domaine: RH, libelle: 'Modifier le téléphone et le RIB', description: 'Changer le téléphone et le RIB d’un employé', requiert: ['rh-sensible-voir'] },
+  { cle: 'rh-piece-voir', domaine: RH, libelle: 'Consulter la pièce d’identité', description: 'Voir la pièce d’identité d’un employé (effacée 90 jours après son départ)', requiert: ['rh-voir'] },
+  { cle: 'rh-piece', domaine: RH, libelle: 'Gérer la pièce d’identité', description: 'Ajouter, remplacer ou retirer la pièce d’identité d’un employé', requiert: ['rh-piece-voir'] },
   { cle: 'rh-modifier', domaine: RH, libelle: 'Modifier une fiche', description: 'Changer l’identité, le grade ou les dates d’un employé' },
   // la page Sanctions se consulte sans pouvoir sanctionner ; elle liste aussi les employés, d'où rh-voir
   { cle: 'rh-sanctions-voir', domaine: RH, libelle: 'Consulter les sanctions', description: 'Voir les sanctions de tous les employés (page Sanctions)', requiert: ['rh-voir'] },

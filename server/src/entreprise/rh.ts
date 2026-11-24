@@ -1,11 +1,12 @@
 // ENTREPRISE — ressources humaines : la fiche employé, source de vérité de l'identité, du grade et du statut (table
 // employes). Logique partagée par les routes (routes/rh.ts) et le traitement des candidatures du bot Discord.
 // Permissions (vérifiées côté serveur, l'interface ne fait que suivre) : rh-voir, rh-creer, rh-modifier,
-// rh-desactiver, rh-reactiver, rh-sensible-voir / rh-sensible (téléphone, RIB : consulter / modifier), rh-sanctions-voir /
-// rh-sanctionner, rh-parametrer (réglages du bot). Elles se cochent par
+// rh-desactiver, rh-reactiver, rh-sensible-voir / rh-sensible (téléphone, RIB : consulter / modifier), rh-piece-voir /
+// rh-piece (pièce d'identité), rh-sanctions-voir / rh-sanctionner, rh-parametrer (réglages du bot). Elles se cochent par
 // grade dans la page Grades ; le propriétaire du serveur Discord les a toutes.
 import crypto from 'node:crypto';
 import { Prisma, type Compte, type Employe } from '../generated/prisma/client.js';
+import type { ImageEnregistree } from '../socle/images.js';
 import { prisma } from '../socle/db.js';
 import { auDessusDe, gradeDe, peut, tousLesGrades } from '../socle/droits.js';
 import { actualiserGrades } from '../socle/grades-imposes.js';
@@ -13,7 +14,7 @@ import { definirReglage, reglage } from '../socle/reglages.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { jourParis, jourValide, normaliserPseudo, normaliserTexte, versDate, versJour } from './texte.js';
 
-export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'sensible-voir', 'sensible', 'parametrer', 'sanctions-voir', 'sanctionner'] as const;
+export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'sensible-voir', 'sensible', 'piece-voir', 'piece', 'parametrer', 'sanctions-voir', 'sanctionner'] as const;
 export type DroitRh = typeof DROITS_RH[number];
 // droits RH d'un compte ; rien sans rh-voir (toute action suppose de pouvoir consulter les fiches)
 export const droitsRh = (c: Compte): Set<DroitRh> =>
@@ -36,9 +37,72 @@ export function fichePublique(e: Employe, droits: Set<DroitRh>) {
     discordId: e.discordId ?? '', discordPseudo: e.discordPseudo,
     grade: e.gradeCle, gradeLibelle: g?.libelle ?? e.gradeCle, gradeCouleur: g?.couleur ?? null, statut: e.statut,
     dateArrivee: versJour(e.dateArrivee), dateDepart: versJour(e.dateDepart),
-    aCompleter: !e.prenom || !e.nom || e.idProvisoire,
+    aCompleter: !e.prenom || !e.nom || e.idProvisoire, notes: e.notes,
     ...(droits.has('sensible-voir') && { telephone: e.telephone, rib: e.rib }),
+    // l'adresse de l'image n'est envoyée qu'avec rh-piece-voir : sans elle, rien n'indique même qu'une pièce existe
+    ...(droits.has('piece-voir') && { pieceIdentiteUrl: e.pieceIdentiteUrl, pieceIdentiteUrlMini: e.pieceIdentiteUrlMini }),
   };
+}
+
+// ---------- historique d'une fiche : écrit par le serveur à chaque changement, jamais saisi ----------
+
+type Entree = { type: string; texte: string };
+type Journal = Pick<Prisma.TransactionClient, 'historiqueEmploye'>;
+export const consignerHistorique = (j: Journal, employeId: number, auteur: string, entrees: Entree[]) =>
+  entrees.length ? j.historiqueEmploye.createMany({ data: entrees.map(e => ({ employeId, auteur: auteur.slice(0, 100), type: e.type, texte: e.texte.slice(0, 300) })) }) : Promise.resolve();
+
+const jourFr = (d: Date | null) => { const j = versJour(d); return j ? j.split('-').reverse().join('/') : ''; };
+const libelleGrade = (cle: string) => gradeDe(cle)?.libelle ?? cle;
+
+// ce que change une écriture de fiche (`c` : les champs envoyés, déjà contrôlés par lireChamps) ; le téléphone, le RIB
+// et les notes sont signalés sans leur valeur
+export function lignesHistorique(avant: Employe, c: Champs): Entree[] {
+  const l: Entree[] = [];
+  if (c.gradeCle && c.gradeCle !== avant.gradeCle) l.push({ type: 'grade', texte: `Grade : ${libelleGrade(avant.gradeCle)} → ${libelleGrade(c.gradeCle)}` });
+  const statutChange = !!c.statut && c.statut !== avant.statut;
+  if (statutChange) l.push({ type: 'statut', texte: c.statut === 'inactif' ? `Départ enregistré${c.dateDepart ? ` (${jourFr(c.dateDepart)})` : ''}` : 'Réintégré dans l’effectif' });
+  const identite = ([['prenom', 'prénom'], ['nom', 'nom'], ['idUnique', 'ID Unique'], ['discordId', 'ID Discord'], ['discordPseudo', 'pseudo Discord']] as const)
+    .filter(([cle]) => c[cle] !== undefined && (c[cle] ?? '') !== (avant[cle] ?? '')).map(([, libelle]) => libelle);
+  if (identite.length) l.push({ type: 'identite', texte: `Identité modifiée (${identite.join(', ')})` });
+  if (!statutChange) {
+    const dates = ([['dateArrivee', 'arrivée'], ['dateDepart', 'départ']] as const)
+      .filter(([cle]) => c[cle] !== undefined && jourFr(c[cle] ?? null) !== jourFr(avant[cle])).map(([, libelle]) => libelle);
+    if (dates.length) l.push({ type: 'dates', texte: `Dates modifiées (${dates.join(', ')})` });
+  }
+  if (c.telephone !== undefined && c.telephone !== avant.telephone) l.push({ type: 'contact', texte: 'Téléphone modifié' });
+  if (c.rib !== undefined && c.rib !== avant.rib) l.push({ type: 'contact', texte: 'RIB modifié' });
+  if (c.notes !== undefined && c.notes !== avant.notes) l.push({ type: 'notes', texte: 'Notes internes modifiées' });
+  return l;
+}
+
+export const historiqueDe = (employeId: number) =>
+  prisma.historiqueEmploye.findMany({ where: { employeId }, orderBy: [{ creeLe: 'desc' }, { id: 'desc' }], take: 200, select: { id: true, type: true, texte: true, auteur: true, creeLe: true } });
+
+// ---------- pièce d'identité : une image par fiche, 90 jours après le départ au plus ----------
+
+const PIECE_JOURS = 90;
+// Pose (ou retire, `nouvelle` nul) la pièce. L'image remplacée n'est pas effacée ici : elle part dans la file de
+// nettoyage du stockage (images-retirees.ts) dans la même transaction, jamais un fichier en ligne sans trace en base.
+export async function changerPieceIdentite(id: number, nouvelle: ImageEnregistree | null, auteur: string, texteHistorique?: string): Promise<void> {
+  await prisma.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'piece-identite:' + id}))`;
+    const avant = await tx.employe.findUnique({ where: { id }, select: { pieceIdentiteCle: true, pieceIdentiteUrl: true, pieceIdentiteCleMini: true, pieceIdentiteUrlMini: true } });
+    if (!avant) throw new Refus('Employé introuvable.', 404);
+    if (!nouvelle && !avant.pieceIdentiteCle) return;
+    await tx.employe.update({ where: { id }, data: nouvelle
+      ? { pieceIdentiteCle: nouvelle.cle, pieceIdentiteUrl: nouvelle.url, pieceIdentiteCleMini: nouvelle.cleMini, pieceIdentiteUrlMini: nouvelle.urlMini }
+      : { pieceIdentiteCle: null, pieceIdentiteUrl: null, pieceIdentiteCleMini: null, pieceIdentiteUrlMini: null } });
+    if (avant.pieceIdentiteCle) await tx.imageRetiree.create({ data: { cle: avant.pieceIdentiteCle, url: avant.pieceIdentiteUrl ?? '', cleMini: avant.pieceIdentiteCleMini ?? '', urlMini: avant.pieceIdentiteUrlMini ?? '' } });
+    await consignerHistorique(tx, id, auteur, [{ type: 'piece', texte: texteHistorique ?? (nouvelle ? (avant.pieceIdentiteCle ? 'Pièce d’identité remplacée' : 'Pièce d’identité ajoutée') : 'Pièce d’identité retirée') }]);
+  });
+}
+
+// tâche quotidienne (purge.ts) : la pièce d'un employé parti depuis plus de 90 jours est effacée (confidentialite.html)
+export async function purgerPiecesIdentite(): Promise<number> {
+  const limite = new Date(Date.now() - PIECE_JOURS * 24 * 3600e3);
+  const fiches = await prisma.employe.findMany({ where: { statut: 'inactif', dateDepart: { lt: limite }, pieceIdentiteCle: { not: null } }, select: { id: true } });
+  for (const f of fiches) await changerPieceIdentite(f.id, null, 'Automatique', `Pièce d’identité effacée (${PIECE_JOURS} jours après le départ)`);
+  return fiches.length;
 }
 
 // Fiche de son propre compte (Mon compte) : téléphone et RIB modifiables par l'employé lui-même — seule exception à
@@ -97,6 +161,7 @@ export function lireChamps(b: Record<string, unknown>, existante: Employe | null
     if (!g) throw new Refus('Grade invalide.');
     c.gradeCle = g.cle;
   }
+  if (pris('notes')) c.notes = texte(b.notes, 1000);
   if (pris('telephone')) c.telephone = texte(b.telephone, 30);
   if (pris('rib')) c.rib = texte(b.rib, 60);
   if (pris('discordId')) {
@@ -258,6 +323,7 @@ async function creerDepuisCandidature(c: Candidature): Promise<Resultat> {
   try {
     const fiche = await prisma.$transaction(async tx => {
       const f = await tx.employe.create({ data: { ...champs, statut: 'actif', idProvisoire: !idUnique } as Prisma.EmployeUncheckedCreateInput });
+      await consignerHistorique(tx, f.id, 'Bot Discord', [{ type: 'creation', texte: 'Fiche créée à l’acceptation de la candidature' }]);
       if (idUnique) return f;
       const prov = `PROV-B${String(f.id).padStart(4, '0')}`;
       return tx.employe.update({ where: { id: f.id }, data: { idUnique: prov, idUniqueNormalise: prov.toLowerCase() } });
