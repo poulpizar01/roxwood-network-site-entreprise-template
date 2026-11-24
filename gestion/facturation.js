@@ -807,8 +807,11 @@ document.getElementById("catalogue-liste").addEventListener("click", async e => 
     const nom = ligne.querySelector('[data-champ="nom"]').value.trim();
     const prix = Math.round(Number(ligne.querySelector('[data-champ="prix"]').value)) || 0;
     if (!nom) { gestion.message("zone-message-catalogue", "Donnez un nom à la prestation."); return; }
+    // sortie du mode édition AVANT le rechargement : la liste se redessine alors en lecture ; en cas d'échec on y reste
+    // (les champs saisis restent à l'écran, rien n'est redessiné)
+    CATALOGUE_EN_EDITION = null;
     const ok = await catalogueModifie(socle.api(`/api/compta/catalogue/${id}`, { method: "PUT", body: { nom, prix } }), `Prestation « ${nom} » enregistrée ✓`);
-    if (ok) CATALOGUE_EN_EDITION = null;
+    if (!ok) CATALOGUE_EN_EDITION = id;
     return;
   }
   if (e.target.closest("[data-supprimer-catalogue]")) {
