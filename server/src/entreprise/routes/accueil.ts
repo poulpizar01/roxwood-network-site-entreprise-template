@@ -8,6 +8,7 @@ import { valide } from '../../socle/http.js';
 import { droitsAgenda, peutValiderAbsences } from '../agenda-regles.js';
 import { nombreContratsAFacturer } from '../echeanciers.js';
 import { EN_SUSPENS } from '../rh.js';
+import { nombreSalonsIntrouvables } from '../salon-discord.js';
 import { debutSemaineParis } from '../texte.js';
 
 export const accueil = Router();
@@ -35,6 +36,12 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
   if (peut(c, 'contrats') && peut(c, 'factures')) {
     const n = await nombreContratsAFacturer();
     if (n) taches.push({ cle: 'contrats', nombre: n, texte: `${pluriel(n, 'contrat')} à facturer`, lien: 'contrats.html?a-facturer=1' });
+  }
+  // salon Discord introuvable (dernier envoi en 404, salon-discord.ts) : un salon supprimé sur Discord après avoir été
+  // renseigné sur un contrat ; à corriger sur sa fiche
+  if (peut(c, 'contrats')) {
+    const { contrats } = await nombreSalonsIntrouvables();
+    if (contrats) taches.push({ cle: 'salon-contrats', nombre: contrats, texte: `${pluriel(contrats, 'contrat')} avec un salon Discord introuvable`, lien: 'contrats.html', alerte: true });
   }
   // valider une absence : réservé à qui gère déjà l'agenda de toute l'équipe (peutValiderAbsences, agenda-regles.ts)
   const grades = tousLesGrades().map(g => g.cle);

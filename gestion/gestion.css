@@ -2752,6 +2752,8 @@ button.ligne-liste:focus-visible { background: rgba({{couleur_rvb}}, 0.07); outl
 .contrat-bandeau strong { display: block; color: var(--text); }
 .contrat-bandeau--proche { border-color: var(--alerte); background: var(--alerte-soft); }
 .contrat-bandeau--proche .ico { color: var(--alerte); }
+.contrat-bandeau--erreur { border-color: var(--erreur); background: var(--erreur-soft, rgba(214, 69, 69, 0.08)); }
+.contrat-bandeau--erreur .ico { color: var(--erreur); }
 
 .contrat-resume { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px 20px; margin: 16px 0 0; }
 .contrat-resume dt { font-size: var(--fs-2); color: var(--text-faint); }

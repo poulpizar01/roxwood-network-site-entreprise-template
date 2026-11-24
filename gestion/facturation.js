@@ -231,6 +231,8 @@ function actionsFacture(f) {
   else if (!["PAID", "PAYEE", "ANNULEE"].includes(f.statutPaiement) && !f.avoirDeId && !f.avoirEmis) {
     items.push(`<button type="button" class="btn btn-fantome" data-exige="factures" data-facture-plusieurs-fois="${f.id}">${gestion.ico("coins")} Payer en plusieurs fois</button>`);
   }
+  // facture d'un contrat avec salon : envoi direct ; sinon l'identifiant du salon est demandé (jamais mémorisé)
+  if (f.statutPaiement !== "ANNULEE") items.push(`<button type="button" class="btn btn-fantome" data-exige="factures" data-facture-discord="${f.id}">${gestion.ico("sync")} Envoyer sur Discord</button>`);
   if (["PAID", "PAYEE"].includes(f.statutPaiement) && !f.avoirDeId && !f.avoirEmis) {
     items.push(`<button type="button" class="btn btn-fantome" data-exige="factures" data-facture-avoir="${f.id}">${gestion.ico("receipt")} Créer un avoir</button>`);
   }
@@ -258,12 +260,75 @@ document.getElementById("facture-pied").addEventListener("click", ev => {
     const cible = bouton.dataset.statutCible, a = STATUTS_FACTURE_MANUELLE[cible];
     return actionFactureLigne(Number(bouton.dataset.factureStatut), "statut", { libelle: a.libelle, confirmation: a.confirmation, corps: { statut: cible } });
   }
+  if (bouton.dataset.factureDiscord) { envoyerFactureDiscord(Number(bouton.dataset.factureDiscord)); return; }
   if (bouton.dataset.facturePlusieursFois) { location.href = `echeanciers.html?nouveauPaiement=${bouton.dataset.facturePlusieursFois}`; return; }
   if (bouton.dataset.factureAvoir) {
     actionFactureLigne(Number(bouton.dataset.factureAvoir), "avoir",
       { libelle: "Avoir créé", confirmation: { texte: "Une facture d'avoir sera créée (montants négatifs), liée à celle-ci. Si elle a été saisie à la main, elle passera elle-même à « annulée ».", titre: "Créer un avoir pour cette facture ?", bouton: "Créer l'avoir" } });
   }
 });
+// Identifiant d'un salon Discord (snowflake) : même forme que côté serveur (ID_DISCORD, socle/discord.ts).
+const SALON_ID_VALIDE = /^\d{15,22}$/;
+
+// Fenêtre dédiée (pas gestion.confirmer, qui n'a pas de champ de saisie) : demande l'identifiant du salon où envoyer une
+// facture sans salon connu. Même recette que gestion.confirmer (focus piégé, Échap annule, focus rendu à l'origine).
+function demanderSalonDiscord() {
+  return new Promise(resolve => {
+    const avant = document.activeElement;
+    const fond = document.createElement("div");
+    fond.className = "modale-fond modale-compacte";
+    fond.innerHTML = `<div class="modale modale-compacte" style="max-width:420px;" role="dialog" aria-modal="true" aria-labelledby="salon-discord-titre">
+      <div class="modale-entete"><h2 class="modale-titre" id="salon-discord-titre">Envoyer sur Discord</h2></div>
+      <p>Cette facture n’est liée à aucun salon : indiquez l’identifiant du salon Discord où l’envoyer.</p>
+      <div class="champ" style="margin:14px 0;">
+        <label for="salon-discord-id">Identifiant du salon</label>
+        <input type="text" id="salon-discord-id" inputmode="numeric" autocomplete="off" placeholder="ex. 123456789012345678">
+        <p class="champ-erreur cache" id="salon-discord-erreur"></p>
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button type="button" class="btn btn-danger" style="flex:1;" data-non>Annuler</button>
+        <button type="button" class="btn btn-or" style="flex:1;" data-oui>Envoyer</button>
+      </div></div>`;
+    const champ = fond.querySelector("#salon-discord-id");
+    const erreur = fond.querySelector("#salon-discord-erreur");
+    const boutons = [...fond.querySelectorAll("button")];
+    const fin = valeur => { document.removeEventListener("keydown", clavier, true); fond.remove(); verrouillerDefilement(false); avant?.focus?.(); resolve(valeur); };
+    const valider = () => {
+      const v = champ.value.trim();
+      if (!SALON_ID_VALIDE.test(v)) { erreur.textContent = "Identifiant invalide : uniquement des chiffres (celui du salon Discord)."; erreur.classList.remove("cache"); champ.focus(); return; }
+      fin(v);
+    };
+    const clavier = e => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fin(null); }
+      else if (e.key === "Tab") {
+        e.preventDefault();
+        const items = [champ, ...boutons], i = items.indexOf(document.activeElement);
+        items[(i + (e.shiftKey ? -1 : 1) + items.length) % items.length].focus();
+      }
+    };
+    fond.querySelector("[data-oui]").addEventListener("click", valider);
+    fond.querySelector("[data-non]").addEventListener("click", () => fin(null));
+    champ.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); valider(); } });
+    fond.addEventListener("click", e => { if (e.target === fond) fin(null); });
+    document.addEventListener("keydown", clavier, true);
+    document.body.append(fond);
+    verrouillerDefilement(true);
+    champ.focus();
+  });
+}
+
+// Envoi sur Discord : salon du contrat directement si la facture en a un (f.salonDiscord), sinon l'identifiant est
+// demandé d'abord — jamais stocké, redemandé à chaque envoi.
+async function envoyerFactureDiscord(id) {
+  const f = FACTURES_TOUTES.find(x => x.id === id) || (FACTURE_COURANTE?.id === id ? FACTURE_COURANTE : null);
+  let salonId;
+  if (!f?.salonDiscord) {
+    salonId = await demanderSalonDiscord();
+    if (!salonId) return;
+  }
+  actionFactureLigne(id, "discord", { libelle: "Facture envoyée sur Discord", confirmation: null, corps: salonId ? { salonId } : undefined });
+}
+
 // changer de statut / créer un avoir, depuis le pied de la fiche ouverte : recharge la liste et redessine la fiche
 async function actionFactureLigne(id, route, { libelle, confirmation, corps }) {
   if (confirmation && !(await gestion.confirmer(confirmation.texte, confirmation.titre, confirmation.bouton, { danger: false }))) return;

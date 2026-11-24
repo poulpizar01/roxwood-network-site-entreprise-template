@@ -121,6 +121,8 @@
         <div class="champ"><label for="contrat-fin">Fin <small>facultatif</small></label><input type="date" id="contrat-fin"></div>
       </div>
       <p class="champ-aide" id="contrat-fin-aide">Sans date de fin, le contrat est reconduit chaque semaine jusqu’à ce que vous y mettiez fin.</p>
+      <div class="champ" id="champ-contrat-salon"><label for="contrat-salon">Salon Discord <small>facultatif</small></label><input type="text" id="contrat-salon" inputmode="numeric" autocomplete="off" placeholder="Identifiant du salon">
+        <p class="champ-aide">Pour « Envoyer sur Discord » depuis Facturation : clic droit sur le salon dans Discord (mode développeur) → « Copier l’identifiant ». Laissé vide, l’envoi demande le salon à chaque fois.</p></div>
       <div class="champ"><label for="contrat-notes">Notes <small>facultatif</small></label><textarea id="contrat-notes" maxlength="500" rows="3"></textarea></div>
       <div class="modale-boutons">
         <button type="submit" class="btn btn-or" data-exige="contrats" id="bouton-enregistrer-contrat">Ajouter</button>

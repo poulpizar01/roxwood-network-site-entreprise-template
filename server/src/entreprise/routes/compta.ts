@@ -14,7 +14,8 @@ import {
 } from '../dot.js';
 import { verifierFacturationContrat } from '../contrats.js';
 import { lierEcheancesAFacture, planPaiementDeFacture } from '../echeanciers.js';
-import { ajouterArticleCatalogue, classementFactures, definirQuotaFacture, listerCatalogue, modifierArticleCatalogue, quotasFacture, supprimerArticleCatalogue } from '../facture.js';
+import { ErreurDiscord } from '../../socle/discord.js';
+import { ajouterArticleCatalogue, classementFactures, contratsAvecSalon, definirQuotaFacture, envoyerFactureManuel, listerCatalogue, modifierArticleCatalogue, quotasFacture, supprimerArticleCatalogue } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
 import { servicesEnSuspensSemaine } from '../services.js';
 import { caBrutReleve, estLigneTotal } from '../stats/releve.js';
@@ -190,7 +191,8 @@ compta.get('/api/compta/factures', ...voirFactures, async (req, res) => {
   // planPaiementId : règlement en plusieurs fois (page Échéanciers) ; son statut suit alors les échéances
   const plans = ids.length ? await prisma.echeancier.findMany({ where: { factureId: { in: ids } }, select: { id: true, factureId: true } }) : [];
   const planDe = new Map(plans.map(p => [p.factureId, p.id]));
-  res.json({ factures: (await avecAuteurs(factures)).map(f => ({ ...f, avoirEmis: avoirsDe.has(f.id), planPaiementId: planDe.get(f.id) ?? null })) });
+  const avecSalon = await contratsAvecSalon([...new Set(factures.map(f => f.contratId).filter((id): id is number => id !== null))]);
+  res.json({ factures: (await avecAuteurs(factures)).map(f => ({ ...f, avoirEmis: avoirsDe.has(f.id), planPaiementId: planDe.get(f.id) ?? null, salonDiscord: f.contratId !== null && avecSalon.has(f.contratId) })) });
 });
 
 // quota hebdomadaire de montant facturé par grade : réglé dans la fiche du grade (page Grades), mêmes routes que
@@ -215,8 +217,19 @@ compta.get('/api/compta/factures/:id', ...voirFactures, async (req, res) => {
   const f = await prisma.facture.findUnique({ where: { id: intParam(req, 'id') } });
   if (!f) { res.status(404).json({ error: 'Facture introuvable.' }); return; }
   const avoir = await prisma.facture.findFirst({ where: { avoirDeId: f.id }, select: { id: true } });
-  res.json({ ...(await avecAuteurs([f]))[0], avoirEmis: !!avoir });
+  res.json({ ...(await avecAuteurs([f]))[0], avoirEmis: !!avoir, salonDiscord: f.contratId !== null && (await contratsAvecSalon([f.contratId])).size > 0 });
 });
+
+// envoyer la facture sur Discord : salon de son contrat par défaut ; sans contrat, le salon donné à la main (salonId,
+// demandé par la page faute de salon à en déduire)
+compta.post('/api/compta/factures/:id/discord', ...gererFactures, traiter(async (req, res) => {
+  try { await envoyerFactureManuel(intParam(req, 'id'), String(body(req).salonId ?? '')); }
+  catch (e) {
+    if (e instanceof Refus) throw e;
+    throw new Refus(e instanceof ErreurDiscord ? e.message : 'Envoi à Discord impossible.', e instanceof ErreurDiscord ? e.statut : 502);
+  }
+  res.json({ ok: true });
+}));
 
 // saisie manuelle seulement (une facture reçue du bot n'est jamais créée ni modifiée à la main, sauf ses dates ci-
 // dessous) : le total n'est pas saisi, pour qu'il ne puisse jamais contredire sous-total + livraison − réduction ; la

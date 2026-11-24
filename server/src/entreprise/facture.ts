@@ -9,13 +9,54 @@ import { Prisma } from '../generated/prisma/client.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
+import { ID_DISCORD, posterMessage } from '../socle/discord.js';
 import { entierRegle } from './parametres.js';
 import { Refus } from './refus.js';
 import { nomComplet } from './rh.js';
+import { salonIntrouvable } from './salon-discord.js';
 import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
+
+// ---------- envoi d'une facture sur Discord : dans le salon du contrat seulement ----------
+// Une facture liée à un contrat (créée depuis son échéancier) utilise le salon posé sur le contrat ; une facture sans
+// contrat (paiement en jeu, saisie libre) n'en a pas : la personne qui envoie donne alors le salon, jamais mémorisé.
+async function salonDuContrat(contratId: number | null): Promise<string | null> {
+  if (!contratId) return null;
+  return (await prisma.contrat.findUnique({ where: { id: contratId }, select: { salonDiscordId: true } }))?.salonDiscordId ?? null;
+}
+// marque ou efface le repère « salon introuvable » sur le contrat propriétaire du salon utilisé
+async function marquerSalon(contratId: number, introuvable: boolean): Promise<void> {
+  await prisma.contrat.update({ where: { id: contratId }, data: { salonIntrouvableLe: introuvable ? new Date() : null } }).catch(() => {});
+}
+
+export function contenuMessageFacture(f: { id: number; numeroFacture: string; clientNom: string; total: number; statutPaiement: string }): string {
+  return `**Facture ${f.numeroFacture || `n° ${f.id}`}**\nClient : ${f.clientNom || 'Client inconnu'}\nTotal : ${f.total.toLocaleString('fr-FR')} $\nStatut : ${f.statutPaiement}`;
+}
+
+// envoi manuel (bouton de la fiche de facture) : salon du contrat par défaut ; à défaut, le salon donné à la main
+export async function envoyerFactureManuel(factureId: number, salonManuel: string): Promise<void> {
+  const f = await prisma.facture.findUnique({ where: { id: factureId } });
+  if (!f) throw new Refus('Facture introuvable.', 404);
+  const duContrat = await salonDuContrat(f.contratId);
+  const salon = duContrat ?? salonManuel.trim();
+  if (!duContrat && !ID_DISCORD.test(salon)) throw new Refus('Indiquez l’identifiant du salon Discord où envoyer la facture.');
+  try {
+    await posterMessage(salon, { content: contenuMessageFacture(f) });
+    if (duContrat && f.contratId) await marquerSalon(f.contratId, false);
+  } catch (e) {
+    if (duContrat && f.contratId && salonIntrouvable(e)) await marquerSalon(f.contratId, true);
+    throw e;
+  }
+}
+
+// contrats (parmi ceux donnés) qui ont un salon : pour afficher « Envoyer sur Discord » sans demander de salon, sans un
+// appel par ligne
+export async function contratsAvecSalon(contratIds: readonly number[]): Promise<Set<number>> {
+  if (!contratIds.length) return new Set();
+  return new Set((await prisma.contrat.findMany({ where: { id: { in: [...contratIds] }, salonDiscordId: { not: null } }, select: { id: true } })).map(c => c.id));
+}
 
 // ---------- catalogue de prestations : raccourci de saisie d'un article de facture, jamais obligatoire ----------
 export const listerCatalogue = () => prisma.catalogueFacture.findMany({ orderBy: [{ position: 'asc' }, { nom: 'asc' }] });

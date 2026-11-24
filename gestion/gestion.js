@@ -608,8 +608,14 @@ function indiceDefilement(nav) {
   new MutationObserver(maj).observe(nav, { childList: true });
 }
 
+// salon Discord introuvable (404 au dernier envoi, posé par le serveur : salon-discord.ts) : bandeau de la fiche contrat
+const bandeauSalonIntrouvable = salonIntrouvableLe => !salonIntrouvableLe ? '' : `<div class="contrat-bandeau contrat-bandeau--erreur" role="alert">
+  ${ico('alerte')}
+  <p><strong>Salon Discord introuvable</strong>Le dernier envoi a échoué : le salon a sans doute été supprimé sur Discord. Renseignez-en un autre en modifiant le contrat.</p></div>`;
+
 window.gestion = {
   ico,
+  bandeauSalonIntrouvable,
   ligneEnService,
   ordreEnService,
   servicesEnCours,

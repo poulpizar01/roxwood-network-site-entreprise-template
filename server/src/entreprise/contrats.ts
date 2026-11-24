@@ -6,6 +6,7 @@
 // figée, absent de la page Bénéficiaires. Calendrier de périodes : contrats-periodes.ts. Facturation d'un contrat
 // client : son échéancier (echeanciers.ts), régénéré ici à chaque changement qui touche ses dates ou son montant.
 import crypto from 'node:crypto';
+import { ID_DISCORD } from '../socle/discord.js';
 import { prisma } from '../socle/db.js';
 import { lireBeneficiaires, lireCollage, type Beneficiaire } from './contrats-beneficiaires.js';
 import {
@@ -33,7 +34,7 @@ export const listeTypesContrat = async () => (await prisma.typeContrat.findMany(
 
 const PAYEES = ['PAID', 'PAYEE'];
 
-type LigneContrat = { id: number; statut: string; periodicite: string; dateDebut: Date; dateFin: Date | null };
+type LigneContrat = { id: number; statut: string; periodicite: string; dateDebut: Date; dateFin: Date | null; salonDiscordId?: string | null };
 const calendrier = (c: LigneContrat) => ({ dateDebut: versJour(c.dateDebut), dateFin: c.dateFin ? versJour(c.dateFin) : null, periodicite: c.periodicite as Periodicite });
 // fin d'un contrat à durée fixe dans les 7 prochains jours (le jour même compris)
 const finProche = (dateFin: string | null, aujourdhui: string) =>
@@ -60,6 +61,8 @@ async function lireChamps(b: Record<string, unknown>, existant?: LigneContrat & 
   // les périodes déjà facturées se calent sur la date de début et la périodicité : les changer décalerait tout
   if (existant?.factures && (periodicite !== existant.periodicite || dateDebut !== versJour(existant.dateDebut)))
     throw new Refus('Ce contrat a déjà des factures : sa date de début et sa périodicité ne changent plus. Pour changer de rythme, mettez fin à ce contrat et créez-en un nouveau.', 409);
+  const salonDiscordId = b.salonDiscordId === null || b.salonDiscordId === undefined || b.salonDiscordId === '' ? null : String(b.salonDiscordId).trim();
+  if (salonDiscordId !== null && !ID_DISCORD.test(salonDiscordId)) throw new Refus('Identifiant de salon Discord invalide : 15 à 22 chiffres.');
   const typeIdBrut = b.typeId === null || b.typeId === undefined || b.typeId === '' ? null : Number(b.typeId);
   let typeId: number | null = null;
   if (typeIdBrut !== null && Number.isInteger(typeIdBrut)) {
@@ -72,7 +75,9 @@ async function lireChamps(b: Record<string, unknown>, existant?: LigneContrat & 
   const memeFin = (existant?.dateFin ? versJour(existant.dateFin) : null) === dateFin;
   const statut = dateFin !== null && dateFin < jourParis() ? 'termine' : existant?.statut === 'termine' && memeFin ? 'termine' : 'actif';
   return {
-    partenaire, partie, montant: Math.round(montant), notes: texte(b.notes, 500), typeId, periodicite,
+    partenaire, partie, montant: Math.round(montant), notes: texte(b.notes, 500), typeId, periodicite, salonDiscordId,
+    // un salon qui change (ou est retiré) efface le repère « introuvable » du précédent
+    ...(salonDiscordId !== (existant?.salonDiscordId ?? null) ? { salonIntrouvableLe: null } : {}),
     dateDebut: versDate(dateDebut), dateFin: dateFin === null ? null : versDate(dateFin), statut,
   };
 }

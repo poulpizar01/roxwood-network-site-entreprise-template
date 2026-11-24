@@ -168,13 +168,14 @@ const ETATS_PERIODE = {
 const contratOuvert = () => CACHE_CONTRATS.find(c => c.id === CONTRAT_OUVERT);
 
 function bandeauEtat(c) {
-  if (c.statut === 'termine') return `<div class="contrat-bandeau contrat-bandeau--termine" role="note">
+  const erreur = gestion.bandeauSalonIntrouvable(c.salonIntrouvableLe);
+  if (c.statut === 'termine') return erreur + `<div class="contrat-bandeau contrat-bandeau--termine" role="note">
     <svg class="ico" aria-hidden="true"><use href="#ico-clock"></use></svg>
     <p><strong>${c.dateFin ? `Terminé le ${jourFr(c.dateFin)}` : 'Contrat terminé'}</strong>${c.partie === 'client' ? 'La liste du client est figée et n’apparaît plus dans Clients.' : ''}</p></div>`;
-  if (c.finProche) return `<div class="contrat-bandeau contrat-bandeau--proche" role="note">
+  if (c.finProche) return erreur + `<div class="contrat-bandeau contrat-bandeau--proche" role="note">
     <svg class="ico" aria-hidden="true"><use href="#ico-alerte"></use></svg>
     <p><strong>Se termine le ${jourFr(c.dateFin)}</strong>Pour le prolonger, modifiez sa date de fin ou retirez-la.</p></div>`;
-  return '';
+  return erreur;
 }
 function sectionResume(c) {
   const p = PERIODES[c.periodicite];
@@ -376,7 +377,7 @@ function majLibellesPeriodicite() {
   $c('contrat-montant-libelle').textContent = `Montant ${p.par}`;
   $c('contrat-fin-aide').textContent = `Sans date de fin, le contrat est reconduit ${p.chaque} jusqu’à ce que vous y mettiez fin.`;
 }
-$c('contrat-partie').addEventListener('change', () => rafraichirTypesFormulaire(null));
+$c('contrat-partie').addEventListener('change', () => { rafraichirTypesFormulaire(null); $c('champ-contrat-salon').classList.toggle('cache', valeurRadio('contrat-partie') !== 'client'); });
 $c('contrat-periodicite').addEventListener('change', majLibellesPeriodicite);
 champDateFr($c('contrat-debut'));
 champDateFr($c('contrat-fin'));
@@ -395,6 +396,8 @@ function ouvrirModaleContrat(id) {
   $c('contrat-debut').value = c ? c.dateDebut : aujourdhuiParis();
   $c('contrat-fin').value = c?.dateFin || '';
   $c('contrat-notes').value = c ? c.notes : '';
+  $c('contrat-salon').value = c?.salonDiscordId || '';
+  $c('champ-contrat-salon').classList.toggle('cache', valeurRadio('contrat-partie') !== 'client');
   // déjà facturé : rythme et date de début verrouillés (les périodes facturées se calent dessus) ; partie aussi
   const verrou = !!c?.factures;
   document.querySelectorAll('[name="contrat-periodicite"], [name="contrat-partie"]').forEach(r => { r.disabled = verrou; });
@@ -420,7 +423,9 @@ $c('formulaire-contrat').addEventListener('submit', async e => {
     dateDebut: $c('contrat-debut').value, dateFin: $c('contrat-fin').value || null,
     typeId: $c('contrat-type').value ? Number($c('contrat-type').value) : null,
     notes: $c('contrat-notes').value.trim(),
+    salonDiscordId: $c('contrat-salon').value.trim() || null,
   };
+  if (corps.salonDiscordId && !/^\d{15,22}$/.test(corps.salonDiscordId)) { gestion.message('zone-message-modale-contrat', 'L’identifiant du salon Discord est un nombre de 15 à 22 chiffres.'); $c('contrat-salon').focus(); return; }
   if (!corps.partenaire) { gestion.message('zone-message-modale-contrat', 'Indiquez le nom de l’autre entreprise.'); $c('contrat-partenaire').focus(); return; }
   if (!(corps.montant > 0)) { gestion.message('zone-message-modale-contrat', 'Indiquez un montant supérieur à 0 $.'); $c('contrat-montant').focus(); return; }
   if (!corps.dateDebut) { gestion.message('zone-message-modale-contrat', 'Indiquez la date de début (jj/mm/aaaa).'); $c('contrat-debut').focus(); return; }
