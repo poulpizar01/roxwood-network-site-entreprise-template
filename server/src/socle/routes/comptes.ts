@@ -86,6 +86,10 @@ comptes.patch('/api/comptes/:id', ...permission('comptes'), async (req, res) => 
   if (b.statut !== undefined) {
     if (b.statut !== 'valide' && b.statut !== 'refuse' && b.statut !== 'attente') { res.status(400).json({ error: 'Statut inconnu.' }); return; }
     if (cible.proprietaire && b.statut !== 'valide') { res.status(400).json({ error: 'Le super-admin reste validé.' }); return; }
+    // valider un compte active le grade qu'il porte déjà (rôle Discord, fiche RH) : même règle que pour le lui donner
+    if (b.statut === 'valide' && cible.statut !== 'valide' && cible.gradeCle && !peutAccorder(moi, [...permissionsDe({ gradeCle: cible.gradeCle, proprietaire: false })])) {
+      res.status(403).json({ error: 'Le grade de ce compte porte des permissions que tu ne détiens pas.' }); return;
+    }
     data.statut = b.statut;
     if (b.statut === 'valide' && cible.statut !== 'valide') Object.assign(data, { valideLe: new Date(), valideParId: moi.id });
   }
