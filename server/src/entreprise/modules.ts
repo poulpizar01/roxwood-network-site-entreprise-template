@@ -13,7 +13,8 @@ export const MODULES: Record<string, { pages: Record<string, string>; permission
   avis: { pages: { avis: 'avis-voir' }, permissions: ['avis-voir', 'avis'], publiques: ['avis'] },
   demandes: { pages: { demandes: 'demandes-voir' }, permissions: ['demandes-voir', 'demandes-gerer'] },
   // permissions : celles de RH (rh-voir, rh-creer…), toujours déclarées ; le module n'en ajoute pas
-  recrutement: { pages: { recrutement: 'rh-voir' }, permissions: [] },
+  // aucune page à part : le recrutement est l'onglet « Recrutement » de la page Employés (rh.html)
+  recrutement: { pages: {}, permissions: [] },
 };
 
 // une faute de frappe dans site.json se voit au démarrage, pas par un module qui ne s'allume jamais

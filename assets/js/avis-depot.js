@@ -41,7 +41,7 @@
   // étape 2 : formulaire
   const form = el('form', 'avis-form'); form.noValidate = true; form.hidden = true;
   const qui = el('p', 'avis-etat'); const pseudo = el('strong');
-  const changer = el('button', 'lien', 'Ce n’est pas vous ?'); changer.type = 'button';
+  const changer = el('button', 'lien', 'Se déconnecter'); changer.type = 'button';
   qui.append('Connecté en tant que ', pseudo, '. ', changer);
   const nom = el('input'); nom.type = 'text'; nom.maxLength = 100; nom.autocomplete = 'name'; nom.required = true;
   const entreprise = el('input'); entreprise.type = 'text'; entreprise.maxLength = 100; entreprise.autocomplete = 'organization';
@@ -103,7 +103,7 @@
   fermer.addEventListener('click', () => dialogue.close());
   changer.addEventListener('click', async () => {
     await fetch('/api/discord/oublier', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
-    location.href = lien.href;
+    afficher(null); lien.focus();   // la fenêtre revient à la connexion (en dev, reconnecter reconnecte aussitôt)
   });
 
   form.addEventListener('submit', async e => {

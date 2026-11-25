@@ -34,7 +34,7 @@
   // étape 2 : formulaire
   const form = el('form', 'avis-form'); form.noValidate = true; form.hidden = true;
   const qui = el('p', 'avis-etat'); const pseudo = el('strong');
-  const changer = el('button', 'lien', 'Ce n’est pas vous ?'); changer.type = 'button';
+  const changer = el('button', 'lien', 'Se déconnecter'); changer.type = 'button';
   qui.append('Connecté en tant que ', pseudo, '. ', changer);
   const nom = saisie('text', 100, 'name'); nom.required = true;
   const entreprise = saisie('text', 100, 'organization');
@@ -75,6 +75,7 @@
       const s = el('select');
       s.append(new Option('Je ne sais pas encore', ''), ...services.map(x => new Option(x.nom, x.nom)));
       s.id = 'dm-service'; service.replaceWith(s); service = s;
+      if (typeof ameliorerSelect === 'function') ameliorerSelect(s);
     } catch { /* module « vitrine » éteint : le champ texte suffit */ }
   }
 
@@ -102,7 +103,7 @@
   fermer.addEventListener('click', () => dialogue.close());
   changer.addEventListener('click', async () => {
     await fetch('/api/discord/oublier', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
-    location.href = lien.href;
+    afficher(null); lien.focus();   // la fenêtre revient à la connexion (en dev, reconnecter reconnecte aussitôt)
   });
 
   form.addEventListener('submit', async e => {

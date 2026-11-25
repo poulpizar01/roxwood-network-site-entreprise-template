@@ -11,6 +11,7 @@ import { EN_SUSPENS } from '../rh.js';
 import { nombreCandidaturesRecues } from '../candidatures.js';
 import { nombreDemandesNouvelles } from '../demandes.js';
 import { moduleActif } from '../modules.js';
+import { recrutementSiteActif } from '../recrutement-mode.js';
 import { nombreSalonsIntrouvables } from '../salon-discord.js';
 import { debutSemaineParis } from '../texte.js';
 
@@ -29,9 +30,9 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
     const n = await prisma.arriveeBot.count({ where: { resultat: { in: EN_SUSPENS } } });
     if (n) taches.push({ cle: 'candidatures', nombre: n, texte: `${pluriel(n, 'candidature')} à traiter`, lien: 'rh.html#rh-bot' });
   }
-  if (moduleActif('recrutement') && peut(c, 'rh-voir') && peut(c, 'rh-creer')) {
+  if (recrutementSiteActif() && peut(c, 'rh-voir') && peut(c, 'rh-creer')) {
     const n = await nombreCandidaturesRecues();
-    if (n) taches.push({ cle: 'recrutement', nombre: n, texte: `${pluriel(n, 'candidature')} reçue${n > 1 ? 's' : ''} sur le site`, lien: 'recrutement.html' });
+    if (n) taches.push({ cle: 'recrutement', nombre: n, texte: `${pluriel(n, 'candidature')} reçue${n > 1 ? 's' : ''} sur le site`, lien: 'rh.html#recrutement' });
   }
   if (moduleActif('demandes') && peut(c, 'demandes-voir')) {
     const n = await nombreDemandesNouvelles();

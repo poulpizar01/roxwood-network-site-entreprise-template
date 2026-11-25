@@ -32,7 +32,7 @@
           <div class="modale-boutons"><a class="btn btn-or" id="lien-connexion" href="#">Se connecter avec Discord</a></div>
         </div>
         <form id="formulaire-signature" class="cache" novalidate>
-          <p class="champ-aide" style="margin-top:1.25rem;">Connecté en tant que <strong id="pseudo-connecte"></strong>. <button type="button" class="lien-discret" id="changer-compte">Ce n’est pas vous ?</button></p>
+          <p class="champ-aide" style="margin-top:1.25rem;">Connecté en tant que <strong id="pseudo-connecte"></strong>. <button type="button" class="lien-discret" id="changer-compte">Se déconnecter</button></p>
           <label style="margin-top:.75rem;display:flex;gap:.75rem;align-items:flex-start;cursor:pointer;text-transform:none;letter-spacing:normal;font-size:var(--fs-3);color:var(--text);">
             <input type="checkbox" id="signature-case" required style="margin-top:.1875rem;">
             <span>J’ai relu cette facture et je le confirme.</span>
@@ -90,7 +90,7 @@
     socle.api(adresse).then(dessiner).catch(e => gestion.message('zone-message', e.message));
     document.getElementById('changer-compte').addEventListener('click', async () => {
       await socle.api('/api/discord/oublier', { method: 'POST', body: {} }).catch(() => {});
-      location.href = document.getElementById('lien-connexion').href;
+      montrer('formulaire-signature', false); montrer('bloc-connexion', true);   // retour à l'étape de connexion
     });
     document.getElementById('formulaire-signature').addEventListener('submit', async e => {
       e.preventDefault();

@@ -7,8 +7,9 @@ import { limiter } from '../../socle/limites.js';
 import { recevoirImage } from '../../socle/images.js';
 import { identiteVerifiee } from '../../socle/routes/discord-leger.js';
 import {
-  accepterCandidature, convoquerEntretien, creerCandidature, creerSalonPourCandidature, listerCandidatures, modifierNotesCandidature,
-  modifierSalonCandidature, monVote, refuserCandidature, supprimerCandidature, voter,
+  accepterCandidature, convoquerEntretien, creerCandidature, creerQuestion, creerSalonPourCandidature, definirReglagesRecrutement, formulairePublic, listerCandidatures,
+  listerQuestions, modifierNotesCandidature, modifierQuestion, modifierSalonCandidature, monVote, ordonnerQuestions, refuserCandidature, reglagesRecrutement,
+  supprimerCandidature, supprimerQuestion, voter,
 } from '../candidatures.js';
 import { traiter } from '../refus.js';
 
@@ -33,7 +34,23 @@ candidatures.post('/api/candidatures', limiteCandidatures, exigerIdentite, ...re
   res.status(201).json({ id: c.id });
 }));
 
+// formulaire tel que le site le présente (questions, pièce) : public, sans rien de la fiche visée par une réponse
+candidatures.get('/api/candidatures/formulaire', traiter(async (_req, res) => { res.json(await formulairePublic()); }));
+
 // ---- gestion ----
+// réglages du recrutement (mode bot / site, pièce, grade d'arrivée) et questions du formulaire : lecture rh-voir, écriture rh-parametrer
+const parametrer = async (req: Request, res: Response, next: NextFunction) => {
+  if ((await droits(req)).has('parametrer')) next();
+  else res.status(403).json({ error: 'Vous n’avez pas le droit de régler le recrutement.' });
+};
+candidatures.get('/api/candidatures/reglages', ...voir, traiter(async (_req, res) => { res.json({ ...reglagesRecrutement(), questions: await listerQuestions() }); }));
+candidatures.put('/api/candidatures/reglages', ...voir, parametrer, traiter(async (req, res) => { await definirReglagesRecrutement(body(req), req.compte); res.json({ ok: true }); }));
+candidatures.post('/api/candidatures/questions', ...voir, parametrer, traiter(async (req, res) => { await creerQuestion(body(req)); res.status(201).json({ questions: await listerQuestions() }); }));
+// déclarée avant /:id, qui la prendrait sinon pour l'id « ordre »
+candidatures.put('/api/candidatures/questions/ordre', ...voir, parametrer, traiter(async (req, res) => { await ordonnerQuestions(body(req).ids); res.json({ questions: await listerQuestions() }); }));
+candidatures.put('/api/candidatures/questions/:id', ...voir, parametrer, traiter(async (req, res) => { await modifierQuestion(intParam(req, 'id'), body(req)); res.json({ questions: await listerQuestions() }); }));
+candidatures.delete('/api/candidatures/questions/:id', ...voir, parametrer, traiter(async (req, res) => { await supprimerQuestion(intParam(req, 'id')); res.json({ questions: await listerQuestions() }); }));
+
 candidatures.get('/api/candidatures', ...voir, traiter(async (req, res) => { res.json({ candidatures: await listerCandidatures((await droits(req)).has('piece-voir')) }); }));
 candidatures.get('/api/candidatures/:id/mon-vote', ...voir, traiter(async (req, res) => { res.json({ vote: await monVote(intParam(req, 'id'), req.compte.id) }); }));
 candidatures.put('/api/candidatures/:id/vote', ...voir, traiter(async (req, res) => { await voter(intParam(req, 'id'), req.compte.id, body(req).valeur); res.json({ ok: true }); }));

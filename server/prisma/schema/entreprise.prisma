@@ -699,7 +699,8 @@ model Candidature {
   nom            String    @db.VarChar(60)
   discordId      String    @map("discord_id") @db.VarChar(22)
   pseudoDiscord  String    @map("pseudo_discord") @db.VarChar(100)
-  motivation     String    @default("") @db.VarChar(2000)
+  // réponses aux questions du formulaire (QuestionCandidature) au moment de l'envoi : [{ libelle, valeur }], le libellé figé
+  reponses       Json      @default("[]")
   statut         String    @default("recue") @db.VarChar(10) // recue | entretien | acceptee | refusee
   entretienLe    DateTime? @map("entretien_le") @db.Timestamptz(6)
   notes          String    @default("") @db.VarChar(2000) // notes internes RH, jamais visibles du candidat
@@ -715,6 +716,20 @@ model Candidature {
   @@index([statut, creeLe(sort: Desc)])
   @@index([discordId])
   @@map("candidatures")
+}
+
+// Questions du formulaire de candidature (réglées dans Employés → Recrutement → Réglages), après prénom, nom et poste.
+// champFiche : champ de la fiche employé que la réponse pré-remplit à l'acceptation (telephone, rib, idUnique), ou nul.
+model QuestionCandidature {
+  id         Int     @id @default(autoincrement())
+  libelle    String  @db.VarChar(120)
+  type       String  @db.VarChar(6) // court | long | choix
+  choix      Json    @default("[]") // options d'une question à choix
+  obligatoire Boolean @default(true)
+  champFiche String? @map("champ_fiche") @db.VarChar(12)
+  position   Int     @default(0)
+
+  @@map("questions_candidature")
 }
 
 // Vote d'un RH sur une candidature (pour / contre / abstention) : un vote par compte et par candidature, remplaçable.

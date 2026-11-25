@@ -29,6 +29,13 @@
       </div>
       <div id="zone-message-rh" role="status"></div>
 
+      <div class="compta-sous-onglets" role="tablist" aria-label="Rubriques des employés">
+        <button type="button" class="compta-sous-onglet actif" role="tab" id="onglet-rh-effectif" aria-selected="true" aria-controls="rh-panneau-effectif" data-rh-panneau="effectif">Effectif</button>
+        <button type="button" class="compta-sous-onglet" role="tab" id="onglet-rh-recrutement" aria-selected="false" aria-controls="rh-panneau-recrutement" data-rh-panneau="recrutement" tabindex="-1">Recrutement <span class="contrats-onglet-compte" id="compte-recrutement"></span></button>
+      </div>
+
+      <div id="rh-panneau-effectif" role="tabpanel" aria-labelledby="onglet-rh-effectif">
+
       <!-- en tête : l'effectif, et ce qui demande une action (masqué quand il n'y a rien à faire) -->
       <div class="rh-synthese">
         <div class="rh-effectif">
@@ -59,6 +66,24 @@
           </div>
         </div>
         <div class="liste-lignes liste-employes" id="rh-liste"></div>
+      </section>
+
+      </div>
+
+      <!-- Onglet Recrutement : candidatures reçues du bot Discord OU du site (la direction choisit l'un, jamais les deux : Réglages),
+           et leurs réglages. Sans le module « recrutement » (site.json), seul le bot existe et il n'y a pas de sous-onglets. -->
+      <div id="rh-panneau-recrutement" class="cache" role="tabpanel" aria-labelledby="onglet-rh-recrutement">
+      <div class="compta-sous-onglets cache" id="rh-recrutement-onglets" role="tablist" aria-label="Rubriques du recrutement" style="margin-top:14px;">
+        <button type="button" class="compta-sous-onglet actif" role="tab" aria-selected="true" data-rh-recrutement="candidatures">Candidatures</button>
+        <button type="button" class="compta-sous-onglet cache" role="tab" aria-selected="false" data-rh-recrutement="reglages" id="onglet-rh-reglages" tabindex="-1">Réglages</button>
+      </div>
+      <div id="rh-recrutement-candidatures">
+      <!-- Candidatures reçues du site (mode « site ») : colonnes par statut, fiche en tiroir (assets : recrutement.js) -->
+      <section class="rh-section cache" id="rh-site" aria-labelledby="titre-recrutement-site">
+        <h2 id="titre-recrutement-site" class="rh-titre">Candidatures du site</h2>
+        <p class="comptes-aide">Candidatures déposées sur le site, votées par l’équipe RH. Glissez une carte pour changer sa colonne, ou ouvrez-la.</p>
+        <div id="zone-message-candidatures" role="status"></div>
+        <div class="colonnes-statut" id="candidatures-colonnes"></div>
       </section>
 
       <!-- Candidatures acceptées reçues du bot Discord « Roxwood Network Entreprise » (webhook recruitment.updated, reçu par
@@ -123,6 +148,41 @@
           </form>
         </details>
       </section>
+      </div>
+
+      <!-- Réglages du recrutement par le site : origine des candidatures, grade d'arrivée, pièce d'identité, questions du formulaire
+           (chacune peut pré-remplir un champ de la fiche à l'acceptation). Permission rh-parametrer. -->
+      <div id="rh-recrutement-reglages" class="cache" style="margin-top:14px;">
+        <div id="zone-message-recrutement-reglages" role="status"></div>
+        <form id="formulaire-recrutement-reglages" novalidate>
+          <fieldset class="contrat-choix">
+            <legend>D’où viennent les candidatures</legend>
+            <div class="contrat-choix-options" id="recrutement-mode">
+              <label class="contrat-option"><input type="radio" name="recrutement-mode" value="bot" checked><span><strong>Le bot Discord</strong><small>Les candidatures acceptées dans Discord créent une fiche.</small></span></label>
+              <label class="contrat-option"><input type="radio" name="recrutement-mode" value="site"><span><strong>Le site</strong><small>Formulaire sur le site, vote de l’équipe, entretien, acceptation ici.</small></span></label>
+            </div>
+            <p class="champ-aide">Un seul circuit à la fois : en choisir un met l’autre de côté (les événements du bot ne créent plus de fiche, le formulaire du site se ferme).</p>
+          </fieldset>
+          <div id="recrutement-reglages-site" class="cache">
+            <div class="champ-deux">
+              <div class="champ"><label for="recrutement-grade">Grade donné aux arrivées</label><select id="recrutement-grade"></select></div>
+              <div class="champ"><label for="recrutement-piece">Pièce d’identité du candidat</label>
+                <select id="recrutement-piece"><option value="obligatoire">Obligatoire</option><option value="facultative">Facultative</option><option value="aucune">Non demandée</option></select></div>
+            </div>
+          </div>
+          <div class="rh-reglages-pied"><button type="submit" class="btn btn-or">Enregistrer</button></div>
+        </form>
+
+        <section class="tiroir-section cache" id="recrutement-questions-bloc" aria-labelledby="titre-questions-candidature">
+          <div class="rh-reglages-pied" style="margin-bottom:8px;">
+            <h3 id="titre-questions-candidature" style="margin:0;">Questions du formulaire</h3>
+            <button type="button" class="btn btn-fantome" id="bouton-ajouter-question"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter une question</button>
+          </div>
+          <p class="comptes-aide">Le prénom, le nom et le poste visé sont toujours demandés. Une question peut <strong>pré-remplir la fiche</strong> de l’employé quand la candidature est acceptée (téléphone, RIB ou ID Unique) ; la date d’arrivée et le compte Discord se remplissent d’eux-mêmes.</p>
+          <ol class="questions-liste" id="recrutement-questions" aria-label="Questions du formulaire"></ol>
+        </section>
+      </div>
+      </div>
     </section>
   </main>
 
@@ -194,6 +254,86 @@
   </div>
 </div>
 
+<!-- Fiche d'une candidature : tiroir à droite (plein écran sur téléphone). Bandeau et pied fixes, seul le corps défile. -->
+<div class="modale-fond tiroir-fond cache" id="tiroir-candidature" data-echap>
+  <div class="tiroir" role="dialog" aria-modal="true" aria-labelledby="tiroir-candidature-titre">
+    <div class="tiroir-entete">
+      <span class="admin-avatar" id="tiroir-candidature-avatar" aria-hidden="true"></span>
+      <div class="tiroir-identite">
+        <h2 id="tiroir-candidature-titre"></h2>
+        <p class="tiroir-sous-titre" id="tiroir-candidature-sous-titre"></p>
+      </div>
+      <button type="button" id="fermer-tiroir-candidature" aria-label="Fermer">✕</button>
+    </div>
+    <div class="tiroir-corps" id="tiroir-candidature-corps"></div>
+    <div class="tiroir-pied" id="tiroir-candidature-pied"></div>
+  </div>
+</div>
+
+<!-- Convoquer à l'entretien : jour et heure, posés dans l'agenda de l'équipe -->
+<div class="modale-fond cache" id="modale-entretien" data-echap>
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-entretien-titre">
+    <div class="modale-entete">
+      <h2 id="modale-entretien-titre" class="modale-titre">Convoquer à l’entretien</h2>
+      <button type="button" id="fermer-modale-entretien" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-entretien"></div>
+    <form id="formulaire-entretien" autocomplete="off" novalidate>
+      <p class="champ-aide" style="margin-top:0;">L’entretien est inscrit dans l’agenda de l’équipe et un message est envoyé au candidat dans son salon Discord.</p>
+      <div class="champ-deux">
+        <div class="champ"><label for="entretien-jour">Jour</label><input type="date" id="entretien-jour" required></div>
+        <div class="champ"><label for="entretien-heure">Heure</label><input type="time" id="entretien-heure" step="300" required></div>
+      </div>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or">Enregistrer</button>
+        <button type="button" class="btn btn-danger" id="annuler-modale-entretien">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Pièce d'identité en grand : jamais dans un nouvel onglet -->
+<div class="modale-fond cache" id="modale-image-candidature" data-echap>
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-image-candidature-titre" style="max-width:min(900px,95vw);">
+    <div class="modale-entete">
+      <h2 id="modale-image-candidature-titre" class="modale-titre"></h2>
+      <button type="button" id="fermer-modale-image-candidature" aria-label="Fermer">✕</button>
+    </div>
+    <img id="modale-image-candidature-img" alt="" style="display:block;max-width:100%;max-height:75vh;margin:0 auto;">
+  </div>
+</div>
+
+<!-- Question du formulaire : libellé, type, choix, obligatoire, champ de la fiche pré-rempli -->
+<div class="modale-fond cache" id="modale-question" data-echap>
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-question-titre">
+    <div class="modale-entete">
+      <h2 id="modale-question-titre" class="modale-titre">Question</h2>
+      <button type="button" id="fermer-modale-question" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-question"></div>
+    <form id="formulaire-question" autocomplete="off" novalidate>
+      <div class="champ"><label for="question-libelle">Question</label><input type="text" id="question-libelle" maxlength="120" required></div>
+      <div class="champ-deux">
+        <div class="champ"><label for="question-type">Réponse</label>
+          <select id="question-type"><option value="court">Courte (une ligne)</option><option value="long">Longue (un paragraphe)</option><option value="choix">À choix (liste)</option></select></div>
+        <div class="champ"><label for="question-fiche">Pré-remplit sur la fiche</label>
+          <select id="question-fiche"><option value="">Rien (réponse lue seulement)</option><option value="telephone">Téléphone</option><option value="rib">RIB</option><option value="idUnique">ID Unique</option></select></div>
+      </div>
+      <div class="champ cache" id="question-champ-choix"><label for="question-choix">Réponses proposées <small>une par ligne, 2 au moins</small></label><textarea id="question-choix" rows="4"></textarea></div>
+      <label class="grade-permission"><span class="d8-switch"><input type="checkbox" id="question-obligatoire" checked><span class="d8-switch-piste"></span></span>
+        <span><strong>Obligatoire</strong><small>Le candidat doit répondre pour envoyer sa candidature.</small></span></label>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or" id="question-enregistrer">Ajouter</button>
+        <button type="button" class="btn btn-danger" id="annuler-modale-question">Annuler</button>
+        <button type="button" class="btn btn-danger cache" id="question-supprimer">Supprimer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+  <script src="/gestion/vendor/Sortable.min.js"></script>
+  <script src="/gestion/recrutement.js"></script>
+  <script src="/gestion/recrutement-reglages.js"></script>
   <script src="/gestion/rh.js"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@ import { prisma } from '../../socle/db.js';
 import { renderFile, withNonce } from '../../socle/site.js';
 import { injecterAvis, listerAvisAccueil } from '../avis.js';
 import { moduleActif } from '../modules.js';
+import { recrutementSiteActif } from '../recrutement-mode.js';
 import { injecterVitrine, postesPublics, servicesPublics, urlPhoto } from '../vitrine.js';
 
 export const accueilPublic = Router();
@@ -21,7 +22,7 @@ accueilPublic.get(['/', '/index.html'], async (_req, res, next) => {
       html = injecterVitrine(html, await servicesPublics(s => urlPhoto(s, photos.get(`service-${s.id}`))), await postesPublics());
     }
     if (moduleActif('avis')) html = injecterAvis(html, await listerAvisAccueil());
-    if (moduleActif('recrutement')) {
+    if (recrutementSiteActif()) {
       // la section Recrutement s'affiche même sans poste ouvert (candidature spontanée), et ses boutons « Postuler » se montrent
       html = html.replace(/ data-si-recrutement hidden/g, '').replace(/(<section[^>]*id="recrutement")[^>]*>/, '$1>');
     }

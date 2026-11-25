@@ -1,6 +1,8 @@
-/* GESTION — recrutement sur le site (module « recrutement »), permissions « rh-voir » (consulter, voter) et « rh-creer » (convoquer,
-   accepter, refuser, annoter). Colonnes par statut ; une carte ouvre la fiche (tiroir). Changer de colonne : glisser la carte ou un
-   bouton du pied — mêmes actions, jamais un autre chemin. Droits revérifiés par le serveur (entreprise/routes/candidatures.ts). */
+/* GESTION — recrutement sur le site (module « recrutement », mode « site »), dans l'onglet Recrutement de la page Employés (rh.html),
+   permissions « rh-voir » (consulter, voter) et « rh-creer » (convoquer, accepter, refuser, annoter). Colonnes par statut ; une carte
+   ouvre la fiche (tiroir). Changer de colonne : glisser la carte ou un bouton du pied — mêmes actions, jamais un autre chemin. Droits
+   revérifiés par le serveur (entreprise/routes/candidatures.ts). rh.js l'appelle : window.recrutementSite.init(moi). */
+(() => {
 
 const $r = id => document.getElementById(id);
 let CACHE_CANDIDATURES = [], MON_VOTE = null, MOI = null;
@@ -73,7 +75,9 @@ function sectionDetail(c) {
          <p class="champ-aide" style="margin:8px 0 0;">Effacée 90 jours après réception ; à l’acceptation, elle passe sur la fiche de l’employé.</p>`
       : `<p class="champ-aide">${c.statut === 'acceptee' ? 'Sur la fiche de l’employé.' : 'Réservée à qui peut voir les pièces d’identité, ou effacée (conservée 90 jours après réception).'}</p>`}
   </section>
-  <section class="tiroir-section" aria-labelledby="titre-motivation-candidature"><h3 id="titre-motivation-candidature">Motivation</h3><p class="contrat-notes">${echapper(c.motivation)}</p></section>`;
+  <section class="tiroir-section" aria-labelledby="titre-reponses-candidature"><h3 id="titre-reponses-candidature">Réponses</h3>${(c.reponses || []).length
+    ? c.reponses.map(r => `<p class="champ-aide" style="margin:0 0 2px;">${echapper(r.libelle)}</p><p class="contrat-notes" style="margin:0 0 12px;">${echapper(r.valeur)}</p>`).join('')
+    : '<p class="champ-aide">Aucune question posée dans le formulaire.</p>'}</section>`;
 }
 // une pastille par votant (photo Discord, ou initiales) : qui a voté quoi, pas seulement combien ; le nom complet au survol et pour les lecteurs d'écran
 function pastille(v) {
@@ -234,5 +238,6 @@ $r('formulaire-entretien').addEventListener('submit', async e => {
   } catch (err) { gestion.message('zone-message-modale-entretien', err.message); }
 });
 
-// l'un après l'autre : le glisser-déposer lit les droits du compte (MOI), qui doivent être connus au premier affichage
-gestion.coque('recrutement').then(async m => { MOI = m; await chargerCandidatures(); });
+// rh.js appelle init une fois la coque dessinée : le glisser-déposer lit les droits du compte (MOI), connus au premier affichage
+window.recrutementSite = { init: async moi => { MOI = moi; await chargerCandidatures(); }, recharger: chargerCandidatures };
+})();

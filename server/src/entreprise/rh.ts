@@ -4,6 +4,7 @@
 // rh-desactiver, rh-reactiver, rh-sensible-voir / rh-sensible (téléphone, RIB : consulter / modifier), rh-piece-voir /
 // rh-piece (pièce d'identité), rh-sanctions-voir / rh-sanctionner, rh-parametrer (réglages du bot). Elles se cochent par
 // grade dans la page Grades ; le propriétaire du serveur Discord les a toutes.
+import { recrutementSiteActif } from './recrutement-mode.js';
 import crypto from 'node:crypto';
 import { Prisma, type Compte, type Employe } from '../generated/prisma/client.js';
 import type { ImageEnregistree } from '../socle/images.js';
@@ -399,6 +400,8 @@ const dateEvenement = (v: unknown): Date | null => { const d = new Date(texte(v,
 // la rendrait pas valide (voir docs/webhooks.md). Le bot réessaie un envoi en échec plus tard : un événement peut donc
 // arriver après un plus récent du même ticket. Seul compte le plus récent (date d'envoi `sentAt`).
 export async function recevoirCandidature(e: EvenementBot): Promise<void> {
+  // le site a pris le relais (recrutement-mode.ts) : le bot ne crée plus de fiche, jamais les deux circuits à la fois
+  if (recrutementSiteActif()) { console.warn('[rh] candidature du bot ignorée : le recrutement se fait par le site'); return; }
   const p = e.payload as Record<string, unknown>;
   // forme inattendue : ignorée, mais consignée (seule trace si le bot change de format)
   if (!p || typeof p !== 'object') { console.warn('[rh] candidature ignorée : contenu absent'); return; }
