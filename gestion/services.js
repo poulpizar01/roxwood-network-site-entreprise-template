@@ -122,7 +122,7 @@ function ouvrirModaleService(id, debutIso, finIso) {
 const fermerModaleService = () => { $v('modale-service').classList.add('cache'); if (OUVREUR_MODALE_SERVICE?.isConnected) OUVREUR_MODALE_SERVICE.focus(); };
 $v('fermer-modale-service').addEventListener('click', fermerModaleService);
 $v('modale-service').addEventListener('click', e => { if (e.target.id === 'modale-service') fermerModaleService(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$v('modale-service').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) fermerModaleService(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$v('modale-service').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) { e.preventDefault(); fermerModaleService(); } });
 $v('formulaire-service').addEventListener('submit', async e => {
   e.preventDefault();
   gestion.message('zone-message-modale-service', '');

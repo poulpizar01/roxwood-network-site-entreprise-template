@@ -34,6 +34,7 @@
     corps.append(fermer);
     dialogue.append(corps);
     dialogue.addEventListener('close', () => declencheur.focus(), { once: true });
+    dialogue.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); dialogue.close(); } });   // preventDefault : sinon le SDK du jeu ferme aussi la tablette (guide FBFA, B5)
     dialogue.showModal();
   }
   document.querySelectorAll('[data-service]').forEach(b => b.addEventListener('click', () => ouvrir(services[Number(b.dataset.service)], b)));

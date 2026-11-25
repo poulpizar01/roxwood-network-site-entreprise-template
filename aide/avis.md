@@ -12,7 +12,7 @@ La page est organisée en trois colonnes : **En attente**, **Publiés** et **Ref
 ::: si avis
 ## Décider d'un avis
 
-Les nouveaux avis arrivent dans la colonne « En attente ». Glissez la carte dans « Publiés » pour l'afficher sur le site, ou dans « Refusés » pour l'écarter. Le glisser-déposer n'a pas d'équivalent au clavier : ouvrez la carte pour agir.
+Les nouveaux avis arrivent dans la colonne « En attente ». Cliquez sur [Publier] pour l'afficher sur le site, ou sur [Refuser] pour l'écarter ; [Remettre en attente] le renvoie dans la première colonne. Vous pouvez aussi glisser la carte d'une colonne à l'autre.
 
 ## Mettre un avis en avant
 

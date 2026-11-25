@@ -58,3 +58,7 @@ L'opérateur de l'ordinateur en jeu fournit une liste d'exigences (navigateur Fi
 | `[hidden]` sans `display: none !important` reste visible | la coque de la gestion le force (`gestion.css`) | la vitrine le force aussi dans sa feuille si elle masque avec `hidden` |
 | Tablette à onglets et brouillons (`folkos-tablette.js`, guide B10) | non utilisé : optionnel, il remplacerait `fbfa-bridge.js` | — |
 | Curseur (`/cursor`), jeton `?token=` d'un point de jeu (guide B9.4, B9.5) | non utilisés | — |
+| Échap (guide B5) | `folkos.js` active la fermeture de la tablette par Échap | tout écouteur d'Échap qui ferme une fenêtre fait `e.preventDefault()` (un `<dialog>` natif aussi : `preventDefault` puis `close()`), sinon la tablette entière se ferme avec elle |
+| Connexion Discord, liens vers un autre site (guide B7, A9) | `discord.com` refuse d'être affiché en cadre : page blanche | tout bouton ou lien de ce genre porte `data-hors-jeu` (masqué sous `html.en-jeu`, règle dans `gestion.css` et `styles.css`) avec, à côté, un texte `.seulement-en-jeu` qui dit quoi faire ; `socle/signature.css` masque ses liens |
+| Glisser-déposer (guide B7) | non fiable en jeu | un changement d'état par glissé a toujours des boutons (avis, candidatures) |
+| Ce qui coûte au GPU | `html.en-jeu` est posé sur `<html>` | `backdrop-filter` et animations infinies coupés sous `html.en-jeu` (en-tête de la vitrine, squelettes, point « en service ») |

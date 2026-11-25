@@ -201,7 +201,7 @@ function enService(barre, haut) {
   for (const d of declencheurs) d.addEventListener('click', () => (origine === d ? fermer() : ouvrir(d)));
   panneau.querySelector('[data-service-fermer]').addEventListener('click', () => fermer());
   panneau.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { e.stopPropagation(); fermer(); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fermer(); }   // preventDefault : sinon le SDK du jeu ferme aussi la tablette
     else if (e.key === 'Tab') {   // le focus reste dans le panneau tant qu'il est ouvert
       const f = [...panneau.querySelectorAll('button, a[href]')];
       if (e.shiftKey ? document.activeElement === f[0] : document.activeElement === f.at(-1)) { e.preventDefault(); (e.shiftKey ? f.at(-1) : f[0]).focus(); }
@@ -800,7 +800,7 @@ window.gestion = {
     voile.addEventListener('click', () => ouvrir(false));
     document.addEventListener('keydown', e => {
       if (!document.body.classList.contains('admin-menu-ouvert')) return;
-      if (e.key === 'Escape') { ouvrir(false); burger.focus(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); ouvrir(false); burger.focus(); return; }
       // tiroir ouvert (téléphone) : Tab boucle entre le bouton du menu et les liens, jamais sur la page sous le voile
       if (e.key !== 'Tab') return;
       const liste = [burger, ...[...barre.querySelectorAll('a[href], button')].filter(el => !el.disabled && (el.offsetWidth || el.offsetHeight))];

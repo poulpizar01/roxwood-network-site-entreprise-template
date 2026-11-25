@@ -24,13 +24,19 @@ async function chargerAvis() {
 
 function ficheAvis(a) {
   const actions = [];
+  // changer de statut : des boutons (le glisser-déposer est aléatoire dans le navigateur du jeu, guide FBFA B7) en plus du glissé
+  const vers = (statut, libelle, classe = 'btn-fantome') => `<button type="button" class="btn ${classe} btn-petit" data-vers="${statut}">${libelle}</button>`;
   if (!PEUT_GERER) { /* lecture seule : pas de bouton, pas de glissé (installerGlisserAvis) */ }
-  else if (a.statut === 'publie') {
+  else if (a.statut === 'attente') {
+    actions.push(vers('publie', 'Publier', 'btn-or'), vers('refuse', 'Refuser'));
+  } else if (a.statut === 'publie') {
     actions.push(a.epingle
       ? '<button type="button" class="btn btn-fantome btn-petit" data-desepingler-avis>Désépingler</button>'
-      : '<button type="button" class="btn btn-fantome btn-petit" data-epingler-avis>Épingler</button>');
+      : '<button type="button" class="btn btn-fantome btn-petit" data-epingler-avis>Épingler</button>',
+    vers('refuse', 'Refuser'), vers('attente', 'Remettre en attente'));
   } else if (a.statut === 'refuse') {
-    actions.push('<button type="button" class="btn btn-danger btn-petit" data-supprimer-avis>Supprimer</button>');
+    actions.push(vers('publie', 'Publier', 'btn-or'), vers('attente', 'Remettre en attente'),
+      '<button type="button" class="btn btn-danger btn-petit" data-supprimer-avis>Supprimer</button>');
   }
   return `<article class="carte-statut avis-fiche${a.epingle ? ' avis-fiche--epingle' : ''}" data-id="${a.id}">
     ${etoiles(a.note)}
@@ -51,10 +57,8 @@ function afficherColonnes() {
   installerGlisserAvis();
 }
 
-// changer de colonne = glisser-déposer seul, de n'importe quelle colonne vers n'importe quelle autre (composant commun
-// glisserColonnes(), gestion.js, partagé avec les candidatures RH). Pas d'équivalent au clavier : choix assumé du
-// 09/11, écart à la règle d'accessibilité clavier du CLAUDE.md. Les boutons de la carte (Épingler, Supprimer) ne
-// lancent pas de glissé (filtreDepart).
+// changer de colonne : par les boutons de la carte, ou en glissant-déposant la carte vers une autre colonne (composant commun
+// glisserColonnes(), gestion.js, partagé avec les candidatures RH). Les boutons de la carte ne lancent pas de glissé (filtreDepart).
 const TRANSITIONS_GLISSER_AVIS = { attente: ['publie', 'refuse'], publie: ['attente', 'refuse'], refuse: ['attente', 'publie'] };
 const DEPOTS_AVIS = { attente: ['/attente', 'Avis remis en attente ✓'], publie: ['/publier', 'Avis publié ✓'], refuse: ['/refuser', 'Avis refusé ✓'] };
 function installerGlisserAvis() {
@@ -79,7 +83,9 @@ $a('avis-colonnes').addEventListener('click', async e => {
   const fiche = e.target.closest('[data-id]');
   if (!fiche) return;
   const id = Number(fiche.dataset.id);
-  if (e.target.closest('[data-epingler-avis]')) await action(id, '/epingler', 'Avis épinglé ✓');
+  const vers = e.target.closest('[data-vers]');
+  if (vers) await action(id, ...DEPOTS_AVIS[vers.dataset.vers]);
+  else if (e.target.closest('[data-epingler-avis]')) await action(id, '/epingler', 'Avis épinglé ✓');
   else if (e.target.closest('[data-desepingler-avis]')) await action(id, '/desepingler', 'Avis désépinglé ✓');
   else if (e.target.closest('[data-supprimer-avis]')) {
     if (!await gestion.confirmer('L’avis disparaît définitivement.', 'Supprimer cet avis ?', 'Supprimer')) return;

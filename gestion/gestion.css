@@ -2376,6 +2376,10 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 /* ordinateur en jeu (socle/folkos.js pose html.en-jeu) : le sélecteur de fichiers y est peu fiable, on le dit près de chaque envoi */
 .seulement-en-jeu { display: none !important; }
 html.en-jeu .seulement-en-jeu { display: block !important; }
+/* ce que le navigateur du jeu ne sait pas faire (connexion Discord, lien vers un autre site : discord.com refuse d'être affiché en cadre) */
+html.en-jeu [data-hors-jeu] { display: none !important; }
+/* navigateur du jeu : animations infinies coupées (docs/folkos.md, ce qui coûte au GPU) */
+html.en-jeu .squelette, html.en-jeu .quota-service-point { animation: none; }
 
 
 /* ======== propre au modèle : marque, connexion, Mon compte ======== */

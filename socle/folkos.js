@@ -11,8 +11,10 @@
      donner son clavier à un écran) — docs/guide-dev-fbfa.md, B9.3. */
 (() => {
   const hote = document.currentScript?.dataset.hote;
+  // dans un cadre ? ancestorOrigins (guide FBFA, B5) ; window.top seulement pour un navigateur qui ne le fournit pas (Firefox)
   let enJeu = true;
-  try { enJeu = window.self !== window.top; } catch { /* cadre d'une autre origine : en jeu */ }
+  if (location.ancestorOrigins) enJeu = location.ancestorOrigins.length > 0;
+  else { try { enJeu = window.self !== window.top; } catch { /* cadre d'une autre origine : en jeu */ } }
   if (!enJeu || !hote) return;
   document.documentElement.classList.add('en-jeu');
 

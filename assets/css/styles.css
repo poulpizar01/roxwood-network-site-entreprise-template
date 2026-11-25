@@ -136,6 +136,9 @@ svg.fleche{width:1.1em;height:1.1em;vertical-align:-.2em;fill:none;stroke:curren
 .champ-aide{margin:0;font-size:14px;color:var(--ink2)}
 .seulement-en-jeu{display:none}
 html.en-jeu .seulement-en-jeu{display:block}
+html.en-jeu [data-hors-jeu]{display:none!important}
+/* navigateur du jeu : ce qui coûte au GPU est coupé (docs/folkos.md) */
+html.en-jeu .entete{backdrop-filter:none;background:var(--bg)}
 .lien{padding:0;border:0;background:none;color:var(--accent);font:inherit;text-decoration:underline;cursor:pointer}
 
 /* fenêtre de dépôt d'un avis (assets/js/avis-depot.js) : note en étoiles = boutons radio, donc flèches du clavier */

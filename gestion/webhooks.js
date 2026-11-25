@@ -205,6 +205,7 @@ async function enregistrerCle(type) {
     await chargerAbonnements();
   } catch (e) {
     if (e.data?.error === 'discord-recent') {
+      if (document.documentElement.classList.contains('en-jeu')) { gestion.message('zone-message-tiroir-abonnement', 'Une connexion Discord récente est nécessaire, et elle ne fonctionne pas dans l’ordinateur du jeu : reconnectez-vous avec Discord depuis un navigateur.'); return; }
       location.href = `/auth/discord?next=${encodeURIComponent(location.pathname)}`;
       return;
     }
@@ -231,7 +232,9 @@ document.getElementById('liste-abonnements').addEventListener('click', async e =
     if (!await gestion.confirmer(`La clé de « ${a.type} » sera supprimée : le site refusera ces événements, et il faudra la recoller depuis Discord pour les reprendre. Retirez aussi l’abonnement côté bot (panneau Monitoring), sinon il réessaiera pendant quelques heures.`, 'Supprimer la clé ?', 'Supprimer la clé')) return;
     try { await socle.api(`/api/webhooks/abonnements/${encodeURIComponent(type)}`, { method: 'DELETE' }); gestion.notifier('Abonnement retiré.'); await chargerAbonnements(); }
     catch (err) {
-      if (err.data?.error === 'discord-recent') { location.href = `/auth/discord?next=${encodeURIComponent(location.pathname)}`; return; }   // comme l'enregistrement d'une clé
+      if (err.data?.error === 'discord-recent') {
+        if (document.documentElement.classList.contains('en-jeu')) { gestion.message('zone-message', 'Une connexion Discord récente est nécessaire, et elle ne fonctionne pas dans l’ordinateur du jeu : reconnectez-vous avec Discord depuis un navigateur.'); return; }
+        location.href = `/auth/discord?next=${encodeURIComponent(location.pathname)}`; return; }   // comme l'enregistrement d'une clé
       gestion.message('zone-message', err.message);
     }
   }

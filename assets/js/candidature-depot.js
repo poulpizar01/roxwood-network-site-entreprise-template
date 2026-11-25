@@ -33,9 +33,10 @@
   // étape 1 : connexion Discord
   const bloc = el('div', 'avis-bloc');
   const lien = el('a', 'btn btn--accent', 'Se connecter avec Discord');
+  lien.setAttribute('data-hors-jeu', '');
   const sortie = el('button', 'btn btn--ligne', 'Annuler'); sortie.type = 'button';   // sans compte Discord ni Échap (téléphone), la fenêtre doit pouvoir se fermer
   const erreurDiscord = el('p', 'avis-etat', 'La connexion avec Discord a échoué. Réessayez.'); erreurDiscord.setAttribute('role', 'alert'); erreurDiscord.hidden = retour !== 'erreur';
-  bloc.append(el('p', '', 'Pour postuler, connectez-vous avec Discord : nous gardons votre pseudo Discord avec votre candidature, et l’équipe vous répond dans un salon dédié. Il n’est jamais affiché publiquement.'), lien, sortie, erreurDiscord);
+  bloc.append(el('p', '', 'Pour postuler, connectez-vous avec Discord : nous gardons votre pseudo Discord avec votre candidature, et l’équipe vous répond dans un salon dédié. Il n’est jamais affiché publiquement.'), lien, el('p', 'champ-aide seulement-en-jeu', 'La connexion Discord ne fonctionne pas dans l’ordinateur du jeu : ouvrez ce site dans un navigateur pour l’envoyer.'), sortie, erreurDiscord);
 
   // étape 2 : formulaire (corps reconstruit à chaque ouverture, d'après la configuration)
   const form = el('form', 'avis-form'); form.noValidate = true; form.hidden = true;
@@ -115,6 +116,7 @@
   if (retour) ouvrir(ouvrants[0], posteRetour);
   dialogue.addEventListener('click', e => { if (e.target === dialogue) dialogue.close(); });   // clic sur le fond
   dialogue.addEventListener('close', () => declencheur?.focus());
+  dialogue.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); dialogue.close(); } });   // preventDefault : sinon le SDK du jeu ferme aussi la tablette (guide FBFA, B5)
   annuler.addEventListener('click', () => dialogue.close());
   sortie.addEventListener('click', () => dialogue.close());
   fermer.addEventListener('click', () => dialogue.close());

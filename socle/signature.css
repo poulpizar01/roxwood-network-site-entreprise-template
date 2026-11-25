@@ -23,6 +23,8 @@
 .signature a:hover{opacity:1;color:var(--accent);background:var(--line)}
 .signature img{width:20px;height:20px;object-fit:contain;filter:saturate(.55) brightness(.9);transition:filter .25s}
 .sig-pastille:hover img{filter:none}
+/* dans l'ordinateur du jeu, un lien externe ouvrirait discord.com ou un autre site dans le cadre : refusé, page blanche */
+html.en-jeu .sig-actions,html.en-jeu .sig-trait{display:none}
 .signature b{font-weight:500;color:var(--accent-dark);transition:color .25s}
 .sig-pastille:hover b{color:var(--accent)}
 @media (max-width:520px){.sig-pastille{flex-wrap:wrap;justify-content:center;padding:9px 12px;row-gap:2px}.sig-trait{display:none}}

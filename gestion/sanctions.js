@@ -172,7 +172,7 @@ const fermerModaleSanction = () => { $s('modale-sanction').classList.add('cache'
 $s('bouton-nouvelle-sanction').addEventListener('click', ouvrirModaleSanction);
 $s('fermer-modale-sanction').addEventListener('click', fermerModaleSanction);
 $s('modale-sanction').addEventListener('click', e => { if (e.target.id === 'modale-sanction') fermerModaleSanction(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$s('modale-sanction').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) fermerModaleSanction(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$s('modale-sanction').classList.contains('cache') && !document.querySelector('[role="alertdialog"]')) { e.preventDefault(); fermerModaleSanction(); } });
 $s('formulaire-sanction').addEventListener('submit', async e => {
   e.preventDefault();
   gestion.message('zone-message-modale-sanction', '');
