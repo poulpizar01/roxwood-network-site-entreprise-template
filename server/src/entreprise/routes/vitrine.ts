@@ -21,10 +21,11 @@ const voirPostes = permission('postes-voir'), gererPostes = permission('postes')
 // ---- photo d'un service : image d'apparence « service-<id> » (même traitement que le logo) ----
 type Photo = { url: string; urlMini: string; majLe: Date };
 const photoDe = async (id: number): Promise<Photo | null> => prisma.apparenceImage.findUnique({ where: { cle: `service-${id}` }, select: { url: true, urlMini: true, majLe: true } });
-async function servirPhoto(res: import('express').Response, id: number, mini: boolean): Promise<void> {
+// cache : court pour la photo publique ; l'aperçu de la gestion peut montrer un service masqué (jamais public), il n'est pas gardé
+async function servirPhoto(res: import('express').Response, id: number, mini: boolean, cache = CACHE_COURT): Promise<void> {
   const photo = await photoDe(id);
   if (!photo) { res.status(404).end(); return; }
-  try { res.set({ 'Content-Type': 'image/webp', 'Cache-Control': CACHE_COURT }).send(await lireImage(mini ? photo.urlMini : photo.url)); }
+  try { res.set({ 'Content-Type': 'image/webp', 'Cache-Control': cache }).send(await lireImage(mini ? photo.urlMini : photo.url)); }
   catch (e) { console.error(`[vitrine] photo du service ${id} illisible sur le stockage (${(e as Error).message})`); res.status(404).end(); }
 }
 const serviceOu404 = async (req: Request) => {
@@ -64,8 +65,8 @@ vitrine.get('/api/vitrine/services', ...voirServices, traiter(async (_req, res) 
     }),
   });
 }));
-vitrine.get('/api/vitrine/services/:id/apercu', ...voirServices, traiter(async (req, res) => { await servirPhoto(res, (await serviceOu404(req)).id, false); }));
-vitrine.get('/api/vitrine/services/:id/apercu-mini', ...voirServices, traiter(async (req, res) => { await servirPhoto(res, (await serviceOu404(req)).id, true); }));
+vitrine.get('/api/vitrine/services/:id/apercu', ...voirServices, traiter(async (req, res) => { await servirPhoto(res, (await serviceOu404(req)).id, false, 'private, no-store'); }));
+vitrine.get('/api/vitrine/services/:id/apercu-mini', ...voirServices, traiter(async (req, res) => { await servirPhoto(res, (await serviceOu404(req)).id, true, 'private, no-store'); }));
 vitrine.post('/api/vitrine/services', ...gererServices, traiter(async (req, res) => { res.status(201).json({ id: await creerService(body(req)) }); }));
 // déclarée avant /:id, qui la prendrait sinon pour l'id « ordre »
 vitrine.put('/api/vitrine/services/ordre', ...gererServices, traiter(async (req, res) => { await ordonnerServices(body(req).ids); res.json({ ok: true }); }));

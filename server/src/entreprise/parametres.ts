@@ -3,7 +3,7 @@
 //   - privés : lus par le serveur ou servis aux comptes validés (Google Sheets, registre, services, agenda) ;
 //   - publics : liens des pages publiques (GET /api/liens, data-lien) ; un lien vide masque son bouton.
 import type { GroupeParametres } from '../socle/contrat.js';
-import { entierParametre, idsParametre, lienParametre, parametre } from '../socle/parametres.js';
+import { entierParametre, idsParametre, parametre } from '../socle/parametres.js';
 import { moduleActif } from '../socle/site.js';
 import { JOURS_SEMAINE } from './texte.js';
 
@@ -58,6 +58,5 @@ export const joursAccesContrats = (): string[] => parametre('contrats_jours_acce
 
 // ---- lecture typée, pour le reste du site ----
 export { parametre };
-export const lienRegle = lienParametre;
 export const idsRegles = idsParametre;
 export const entierRegle = entierParametre;

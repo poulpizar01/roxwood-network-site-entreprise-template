@@ -42,7 +42,8 @@ if (config.superAdmins.length) {
 declarerParametres(entreprise.parametres);   // avant demarrage(), qui peut lire un paramètre
 planifierPurge();
 planifierSynchroDiscord();
-await entreprise.demarrage?.();
+// une erreur de démarrage de l'entreprise (alignement des grades, tâche) ne doit pas faire boucler le conteneur : le site reste servi, l'erreur est dans les journaux
+await Promise.resolve(entreprise.demarrage?.()).catch(e => console.error('[demarrage] entreprise :', e));
 
 const app = express();
 app.set('trust proxy', 1);                     // derrière nginx (adresse IP réelle pour les limites de requêtes)

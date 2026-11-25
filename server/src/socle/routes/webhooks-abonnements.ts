@@ -69,6 +69,8 @@ webhooksAbonnements.post('/api/webhooks/abonnements/:type/cle', ...permission('w
 webhooksAbonnements.delete('/api/webhooks/abonnements/:type', ...permission('webhooks'), async (req, res) => {
   const type = text(req.params.type, 64);
   if (!typeDeclare(type)) { res.status(404).json({ error: 'type inconnu' }); return; }
+  // comme l'enregistrement d'une clé : couper la réception d'un type d'événement exige une connexion Discord récente
+  if (!req.compte.connecteLe || Date.now() - req.compte.connecteLe.getTime() > RECONFIRMATION_MS) { res.status(403).json({ error: 'discord-recent' }); return; }
   const retire = await prisma.abonnementWebhook.delete({ where: { type } }).catch(() => null);
   if (retire) await prisma.historiqueAbonnementWebhook.create({ data: { type, action: 'retrait', compteId: req.compte.id, acteurNom: req.compte.nom || req.compte.pseudo } });
   res.json({ ok: true });

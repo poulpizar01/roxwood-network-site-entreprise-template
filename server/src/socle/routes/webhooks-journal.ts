@@ -5,7 +5,7 @@
 // échec gardent leur payload, le temps du diagnostic.
 import { Router } from 'express';
 import { prisma } from '../db.js';
-import { permission } from '../http.js';
+import { intParam, permission } from '../http.js';
 
 export const webhooksJournal = Router();
 
@@ -17,6 +17,13 @@ webhooksJournal.get('/api/webhooks', ...permission('webhooks'), async (req, res)
     where: { ...(type && { type }), ...(traite !== undefined && { traite }) },
     orderBy: { recuLe: 'desc' },
     take: 500,
+    omit: { contenu: true },   // jusqu'à 64 Ko par événement en échec : le contenu se lit à l'ouverture (GET /api/webhooks/:id)
   });
   res.json({ webhooks: lignes });
+});
+
+webhooksJournal.get('/api/webhooks/:id', ...permission('webhooks'), async (req, res) => {
+  const w = await prisma.webhookRecu.findUnique({ where: { id: intParam(req, 'id') } });
+  if (!w) { res.status(404).json({ error: 'Événement introuvable.' }); return; }
+  res.json({ webhook: w });
 });

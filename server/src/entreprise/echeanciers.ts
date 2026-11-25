@@ -140,12 +140,15 @@ export async function contratAEcheancesFacturees(contratId: number): Promise<boo
 
 // Accueil, « À traiter » : contrats clients actifs avec au moins une échéance due et non facturée (ou libérée)
 export async function nombreContratsAFacturer(): Promise<number> {
-  const du = await prisma.echeance.findMany({
-    where: { datePrevue: { lte: versDate(jourParis()) }, echeancier: { type: 'facturation', contratId: { not: null } } },
-    select: { factureId: true, facture: { select: { statutPaiement: true } }, echeancier: { select: { contratId: true } } },
-  });
-  const avoirs = await facturesAvecAvoir(du.map(d => d.factureId));
-  return new Set(du.filter(d => !verrouillee({ factureId: d.factureId, facture: d.facture && { id: 0, numeroFacture: '', statutPaiement: d.facture.statutPaiement } }, avoirs)).map(d => d.echeancier.contratId)).size;
+  // une seule requête : l'Accueil ne relit pas l'historique des échéances facturées. Libérée = sans facture, annulée ou compensée par un avoir (libere)
+  const [{ n }] = await prisma.$queryRaw<{ n: bigint }[]>`
+    SELECT COUNT(DISTINCT es.contrat_id) AS n
+    FROM echeances e
+    JOIN echeanciers es ON es.id = e.echeancier_id
+    LEFT JOIN factures f ON f.id = e.facture_id
+    WHERE e.date_prevue <= ${versDate(jourParis())} AND es.type = 'facturation' AND es.contrat_id IS NOT NULL
+      AND (e.facture_id IS NULL OR f.statut_paiement = 'ANNULEE' OR EXISTS (SELECT 1 FROM factures a WHERE a.avoir_de_id = e.facture_id))`;
+  return Number(n);
 }
 
 // ---- création (libre, sans contrat) ----
@@ -330,7 +333,10 @@ export async function facturerEtEnvoyerAutomatique(): Promise<{ facturees: numbe
 }
 
 export function planifierFacturationAutomatique(): void {
-  const run = () => facturerEtEnvoyerAutomatique()
+  // une passe longue (Discord qui limite les envois) ne doit pas chevaucher la suivante : deux envois simultanés doubleraient les messages
+  let enCours = false;
+  const run = () => { if (enCours) return; enCours = true; passe().finally(() => { enCours = false; }); };
+  const passe = () => facturerEtEnvoyerAutomatique()
     .then(({ facturees, envoyees, erreurs }) => { if (facturees || erreurs) console.log(`[echeanciers] facturation automatique : ${facturees} facture(s) créée(s), ${envoyees} envoyée(s) sur Discord${erreurs ? `, ${erreurs} erreur(s)` : ''}`); })
     .catch(e => console.error('[echeanciers] facturation automatique', e));
   setTimeout(run, 60e3).unref();   // une minute après le démarrage (la reprise des contrats est passée), puis toutes les heures

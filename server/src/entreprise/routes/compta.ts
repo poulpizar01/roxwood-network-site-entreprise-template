@@ -3,7 +3,7 @@
 // mouvements, salariés, résumé, verrouillage) vit dans ../dot.ts, partagé avec la tâche planifiée de verrouillage
 // automatique (verrouillage-dot.ts).
 import { Prisma } from '../../generated/prisma/client.js';
-import { Router } from 'express';
+import { Router, type Request as RequeteExpress } from 'express';
 import { prisma } from '../../socle/db.js';
 import { auDessusDe, gradeDe } from '../../socle/droits.js';
 import { body, intParam, permission } from '../../socle/http.js';
@@ -20,7 +20,7 @@ import { limiter } from '../../socle/limites.js';
 import { ajouterArticleCatalogue, classementFactures, contratsAvecSalon, definirQuotaFacture, envoyerFactureManuel, envoyerLienSignature, factureSignable, infoLienSignature, listerCatalogue, resumeSignature, signerFacture, modifierArticleCatalogue, quotasFacture, supprimerArticleCatalogue } from '../facture.js';
 import { Refus, traiter } from '../refus.js';
 import { servicesEnSuspensSemaine } from '../services.js';
-import { caBrutReleve, estLigneTotal } from '../stats/releve.js';
+import { caBrutReleve, estLigneTotal, normaliserNom } from '../stats/releve.js';
 import { jourValide, versDate } from '../texte.js';
 
 export const compta = Router();
@@ -36,10 +36,10 @@ const voirDot = permission('compta-voir');
 // avant l'envoi
 const MAX_COLONNES = 20, MAX_LIGNES = 500, MAX_CELLULE = 300;
 
-// semaine visée par une écriture sur le relevé : une semaine à venir est refusée (semaineDemandee la ramènerait en silence
+// semaine visée par une écriture (relevé, mouvement, prime, « payé », publication, verrouillage) : une semaine à venir est refusée (semaineDemandee la ramènerait en silence
 // à la semaine en cours, et le relevé irait sur la mauvaise)
 const semaineEcriture = (valeur: unknown): string => {
-  if (typeof valeur === 'string' && valeur > semaineCourante()) throw new Refus('Une semaine à venir n’a pas encore de relevé.');
+  if (typeof valeur === 'string' && valeur > semaineCourante()) throw new Refus('Une semaine à venir ne peut pas encore être modifiée.');
   return semaineDemandee(valeur);
 };
 
@@ -70,7 +70,7 @@ compta.post('/api/compta/tablettes', ...gerer, traiter(async (req, res) => {
   const lignes = corrigerLigneTotale(colonnes, brutes.map(l => (Array.isArray(l) ? l : []).map(c => String(c ?? '').slice(0, MAX_CELLULE))))
     .map(l => colonnes.map((_, i) => l[i] ?? ''));
   // un membre deux fois (tableau collé en double) compterait deux fois son montant dans le CA brut
-  const noms = lignes.filter(l => !estLigneTotal(l)).map(l => String(l[0] ?? '').trim().toLowerCase()).filter(Boolean);
+  const noms = lignes.filter(l => !estLigneTotal(l)).map(l => normaliserNom(l[0])).filter(Boolean);   // même normalisation que le calcul des ventes (dot.ts) : « Rossi-Delacroix » et « Rossi Delacroix » sont le même membre
   const doublonNom = noms.find((n, i) => noms.indexOf(n) !== i);
   if (doublonNom) throw new Refus(`« ${doublonNom} » apparaît deux fois : le tableau a peut-être été collé deux fois.`);
   // semaine du relevé : la semaine en cours par défaut ; une semaine verrouillée est figée, rien n'y change plus
@@ -124,7 +124,7 @@ compta.post('/api/compta/dot/ecritures', ...gerer, traiter(async (req, res) => {
   if (b.montant == null || b.montant === '' || !Number.isFinite(montant) || Math.abs(montant) > 2_147_483_647) throw new Refus('Le montant doit être un nombre.');
   // un montant négatif inverserait le mouvement (une dépense augmenterait l'impôt) : on corrige en supprimant la ligne
   if (montant < 0) throw new Refus('Le montant doit être positif : pour annuler un mouvement, supprimez-le.');
-  const semaine = semaineDemandee(b.semaine);
+  const semaine = semaineEcriture(b.semaine);
   refuserSiVerrouillee(await estVerrouillee(semaine));
   const e = await prisma.ecritureDot.create({ data: { type: String(b.type), semaine: semaineDate(semaine), dateEcriture: date, justificatif, montant: Math.round(montant), compteId: req.compte.id } });
   res.status(201).json({ id: e.id });
@@ -142,7 +142,7 @@ compta.delete('/api/compta/dot/ecritures/:id', ...gerer, traiter(async (req, res
 compta.delete('/api/compta/dot/ecritures', ...gerer, traiter(async (req, res) => {
   const type = String(req.query.type ?? '').trim();
   if (!TYPES_ECRITURE.includes(type)) throw new Refus('Le paramètre « type » doit être « depense », « retrait » ou « recette ».');
-  const semaine = semaineDemandee(req.query.semaine);
+  const semaine = semaineEcriture(req.query.semaine);
   refuserSiVerrouillee(await estVerrouillee(semaine));
   await prisma.ecritureDot.deleteMany({ where: { type, semaine: semaineDate(semaine) } });
   res.json({ ok: true });
@@ -154,9 +154,12 @@ const STATUTS_PAYES = ['PAID', 'PAYEE'];   // valeurs de statutPaiement valant �
 
 // nom affiché de l'auteur d'une saisie manuelle (même règle que dernierReleve)
 // le jeton de signature est un secret d'accès, la copie figée est lue par la page de signature seulement : jamais renvoyés
-function sansSecrets<T extends { signatureJeton?: unknown; signatureDocumentFige?: unknown }>(f: T) {
-  const { signatureJeton: _jeton, signatureDocumentFige: _fige, ...reste } = f;
-  return reste;
+// ni l'ID Discord du signataire ni les identifiants internes du bot (idBot, ticket, salon, ID Discord du joueur) : aucune page ne les lit
+const DETAILS_INTERNES = ['ticketId', 'channelId', 'playerDiscord', 'jobId', 'sentAt'];
+function sansSecrets<T extends { signatureJeton?: unknown; signatureDocumentFige?: unknown; signatureDiscordId?: unknown; idBot?: unknown; details?: unknown }>(f: T) {
+  const { signatureJeton: _jeton, signatureDocumentFige: _fige, signatureDiscordId: _sid, idBot: _bot, details, ...reste } = f;
+  const d = details && typeof details === 'object' && !Array.isArray(details) ? Object.fromEntries(Object.entries(details as Record<string, unknown>).filter(([k]) => !DETAILS_INTERNES.includes(k))) : details;
+  return { ...reste, details: d };
 }
 
 async function avecAuteurs<T extends { compteId: number | null }>(lignes: T[]) {
@@ -467,14 +470,22 @@ compta.get('/api/compta/dot/salaries', ...voirDot, async (req, res) => {
 compta.get('/api/compta/dot/graphique', ...voirDot, async (req, res) => { res.json(await graphiqueDot(semaineDemandee(req.query.semaine))); });
 
 compta.post('/api/compta/dot/publier', ...gerer, traiter(async (req, res) => {
-  const semaine = semaineDemandee(body(req).semaine);
+  const semaine = semaineEcriture(body(req).semaine);
   await publierFichesPaie(semaine);
   res.json({ ok: true, semaine });
 }));
 
+// ni sa propre prime ni son propre « payé » (hors super-admin) : sinon un salarié qui a « compta » se verserait ce qu'il veut
+async function pasSaPropreLigne(req: RequeteExpress, employeId: number): Promise<void> {
+  if (req.compte.proprietaire) return;
+  const e = await prisma.employe.findUnique({ where: { id: employeId }, select: { discordId: true } });
+  if (e?.discordId && e.discordId === req.compte.discordId) throw new Refus('Votre propre ligne de paie est réglée par un autre gestionnaire.', 403);
+}
+
 compta.put('/api/compta/dot/salaries/:employeId/paye', ...gerer, traiter(async (req, res) => {
   const employeId = intParam(req, 'employeId');
-  const semaine = semaineDemandee(req.query.semaine);
+  await pasSaPropreLigne(req, employeId);
+  const semaine = semaineEcriture(req.query.semaine);
   await marquerFichePaiePayee(semaine, employeId, body(req).paye === true);
   res.json({ ok: true });
 }));
@@ -485,9 +496,10 @@ compta.put('/api/compta/dot/salaries/:employeId/prime', ...gerer, traiter(async 
   const employeId = intParam(req, 'employeId');
   const employe = await prisma.employe.findUnique({ where: { id: employeId }, select: { id: true } });
   if (!employe) throw new Refus('Employé introuvable.', 404);
+  await pasSaPropreLigne(req, employeId);
   const montant = Math.round(Number(body(req).montant));
   if (!Number.isFinite(montant) || montant < 0 || montant > 2_147_483_647) throw new Refus('La prime doit être un nombre positif.');
-  const semaine = semaineDemandee(req.query.semaine);
+  const semaine = semaineEcriture(req.query.semaine);
   refuserSiVerrouillee(await estVerrouillee(semaine));
   await prisma.primeEmployeSemaine.upsert({ where: { employeId_semaine: { employeId, semaine: semaineDate(semaine) } }, create: { employeId, semaine: semaineDate(semaine), montant }, update: { montant } });
   res.json({ ok: true });
@@ -514,7 +526,7 @@ compta.get('/api/compta/dot/resume', ...voirDot, async (req, res) => {
 compta.get('/api/compta/dot/services-en-suspens', ...gerer, async (req, res) => { res.json(await servicesEnSuspensSemaine(semaineDemandee(req.query.semaine))); });
 
 compta.post('/api/compta/dot/verrouiller', ...gerer, traiter(async (req, res) => {
-  const semaine = semaineDemandee(body(req).semaine);
+  const semaine = semaineEcriture(body(req).semaine);
   await construireEtVerrouiller(semaine, req.compte.id, 'validee');
   res.status(201).json({ ok: true, semaine });
 }));

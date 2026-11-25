@@ -230,7 +230,10 @@ document.getElementById('liste-abonnements').addEventListener('click', async e =
   else if (action.dataset.action === 'retirer') {
     if (!await gestion.confirmer(`La clé de « ${a.type} » sera supprimée : le site refusera ces événements, et il faudra la recoller depuis Discord pour les reprendre. Retirez aussi l’abonnement côté bot (panneau Monitoring), sinon il réessaiera pendant quelques heures.`, 'Supprimer la clé ?', 'Supprimer la clé')) return;
     try { await socle.api(`/api/webhooks/abonnements/${encodeURIComponent(type)}`, { method: 'DELETE' }); gestion.notifier('Abonnement retiré.'); await chargerAbonnements(); }
-    catch (err) { gestion.message('zone-message', err.message); }
+    catch (err) {
+      if (err.data?.error === 'discord-recent') { location.href = `/auth/discord?next=${encodeURIComponent(location.pathname)}`; return; }   // comme l'enregistrement d'une clé
+      gestion.message('zone-message', err.message);
+    }
   }
 });
 
@@ -290,7 +293,7 @@ document.getElementById('filtre-traite').addEventListener('change', chargerJourn
 
 // ---- détail d'un événement (tiroir, inchangé) ----
 let OUVREUR_TIROIR = null;
-document.getElementById('corps-table-webhooks').addEventListener('click', e => {
+document.getElementById('corps-table-webhooks').addEventListener('click', async e => {
   const b = e.target.closest('[data-ouvrir-webhook]');
   if (!b) return;
   const w = WEBHOOKS.find(x => x.id === Number(b.dataset.ouvrirWebhook));
@@ -298,9 +301,15 @@ document.getElementById('corps-table-webhooks').addEventListener('click', e => {
   OUVREUR_TIROIR = document.activeElement;
   document.getElementById('tiroir-webhook-titre').textContent = w.type;
   document.getElementById('tiroir-webhook-sous-titre').innerHTML = `<span>${dateHeure(w.recuLe)}</span><span class="puce ${w.traite ? 'puce-ok' : 'puce-off'}">${w.traite ? 'Traité' : 'En échec'}</span>`;
-  const contenu = w.contenu && Object.keys(w.contenu).length ? JSON.stringify(w.contenu, null, 2) : 'Contenu effacé (événement traité avec succès).';
-  document.getElementById('tiroir-webhook-corps').innerHTML = `<pre class="webhook-contenu">${echapper(contenu)}</pre>`;
+  // le contenu n'est pas dans la liste (jusqu'à 64 Ko par événement en échec) : il se lit à l'ouverture
+  document.getElementById('tiroir-webhook-corps').innerHTML = '<p>Chargement…</p>';
   document.getElementById('tiroir-webhook').classList.remove('cache');
+  let contenu;
+  try {
+    const d = (await socle.api(`/api/webhooks/${w.id}`)).webhook;
+    contenu = d.contenu && Object.keys(d.contenu).length ? JSON.stringify(d.contenu, null, 2) : 'Contenu effacé (événement traité avec succès).';
+  } catch (err) { contenu = `Impossible de lire cet événement : ${err.message}`; }
+  document.getElementById('tiroir-webhook-corps').innerHTML = `<pre class="webhook-contenu">${echapper(contenu)}</pre>`;
   document.getElementById('tiroir-webhook-corps').scrollTop = 0;
   document.getElementById('fermer-tiroir-webhook').focus();
 });

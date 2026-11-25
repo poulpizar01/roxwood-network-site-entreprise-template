@@ -22,45 +22,36 @@ const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
 
 accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
   const c = req.compte, taches: Tache[] = [];
-  if (peut(c, 'comptes')) {
-    const n = await prisma.compte.count({ where: { statut: 'attente' } });
-    if (n) taches.push({ cle: 'comptes', nombre: n, texte: `${pluriel(n, 'demande')} d’accès à valider`, lien: 'comptes.html' });
-  }
-  if (peut(c, 'rh-voir') && peut(c, 'rh-creer')) {
-    const n = await prisma.arriveeBot.count({ where: { resultat: { in: EN_SUSPENS } } });
-    if (n) taches.push({ cle: 'candidatures', nombre: n, texte: `${pluriel(n, 'candidature')} à traiter`, lien: 'rh.html#rh-bot' });
-  }
-  if (recrutementSiteActif() && peut(c, 'rh-voir') && peut(c, 'rh-creer')) {
-    const n = await nombreCandidaturesRecues();
-    if (n) taches.push({ cle: 'recrutement', nombre: n, texte: `${pluriel(n, 'candidature')} reçue${n > 1 ? 's' : ''} sur le site`, lien: 'rh.html#recrutement' });
-  }
-  if (moduleActif('demandes') && peut(c, 'demandes-voir')) {
-    const n = await nombreDemandesNouvelles();
-    if (n) taches.push({ cle: 'demandes', nombre: n, texte: `${pluriel(n, 'demande')} à traiter`, lien: 'demandes.html' });
-  }
-  if (peut(c, 'factures-voir')) {
+  const rhCreer = peut(c, 'rh-voir') && peut(c, 'rh-creer');
+  const grades = tousLesGrades().map(g => g.cle);
+  // décomptes indépendants : lancés ensemble, 0 (sans requête) quand le compte n'a pas le droit de les voir
+  const sans = Promise.resolve(0);
+  const [comptes, bot, site, demandes, factures, contratsAFacturer, salons, absences] = await Promise.all([
+    peut(c, 'comptes') ? prisma.compte.count({ where: { statut: 'attente' } }) : sans,
+    rhCreer ? prisma.arriveeBot.count({ where: { resultat: { in: EN_SUSPENS } } }) : sans,
+    recrutementSiteActif() && rhCreer ? nombreCandidaturesRecues() : sans,
+    moduleActif('demandes') && peut(c, 'demandes-voir') ? nombreDemandesNouvelles() : sans,
     // semaine en cours seulement : Facturation n'affiche qu'une semaine à la fois, le lien doit montrer ce qu'il compte
     // mêmes statuts que la catégorie « En attente » de Facturation (facturation.js, CATEGORIES_STATUT)
-    const n = await prisma.facture.count({ where: { statutPaiement: { in: ['EN_ATTENTE', 'UNPAID'] }, dateFacture: { gte: debutSemaineParis() } } });
-    if (n) taches.push({ cle: 'factures', nombre: n, texte: `${pluriel(n, 'facture')} en attente de paiement cette semaine`, lien: 'facturation.html?statut=attente' });
-  }
-  // facturer un contrat : il faut gérer les contrats (la fiche porte le bouton) et les factures
-  if (peut(c, 'contrats') && peut(c, 'factures')) {
-    const n = await nombreContratsAFacturer();
-    if (n) taches.push({ cle: 'contrats', nombre: n, texte: `${pluriel(n, 'contrat')} à facturer`, lien: 'contrats.html?a-facturer=1' });
-  }
-  // salon Discord introuvable (dernier envoi en 404, salon-discord.ts) : un salon supprimé sur Discord après avoir été
-  // renseigné sur un contrat ; à corriger sur sa fiche
-  if (peut(c, 'contrats')) {
-    const { contrats } = await nombreSalonsIntrouvables();
-    if (contrats) taches.push({ cle: 'salon-contrats', nombre: contrats, texte: `${pluriel(contrats, 'contrat')} avec un salon Discord introuvable`, lien: 'contrats.html', alerte: true });
-  }
-  // valider une absence : réservé à qui gère déjà l'agenda de toute l'équipe (peutValiderAbsences, agenda-regles.ts)
-  const grades = tousLesGrades().map(g => g.cle);
-  const droitsAgendaGrade = c.gradeCle ? await prisma.agendaDroitsGrade.findUnique({ where: { gradeCle: c.gradeCle } }) : null;
-  if (peutValiderAbsences(droitsAgenda(grades, c.gradeCle, c.proprietaire, droitsAgendaGrade))) {
-    const n = await prisma.evenementAgenda.count({ where: { statutAbsence: 'en_attente' } });
-    if (n) taches.push({ cle: 'absences', nombre: n, texte: `${pluriel(n, 'absence')} à valider`, lien: 'agenda.html' });
-  }
+    peut(c, 'factures-voir') ? prisma.facture.count({ where: { statutPaiement: { in: ['EN_ATTENTE', 'UNPAID'] }, dateFacture: { gte: debutSemaineParis() } } }) : sans,
+    // facturer un contrat : il faut gérer les contrats (la fiche porte le bouton) et les factures
+    peut(c, 'contrats') && peut(c, 'factures') ? nombreContratsAFacturer() : sans,
+    // salon Discord introuvable (dernier envoi en 404, salon-discord.ts) : un salon supprimé sur Discord après avoir été
+    // renseigné sur un contrat ; à corriger sur sa fiche
+    peut(c, 'contrats') ? nombreSalonsIntrouvables().then(r => r.contrats) : sans,
+    // valider une absence : réservé à qui gère déjà l'agenda de toute l'équipe (peutValiderAbsences, agenda-regles.ts)
+    (async () => {
+      const droitsGrade = c.gradeCle ? await prisma.agendaDroitsGrade.findUnique({ where: { gradeCle: c.gradeCle } }) : null;
+      return peutValiderAbsences(droitsAgenda(grades, c.gradeCle, c.proprietaire, droitsGrade)) ? prisma.evenementAgenda.count({ where: { statutAbsence: 'en_attente' } }) : 0;
+    })(),
+  ]);
+  if (comptes) taches.push({ cle: 'comptes', nombre: comptes, texte: `${pluriel(comptes, 'demande')} d’accès à valider`, lien: 'comptes.html' });
+  if (bot) taches.push({ cle: 'candidatures', nombre: bot, texte: `${pluriel(bot, 'candidature')} à traiter`, lien: 'rh.html#rh-bot' });
+  if (site) taches.push({ cle: 'recrutement', nombre: site, texte: `${pluriel(site, 'candidature')} reçue${site > 1 ? 's' : ''} sur le site`, lien: 'rh.html#recrutement' });
+  if (demandes) taches.push({ cle: 'demandes', nombre: demandes, texte: `${pluriel(demandes, 'demande')} à traiter`, lien: 'demandes.html' });
+  if (factures) taches.push({ cle: 'factures', nombre: factures, texte: `${pluriel(factures, 'facture')} en attente de paiement cette semaine`, lien: 'facturation.html?statut=attente' });
+  if (contratsAFacturer) taches.push({ cle: 'contrats', nombre: contratsAFacturer, texte: `${pluriel(contratsAFacturer, 'contrat')} à facturer`, lien: 'contrats.html?a-facturer=1' });
+  if (salons) taches.push({ cle: 'salon-contrats', nombre: salons, texte: `${pluriel(salons, 'contrat')} avec un salon Discord introuvable`, lien: 'contrats.html', alerte: true });
+  if (absences) taches.push({ cle: 'absences', nombre: absences, texte: `${pluriel(absences, 'absence')} à valider`, lien: 'agenda.html' });
   res.json({ taches });
 });

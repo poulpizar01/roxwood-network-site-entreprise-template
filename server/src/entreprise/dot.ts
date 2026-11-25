@@ -191,17 +191,22 @@ export async function resumeDot(iso: string, salariesPrecalcules?: Awaited<Retur
 // `compteId` null = verrouillage automatique (verrouillage-dot.ts), sinon manuel (« Valider la déclaration »).
 export async function construireEtVerrouiller(iso: string, compteId: number | null, statut: 'validee' | 'auto') {
   if (await estVerrouillee(iso)) throw new Refus('Cette semaine est déjà verrouillée.', 409);
-  // lectures successives, sans transaction : si un mouvement est saisi pendant le calcul, le résumé ne correspondrait
-  // plus aux mouvements figés avec lui — on recommence (trois essais), les mouvements d'avant et d'après devant être identiques
+  // lectures successives, sans transaction : si un mouvement, un relevé ou une prime est saisi pendant le calcul, le résumé ne
+  // correspondrait plus à ce qui est figé avec lui — on recommence (trois essais), l'état d'avant et d'après devant être identique
+  const empreinte = async () => JSON.stringify([
+    await ecrituresBrutes(iso),
+    (await prisma.importCompta.findFirst({ where: { type: 'tablettes', semaine: semaineDate(iso) }, orderBy: [{ importeLe: 'desc' }, { id: 'desc' }], select: { id: true } }))?.id ?? null,
+    await prisma.primeEmployeSemaine.findMany({ where: { semaine: semaineDate(iso) }, orderBy: { employeId: 'asc' }, select: { employeId: true, montant: true } }),
+  ]);
   let salaries: Awaited<ReturnType<typeof salariesDot>>, resume: Awaited<ReturnType<typeof resumeDot>>, ecritures: Awaited<ReturnType<typeof ecrituresBrutes>>;
   for (let essai = 0; ; essai++) {
-    const avant = JSON.stringify(await ecrituresBrutes(iso));
+    const avant = await empreinte();
     salaries = await salariesDot(iso);
     [resume, ecritures] = await Promise.all([resumeDot(iso, salaries), ecrituresBrutes(iso)]);
-    if (JSON.stringify(ecritures) === avant) break;
+    if (await empreinte() === avant) break;
     // toujours en mouvement au troisième essai : on ne fige pas un résumé qui ne correspond plus à ses mouvements
     // (le verrouillage automatique réessaie le lendemain)
-    if (essai >= 2) throw new Refus('Des mouvements ont été saisis pendant le calcul : réessayez dans un instant.', 409);
+    if (essai >= 2) throw new Refus('Des saisies ont eu lieu pendant le calcul : réessayez dans un instant.', 409);
   }
   try {
     await prisma.declarationDot.create({ data: { semaine: semaineDate(iso), statut, compteId, resume, salaries, ecritures } });
@@ -260,9 +265,14 @@ export async function graphiqueDot(iso: string) {
   for (let i = 11, d = debutSemaineParis(semaineFin); i >= 0; i--, d.setUTCDate(d.getUTCDate() - 7)) semaines.unshift(jourDeSemaineParis(d));
   const figees = await prisma.declarationDot.findMany({ where: { semaine: { in: semaines.map(semaineDate) } }, select: { semaine: true, resume: true } });
   const resumeFige = new Map(figees.map(f => [jourDeSemaineParis(f.semaine), f.resume as unknown as ResumeSemaine]));
-  const points = await Promise.all(semaines.map(async s => {
-    const fige = resumeFige.get(s);
-    return pointGraphique(s, fige ?? await resumeDot(s), !fige);
-  }));
+  // par lots de 3 : chaque semaine non verrouillée relance un calcul complet (employés, ventes, factures, services), douze
+  // d'un coup monopoliseraient les connexions de la base le temps d'afficher le graphique
+  const points: Awaited<ReturnType<typeof pointGraphique>>[] = [];
+  for (let i = 0; i < semaines.length; i += 3) {
+    points.push(...await Promise.all(semaines.slice(i, i + 3).map(async s => {
+      const fige = resumeFige.get(s);
+      return pointGraphique(s, fige ?? await resumeDot(s), !fige);
+    })));
+  }
   return { semaines: points, reperes: reperesGraphique(points) };
 }

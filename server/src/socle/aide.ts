@@ -58,7 +58,7 @@ function inline(ligneBrute: string): string {
   let l = echapper(ligneBrute);
   l = l.replace(/`([^`]+)`/g, '<code>$1</code>');
   l = l.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  l = l.replace(/\[([^\]]+)\]\((\/[^)\s]*|#[^)\s]*)\)/g, '<a href="$2">$1</a>');                 // lien interne seulement
+  l = l.replace(/\[([^\]]+)\]\((\/(?!\/)[^)\s]*|#[^)\s]*)\)/g, '<a href="$2">$1</a>');                 // lien interne seulement
   l = l.replace(/\{chemin:([^}]+)\}/g, (_m, chemin) => {
     const etapes = chemin.split('›').map((e: string) => `<span>${e.trim()}</span>`);
     return `<span class="chemin">${etapes.join('<svg class="ico-ch" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>')}</span>`;
@@ -265,7 +265,8 @@ function accesNiveau(compte: Compte | null, niveau: NiveauPage | undefined): boo
 const accesArticle = (compte: Compte | null, a: Article): boolean => accesNiveau(compte, a.permission ?? niveauPage[a.rubrique]);
 
 function filtrerChunks(compte: Compte | null, chunks: Chunk[]): Chunk[] {
-  return chunks.filter(c => c.permission === null || (!!compte && peut(compte, c.permission)))
+  // un compte en attente ou refusé qui garde un grade (rôle Discord, fiche RH) ne lit pas les passages réservés à ses permissions
+  return chunks.filter(c => c.permission === null || (compte?.statut === 'valide' && peut(compte, c.permission)))
     .map(c => c.permission === null ? c : {
       ...c,
       html: `<div class="reserve"><div class="lib"><svg class="ico" aria-hidden="true"><use href="#ico-cle"></use></svg>Visible parce que vous avez « ${echapper(permissionLibelle(c.permission))} »</div>${c.html}</div>`,
@@ -293,7 +294,7 @@ export function indexAide(compte: Compte | null): ArticleResume[] {
 // « Vous pouvez … » : permissions que l'article cite (celle de sa page, celles de ses passages réservés) et que le
 // lecteur détient — calculées, jamais écrites par le rédacteur. Les niveaux « public / connecte / valide » n'en sont pas.
 function pastillesDe(compte: Compte | null, a: Article): string[] {
-  if (!compte) return [];
+  if (!compte || compte.statut !== 'valide') return [];
   const niveau = a.permission ?? niveauPage[a.rubrique];
   const cles = [niveau, ...a.chunks.map(c => c.permission)].filter((c): c is string => !!c && !['public', 'connecte', 'valide'].includes(c));
   return [...new Set(cles)].filter(c => peut(compte, c)).map(c => `Vous pouvez ${premiereMinuscule(permissionLibelle(c))}`);

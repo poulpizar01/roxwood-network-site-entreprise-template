@@ -77,7 +77,8 @@ async function lireImageUneFois(url: string): Promise<Buffer> {
   }
   // jamais servi sans contrôle : seul un fichier WebP (ce que le socle enregistre) passe
   if (octets.length > OCTETS_MAX || octets.toString('ascii', 0, 4) !== 'RIFF' || octets.toString('ascii', 8, 12) !== 'WEBP') throw new Error('contenu qui n’est pas une image WebP');
-  if (octetsParUrl.size >= IMAGES_MARQUE.length * 2) octetsParUrl.clear();
+  // le cache sert aussi les photos de services : on évince la plus ancienne entrée, jamais tout (le logo se relirait au stockage à chaque visite)
+  if (octetsParUrl.size >= 24) octetsParUrl.delete(octetsParUrl.keys().next().value as string);
   octetsParUrl.set(url, octets);
   return octets;
 }

@@ -18,8 +18,6 @@ import { joursAccesContrats } from './parametres.js';
 import { Refus } from './refus.js';
 import { JOURS_SEMAINE, jourParis, jourSemaineParis, jourValide, versDate, versJour } from './texte.js';
 
-export const STATUTS_CONTRAT = ['actif', 'termine'] as const;
-
 // qui est l'autre partie du contrat (onglets de la page, et classement des types, même vocabulaire) :
 // « client » paie l'entreprise, « fournisseur » est payé par elle.
 export const PARTIES_CONTRAT = ['client', 'fournisseur'] as const;
