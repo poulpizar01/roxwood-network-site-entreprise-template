@@ -1252,7 +1252,8 @@ main.admin-contenu:focus { outline: none; }
 .accueil-tache--alerte { border-color: var(--erreur); background: var(--erreur-soft); }
 .accueil-tache--alerte:hover { border-color: var(--erreur); background: var(--erreur-soft); }
 .accueil-tache--alerte .accueil-tache-nombre { color: var(--erreur); }
-@media (max-width: 480px) { .accueil-a-traiter ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* téléphone : une tuile par ligne (deux colonnes réduisaient le texte à 4 ou 5 lignes de quelques mots) */
+@media (max-width: 480px) { .accueil-a-traiter ul { grid-template-columns: minmax(0, 1fr); } }
 .accueil-panneaux { align-items: start; }
 /* deux colonnes indépendantes au-delà de 1 024 px : la journée à gauche, l'équipe à droite (plus de panneaux de
    hauteurs inégales sur une même grille) */
