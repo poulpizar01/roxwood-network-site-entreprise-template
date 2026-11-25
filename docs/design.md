@@ -140,7 +140,7 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
 - **« Se déconnecter » oublie l'identité vérifiée** (`/api/discord/oublier`) et revient à l'étape de connexion.
 - **Liste déroulante et calendrier s'attachent au `<dialog>` ouvert** : un `<dialog>` modal passe au-dessus de tout, un composant posé dans `<body>` resterait caché derrière.
 - **Une section de la vitrine sans contenu n'existe pas** : pas de titre au-dessus du vide ; elle est rendue par le serveur dans le HTML (rien ne saute).
-- **Un fichier demandé dit son poids et sa durée de garde** près du champ (« 8 Mo au plus, effacée 90 jours après réception »).
+- **Un fichier demandé dit son poids et sa durée de garde** près du champ (« 10 Mo au plus pour l’ensemble, effacée 90 jours après réception »).
 - **Réglage d'un formulaire** (gestion) : un aperçu en direct de ce qui sera enregistré (pastille « à enregistrer », libellé barré pour ce qui sera retiré), jamais un changement qui ne se voit qu'après enregistrement.
 
 ---

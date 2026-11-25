@@ -33,8 +33,9 @@
   // étape 1 : connexion Discord
   const bloc = el('div', 'avis-bloc');
   const lien = el('a', 'btn btn--accent', 'Se connecter avec Discord');
+  const sortie = el('button', 'btn btn--ligne', 'Annuler'); sortie.type = 'button';   // sans compte Discord ni Échap (téléphone), la fenêtre doit pouvoir se fermer
   const erreurDiscord = el('p', 'avis-etat', 'La connexion avec Discord a échoué. Réessayez.'); erreurDiscord.setAttribute('role', 'alert'); erreurDiscord.hidden = retour !== 'erreur';
-  bloc.append(el('p', '', 'Pour postuler, connectez-vous avec Discord : nous gardons votre pseudo Discord avec votre candidature, et l’équipe vous répond dans un salon dédié. Il n’est jamais affiché publiquement.'), lien, erreurDiscord);
+  bloc.append(el('p', '', 'Pour postuler, connectez-vous avec Discord : nous gardons votre pseudo Discord avec votre candidature, et l’équipe vous répond dans un salon dédié. Il n’est jamais affiché publiquement.'), lien, sortie, erreurDiscord);
 
   // étape 2 : formulaire (corps reconstruit à chaque ouverture, d'après la configuration)
   const form = el('form', 'avis-form'); form.noValidate = true; form.hidden = true;
@@ -87,7 +88,7 @@
     champsPieces = config.pieces.map(p => {
       const input = el('input'); input.type = 'file'; input.accept = 'image/png,image/jpeg,image/webp';
       zoneChamps.append(champ(`cd-piece-${p.id}`, p.libelle, input, { facultatif: !p.obligatoire,
-        aide: `Une image (PNG, JPEG ou WebP, ${config.piecesMaxMo} Mo au plus). Elle n’est vue que de l’équipe de recrutement et effacée 90 jours après réception.` }));
+        aide: `Une image (PNG, JPEG ou WebP, ${config.piecesMaxMo} Mo au plus pour l’ensemble des pièces). Elle n’est vue que de l’équipe de recrutement et effacée 90 jours après réception.` }));
       return { p, input };
     });
   }
@@ -113,6 +114,7 @@
   dialogue.addEventListener('click', e => { if (e.target === dialogue) dialogue.close(); });   // clic sur le fond
   dialogue.addEventListener('close', () => declencheur?.focus());
   annuler.addEventListener('click', () => dialogue.close());
+  sortie.addEventListener('click', () => dialogue.close());
   fermer.addEventListener('click', () => dialogue.close());
   // se déconnecter : le site oublie l'identité Discord vérifiée, la fenêtre revient à la connexion (en dev, reconnecter reconnecte aussitôt)
   deconnexion.addEventListener('click', async () => {
@@ -133,8 +135,9 @@
     }
     for (const { p, input } of champsPieces) {
       if (!input.files?.length && p.obligatoire) return dire(`Joignez « ${p.libelle} » (une image).`, input);
-      if (input.files?.[0] && input.files[0].size > config.piecesMaxMo * 1048576) return dire(`« ${p.libelle} » dépasse ${config.piecesMaxMo} Mo.`, input);
     }
+    const poids = champsPieces.reduce((t, { input }) => t + (input.files?.[0]?.size || 0), 0);
+    if (poids > config.piecesMaxMo * 1048576) return dire(`Vos pièces jointes pèsent plus de ${config.piecesMaxMo} Mo en tout : réduisez-les ou changez d’image.`, champsPieces.find(c => c.input.files?.length)?.input);
     const donnees = new FormData();
     donnees.append('prenom', prenom.value.trim()); donnees.append('nom', nom.value.trim()); donnees.append('poste', poste.value.trim());
     donnees.append('reponses', JSON.stringify(reponses));

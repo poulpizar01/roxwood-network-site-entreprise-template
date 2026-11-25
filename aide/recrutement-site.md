@@ -23,7 +23,7 @@ Avec le mode « site », les candidatures envoyées par le bot sont ignorées. L
 Trois réglages se suivent dans la page.
 
 - **1. La fiche créée à l'acceptation.** Choisissez le grade d'arrivée. Pour le téléphone, le RIB et l'ID Unique, indiquez « Pas demandé », « Demandé, facultatif » ou « Demandé, obligatoire ». Un champ demandé devient une question du formulaire, qui porte le nom du champ.
-- **2. Pièces jointes demandées.** Vous pouvez en demander 5 au plus, des images de 8 Mo maximum, obligatoires ou facultatives. Dans la colonne « Rangée dans », une seule pièce peut aller dans « Fiche de l'employé » : elle devient sa pièce d'identité à l'acceptation. Les autres restent dans le « Dossier de candidature ».
+- **2. Pièces jointes demandées.** Vous pouvez en demander 2 au plus, des images de 10 Mo maximum en tout, obligatoires ou facultatives. Dans la colonne « Rangée dans », une seule pièce peut aller dans « Fiche de l'employé » : elle devient sa pièce d'identité à l'acceptation. Les autres restent dans le « Dossier de candidature ».
 - **3. Le formulaire, dans l'ordre.** Glissez une ligne par sa poignée pour la déplacer. Au clavier, placez-vous sur la poignée puis utilisez les flèches haut et bas. Prénom, Nom et Poste visé restent toujours en tête.
 
 Une ligne marquée « Ajoutée, à enregistrer » n'est pas encore visible des candidats : elle ne compte qu'une fois les réglages enregistrés.

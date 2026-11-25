@@ -715,7 +715,7 @@ model Candidature {
   @@map("candidatures")
 }
 
-// Pièces jointes demandées par le formulaire (réglées dans Employés → Réglages du recrutement) : une ligne par pièce, 5 au plus ; une seule peut
+// Pièces jointes demandées par le formulaire (réglées dans Employés → Réglages du recrutement) : une ligne par pièce, 2 au plus ; une seule peut
 // « aller sur la fiche » (versFiche) et devenir la pièce d'identité de l'employé à l'acceptation.
 model PieceDemandee {
   id         Int     @id @default(autoincrement())
