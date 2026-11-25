@@ -1,6 +1,6 @@
 /* VITRINE (module « recrutement », mode « site ») — fenêtre de candidature, ouverte par tout bouton [data-ouvrir-candidature] (la valeur, si
    elle existe, est le poste visé). Le formulaire se construit d'après /api/candidatures/formulaire : prénom, nom, poste, puis les questions
-   réglées par la direction (réponse courte, longue ou à choix), et la pièce d'identité (obligatoire, facultative ou absente). Envoyer exige
+   réglées par la direction (réponse courte, longue ou à choix, dans l'ordre choisi), puis un champ de fichier par pièce jointe demandée. Envoyer exige
    une connexion Discord (vérification légère du socle, /api/discord/…) ; au retour de Discord (?candidature=1&discord=ok), la fenêtre se
    rouvre d'elle-même sur le formulaire. Tout texte arrive par textContent. */
 (() => {
@@ -60,7 +60,7 @@
 
   // ---- configuration du formulaire : questions et pièce, réglées dans la gestion ----
   let config = null, postes = null;
-  let prenom, nom, poste, piece, champsQuestions = [];
+  let prenom, nom, poste, champsQuestions = [], champsPieces = [];
   async function charger() {
     config = await (await fetch('/api/candidatures/formulaire')).json();
     try { postes = (await (await fetch('/api/postes/public')).json()).postes || []; } catch { postes = []; }   // module « vitrine » éteint : poste en texte libre
@@ -85,12 +85,13 @@
       if (q.type === 'choix') habiller(c);
       return { q, c };
     });
-    piece = null;
-    if (config.piece !== 'aucune') {
-      piece = el('input'); piece.type = 'file'; piece.accept = 'image/png,image/jpeg,image/webp';
-      zoneChamps.append(champ('cd-piece', 'Pièce d’identité', piece, { facultatif: config.piece === 'facultative',
-        aide: 'Une image (PNG, JPEG ou WebP) de votre pièce d’identité en jeu. Elle n’est vue que de l’équipe de recrutement et effacée 90 jours après réception.' }));
-    }
+    // une image par pièce demandée (PNG, JPEG, WebP) ; le champ « piece-<id> » dit au serveur laquelle
+    champsPieces = config.pieces.map(p => {
+      const input = el('input'); input.type = 'file'; input.accept = 'image/png,image/jpeg,image/webp';
+      zoneChamps.append(champ(`cd-piece-${p.id}`, p.libelle, input, { facultatif: !p.obligatoire,
+        aide: `Une image (PNG, JPEG ou WebP, ${config.piecesMaxMo} Mo au plus). Elle n’est vue que de l’équipe de recrutement et effacée 90 jours après réception.` }));
+      return { p, input };
+    });
   }
 
   let declencheur = null;
@@ -132,11 +133,14 @@
       if (!v && q.obligatoire) return dire(`Répondez à « ${q.libelle} ».`, c);
       if (v) reponses[q.id] = v;
     }
-    if (piece && config.piece === 'obligatoire' && !piece.files?.length) return dire('Joignez votre pièce d’identité (une image).', piece);
+    for (const { p, input } of champsPieces) {
+      if (!input.files?.length && p.obligatoire) return dire(`Joignez « ${p.libelle} » (une image).`, input);
+      if (input.files?.[0] && input.files[0].size > config.piecesMaxMo * 1048576) return dire(`« ${p.libelle} » dépasse ${config.piecesMaxMo} Mo.`, input);
+    }
     const donnees = new FormData();
     donnees.append('prenom', prenom.value.trim()); donnees.append('nom', nom.value.trim()); donnees.append('poste', poste.value.trim());
     donnees.append('reponses', JSON.stringify(reponses));
-    if (piece?.files?.length) donnees.append('image', piece.files[0]);
+    for (const { p, input } of champsPieces) if (input.files?.length) donnees.append(`piece-${p.id}`, input.files[0]);
     envoyer.disabled = true;
     try {
       const r = await fetch('/api/candidatures', { method: 'POST', credentials: 'same-origin', body: donnees });

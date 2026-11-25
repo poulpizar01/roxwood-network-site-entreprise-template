@@ -4,12 +4,10 @@
 import { reglage } from '../socle/reglages.js';
 import { moduleActif } from '../socle/site.js';
 
-export const CLE_MODE = 'recrutement.mode', CLE_PIECE = 'recrutement.piece';
+export const CLE_MODE = 'recrutement.mode';
 export const CLE_GRADE_ARRIVEE = 'rh.grade_arrivee';   // le même réglage que celui du bot (rh.ts REGLAGES_BOT.gradeArrivee) : un seul grade d'arrivée
 export type ModeRecrutement = 'bot' | 'site';
-export type ModePiece = 'obligatoire' | 'facultative' | 'aucune';
 
 // « bot » tant que rien n'est choisi : un site existant garde son fonctionnement
 export const modeRecrutement = (): ModeRecrutement => (moduleActif('recrutement') && reglage(CLE_MODE) === 'site' ? 'site' : 'bot');
 export const recrutementSiteActif = () => modeRecrutement() === 'site';
-export const modePiece = (): ModePiece => { const v = reglage(CLE_PIECE); return v === 'facultative' || v === 'aucune' ? v : 'obligatoire'; };

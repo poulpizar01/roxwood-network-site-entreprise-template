@@ -69,6 +69,31 @@ export function recevoirImageLimitee(maxMo: number): RequestHandler[] {
 }
 export const recevoirImage = recevoirImageLimitee(15);
 
+// Plusieurs images dans un même envoi (pièces jointes d'un formulaire public : un champ de fichier par pièce, le nom du champ dit laquelle) :
+// `req.files` (liste, `fieldname` = nom du champ). Même contrôles que recevoirImageLimitee ; `maxFichiers` borne le nombre de fichiers (au-delà : 400).
+// Un seul créneau mémoire pour tout l'envoi, rendu quand le DERNIER fichier est traité (chacun garde son tampon en mémoire jusque-là) : prévoir
+// des fichiers plus légers (maxMo) que pour une image seule, puisqu'ils attendent ensemble.
+export function recevoirImagesLimitees(maxMo: number, maxFichiers: number): RequestHandler[] {
+  const maxOctets = maxMo * 1024 * 1024;
+  const multerN = multer({
+    storage: multer.memoryStorage(), limits: { fileSize: maxOctets + 1, files: maxFichiers },
+    fileFilter: (_req, f, cb) => cb(null, /^image\/(jpeg|png|webp)$/.test(f.mimetype)),
+  }).any();
+  const lire: RequestHandler = (req, res, next) => multerN(req, res, err => {
+    const fichiers = (req.files as Express.Multer.File[] | undefined) ?? [];
+    if (!err && !fichiers.some(f => f.size > maxOctets)) {
+      const base = res.locals.creneauImage as Creneau;
+      let reste = fichiers.length;
+      for (const f of fichiers) (f as FichierRecu)[CRENEAU] = { traitement: false, abandonne: base.abandonne, liberer: () => { if (--reste <= 0) base.liberer(); } };
+      return next();
+    }
+    const trop = !!err && err instanceof multer.MulterError && (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE');
+    const lourde = fichiers.some(f => f.size > maxOctets) || (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE');
+    res.status(400).json({ error: trop ? `${maxFichiers} images au plus.` : lourde ? `Image trop lourde (${maxMo} Mo max chacune).` : 'Envoi illisible.' });
+  });
+  return [stockagePret, limits.upload, envoisBornes, lire];
+}
+
 // un seul traitement à la fois : deux images de 25 Mpx en parallèle dépasseraient la mémoire du conteneur
 let file: Promise<unknown> = Promise.resolve();
 const aTonTour = <T>(travail: () => Promise<T>): Promise<T> => {

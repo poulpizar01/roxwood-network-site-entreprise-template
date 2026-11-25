@@ -706,16 +706,43 @@ model Candidature {
   notes          String    @default("") @db.VarChar(2000) // notes internes RH, jamais visibles du candidat
   employeId      Int?      @map("employe_id") // fiche créée à l'acceptation
   salonDiscordId String?   @map("salon_discord_id") @db.VarChar(22)
-  pieceIdentiteCle     String? @map("piece_identite_cle") @db.VarChar(200)
-  pieceIdentiteUrl     String? @map("piece_identite_url") @db.VarChar(512)
-  pieceIdentiteCleMini String? @map("piece_identite_cle_mini") @db.VarChar(200)
-  pieceIdentiteUrlMini String? @map("piece_identite_url_mini") @db.VarChar(512)
   creeLe         DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
   votes          CandidatureVote[]
+  pieces         PieceCandidature[]
 
   @@index([statut, creeLe(sort: Desc)])
   @@index([discordId])
   @@map("candidatures")
+}
+
+// Pièces jointes demandées par le formulaire (réglées dans Employés → Réglages du recrutement) : une ligne par pièce, 5 au plus ; une seule peut
+// « aller sur la fiche » (versFiche) et devenir la pièce d'identité de l'employé à l'acceptation.
+model PieceDemandee {
+  id         Int     @id @default(autoincrement())
+  libelle    String  @db.VarChar(80)
+  obligatoire Boolean @default(true)
+  versFiche  Boolean @default(false) @map("vers_fiche")
+  position   Int     @default(0)
+
+  @@map("pieces_demandees")
+}
+
+// Fichier envoyé avec une candidature (image réencodée, stockage distant) : le libellé de la pièce est figé à l'envoi. Effacé avec la
+// candidature, 90 jours après réception ; celle marquée versFiche passe sur la fiche à l'acceptation (la ligne disparaît alors, le fichier non).
+model PieceCandidature {
+  id            Int         @id @default(autoincrement())
+  candidatureId Int         @map("candidature_id")
+  candidature   Candidature @relation(fields: [candidatureId], references: [id], onDelete: Cascade)
+  libelle       String      @db.VarChar(80)
+  versFiche     Boolean     @default(false) @map("vers_fiche")
+  cle           String      @db.VarChar(200)
+  url           String      @db.VarChar(512)
+  cleMini       String      @map("cle_mini") @db.VarChar(200)
+  urlMini       String      @map("url_mini") @db.VarChar(512)
+  position      Int         @default(0)
+
+  @@index([candidatureId])
+  @@map("pieces_candidature")
 }
 
 // Questions du formulaire de candidature (réglées dans Employés → Recrutement → Réglages), après prénom, nom et poste.

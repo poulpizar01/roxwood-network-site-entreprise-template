@@ -3393,13 +3393,31 @@ p.service-apercu-titre { margin-bottom: 8px; font-size: var(--fs-6); font-weight
 .candidature-identite-apercu:hover, .candidature-identite-apercu:focus-visible { border-color: var(--accent); outline: none; }
 .candidature-identite-apercu img { display: block; width: 100%; max-height: 160px; object-fit: cover; }
 
-/* ---- Recrutement → Réglages : questions du formulaire de candidature (recrutement-reglages.js) ---- */
-.questions-liste { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.question-ligne { min-height: 64px; display: flex; align-items: stretch; gap: 8px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); }
-.question-ouvrir { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: var(--radius); }
-.question-ouvrir:hover, .question-ouvrir:focus-visible { background: rgba({{couleur_rvb}}, 0.07); }
-.question-ouvrir small { color: var(--text-faint); font-size: var(--fs-2); }
-.question-ordre { display: flex; flex-direction: column; justify-content: center; padding-right: 8px; }
-.question-ordre .actions-icone { min-width: 36px; min-height: 26px; padding: 0; transform: rotate(180deg); }   /* le chevron pointe vers le bas : « monter » le retourne */
-.question-ordre .question-descendre { transform: none; }
-.question-ordre .actions-icone:disabled { opacity: 0.35; cursor: default; }
+/* ---- Recrutement → Réglages (recrutement-reglages.js) : origine, pièces jointes demandées, formulaire dans l'ordre ---- */
+.recrutement-origine { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); margin-bottom: 18px; }
+.pieces-liste { display: flex; flex-direction: column; gap: 10px; }
+.piece-ligne { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(150px, 220px) 150px 44px; gap: 10px; align-items: center; }
+.piece-ligne--entete { font-size: var(--fs-2); font-weight: 600; color: var(--text-muted); padding: 0 2px; }
+.piece-ligne { grid-template-columns: minmax(0, 1.6fr) minmax(150px, 220px) 170px 44px; }
+.piece-ligne input[type="text"] { width: 100%; min-height: 48px; padding: 11px 14px; border-radius: var(--radius-sm); border: 1px solid var(--contour-champ); background: var(--bg2); color: var(--text); font-size: var(--fs-4); font-family: inherit; }
+.piece-ligne input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba({{couleur_rvb}}, 0.15); }
+.piece-fiche { display: flex; align-items: center; gap: 8px; font-size: var(--fs-3); text-transform: none; letter-spacing: 0; white-space: nowrap; cursor: pointer; }
+.questions-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.questions-liste:empty { display: none; }
+.question-ligne { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); min-height: 56px; }
+.question-ligne--fixe { background: var(--bg2); color: var(--text-muted); font-size: var(--fs-3); }
+.question-ligne--fantome { opacity: 0.45; border-color: var(--accent); }
+.question-poignee { flex: 0 0 auto; width: 32px; min-height: 40px; display: flex; align-items: center; justify-content: center; border: 0; background: none; color: var(--text-faint); cursor: grab; border-radius: 6px; }
+.question-poignee:hover, .question-poignee:focus-visible { color: var(--accent-dark); background: rgba({{couleur_rvb}}, 0.1); }
+.question-poignee:active { cursor: grabbing; }
+.question-poignee--verrou { cursor: default; pointer-events: none; }
+.question-texte { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.question-texte small { color: var(--text-faint); font-size: var(--fs-2); }
+.question-regle { flex: 0 0 auto; color: var(--text-faint); font-size: var(--fs-2); }
+@media (max-width: 760px) { .piece-ligne { grid-template-columns: 1fr 1fr; } .piece-ligne--entete { display: none; } .piece-ligne input[type="text"] { grid-column: 1 / -1; } }
+.pieces-apercus { display: flex; flex-wrap: wrap; gap: 14px; }
+.piece-apercu { margin: 0; display: flex; flex-direction: column; gap: 6px; width: 150px; }
+.piece-apercu figcaption { font-size: var(--fs-2); color: var(--text-muted); overflow-wrap: anywhere; }
+.piece-apercu .candidature-identite-apercu { max-width: 150px; }
+/* téléphone : la ligne d'une question passe à la ligne plutôt que d'écraser son libellé (« Téléph/one ») */
+@media (max-width: 760px) { .question-ligne { flex-wrap: wrap; } .question-texte { flex: 1 1 140px; overflow-wrap: break-word; } .question-regle { display: none; } }

@@ -69,11 +69,11 @@ function sectionDetail(c) {
     ${c.entretienLe ? `<div><dt>Entretien</dt><dd>${dateHeureFr(c.entretienLe)}</dd></div>` : ''}
   </dl>
   <section class="tiroir-section" aria-labelledby="titre-piece-candidature">
-    <h3 id="titre-piece-candidature">Pièce d’identité</h3>
-    ${c.pieceIdentiteUrlMini
-      ? `<button type="button" class="candidature-identite-apercu" data-agrandir-piece="${echapper(c.pieceIdentiteUrl)}" aria-label="Agrandir la pièce d’identité de ${echapper(c.prenom)} ${echapper(c.nom)}"><img src="${echapper(c.pieceIdentiteUrlMini)}" alt="" loading="lazy"></button>
-         <p class="champ-aide" style="margin:8px 0 0;">Effacée 90 jours après réception ; à l’acceptation, elle passe sur la fiche de l’employé.</p>`
-      : `<p class="champ-aide">${c.statut === 'acceptee' ? 'Sur la fiche de l’employé.' : 'Réservée à qui peut voir les pièces d’identité, ou effacée (conservée 90 jours après réception).'}</p>`}
+    <h3 id="titre-piece-candidature">Pièces jointes</h3>
+    ${(c.pieces || []).length
+      ? `<div class="pieces-apercus">${c.pieces.map(p => `<figure class="piece-apercu"><button type="button" class="candidature-identite-apercu" data-agrandir-piece="${echapper(p.url)}" data-libelle="${echapper(p.libelle)}" aria-label="Agrandir « ${echapper(p.libelle)} » de ${echapper(c.prenom)} ${echapper(c.nom)}"><img src="${echapper(p.urlMini)}" alt="" loading="lazy"></button><figcaption>${echapper(p.libelle)}</figcaption></figure>`).join('')}</div>
+         <p class="champ-aide" style="margin:8px 0 0;">Effacées 90 jours après réception. Celle qui va sur la fiche passe à l’employé à l’acceptation.</p>`
+      : `<p class="champ-aide">${c.nombrePieces ? 'Réservées à qui peut voir les pièces d’identité.' : c.statut === 'acceptee' ? 'Aucune autre pièce (celle de la fiche est sur la fiche).' : 'Aucune pièce jointe.'}</p>`}
   </section>
   <section class="tiroir-section" aria-labelledby="titre-reponses-candidature"><h3 id="titre-reponses-candidature">Réponses</h3>${(c.reponses || []).length
     ? c.reponses.map(r => `<p class="champ-aide" style="margin:0 0 2px;">${echapper(r.libelle)}</p><p class="contrat-notes" style="margin:0 0 12px;">${echapper(r.valeur)}</p>`).join('')
@@ -162,7 +162,7 @@ $r('tiroir-candidature').addEventListener('click', async e => {
   if (e.target.closest('[data-creer-salon]')) { await agir(() => socle.api(`/api/candidatures/${c.id}/salon`, { method: 'POST', body: {} }), 'Salon créé ✓'); return; }
   if (e.target.closest('[data-supprimer]')) { await supprimer(c); return; }
   const piece = e.target.closest('[data-agrandir-piece]');
-  if (piece) ouvrirImage(piece.dataset.agrandirPiece, `Pièce d’identité de ${c.prenom} ${c.nom}`);
+  if (piece) ouvrirImage(piece.dataset.agrandirPiece, `${piece.dataset.libelle} — ${c.prenom} ${c.nom}`);
 });
 $r('tiroir-candidature').addEventListener('change', async e => {
   const radio = e.target.closest('[name="vote-candidature"]');

@@ -4,11 +4,11 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { body, intParam, permission } from '../../socle/http.js';
 import { limiter } from '../../socle/limites.js';
-import { recevoirImage } from '../../socle/images.js';
+import { recevoirImagesLimitees } from '../../socle/images.js';
 import { identiteVerifiee } from '../../socle/routes/discord-leger.js';
 import {
-  accepterCandidature, convoquerEntretien, creerCandidature, creerQuestion, creerSalonPourCandidature, definirReglagesRecrutement, formulairePublic, listerCandidatures,
-  listerQuestions, modifierNotesCandidature, modifierQuestion, modifierSalonCandidature, monVote, ordonnerQuestions, refuserCandidature, reglagesRecrutement,
+  accepterCandidature, convoquerEntretien, creerCandidature, creerQuestion, creerSalonPourCandidature, definirReglagesRecrutement, etatChampsFiche, formulairePublic,
+  listerCandidatures, listerPiecesDemandees, listerQuestions, PIECE_MAX_MO, PIECES_MAX, modifierNotesCandidature, modifierQuestion, modifierSalonCandidature, monVote, ordonnerQuestions, refuserCandidature, reglagesRecrutement,
   supprimerCandidature, supprimerQuestion, voter,
 } from '../candidatures.js';
 import { traiter } from '../refus.js';
@@ -29,8 +29,10 @@ const exigerIdentite = (req: Request, res: Response, next: NextFunction) => {
   if (identiteVerifiee(req)) next();
   else res.status(401).json({ error: 'Connectez-vous avec Discord pour envoyer votre candidature.' });
 };
-candidatures.post('/api/candidatures', limiteCandidatures, exigerIdentite, ...recevoirImage, traiter(async (req, res) => {
-  const c = await creerCandidature(body(req), identiteVerifiee(req), req.file);
+// une image par pièce demandée (champ « piece-<id> »), 8 Mo chacune, 5 au plus : le créneau mémoire du socle est partagé par tout l'envoi
+const recevoirPieces = recevoirImagesLimitees(PIECE_MAX_MO, PIECES_MAX);
+candidatures.post('/api/candidatures', limiteCandidatures, exigerIdentite, ...recevoirPieces, traiter(async (req, res) => {
+  const c = await creerCandidature(body(req), identiteVerifiee(req), (req.files as Express.Multer.File[] | undefined) ?? []);
   res.status(201).json({ id: c.id });
 }));
 
@@ -43,7 +45,10 @@ const parametrer = async (req: Request, res: Response, next: NextFunction) => {
   if ((await droits(req)).has('parametrer')) next();
   else res.status(403).json({ error: 'Vous n’avez pas le droit de régler le recrutement.' });
 };
-candidatures.get('/api/candidatures/reglages', ...voir, traiter(async (_req, res) => { res.json({ ...reglagesRecrutement(), questions: await listerQuestions() }); }));
+candidatures.get('/api/candidatures/reglages', ...voir, traiter(async (_req, res) => {
+  const questions = await listerQuestions();
+  res.json({ ...reglagesRecrutement(), champsFiche: etatChampsFiche(questions), pieces: await listerPiecesDemandees(), piecesMax: PIECES_MAX, questions });
+}));
 candidatures.put('/api/candidatures/reglages', ...voir, parametrer, traiter(async (req, res) => { await definirReglagesRecrutement(body(req), req.compte); res.json({ ok: true }); }));
 candidatures.post('/api/candidatures/questions', ...voir, parametrer, traiter(async (req, res) => { await creerQuestion(body(req)); res.status(201).json({ questions: await listerQuestions() }); }));
 // déclarée avant /:id, qui la prendrait sinon pour l'id « ordre »

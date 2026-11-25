@@ -63,7 +63,7 @@ $rh('rh-a-faire-liste').addEventListener('click', e => {
   const b = e.target.closest('[data-aller]');
   if (!b) return;
   if (b.dataset.aller === 'completer') { choisirStatut('a-completer'); $rh('titre-employes').scrollIntoView({ block: 'start' }); return; }
-  ouvrirPanneauRh('recrutement');
+  ouvrirPanneauRh('candidatures');
   $rh(b.dataset.aller).scrollIntoView({ block: 'start' });
 });
 
@@ -397,7 +397,6 @@ async function chargerArriveesBot() {
     const reglable = aDroitRh('parametrer');
     // le recrutement par le bot n'existe que dans ce mode : en mode « site », ses événements sont ignorés et sa section masquée
     bloc.classList.toggle('cache', MODE_SITE);
-    $rh('rh-bot-details').classList.toggle('cache', !reglable);
     $rh('rh-bot-etat').textContent = 'Les candidatures acceptées sur Discord arrivent ici d’elles-mêmes, envoyées par le bot de l’entreprise. Si rien n’arrive, demandez à la personne qui s’occupe du site de vérifier l’abonnement « Candidatures » du bot.';
     if (reglable) {
       const select = $rh('rh-bot-grade');
@@ -471,43 +470,38 @@ $rh('rh-bot-reglages').addEventListener('submit', async e => {
   } catch (err) { gestion.message('zone-message-rh-bot', err.message); }
 });
 
-// ---- onglets de la page : Effectif / Recrutement (candidatures du bot OU du site, et leurs réglages) ----
+// ---- onglets de la page, à plat : Effectif · Candidatures · Réglages du recrutement ----
+// Candidatures : celles du bot Discord OU du site (la direction choisit l'un, jamais les deux). Sans le module « recrutement » (site.json), ses
+// routes n'existent pas (404) : il ne reste que le bot, et les Réglages ne montrent que la fiche du bot.
 let MODE_SITE = false;   // le recrutement passe par le site (module « recrutement » + réglage), sinon par le bot Discord
+const PANNEAUX_RH = ['effectif', 'candidatures', 'reglages'];
 function ouvrirPanneauRh(nom) {
   document.querySelectorAll('[data-rh-panneau]').forEach(b => { const actif = b.dataset.rhPanneau === nom; b.classList.toggle('actif', actif); b.setAttribute('aria-selected', String(actif)); b.tabIndex = actif ? 0 : -1; });
-  $rh('rh-panneau-effectif').classList.toggle('cache', nom !== 'effectif');
-  $rh('rh-panneau-recrutement').classList.toggle('cache', nom !== 'recrutement');
+  for (const p of PANNEAUX_RH) $rh(`rh-panneau-${p}`).classList.toggle('cache', p !== nom);
   // « Ajouter un membre » n'a de sens que sur l'effectif
   $rh('bouton-nouvel-employe').classList.toggle('cache', nom !== 'effectif' || !aDroitRh('creer'));
-  history.replaceState(null, '', nom === 'recrutement' ? '#recrutement' : location.pathname);
+  history.replaceState(null, '', nom === 'effectif' ? location.pathname : `#${nom}`);
 }
 document.querySelectorAll('[data-rh-panneau]').forEach(b => b.addEventListener('click', () => ouvrirPanneauRh(b.dataset.rhPanneau)));
-function ouvrirSousOngletRecrutement(nom) {
-  document.querySelectorAll('[data-rh-recrutement]').forEach(b => { const actif = b.dataset.rhRecrutement === nom; b.classList.toggle('actif', actif); b.setAttribute('aria-selected', String(actif)); b.tabIndex = actif ? 0 : -1; });
-  $rh('rh-recrutement-candidatures').classList.toggle('cache', nom !== 'candidatures');
-  $rh('rh-recrutement-reglages').classList.toggle('cache', nom !== 'reglages');
-}
-document.querySelectorAll('[data-rh-recrutement]').forEach(b => b.addEventListener('click', () => ouvrirSousOngletRecrutement(b.dataset.rhRecrutement)));
 
-// réglages du recrutement (module « recrutement » allumé) : le mode, puis ce qu'il faut pour chaque circuit. Sans le module, les routes
-// n'existent pas (404) : il ne reste que le bot, comme avant.
 async function preparerRecrutement(moi) {
   let reglages = null;
   try { reglages = await socle.api('/api/candidatures/reglages'); } catch { /* module éteint : recrutement par le bot seulement */ }
   MODE_SITE = reglages?.mode === 'site';
   $rh('rh-site').classList.toggle('cache', !MODE_SITE);
-  if (!reglages) return;
-  $rh('rh-recrutement-onglets').classList.remove('cache');
   if (!socle.peut(moi, 'rh-parametrer')) return;
   $rh('onglet-rh-reglages').classList.remove('cache');
-  window.recrutementReglages.init((await socle.api('/api/rh/bot').catch(() => ({ grades: [] }))).grades, reglages);
+  const grades = (await socle.api('/api/rh/bot').catch(() => ({ grades: [] }))).grades;
+  window.recrutementReglages.init(grades, reglages);
 }
 
 gestion.coque('rh').then(async moi => {
   await preparerRecrutement(moi);   // avant chargerRh : la section du bot suit le mode
   await chargerRh();
   if (MODE_SITE) await window.recrutementSite.init(moi);
-  if (location.hash === '#recrutement' || location.hash === '#rh-bot') ouvrirPanneauRh('recrutement');
+  const depart = location.hash.slice(1);
+  if (depart === 'rh-bot' || depart === 'recrutement') ouvrirPanneauRh('candidatures');
+  else if (PANNEAUX_RH.includes(depart)) ouvrirPanneauRh(depart);
 });
 
 // dates à la française (le champ natif suivait la langue du navigateur : mm/jj/aaaa en anglais)
