@@ -195,17 +195,17 @@ async function ouvrirFicheEmploye(id, preremplissage) {
 // pied de la fiche : actions à gauche (terminer le service, départ ou réintégration, selon les droits et l'état), Enregistrer
 // à droite ; sans rien à y mettre, le pied disparaît
 function dessinerPiedFiche(f, peutEcrire) {
-  const b = [];
+  // les actions variables à gauche ; Supprimer puis Enregistrer toujours ensemble à droite (même place quel que soit le nombre d'actions)
+  const actions = [], fin = [];
   if (f && f.modifiable !== false) {
-    if (f.enServiceDepuis && aDroitRh('modifier')) b.push(`<button type="button" class="btn btn-fantome" data-pied-service>${gestion.ico('clock')} Terminer son service</button>`);
-    if (f.statut === 'actif' && aDroitRh('desactiver')) b.push(`<button type="button" class="btn btn-fantome" data-pied-statut="desactiver">${gestion.ico('lock')} Désactiver (départ)</button>`);
-    if (aDroitRh('supprimer')) b.push(`<button type="button" class="btn btn-danger" data-pied-supprimer>${gestion.ico('trash')} Supprimer</button>`);
-    if (f.statut !== 'actif' && aDroitRh('reactiver')) b.push(`<button type="button" class="btn btn-fantome" data-pied-statut="reactiver">${gestion.ico('sync')} Réactiver</button>`);
+    if (f.enServiceDepuis && aDroitRh('modifier')) actions.push(`<button type="button" class="btn btn-fantome" data-pied-service>${gestion.ico('clock')} Terminer son service</button>`);
+    if (f.statut === 'actif' && aDroitRh('desactiver')) actions.push(`<button type="button" class="btn btn-fantome" data-pied-statut="desactiver">${gestion.ico('lock')} Désactiver (départ)</button>`);
+    if (f.statut !== 'actif' && aDroitRh('reactiver')) actions.push(`<button type="button" class="btn btn-fantome" data-pied-statut="reactiver">${gestion.ico('sync')} Réactiver</button>`);
+    if (aDroitRh('supprimer')) fin.push(`<button type="button" class="btn btn-danger" data-pied-supprimer>${gestion.ico('trash')} Supprimer</button>`);
   }
-  b.push('<span class="tiroir-pied-espace"></span>');
-  if (peutEcrire) b.push(`<button type="submit" class="btn btn-or" id="employe-enregistrer">${f ? 'Enregistrer' : 'Ajouter'}</button>`);
-  $rh('fiche-rh-pied').innerHTML = b.join('');
-  $rh('fiche-rh-pied').classList.toggle('cache', b.length === 1);
+  if (peutEcrire) fin.push(`<button type="submit" class="btn btn-or" id="employe-enregistrer">${f ? 'Enregistrer' : 'Ajouter'}</button>`);
+  $rh('fiche-rh-pied').innerHTML = `${gestion.actionsPied(actions)}<div class="tiroir-pied-droite">${fin.join('')}</div>`;
+  $rh('fiche-rh-pied').classList.toggle('cache', !actions.length && !fin.length);
 }
 $rh('fiche-rh-pied').addEventListener('click', e => {
   const b = e.target.closest('button[data-pied-service], button[data-pied-statut], button[data-pied-supprimer]');
