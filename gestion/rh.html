@@ -323,7 +323,7 @@
   </div>
 </div>
 
-<!-- Question du formulaire : libellé, type, choix, obligatoire, champ de la fiche pré-rempli -->
+<!-- Question du formulaire : libellé, type, obligatoire -->
 <div class="modale-fond cache" id="modale-question" data-echap>
   <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-question-titre">
     <div class="modale-entete">
@@ -334,13 +334,11 @@
     <form id="formulaire-question" autocomplete="off" novalidate>
       <div class="champ"><label for="question-libelle">Question</label><input type="text" id="question-libelle" maxlength="120" required></div>
       <div class="champ"><label for="question-type">Réponse</label>
-          <select id="question-type"><option value="court">Courte (une ligne)</option><option value="long">Longue (un paragraphe)</option><option value="choix">À choix (liste)</option></select></div>
-      <div class="champ cache" id="question-champ-choix"><label for="question-choix">Réponses proposées <small>une par ligne, 2 au moins</small></label><textarea id="question-choix" rows="4"></textarea></div>
+          <select id="question-type"><option value="court">Courte (une ligne)</option><option value="long">Longue (un paragraphe)</option></select></div>
       <label class="grade-permission"><span class="d8-switch"><input type="checkbox" id="question-obligatoire" checked><span class="d8-switch-piste"></span></span>
         <span><strong>Obligatoire</strong><small>Le candidat doit répondre pour envoyer sa candidature.</small></span></label>
       <div class="modale-boutons">
         <button type="submit" class="btn btn-or" id="question-enregistrer">Ajouter</button>
-        <button type="button" class="btn btn-danger" id="annuler-modale-question">Annuler</button>
         <button type="button" class="btn btn-danger cache" id="question-supprimer">Supprimer</button>
       </div>
     </form>

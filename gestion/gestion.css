@@ -3421,3 +3421,24 @@ p.service-apercu-titre { margin-bottom: 8px; font-size: var(--fs-6); font-weight
 .piece-apercu .candidature-identite-apercu { max-width: 150px; }
 /* téléphone : la ligne d'une question passe à la ligne plutôt que d'écraser son libellé (« Téléph/one ») */
 @media (max-width: 760px) { .question-ligne { flex-wrap: wrap; } .question-texte { flex: 1 1 140px; overflow-wrap: break-word; } .question-regle { display: none; } }
+/* aperçu du formulaire avant enregistrement (Réglages du recrutement, étape 1 → étape 3) */
+.question-ligne--retiree { opacity: 0.55; border-style: dashed; }
+.question-ligne--retiree .question-texte strong { text-decoration: line-through; }
+.question-ligne--nouvelle, .question-ligne--modifiee { border-style: dashed; border-color: var(--accent); }
+/* espacements : un rythme unique entre blocs (28 px), titre + aide + action groupés (12 px), liste 10 px sous son en-tête */
+#rh-panneau-reglages, #rh-panneau-candidatures { padding-top: 20px; }
+#rh-panneau-reglages .rh-section { margin-bottom: 28px; }
+#rh-panneau-reglages .rh-titre { margin-bottom: 6px; }
+#rh-panneau-reglages .comptes-aide { margin: 0 0 14px; line-height: 1.5; }
+#rh-panneau-reglages .rh-reglages-pied { display: block; margin: 0 0 14px; }
+#rh-panneau-reglages .rh-reglages-pied > div { margin-bottom: 14px; }
+#rh-panneau-reglages .rh-reglages-pied > div .comptes-aide { margin-bottom: 0 !important; }
+#rh-panneau-reglages #formulaire-recrutement-reglages > .rh-reglages-pied { margin: 4px 0 0; }
+#rh-panneau-reglages .rh-reglages-pied > .btn { margin: 0; }
+.recrutement-origine { margin-bottom: 28px; }
+.pieces-liste { gap: 12px; }
+.piece-ligne--entete { margin-bottom: -2px; }
+.questions-liste, #recrutement-questions-haut, #recrutement-questions-bas { margin: 0; }
+#recrutement-questions-haut { margin-bottom: 8px; }
+#recrutement-questions-bas { margin-top: 8px; }
+.rh-correspondance { padding-block: 12px; }

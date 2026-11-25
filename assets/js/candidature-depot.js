@@ -1,6 +1,6 @@
 /* VITRINE (module « recrutement », mode « site ») — fenêtre de candidature, ouverte par tout bouton [data-ouvrir-candidature] (la valeur, si
    elle existe, est le poste visé). Le formulaire se construit d'après /api/candidatures/formulaire : prénom, nom, poste, puis les questions
-   réglées par la direction (réponse courte, longue ou à choix, dans l'ordre choisi), puis un champ de fichier par pièce jointe demandée. Envoyer exige
+   réglées par la direction (réponse courte ou longue, dans l'ordre choisi), puis un champ de fichier par pièce jointe demandée. Envoyer exige
    une connexion Discord (vérification légère du socle, /api/discord/…) ; au retour de Discord (?candidature=1&discord=ok), la fenêtre se
    rouvre d'elle-même sur le formulaire. Tout texte arrive par textContent. */
 (() => {
@@ -79,10 +79,8 @@
     champsQuestions = config.questions.map(q => {
       let c;
       if (q.type === 'long') { c = el('textarea'); c.maxLength = 2000; c.rows = 5; }
-      else if (q.type === 'choix') { c = el('select'); c.append(new Option(q.obligatoire ? 'Choisissez…' : 'Aucune réponse', ''), ...q.choix.map(x => new Option(x, x))); }
       else c = saisie(300);
       zoneChamps.append(champ(`cd-q${q.id}`, q.libelle, c, { facultatif: !q.obligatoire }));
-      if (q.type === 'choix') habiller(c);
       return { q, c };
     });
     // une image par pièce demandée (PNG, JPEG, WebP) ; le champ « piece-<id> » dit au serveur laquelle

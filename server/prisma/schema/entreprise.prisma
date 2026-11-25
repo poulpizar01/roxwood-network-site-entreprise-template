@@ -750,8 +750,7 @@ model PieceCandidature {
 model QuestionCandidature {
   id         Int     @id @default(autoincrement())
   libelle    String  @db.VarChar(120)
-  type       String  @db.VarChar(6) // court | long | choix
-  choix      Json    @default("[]") // options d'une question à choix
+  type       String  @db.VarChar(6) // court | long
   obligatoire Boolean @default(true)
   champFiche String? @map("champ_fiche") @db.VarChar(12)
   position   Int     @default(0)

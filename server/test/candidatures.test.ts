@@ -33,7 +33,7 @@ after(async () => {
   await prisma.$disconnect();
 });
 const nouvelle = (extra: Record<string, unknown> = {}) => prisma.candidature.create({ data: { prenom: 'zz-test', nom: 'zz-test', discordId: DISCORD, pseudoDiscord: 'zz', ...extra } });
-const q = (extra: Partial<Question> = {}): Question => ({ id: 1, libelle: 'Question', type: 'court', choix: [], obligatoire: true, champFiche: null, position: 0, ...extra });
+const q = (extra: Partial<Question> = {}): Question => ({ id: 1, libelle: 'Question', type: 'court', obligatoire: true, champFiche: null, position: 0, ...extra });
 
 test('instantParis : l’heure de Paris, été comme hiver', () => {
   assert.equal(instantParis('2026-07-15', '14:30').toISOString(), '2026-07-15T12:30:00.000Z');   // UTC+2
@@ -46,11 +46,10 @@ test('identité du candidat : prénom et nom obligatoires', () => {
   assert.deepEqual(lireIdentiteCandidat({ prenom: ' A ', nom: 'B', poste: 'Vendeur' }), { poste: 'Vendeur', prenom: 'A', nom: 'B' });
 });
 
-test('lireQuestion : libellé, type, choix (2 à 12) ; obligatoire par défaut', () => {
+test('lireQuestion : libellé, type (court ou long) ; obligatoire par défaut', () => {
   assert.throws(() => lireQuestion({ libelle: ' ', type: 'court' }), /question/);
   assert.throws(() => lireQuestion({ libelle: 'x', type: 'autre' }), /type/);
-  assert.throws(() => lireQuestion({ libelle: 'x', type: 'choix', choix: ['un'] }), /deux réponses/);
-  assert.deepEqual(lireQuestion({ libelle: 'x', type: 'choix', choix: 'a\nb\na\n' }).choix, ['a', 'b']);   // doublons et lignes vides retirés
+  assert.throws(() => lireQuestion({ libelle: 'x', type: 'choix' }), /type/);   // plus de question à choix
   assert.equal(lireQuestion({ libelle: 'x', type: 'court' }).obligatoire, true);
 });
 
@@ -68,10 +67,9 @@ test('pièces demandées : 5 au plus, noms uniques, une seule va sur la fiche ; 
   assert.equal(fichiersParPiece([id, casier], [fichier(`piece-${id.id}`), fichier(`piece-${casier.id}`)]).length, 2);
 });
 
-test('lireReponses : obligatoires exigées, choix parmi ceux proposés, libellé figé, lien avec la fiche', () => {
-  const questions = [q({ id: 1, libelle: 'Téléphone', champFiche: 'telephone' }), q({ id: 2, libelle: 'Permis', type: 'choix', choix: ['oui', 'non'], obligatoire: false })];
+test('lireReponses : obligatoires exigées, libellé figé, lien avec la fiche', () => {
+  const questions = [q({ id: 1, libelle: 'Téléphone', champFiche: 'telephone' }), q({ id: 2, libelle: 'Permis', obligatoire: false })];
   assert.throws(() => lireReponses('{}', questions), /Téléphone/);
-  assert.throws(() => lireReponses('{"1":"0612","2":"peut-être"}', questions), /proposées/);
   assert.throws(() => lireReponses('pas du json', questions), /pas lisibles/);
   // les règles de la fiche valent dès le dépôt
   assert.throws(() => lireReponses('{"3":"ZZ-42"}', [q({ id: 3, libelle: 'ID', champFiche: 'idUnique' })]), /chiffres/);
@@ -130,7 +128,6 @@ test('dépôt : sans Discord (401), pièces exigées, une candidature en cours �
 
 test('votes : un vote par personne, remplaçable ; l’identifiant Discord ne sort jamais de la liste', async () => {
   const c = await nouvelle({ prenom: 'Bob' });
-  await assert.rejects(voter(c.id, 1, 'peut-être'), /invalide/);
   await voter(c.id, 1, 'pour');
   await voter(c.id, 1, 'contre');   // remplace
   assert.equal(await monVote(c.id, 1), 'contre');

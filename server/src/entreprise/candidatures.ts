@@ -23,13 +23,13 @@ export const VALEURS_VOTE = ['pour', 'contre', 'abstention'] as const;
 export type ValeurVote = typeof VALEURS_VOTE[number];
 // pièces et candidature disparaissent ensemble, 90 jours après réception (confidentialite.html) : la fiche, si la personne est acceptée, garde la pièce marquée
 export const CANDIDATURES_JOURS = 90;
-export const TYPES_QUESTION = ['court', 'long', 'choix'] as const;
+export const TYPES_QUESTION = ['court', 'long'] as const;
 // ce qu'une réponse peut pré-remplir sur la fiche (prénom et nom : toujours demandés) ; le libellé de la question est celui du champ
 export const CHAMPS_FICHE = ['telephone', 'rib', 'idUnique'] as const;
 export type ChampFiche = typeof CHAMPS_FICHE[number];
 export const LIBELLES_FICHE: Record<ChampFiche, string> = { telephone: 'Téléphone', rib: 'RIB', idUnique: 'ID Unique' };
 export type ModeChamp = 'aucun' | 'facultatif' | 'obligatoire';
-export const QUESTIONS_MAX = 15, CHOIX_MAX = 12, PIECES_MAX = 5, PIECE_MAX_MO = 8;
+export const QUESTIONS_MAX = 15, PIECES_MAX = 5, PIECE_MAX_MO = 8;
 
 const texte = (v: unknown, max: number): string => String(v ?? '').trim().slice(0, max);
 
@@ -53,9 +53,9 @@ export async function definirReglagesRecrutement(b: Record<string, unknown>, act
 }
 
 // ---- questions du formulaire ----
-export type Question = { id: number; libelle: string; type: typeof TYPES_QUESTION[number]; choix: string[]; obligatoire: boolean; champFiche: ChampFiche | null; position: number };
-const versQuestion = (q: { id: number; libelle: string; type: string; choix: unknown; obligatoire: boolean; champFiche: string | null; position: number }): Question => ({
-  id: q.id, libelle: q.libelle, type: q.type as Question['type'], choix: Array.isArray(q.choix) ? q.choix.map(String) : [], obligatoire: q.obligatoire,
+export type Question = { id: number; libelle: string; type: typeof TYPES_QUESTION[number]; obligatoire: boolean; champFiche: ChampFiche | null; position: number };
+const versQuestion = (q: { id: number; libelle: string; type: string; obligatoire: boolean; champFiche: string | null; position: number }): Question => ({
+  id: q.id, libelle: q.libelle, type: q.type as Question['type'], obligatoire: q.obligatoire,
   champFiche: (CHAMPS_FICHE as readonly string[]).includes(q.champFiche ?? '') ? q.champFiche as ChampFiche : null, position: q.position,
 });
 export const listerQuestions = async (): Promise<Question[]> => (await prisma.questionCandidature.findMany({ orderBy: [{ position: 'asc' }, { id: 'asc' }] })).map(versQuestion);
@@ -64,16 +64,9 @@ export const listerQuestions = async (): Promise<Question[]> => (await prisma.qu
 export function lireQuestion(b: Record<string, unknown>) {
   const libelle = texte(b.libelle, 120);
   if (!libelle) throw new Refus('Écrivez la question.');
-  if (!(TYPES_QUESTION as readonly string[]).includes(String(b.type))) throw new Refus('Choisissez le type de réponse : courte, longue ou à choix.');
+  if (!(TYPES_QUESTION as readonly string[]).includes(String(b.type))) throw new Refus('Choisissez le type de réponse : courte ou longue.');
   const type = b.type as Question['type'];
-  let choix: string[] = [];
-  if (type === 'choix') {
-    const brut = Array.isArray(b.choix) ? b.choix : String(b.choix ?? '').split('\n');
-    choix = [...new Set(brut.map(c => texte(c, 60)).filter(Boolean))];
-    if (choix.length < 2) throw new Refus('Une question à choix propose au moins deux réponses.');
-    if (choix.length > CHOIX_MAX) throw new Refus(`${CHOIX_MAX} réponses au plus.`);
-  }
-  return { libelle, type, choix, obligatoire: b.obligatoire !== false };
+  return { libelle, type, obligatoire: b.obligatoire !== false };
 }
 const REFUS_FICHE = 'Cette question remplit la fiche : elle se règle dans « La fiche créée à l’acceptation ».';
 export async function creerQuestion(b: Record<string, unknown>): Promise<void> {
@@ -157,7 +150,6 @@ export function lireReponses(brut: unknown, questions: readonly Question[]): Rep
   return questions.flatMap(q => {
     const valeur = texte(recu[q.id], q.type === 'long' ? 2000 : 300);
     if (!valeur) { if (q.obligatoire) throw new Refus(`Répondez à « ${q.libelle} ».`); return []; }
-    if (q.type === 'choix' && !q.choix.includes(valeur)) throw new Refus(`Choisissez une des réponses proposées pour « ${q.libelle} ».`);
     // les règles de la fiche s'appliquent dès le dépôt : le candidat voit l'erreur, pas l'équipe à l'acceptation (rh.ts lireChamps)
     if (q.champFiche === 'idUnique' && !/^\d{1,12}$/.test(valeur)) throw new Refus(`« ${q.libelle} » ne contient que des chiffres (par exemple 42).`);
     if (q.champFiche === 'telephone' && valeur.length > 30) throw new Refus(`« ${q.libelle} » : 30 caractères au plus.`);
