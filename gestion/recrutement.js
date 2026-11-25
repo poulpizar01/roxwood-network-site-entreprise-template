@@ -72,7 +72,7 @@ function sectionDetail(c) {
     <h3 id="titre-piece-candidature">Pièces jointes</h3>
     ${(c.pieces || []).length
       ? `<div class="pieces-apercus">${c.pieces.map(p => `<figure class="piece-apercu"><button type="button" class="candidature-identite-apercu" data-agrandir-piece="${echapper(p.url)}" data-libelle="${echapper(p.libelle)}" aria-label="Agrandir « ${echapper(p.libelle)} » de ${echapper(c.prenom)} ${echapper(c.nom)}"><img src="${echapper(p.urlMini)}" alt="" loading="lazy"></button><figcaption>${echapper(p.libelle)}</figcaption></figure>`).join('')}</div>
-         <p class="champ-aide" style="margin:8px 0 0;">Effacées 90 jours après réception. Celle qui va sur la fiche passe à l’employé à l’acceptation.</p>`
+         <p class="champ-aide" style="margin:8px 0 0;">Effacées 90 jours après réception. Celle rangée dans la fiche de l’employé lui est transmise à l’acceptation.</p>`
       : `<p class="champ-aide">${c.nombrePieces ? 'Réservées à qui peut voir les pièces d’identité.' : c.statut === 'acceptee' ? 'Aucune autre pièce (celle de la fiche est sur la fiche).' : 'Aucune pièce jointe.'}</p>`}
   </section>
   <section class="tiroir-section" aria-labelledby="titre-reponses-candidature"><h3 id="titre-reponses-candidature">Réponses</h3>${(c.reponses || []).length

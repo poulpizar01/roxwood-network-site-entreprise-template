@@ -77,11 +77,11 @@
   function dessinerPieces() {
     $q('recrutement-pieces-compte').textContent = `· ${PIECES.length} sur ${R.piecesMax}`;
     $q('bouton-ajouter-piece').disabled = PIECES.length >= R.piecesMax;
-    $q('recrutement-pieces').innerHTML = PIECES.length ? `<div class="piece-ligne piece-ligne--entete"><span>Libellé</span><span>Demandée</span><span>Sur la fiche</span><span></span></div>`
+    $q('recrutement-pieces').innerHTML = PIECES.length ? `<div class="piece-ligne piece-ligne--entete"><span>Libellé</span><span>Demandée</span><span>Rangée dans</span><span></span></div>`
       + PIECES.map((p, i) => `<div class="piece-ligne" data-piece="${i}">
         <input type="text" maxlength="80" value="${echapper(p.libelle)}" aria-label="Libellé de la pièce ${i + 1}" data-piece-libelle>
         <select aria-label="Pièce ${i + 1} demandée" data-piece-obligatoire><option value="oui"${p.obligatoire ? ' selected' : ''}>Obligatoire</option><option value="non"${p.obligatoire ? '' : ' selected'}>Facultative</option></select>
-        <label class="piece-fiche"><input type="radio" name="piece-fiche" ${p.versFiche ? 'checked' : ''} data-piece-fiche> Va sur la fiche</label>
+        <select aria-label="Pièce ${i + 1} rangée dans" data-piece-fiche><option value="dossier"${p.versFiche ? '' : ' selected'}>Dossier de candidature</option><option value="fiche"${p.versFiche ? ' selected' : ''}>Fiche de l’employé</option></select>
         <button type="button" class="actions-icone" data-piece-retirer aria-label="Retirer la pièce ${echapper(p.libelle || String(i + 1))}">${gestion.ico('trash')}</button>
       </div>`).join('') : '<p class="comptes-vide">Aucune pièce jointe demandée : le candidat n’envoie aucun fichier.</p>';
     nettoyerSelectsPortee('pieces');   // les listes flottantes de l'affichage précédent
@@ -94,7 +94,7 @@
     const l = e.target.closest('[data-piece]'); if (!l) return;
     const i = Number(l.dataset.piece);
     if (e.target.matches('[data-piece-obligatoire]')) PIECES[i].obligatoire = e.target.value === 'oui';
-    if (e.target.matches('[data-piece-fiche]')) PIECES.forEach((p, k) => { p.versFiche = k === i; });
+    if (e.target.matches('[data-piece-fiche]')) { PIECES.forEach((p, k) => { p.versFiche = e.target.value === 'fiche' && k === i; }); dessinerPieces(); }   // une seule pièce va sur la fiche : les autres repassent au dossier
   });
   $q('recrutement-pieces').addEventListener('click', e => {
     const retirer = e.target.closest('[data-piece-retirer]');
