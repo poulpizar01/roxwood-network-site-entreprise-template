@@ -195,7 +195,7 @@ async function ouvrirFicheEmploye(id, preremplissage) {
 // pied de la fiche : actions à gauche (terminer le service, départ ou réintégration, selon les droits et l'état), Enregistrer
 // à droite ; sans rien à y mettre, le pied disparaît
 function dessinerPiedFiche(f, peutEcrire) {
-  // les actions variables à gauche ; Supprimer puis Enregistrer toujours ensemble à droite (même place quel que soit le nombre d'actions)
+  // comme Demandes et Candidatures : les actions variables sur leur ligne, puis Supprimer et Enregistrer groupés à gauche sur la dernière ligne (même place quel que soit le nombre d'actions)
   const actions = [], fin = [];
   if (f && f.modifiable !== false) {
     if (f.enServiceDepuis && aDroitRh('modifier')) actions.push(`<button type="button" class="btn btn-fantome" data-pied-service>${gestion.ico('clock')} Terminer son service</button>`);
@@ -204,7 +204,7 @@ function dessinerPiedFiche(f, peutEcrire) {
     if (aDroitRh('supprimer')) fin.push(`<button type="button" class="btn btn-danger" data-pied-supprimer>${gestion.ico('trash')} Supprimer</button>`);
   }
   if (peutEcrire) fin.push(`<button type="submit" class="btn btn-or" id="employe-enregistrer">${f ? 'Enregistrer' : 'Ajouter'}</button>`);
-  $rh('fiche-rh-pied').innerHTML = `${gestion.actionsPied(actions)}<div class="tiroir-pied-droite">${fin.join('')}</div>`;
+  $rh('fiche-rh-pied').innerHTML = `${actions.length ? `<div class="tiroir-pied-actions">${gestion.actionsPied(actions)}</div>` : ''}<div class="tiroir-pied-fin">${fin.join('')}</div>`;
   $rh('fiche-rh-pied').classList.toggle('cache', !actions.length && !fin.length);
 }
 $rh('fiche-rh-pied').addEventListener('click', e => {
