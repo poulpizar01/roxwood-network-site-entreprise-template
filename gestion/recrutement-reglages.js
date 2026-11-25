@@ -82,7 +82,7 @@
         <input type="text" maxlength="80" value="${echapper(p.libelle)}" aria-label="Libellé de la pièce ${i + 1}" data-piece-libelle>
         <select aria-label="Pièce ${i + 1} demandée" data-piece-obligatoire><option value="oui"${p.obligatoire ? ' selected' : ''}>Obligatoire</option><option value="non"${p.obligatoire ? '' : ' selected'}>Facultative</option></select>
         <select aria-label="Pièce ${i + 1} rangée dans" data-piece-fiche><option value="dossier"${p.versFiche ? '' : ' selected'}>Dossier de candidature</option><option value="fiche"${p.versFiche ? ' selected' : ''}>Fiche de l’employé</option></select>
-        <button type="button" class="actions-icone" data-piece-retirer aria-label="Retirer la pièce ${echapper(p.libelle || String(i + 1))}">${gestion.ico('trash')}</button>
+        <button type="button" class="actions-icone actions-icone--erreur" data-piece-retirer aria-label="Retirer la pièce ${echapper(p.libelle || String(i + 1))}">${gestion.ico('trash')}</button>
       </div>`).join('') : '<p class="comptes-vide">Aucune pièce jointe demandée : le candidat n’envoie aucun fichier.</p>';
     nettoyerSelectsPortee('pieces');   // les listes flottantes de l'affichage précédent
     $q('recrutement-pieces').querySelectorAll('select').forEach(sel => ameliorerSelect(sel, null, 'pieces'));
