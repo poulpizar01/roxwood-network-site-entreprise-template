@@ -7,7 +7,7 @@ import { limiter } from '../../socle/limites.js';
 import { identiteVerifiee } from '../../socle/routes/discord-leger.js';
 import {
   changerStatutDemande, convertirEnContrat, creerDemande, creerSalonPourDemande, listerDemandes, modifierNotesDemande, modifierSalonDemande,
-  reprendreSuiviDemande,
+  reprendreSuiviDemande, supprimerDemande,
 } from '../demandes.js';
 import { traiter } from '../refus.js';
 
@@ -29,10 +29,12 @@ demandes.get('/api/demandes', ...voir, traiter(async (_req, res) => { res.json({
 demandes.patch('/api/demandes/:id', ...gerer, traiter(async (req, res) => {
   const b = body(req);
   if ('statut' in b) await changerStatutDemande(intParam(req, 'id'), b.statut, req.compte.id);
-  if ('notes' in b) await modifierNotesDemande(intParam(req, 'id'), b.notes);
+  // le salon d'abord : un identifiant invalide refuse l'enregistrement avant que les notes ne soient écrites
   if ('salonDiscordId' in b) await modifierSalonDemande(intParam(req, 'id'), b.salonDiscordId);
+  if ('notes' in b) await modifierNotesDemande(intParam(req, 'id'), b.notes);
   res.json({ ok: true });
 }));
+demandes.delete('/api/demandes/:id', ...gerer, traiter(async (req, res) => { await supprimerDemande(intParam(req, 'id')); res.json({ ok: true }); }));
 demandes.post('/api/demandes/:id/reprendre', ...gerer, traiter(async (req, res) => { await reprendreSuiviDemande(intParam(req, 'id'), req.compte.id); res.json({ ok: true }); }));
 demandes.post('/api/demandes/:id/salon', ...gerer, traiter(async (req, res) => { res.status(201).json({ salonDiscordId: await creerSalonPourDemande(intParam(req, 'id')) }); }));
 demandes.post('/api/demandes/:id/contrat', ...versContrat, traiter(async (req, res) => {

@@ -125,6 +125,12 @@ export async function modifierSalonDemande(id: number, salonDiscordId: unknown):
   await prisma.demande.update({ where: { id }, data: { salonDiscordId: v } });
 }
 
+// suppression définitive : le salon Discord et le contrat né de la demande ne sont pas touchés (l'équipe les gère à part)
+export async function supprimerDemande(id: number): Promise<void> {
+  await demandeOu404(id);
+  await prisma.demande.delete({ where: { id } });
+}
+
 // « Créer le salon » : secours quand l'ouverture automatique a échoué (bot absent à l'envoi, catégorie réglée depuis)
 export async function creerSalonPourDemande(id: number): Promise<string> {
   const d = await demandeOu404(id);

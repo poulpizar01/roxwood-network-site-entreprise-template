@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import '../src/entreprise/index.js';   // d'abord : charge les routes dans l'ordre voulu (sinon dépendance circulaire)
 import { prisma } from '../src/socle/db.js';
 import {
-  changerStatutDemande, convertirEnContrat, creerDemande, lireChampsDemande, listerDemandes, modifierSalonDemande, statutDemandeValide,
+  changerStatutDemande, convertirEnContrat, creerDemande, lireChampsDemande, listerDemandes, modifierSalonDemande, statutDemandeValide, supprimerDemande,
 } from '../src/entreprise/demandes.js';
 import { construireOverwritesSalon } from '../src/entreprise/salon-dossier.js';
 
@@ -83,4 +83,11 @@ test('salon : identifiant contrôlé ; droits de la catégorie copiés, la perso
   // une personne que la catégorie masquait le voit quand même
   const masquee = construireOverwritesSalon([{ id: DISCORD, type: 1, allow: '0', deny: '1024' }], DISCORD);
   assert.deepEqual(masquee, [{ id: DISCORD, type: 1, allow: '1024', deny: '0' }]);
+});
+
+test('suppression : définitive, introuvable ensuite ; le contrat né de la demande reste', async () => {
+  const d = await prisma.demande.create({ data: { type: 'contact', nom: 'zz-test Suppr', discordId: DISCORD, pseudoDiscord: 'p', message: 'm', statut: 'traitee' } });
+  await supprimerDemande(d.id);
+  assert.equal(await prisma.demande.findUnique({ where: { id: d.id } }), null);
+  await assert.rejects(supprimerDemande(d.id), (e: { status?: number }) => e.status === 404);
 });

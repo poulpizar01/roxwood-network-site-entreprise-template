@@ -84,7 +84,6 @@ function sectionNotes(d) {
     <div class="champ" style="margin-bottom:0;">
       <textarea id="demande-notes" maxlength="2000" rows="3" aria-label="Notes internes" ${peutGerer() ? '' : 'readonly'}>${echapper(d.notes)}</textarea>
     </div>
-    ${peutGerer() ? '<div class="modale-boutons" style="margin-top:8px;"><button type="button" class="btn btn-fantome" data-enregistrer-notes>Enregistrer la note</button></div>' : ''}
   </section>`;
 }
 // salon Discord du dossier : ouvert automatiquement à l'envoi (catégorie réglée dans Paramètres), recréable ou modifiable à la main ;
@@ -96,7 +95,7 @@ function sectionSalon(d) {
       <input type="text" id="demande-salon" inputmode="numeric" placeholder="Identifiant du salon" value="${echapper(d.salonDiscordId || '')}" ${peutGerer() ? '' : 'readonly'} aria-label="Identifiant du salon Discord">
     </div>
     ${d.salonDiscordId ? '' : '<p class="champ-aide">Aucun salon : le bot n’était pas relié à l’envoi, ou la catégorie n’était pas réglée (Paramètres → Discord).</p>'}
-    ${peutGerer() ? `<div class="modale-boutons" style="margin-top:8px;"><button type="button" class="btn btn-fantome" data-enregistrer-salon>Enregistrer le salon</button>${d.salonDiscordId ? '' : '<button type="button" class="btn btn-fantome" data-creer-salon>Créer le salon</button>'}</div>` : ''}
+    ${peutGerer() && !d.salonDiscordId ? '<div class="modale-boutons" style="margin-top:8px;"><button type="button" class="btn btn-fantome" data-creer-salon>Créer le salon</button></div>' : ''}
   </section>`;
 }
 function dessinerTiroir() {
@@ -106,19 +105,23 @@ function dessinerTiroir() {
   $d('tiroir-demande-titre').textContent = d.nom;
   $d('tiroir-demande-sous-titre').innerHTML = `${badgeStatutDemande(d.statut)}<span>${LIBELLES_TYPE[d.type]}</span>`;
   $d('tiroir-demande-corps').innerHTML = sectionDetail(d) + sectionSalon(d) + sectionNotes(d);
+  // pied comme celui d'une facture : actions à gauche (icône + libellé), Supprimer puis Enregistrer à droite — un seul bouton
+  // d'enregistrement pour le salon et les notes (pas d'Annuler : le ✕ ferme)
   const actions = [];
+  const action = (attribut, icone, libelle) => `<button type="button" class="btn btn-fantome" ${attribut}>${gestion.ico(icone)} ${libelle}</button>`;
   if (peutGerer()) {
-    if (d.statut === 'nouvelle') actions.push('<button type="button" class="btn btn-fantome" data-statut="en_cours">Prendre en charge</button>', '<button type="button" class="btn btn-danger" data-statut="refusee">Refuser</button>');
+    if (d.statut === 'nouvelle') actions.push(action('data-statut="en_cours"', 'check', 'Prendre en charge'), action('data-statut="refusee"', 'fermer', 'Refuser'));
     else if (d.statut === 'en_cours') {
-      actions.push('<button type="button" class="btn btn-danger" data-statut="refusee">Refuser</button>');
+      actions.push(action('data-statut="refusee"', 'fermer', 'Refuser'));
       // suivie par quelqu'un d'autre (absent, parti…) : on peut la reprendre, avec confirmation
-      if (d.prisEnChargeParId !== MOI.id) actions.push('<button type="button" class="btn btn-fantome" data-reprendre>Reprendre le suivi</button>');
-      actions.push('<button type="button" class="btn btn-fantome" data-statut="traitee">Marquer traitée</button>');
-      if (peutConvertir()) actions.push('<button type="button" class="btn btn-or" data-convertir-contrat>Convertir en contrat</button>');
+      if (d.prisEnChargeParId !== MOI.id) actions.push(action('data-reprendre', 'sync', 'Reprendre le suivi'));
+      actions.push(action('data-statut="traitee"', 'check', 'Marquer traitée'));
+      if (peutConvertir()) actions.push(action('data-convertir-contrat', 'archive', 'Convertir en contrat'));
     }
-    else if (d.statut === 'refusee') actions.push('<button type="button" class="btn btn-fantome" data-statut="en_cours">Rouvrir</button>');
+    else if (d.statut === 'refusee') actions.push(action('data-statut="en_cours"', 'sync', 'Rouvrir'));
   }
-  $d('tiroir-demande-pied').innerHTML = actions.join('');
+  const fin = peutGerer() ? [`<button type="button" class="btn btn-danger" data-supprimer>${gestion.ico('trash')} Supprimer</button>`, '<button type="button" class="btn btn-or" data-enregistrer>Enregistrer</button>'] : [];
+  $d('tiroir-demande-pied').innerHTML = [...actions, '<span class="tiroir-pied-espace"></span>', ...fin].join('');
 }
 function ouvrirTiroir(id) {
   DEMANDE_OUVERTE = id;
@@ -140,8 +143,8 @@ $d('tiroir-demande').addEventListener('click', async e => {
   if (!d) return;
   const boutonStatut = e.target.closest('[data-statut]');
   if (boutonStatut) { await changerStatut(d, boutonStatut.dataset.statut); return; }
-  if (e.target.closest('[data-enregistrer-notes]')) { await enregistrerNotes(d); return; }
-  if (e.target.closest('[data-enregistrer-salon]')) { await enregistrerSalon(d); return; }
+  if (e.target.closest('[data-enregistrer]')) { await enregistrer(d); return; }
+  if (e.target.closest('[data-supprimer]')) { await supprimer(d); return; }
   if (e.target.closest('[data-creer-salon]')) { await creerSalon(d); return; }
   if (e.target.closest('[data-reprendre]')) { await reprendreSuivi(d); return; }
   if (e.target.closest('[data-convertir-contrat]')) { ouvrirModaleContrat(d); return; }
@@ -161,8 +164,14 @@ async function reprendreSuivi(d) {
   if (!await gestion.confirmer(texte, `Reprendre le suivi de la demande de ${d.nom} ?`, 'Reprendre le suivi', { danger: false })) return;
   await agir(() => socle.api(`/api/demandes/${d.id}/reprendre`, { method: 'POST', body: {} }), 'Suivi repris ✓');
 }
-const enregistrerNotes = d => agir(() => socle.api(`/api/demandes/${d.id}`, { method: 'PATCH', body: { notes: $d('demande-notes').value } }), 'Note enregistrée ✓');
-const enregistrerSalon = d => agir(() => socle.api(`/api/demandes/${d.id}`, { method: 'PATCH', body: { salonDiscordId: $d('demande-salon').value.trim() || null } }), 'Salon enregistré ✓');
+// un seul « Enregistrer » pour ce qui se saisit dans la fiche : salon et notes
+const enregistrer = d => agir(() => socle.api(`/api/demandes/${d.id}`, { method: 'PATCH', body: { notes: $d('demande-notes').value, salonDiscordId: $d('demande-salon').value.trim() || null } }), 'Demande enregistrée ✓');
+async function supprimer(d) {
+  if (!await gestion.confirmer('La demande disparaît définitivement. Le salon Discord et le contrat éventuel ne sont pas touchés.', `Supprimer la demande de ${d.nom} ?`, 'Supprimer la demande', { danger: true })) return;
+  try { await socle.api(`/api/demandes/${d.id}`, { method: 'DELETE' }); fermerTiroir(); gestion.notifier('Demande supprimée ✓'); }
+  catch (e) { gestion.message('zone-message-demandes', e.message); }
+  await chargerDemandes();
+}
 const creerSalon = d => agir(() => socle.api(`/api/demandes/${d.id}/salon`, { method: 'POST', body: {} }), 'Salon créé ✓');
 
 // ---- convertir en contrat ----
