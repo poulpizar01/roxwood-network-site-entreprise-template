@@ -19,7 +19,8 @@ export function lireDuty(payload: unknown, sentAt: unknown): EvenementDuty | nul
   if (!sens) return null;
   const discordId = String(p.playerDiscord ?? '').trim();
   if (!/^\d{15,22}$/.test(discordId)) return null;
-  const instant = new Date(String(sentAt ?? ''));
+  const log = typeof p.logTimestamp === 'string' ? new Date(p.logTimestamp) : null;
+  const instant = log && !Number.isNaN(log.getTime()) ? log : new Date(String(sentAt ?? ''));
   if (Number.isNaN(instant.getTime())) return null;
   const nom = String(p.playerName ?? '').replace(/[`*_<>@]/g, '').trim().slice(0, 120);
   return { sens, discordId, nom, instant, serviceId: `duty-${discordId}-${instant.getTime()}` };

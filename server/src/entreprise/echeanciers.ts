@@ -106,8 +106,8 @@ export async function listerEcheanciers() {
   });
 }
 
-async function echeancierOu404(id: number) {
-  const e = await prisma.echeancier.findUnique({ where: { id }, include: INCLURE_ECHEANCES });
+async function echeancierOu404(id: number, db: Prisma.TransactionClient = prisma) {
+  const e = await db.echeancier.findUnique({ where: { id }, include: INCLURE_ECHEANCES });
   if (!e) throw new Refus('Échéancier introuvable.', 404);
   return e;
 }
@@ -161,6 +161,7 @@ function lireGenerateur(b: Record<string, unknown>): { dates: string[]; montants
   if (!RYTHMES.includes(b.rythme as Rythme)) throw new Refus('Choisissez le rythme : journalier, hebdomadaire ou mensuel.');
   const total = Math.round(Number(b.montantTotal));
   if (!Number.isFinite(total) || total <= 0 || total > ENTIER_MAX) throw new Refus('Le montant total doit être un nombre positif.');
+  if (total < nombre) throw new Refus('Le montant doit couvrir au moins 1 $ par échéance.');
   return { dates: datesGenerees(b.premiere as string, b.rythme as Rythme, nombre), montants: repartir(total, nombre) };
 }
 
@@ -202,12 +203,12 @@ export async function creerEcheancierPaiement(factureId: number, b: Record<strin
 }
 
 export async function supprimerEcheancier(id: number): Promise<void> {
-  const e = await echeancierOu404(id);
-  if (e.contratId !== null) throw new Refus('L’échéancier d’un contrat suit le contrat : modifiez le contrat plutôt que de le supprimer.', 409);
   await prisma.$transaction(async tx => {
+    await verrouillerEcheancier(tx, id);
+    const e = await echeancierOu404(id, tx);
+    if (e.contratId !== null) throw new Refus('L’échéancier d’un contrat suit le contrat : modifiez le contrat plutôt que de le supprimer.', 409);
+    if (e.type === 'paiement' && e.echeances.some(x => x.payeeLe)) throw new Refus('Annulez les règlements avant de supprimer cet échéancier.', 409);
     await tx.echeancier.delete({ where: { id } });
-    // le plan disparaît : la facture reste, mais ne doit pas rester « payée » pour un règlement qui n'existe plus
-    if (e.factureId) await tx.facture.updateMany({ where: { id: e.factureId, statutPaiement: 'PAYEE' }, data: { statutPaiement: 'EN_ATTENTE' } });
   });
 }
 
@@ -221,6 +222,7 @@ function lireEcheance(b: Record<string, unknown>) {
 
 export async function ajouterEcheance(echeancierId: number, b: Record<string, unknown>) {
   const e = await echeancierOu404(echeancierId);
+  if (e.type === 'paiement') throw new Refus('Le total du plan de paiement doit rester égal à la facture.', 409);
   if (e.contratId !== null) throw new Refus('Les échéances d’un contrat suivent son calendrier : modifiez le contrat pour en ajouter.', 409);
   return prisma.echeance.create({ data: { echeancierId, ...lireEcheance(b) } });
 }
@@ -235,13 +237,16 @@ async function echeanceModifiable(id: number) {
 export async function modifierEcheance(id: number, b: Record<string, unknown>): Promise<void> {
   const e = await echeanceModifiable(id);
   const donnees = lireEcheance(b);
+  const plan = await prisma.echeancier.findUnique({ where: { id: e.echeancierId }, select: { type: true } });
+  if (plan?.type === 'paiement' && donnees.montant !== e.montant) throw new Refus('Le total du plan de paiement doit rester égal à la facture.', 409);
   // une échéance de période de contrat garde sa date prévue (le premier jour de sa période) : seul son montant change
   await prisma.echeance.update({ where: { id }, data: e.periodeDebut ? { montant: donnees.montant, note: donnees.note } : donnees });
 }
 
 export async function supprimerEcheance(id: number): Promise<void> {
   const e = await echeanceModifiable(id);
-  const echeancier = await prisma.echeancier.findUnique({ where: { id: e.echeancierId }, select: { contratId: true } });
+  const echeancier = await prisma.echeancier.findUnique({ where: { id: e.echeancierId }, select: { contratId: true, type: true } });
+  if (echeancier?.type === 'paiement') throw new Refus('Ce versement fait partie du total de la facture.', 409);
   if (echeancier?.contratId !== null) throw new Refus('Une échéance de contrat ne se supprime pas : mettez fin au contrat ou changez ses dates.', 409);
   await prisma.echeance.delete({ where: { id } });
 }
@@ -265,6 +270,7 @@ export async function etendre(echeancierId: number, nombre: number, rythme: unkn
   if (!Number.isInteger(nombre) || nombre < 1 || nombre > 60) throw new Refus('Le nombre d’échéances à ajouter doit être entre 1 et 60.');
   if (!RYTHMES.includes(rythme as Rythme)) throw new Refus('Choisissez le rythme : journalier, hebdomadaire ou mensuel.');
   const e = await echeancierOu404(echeancierId);
+  if (e.type === 'paiement') throw new Refus('Le total du plan de paiement doit rester égal à la facture.', 409);
   if (e.contratId !== null) throw new Refus('Les échéances d’un contrat suivent son calendrier : modifiez le contrat pour le prolonger.', 409);
   if (!e.echeances.length) throw new Refus('Ajoutez d’abord au moins une échéance pour fixer le montant et le rythme.');
   const derniere = e.echeances[e.echeances.length - 1];
@@ -348,30 +354,31 @@ export function planifierFacturationAutomatique(): void {
 // Marquer réglée ne crée aucune facture : seule la facture d'origine change de statut, une fois toutes ses échéances
 // réglées. Annuler le règlement la rouvre si c'est son dernier versement qui l'avait close.
 export async function marquerEcheancePayee(id: number, moyenPaiement: unknown): Promise<void> {
-  const e = await prisma.echeance.findUnique({ where: { id }, include: { echeancier: true } });
-  if (!e) throw new Refus('Échéance introuvable.', 404);
-  if (e.echeancier.type !== 'paiement') throw new Refus('Seule une échéance de paiement se règle ainsi.');
-  if (e.payeeLe) return;
-  await prisma.echeance.update({ where: { id }, data: { payeeLe: new Date(), moyenPaiement: texte(moyenPaiement, 40) } });
-  await soldeFactureSelonEcheances(e.echeancierId);
+  await reglerVersement(id, { payeeLe: new Date(), moyenPaiement: texte(moyenPaiement, 40) });
 }
 export async function demarquerEcheancePayee(id: number): Promise<void> {
-  const e = await prisma.echeance.findUnique({ where: { id }, include: { echeancier: true } });
-  if (!e) throw new Refus('Échéance introuvable.', 404);
-  if (e.echeancier.type !== 'paiement') throw new Refus('Seule une échéance de paiement se règle ainsi.');
-  await prisma.echeance.update({ where: { id }, data: { payeeLe: null, moyenPaiement: '' } });
-  await soldeFactureSelonEcheances(e.echeancierId);
+  await reglerVersement(id, { payeeLe: null, moyenPaiement: '' });
 }
-// la facture passe « payée » quand sa dernière échéance se règle, et redevient « en attente » si on annule ce dernier
-// règlement — jamais touchée par un simple versement partiel
-async function soldeFactureSelonEcheances(echeancierId: number): Promise<void> {
-  const [echeancier, echeances] = await Promise.all([
-    prisma.echeancier.findUnique({ where: { id: echeancierId }, select: { factureId: true } }),
-    prisma.echeance.findMany({ where: { echeancierId }, select: { payeeLe: true } }),
-  ]);
-  if (!echeancier?.factureId) return;
-  const statutPaiement = echeances.every(x => x.payeeLe) ? 'PAYEE' : 'EN_ATTENTE';
-  await prisma.facture.updateMany({ where: { id: echeancier.factureId, statutPaiement: { not: 'ANNULEE' } }, data: { statutPaiement } });
+
+async function verrouillerEcheancier(tx: Prisma.TransactionClient, id: number): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM echeanciers WHERE id = ${id} FOR UPDATE`;
+}
+
+async function reglerVersement(id: number, data: { payeeLe: Date | null; moyenPaiement: string }): Promise<void> {
+  await prisma.$transaction(async tx => {
+    const lien = await tx.echeance.findUnique({ where: { id }, select: { echeancierId: true } });
+    if (!lien) throw new Refus('Échéance introuvable.', 404);
+    await verrouillerEcheancier(tx, lien.echeancierId);
+    const e = await tx.echeance.findUnique({ where: { id }, include: { echeancier: true } });
+    if (!e) throw new Refus('Échéance introuvable.', 404);
+    if (e.echeancier.type !== 'paiement' || !e.echeancier.factureId) throw new Refus('Seule une échéance de paiement se règle ainsi.');
+    const facture = await tx.facture.findUniqueOrThrow({ where: { id: e.echeancier.factureId }, select: { id: true, total: true, statutPaiement: true } });
+    if (facture.statutPaiement === 'ANNULEE') throw new Refus('Cette facture est annulée.', 409);
+    if (!e.payeeLe || !data.payeeLe) await tx.echeance.update({ where: { id }, data });
+    const totaux = await tx.echeance.aggregate({ where: { echeancierId: e.echeancierId, payeeLe: { not: null } }, _sum: { montant: true } });
+    const statutPaiement = (totaux._sum.montant ?? 0) === facture.total ? 'PAYEE' : 'EN_ATTENTE';
+    await tx.facture.updateMany({ where: { id: facture.id, statutPaiement: { not: 'ANNULEE' } }, data: { statutPaiement } });
+  });
 }
 
 // ---- synchronisation avec un contrat client (appelée par contrats.ts et au démarrage) ----

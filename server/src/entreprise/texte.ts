@@ -32,6 +32,11 @@ export const debutSemaineParis = (jour?: string): Date => {
 // étant toujours en avance sur UTC, cet instant (minuit à Paris) tombe la veille en UTC, et versJour renverrait donc
 // le dimanche au lieu du lundi. Relire le jour en heure de Paris, comme la date du jour elle-même (jourParis).
 export const jourDeSemaineParis = (d: Date): string => jourParis(d);
+export function finSemaineParis(debut: Date): Date {
+  const lundiSuivant = versDate(jourDeSemaineParis(debut));
+  lundiSuivant.setUTCDate(lundiSuivant.getUTCDate() + 7);
+  return debutSemaineParis(versJour(lundiSuivant));
+}
 
 // jours de la semaine (minuscules, sans accent), pour un réglage qui limite une action à certains jours (accès
 // client aux contrats, parametres.ts) ; le nom du jour à Paris se lit en français, toujours en minuscules dans cette

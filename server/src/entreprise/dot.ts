@@ -13,7 +13,7 @@ import { nomComplet } from './rh.js';
 import { heuresServiceSemaine } from './services.js';
 import { pointGraphique, reperesGraphique, type ResumeSemaine } from './stats/graphique-dot.js';
 import { caBrutReleve, estLigneTotal as estTotal, impotDot, indexColonne, minuscules, montantReleve, normaliserNom } from './stats/releve.js';
-import { debutSemaineParis, jourDeSemaineParis, jourValide, versDate } from './texte.js';
+import { debutSemaineParis, finSemaineParis, jourDeSemaineParis, jourValide, versDate } from './texte.js';
 
 export const CLE_SOLDE_BANCAIRE = 'dot.solde_bancaire';
 export const TYPES_ECRITURE = ['depense', 'retrait', 'recette'];
@@ -30,7 +30,7 @@ export function semaineDemandee(valeur: unknown): string {
 // clé @db.Date (compta_dot_ecritures, primes_employe_semaine, compta_dot_declarations) depuis une semaine AAAA-MM-JJ
 export const semaineDate = (iso: string): Date => versDate(iso);
 function plageSemaine(iso: string) {
-  const debut = debutSemaineParis(iso), fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
+  const debut = debutSemaineParis(iso), fin = finSemaineParis(debut);
   return { debut, fin };
 }
 

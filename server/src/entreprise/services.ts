@@ -16,7 +16,7 @@ import { parisVersDate } from './agenda-regles.js';
 import { Refus } from './refus.js';
 import { nomComplet } from './rh.js';
 import { lireDuty, normaliser, type EvenementDuty } from './services-duty.js';
-import { debutSemaineParis, jourParis, versDate, versJour } from './texte.js';
+import { debutSemaineParis, finSemaineParis, jourParis, versDate, versJour } from './texte.js';
 
 type Fiche = { id: number; prenom: string; nom: string; discordId: string | null };
 // fiche RH de la personne : par identifiant Discord, sinon par « Prénom Nom »
@@ -133,8 +133,7 @@ export const terminerServiceDe = (employeId: number): Promise<void> =>
 // n'a pas été corrigée (l'anomalie disparaît alors) ou ignorée (traite = true : ses heures restent exclues).
 export async function heuresServiceSemaine(iso?: string): Promise<Map<number, number>> {
   const debut = debutSemaineParis(iso);
-  const fin = new Date(debut);
-  fin.setUTCDate(fin.getUTCDate() + 7);
+  const fin = finSemaineParis(debut);
   const lignes = await prisma.service.findMany({
     where: { employeId: { not: null }, anomalie: '', fin: { not: null }, debut: { gte: debut, lt: fin } },
     select: { employeId: true, debut: true, fin: true },
@@ -152,8 +151,7 @@ export async function heuresServiceSemaine(iso?: string): Promise<Map<number, nu
 // dont les heures manquent encore au total ; enService : service ouvert en ce moment (quelle que soit la semaine vue).
 export async function tempsServiceSemaine(iso?: string) {
   const debut = debutSemaineParis(iso);
-  const fin = new Date(debut);
-  fin.setUTCDate(fin.getUTCDate() + 7);
+  const fin = finSemaineParis(debut);
   const [minutes, anomalies, ouverts] = await Promise.all([
     heuresServiceSemaine(iso),
     prisma.service.groupBy({ by: ['employeId'], where: { employeId: { not: null }, anomalie: { not: '' }, traite: false, debut: { gte: debut, lt: fin } }, _count: { _all: true } }),
@@ -170,8 +168,7 @@ export async function tempsServiceSemaine(iso?: string) {
 // anomalie. Prévenu avant de valider la déclaration DOT, qui fige les heures telles qu'elles sont alors.
 export async function servicesEnSuspensSemaine(iso?: string): Promise<{ ouverts: number; anomalies: number }> {
   const debut = debutSemaineParis(iso);
-  const fin = new Date(debut);
-  fin.setUTCDate(fin.getUTCDate() + 7);
+  const fin = finSemaineParis(debut);
   const [ouverts, anomalies] = await Promise.all([
     prisma.service.count({ where: { employeId: { not: null }, fin: null, debut: { gte: debut, lt: fin } } }),
     prisma.service.count({ where: { employeId: { not: null }, fin: { not: null }, anomalie: { not: '' }, debut: { gte: debut, lt: fin } } }),

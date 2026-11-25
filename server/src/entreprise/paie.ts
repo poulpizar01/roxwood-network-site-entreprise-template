@@ -6,7 +6,7 @@ import { prisma } from '../socle/db.js';
 import { tousLesGrades } from '../socle/droits.js';
 import { facturesComptees } from './facture.js';
 import { nomComplet } from './rh.js';
-import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
+import { debutSemaineParis, finSemaineParis, jourDeSemaineParis } from './texte.js';
 
 export type Palier = { seuil: number; prime: number };
 export const DOMAINES_PALIER = ['run', 'facture'] as const;
@@ -71,7 +71,7 @@ export async function statsEmployeSemaine(employeId: number, semaineDemandee?: s
   const semaineCourante = debutSemaineParis();
   const debut = semaineDemandee ? debutSemaineParis(semaineDemandee) : semaineCourante;
   if (debut > semaineCourante) debut.setTime(semaineCourante.getTime());
-  const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
+  const fin = finSemaineParis(debut);
   const comptees = await facturesComptees();
   const [runs, factures] = await Promise.all([
     prisma.run.aggregate({ where: { employeId, creeLe: { gte: debut, lt: fin } }, _sum: { quantite: true } }),

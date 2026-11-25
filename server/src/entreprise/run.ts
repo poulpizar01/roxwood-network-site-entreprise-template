@@ -10,7 +10,7 @@ import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { entierRegle } from './parametres.js';
 import { nomComplet } from './rh.js';
-import { debutSemaineParis, instantEvenement, jourDeSemaineParis } from './texte.js';
+import { debutSemaineParis, finSemaineParis, instantEvenement, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -66,7 +66,7 @@ export async function monQuota(employeId: number) {
   const employe = await prisma.employe.findUnique({ where: { id: employeId }, select: { gradeCle: true } });
   if (!employe) return null;
   const debut = debutSemaineParis();
-  const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
+  const fin = finSemaineParis(debut);
   const [somme, quotas] = await Promise.all([
     prisma.run.aggregate({ where: { employeId, creeLe: { gte: debut, lt: fin } }, _sum: { quantite: true } }),
     quotasRun(),
@@ -81,7 +81,7 @@ export async function classementRuns(semaineDemandee?: string) {
   const semaineCourante = debutSemaineParis();
   const debut = semaineDemandee ? debutSemaineParis(semaineDemandee) : semaineCourante;
   if (debut > semaineCourante) debut.setTime(semaineCourante.getTime());
-  const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
+  const fin = finSemaineParis(debut);
   const [employes, sommes, total, quotas] = await Promise.all([
     prisma.employe.findMany({ where: { statut: 'actif' } }),
     prisma.run.groupBy({ by: ['employeId'], where: { creeLe: { gte: debut, lt: fin }, employeId: { not: null } }, _sum: { quantite: true } }),

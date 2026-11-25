@@ -115,12 +115,12 @@ function dessinerTiroir() {
     gestion.actionsPied([
       facturation && !c.contrat ? '<button type="button" class="btn btn-fantome" data-etendre>Prolonger</button>' : '',
       facturation ? '<button type="button" class="btn btn-fantome" data-ajuster>Nouveau montant…</button>' : '',
-      libre ? `<button type="button" class="btn btn-fantome" data-ajouter-echeance>${gestion.ico('plus')} Ajouter une échéance</button>` : '',
+      libre && facturation ? `<button type="button" class="btn btn-fantome" data-ajouter-echeance>${gestion.ico('plus')} Ajouter une échéance</button>` : '',
     ].filter(Boolean)),
   ].filter(Boolean) : [];
   // actions sur leur ligne, puis Supprimer et l'action principale groupés à gauche (même pied que les autres tiroirs)
   const fin = peutGerer() ? [
-    !c.contrat ? `<button type="button" class="btn btn-danger" data-supprimer-echeancier>${gestion.ico('trash')} Supprimer</button>` : '',
+    !c.contrat && !c.echeances.some(e => e.payeeLe) ? `<button type="button" class="btn btn-danger" data-supprimer-echeancier>${gestion.ico('trash')} Supprimer</button>` : '',
     facturation ? '<button type="button" class="btn btn-or" data-facturer-selection disabled>Facturer</button>' : '',
   ].filter(Boolean) : [];
   $c('tiroir-echeancier-pied').innerHTML = `${actions.length ? `<div class="tiroir-pied-actions">${actions.join('')}</div>` : ''}${fin.length ? `<div class="tiroir-pied-fin">${fin.join('')}</div>` : ''}`;
@@ -184,7 +184,7 @@ async function facturer(c) {
   if (ok) gestion.message('zone-message-tiroir-echeancier', '');
 }
 async function supprimerEcheancier(c) {
-  if (!await gestion.confirmer(`Le plan et ses ${c.echeances.length} échéance${c.echeances.length > 1 ? 's' : ''} sont supprimés.${c.type === 'paiement' ? ' La facture reste, redevenue « en attente » si elle était payée.' : ' Les factures déjà créées restent.'}`,
+  if (!await gestion.confirmer(`Le plan et ses ${c.echeances.length} échéance${c.echeances.length > 1 ? 's' : ''} sont supprimés.${c.type === 'paiement' ? ' La facture reste.' : ' Les factures déjà créées restent.'}`,
     'Supprimer cet échéancier ?', 'Supprimer l’échéancier')) return;
   if (await action(socle.api(`/api/echeanciers/${c.id}`, { method: 'DELETE' }), 'zone-message-tiroir-echeancier', 'Échéancier supprimé ✓')) fermerTiroir();
 }
@@ -202,16 +202,17 @@ function ouvrirModaleEcheance(c, e) {
   $c('echeance-montant').value = e ? e.montant : '';
   $c('echeance-note').value = e ? e.note : '';
   const payee = !!(e && e.payeeLe);
+  $c('echeance-montant').readOnly = paiement;
   $c('echeance-montant').disabled = $c('echeance-note').disabled = payee;
   $c('champ-echeance-moyen').classList.toggle('cache', !(paiement && e && !payee));
   $c('echeance-moyen').value = '';
-  $c('bouton-supprimer-echeance').classList.toggle('cache', !e || payee || !!c.contrat);
+  $c('bouton-supprimer-echeance').classList.toggle('cache', !e || payee || paiement || !!c.contrat);
   $c('bouton-regler-echeance').classList.toggle('cache', !(paiement && e && !payee));
   $c('bouton-annuler-reglement').classList.toggle('cache', !payee);
   $c('bouton-enregistrer-echeance').classList.toggle('cache', payee);
   $c('bouton-enregistrer-echeance').textContent = e ? 'Enregistrer' : 'Ajouter';
   $c('modale-echeance').classList.remove('cache');
-  (payee ? $c('bouton-annuler-reglement') : $c('echeance-montant')).focus();
+  (payee ? $c('bouton-annuler-reglement') : paiement ? $c('echeance-date') : $c('echeance-montant')).focus();
 }
 const fermerModaleEcheance = () => $c('modale-echeance').classList.add('cache');
 $c('fermer-modale-echeance').addEventListener('click', fermerModaleEcheance);

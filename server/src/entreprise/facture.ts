@@ -16,7 +16,7 @@ import { entierRegle } from './parametres.js';
 import { Refus } from './refus.js';
 import { nomComplet } from './rh.js';
 import { salonIntrouvable } from './salon-discord.js';
-import { debutSemaineParis, instantEvenement, jourDeSemaineParis } from './texte.js';
+import { debutSemaineParis, finSemaineParis, instantEvenement, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -264,11 +264,16 @@ export async function recevoirFactureMonitoring(e: EvenementBot): Promise<void> 
     console.warn('[facture] événement monitoring.invoice ignoré : montant invalide');
     return;
   }
-  // identifiant propre à l'événement : le bot renvoie le même corps (même sentAt) à chaque nouvelle tentative, donc une
-  // reprise après un échec d'enregistrement du socle retombe sur la même ligne au lieu d'en créer une seconde
-  const idBot = 'inv-' + crypto.createHash('sha256')
+  // Le log conserve son identité si le bot le renvoie à une autre heure.
+  const log = typeof p.logTimestamp === 'string' ? new Date(p.logTimestamp) : null;
+  const empreinte = (champs: unknown[]) => 'inv-' + crypto.createHash('sha256')
+    .update(JSON.stringify(champs)).digest('hex').slice(0, 40);
+  const ancienId = 'inv-' + crypto.createHash('sha256')
     .update([e.sentAt, discordId, parsed.amount, parsed.payerName, p.jobId, p.logTimestamp, p.description].map(v => String(v ?? '')).join('|'))
     .digest('hex').slice(0, 40);
+  const idBot = log && !Number.isNaN(log.getTime())
+    ? empreinte([log.toISOString(), discordId, p.jobId, parsed.payerName, montant]) : ancienId;
+  if (ancienId !== idBot && await prisma.facture.findUnique({ where: { idBot: ancienId }, select: { id: true } })) return;
   await prisma.facture.create({
     data: {
       idBot,
@@ -308,7 +313,7 @@ export async function classementFactures(semaineDemandee?: string) {
   const semaineCourante = debutSemaineParis();
   const debut = semaineDemandee ? debutSemaineParis(semaineDemandee) : semaineCourante;
   if (debut > semaineCourante) debut.setTime(semaineCourante.getTime());
-  const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
+  const fin = finSemaineParis(debut);
   const comptees = await facturesComptees();
   const [employes, factures, total, quotas] = await Promise.all([
     prisma.employe.findMany({ where: { statut: 'actif' } }),

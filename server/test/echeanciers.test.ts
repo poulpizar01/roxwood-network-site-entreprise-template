@@ -8,7 +8,7 @@ import { prisma } from '../src/socle/db.js';
 import { creerContrat, modifierContrat } from '../src/entreprise/contrats.js';
 import { etatsPeriodes, periode, type FactureContrat } from '../src/entreprise/contrats-periodes.js';
 import {
-  creerEcheancierPaiement, echeanciersDeContrats, facturerEcheances, marquerEcheancePayee, planPaiementDeFacture,
+  creerEcheancierPaiement, echeanciersDeContrats, facturerEcheances, marquerEcheancePayee, planPaiementDeFacture, modifierEcheance, supprimerEcheancier,
   facturerEtEnvoyerAutomatique, prolongerEcheanciers, repartir, reprendreContratsExistants, synchroniserEcheancierContrat,
 } from '../src/entreprise/echeanciers.js';
 import { jourParis, versDate, versJour } from '../src/entreprise/texte.js';
@@ -129,8 +129,10 @@ test('paiement en plusieurs fois : la facture se solde au dernier règlement, la
   const echeances = await prisma.echeance.findMany({ where: { echeancierId: e.id }, orderBy: { datePrevue: 'asc' } });
   assert.deepEqual(echeances.map(x => x.montant), [333, 333, 334]);
   assert.ok(await planPaiementDeFacture(f.id));
+  await assert.rejects(modifierEcheance(echeances[0].id, { datePrevue: jourParis(), montant: 1 }), /total/);
   for (const x of echeances.slice(0, 2)) await marquerEcheancePayee(x.id, 'Espèces');
   assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: f.id } })).statutPaiement, 'EN_ATTENTE');
+  await assert.rejects(supprimerEcheancier(e.id), /Annulez les règlements/);
   await marquerEcheancePayee(echeances[2].id, 'Espèces');
   assert.equal((await prisma.facture.findUniqueOrThrow({ where: { id: f.id } })).statutPaiement, 'PAYEE');
 });
