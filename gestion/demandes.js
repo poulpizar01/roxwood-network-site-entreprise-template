@@ -121,8 +121,8 @@ function dessinerTiroir() {
     else if (d.statut === 'refusee') actions.push(action('data-statut="en_cours"', 'sync', 'Rouvrir'));
   }
   const fin = peutGerer() ? [`<button type="button" class="btn btn-danger" data-supprimer>${gestion.ico('trash')} Supprimer</button>`, '<button type="button" class="btn btn-or" data-enregistrer>Enregistrer</button>'] : [];
-  // Supprimer et Enregistrer restent groupés à droite, même quand les actions prennent une ligne entière
-  $d('tiroir-demande-pied').innerHTML = `<div class="tiroir-pied-actions">${actions.join('')}</div><div class="tiroir-pied-fin">${fin.join('')}</div>`;
+  // Supprimer et Enregistrer groupés à gauche, puis les actions (qui se replient entre elles)
+  $d('tiroir-demande-pied').innerHTML = `<div class="tiroir-pied-fin">${fin.join('')}</div><div class="tiroir-pied-actions">${actions.join('')}</div>`;
 }
 function ouvrirTiroir(id) {
   DEMANDE_OUVERTE = id;
