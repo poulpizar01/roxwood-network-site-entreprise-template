@@ -29,8 +29,11 @@ test('lireChampsDemande : type, nom et message obligatoires ; champs de devis ig
   assert.throws(() => lireChampsDemande({ ...base, message: '' }), /message/);
   const contact = lireChampsDemande({ ...base, type: 'contact', prestation: 'x', budget: 'y', dateSouhaitee: 'z' });
   assert.deepEqual([contact.prestation, contact.budget, contact.dateSouhaitee], [null, null, null]);
-  const devis = lireChampsDemande({ ...base, prestation: 'Conseil', budget: '500 $' });
-  assert.deepEqual([devis.prestation, devis.budget], ['Conseil', '500 $']);
+  const devis = lireChampsDemande({ ...base, prestation: 'Conseil', budget: '500 $', dateSouhaitee: '2026-12-12' });
+  assert.deepEqual([devis.prestation, devis.budget, devis.dateSouhaitee], ['Conseil', '500 $', '2026-12-12']);
+  // une date impossible ou mal écrite est refusée ; vide, elle reste facultative
+  for (const date of ['2026-02-31', '12/12/2026', 'dès que possible']) assert.throws(() => lireChampsDemande({ ...base, dateSouhaitee: date }), /date souhaitée/);
+  assert.equal(lireChampsDemande({ ...base, dateSouhaitee: '' }).dateSouhaitee, null);
 });
 
 test('dépôt : sans identité Discord, refusé (401) ; une seule demande ouverte par personne', async () => {

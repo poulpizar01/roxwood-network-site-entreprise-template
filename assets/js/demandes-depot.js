@@ -38,9 +38,8 @@
   qui.append('Connecté en tant que ', pseudo, '. ', changer);
   const nom = saisie('text', 100, 'name'); nom.required = true;
   const entreprise = saisie('text', 100, 'organization');
-  const telephone = saisie('tel', 30, 'tel');
   const blocDevis = el('div', 'avis-form'); blocDevis.hidden = true;
-  const dateSouhaitee = saisie('text', 100); dateSouhaitee.placeholder = 'Ex. 12/12/2026, ou dès que possible';
+  const dateSouhaitee = saisie('text', 10);   // champDateFr (champs-date.js) en fait un champ jj/mm/aaaa avec calendrier ; .value reste AAAA-MM-JJ
   const budget = saisie('text', 60);
   const zoneService = el('div', 'champ');   // select si la vitrine a des services, sinon texte libre
   let service = saisie('text', 120);
@@ -52,8 +51,8 @@
   const libelleService = el('label', '', 'Service souhaité'); libelleService.htmlFor = 'dm-service'; service.id = 'dm-service';
   zoneService.append(libelleService, service);
   blocDevis.append(zoneService, champ('dm-date', 'Date souhaitée', dateSouhaitee, true), champ('dm-budget', 'Budget', budget, true));
-  form.append(qui, champ('dm-nom', 'Nom', nom), champ('dm-entreprise', 'Entreprise', entreprise, true), champ('dm-tel', 'Téléphone', telephone, true),
-    blocDevis, champ('dm-message', 'Votre message', message), erreur, boutons);
+  if (typeof champDateFr === 'function') champDateFr(dateSouhaitee);
+  form.append(qui, champ('dm-nom', 'Nom', nom), champ('dm-entreprise', 'Entreprise', entreprise, true), blocDevis, champ('dm-message', 'Votre message', message), erreur, boutons);
 
   // étape 3 : merci
   const merci = el('div', 'avis-bloc'); merci.hidden = true;
@@ -115,8 +114,7 @@
     envoyer.disabled = true;
     try {
       const r = await fetch('/api/demandes', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-        type, nom: nom.value.trim(), entrepriseNom: entreprise.value.trim(), contactTelephone: telephone.value.trim(),
-        prestation: service.value.trim(), dateSouhaitee: dateSouhaitee.value.trim(), budget: budget.value.trim(), message: message.value.trim() }) });
+        type, nom: nom.value.trim(), entrepriseNom: entreprise.value.trim(), prestation: service.value.trim(), dateSouhaitee: dateSouhaitee.value.trim(), budget: budget.value.trim(), message: message.value.trim() }) });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'L’envoi a échoué. Réessayez dans un instant.');
       form.hidden = true; merci.hidden = false; message.value = ''; fermer.focus();
     } catch (err) { dire(err.message); }

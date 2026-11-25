@@ -1,0 +1,50 @@
+/* Calendrier partagé par la vitrine et la gestion. */
+.champ-date-enveloppe { position: relative; display: block; width: 100%; }
+.champ-date-enveloppe > input[data-selecteur-date] { padding-right: 42px; }
+/* top fixe (pas 50% de l'enveloppe) : un message d'erreur affiché sous le champ (erreurChampFr) agrandit l'enveloppe
+   sans déplacer le bouton, qui doit rester centré sur le champ lui-même, pas sur l'ensemble champ + erreur */
+.champ-date-bouton {
+  position: absolute; right: 5px; top: 7px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border: none; border-radius: var(--radius-sm, max(2px, calc(var(--radius) - 4px)));
+  background: transparent; color: var(--ink2); cursor: pointer;
+  transition: background var(--transition, 200ms ease), color var(--transition, 200ms ease);
+}
+.champ-date-icone { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.champ-date-bouton .champ-date-icone { width: 18px; height: 18px; }
+.champ-date-bouton:hover, .champ-date-bouton:focus-visible { color: var(--ink); background: var(--accent-soft); }
+.champ-date-bouton[aria-expanded="true"] { color: var(--accent-dark); background: var(--accent-soft); }
+
+.champ-date-panneau {
+  position: fixed; z-index: 100100; /* au-dessus des modales (100000) */ width: 272px; max-width: calc(100vw - 16px);
+  background: var(--bg2); border: 1px solid var(--accent); border-radius: var(--radius-sm, max(2px, calc(var(--radius) - 4px)));
+  box-shadow: var(--shadow); padding: 12px; max-height: calc(100vh - 16px); overflow: auto;
+}
+.champ-date-entete { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.champ-date-titre { font-size: var(--fs-3, 0.875rem); font-weight: 600; color: var(--ink); text-transform: capitalize; }
+.champ-date-nav {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  border: none; border-radius: var(--radius-sm, max(2px, calc(var(--radius) - 4px))); background: transparent; color: var(--ink2); cursor: pointer;
+  transition: background var(--transition, 200ms ease), color var(--transition, 200ms ease);
+}
+.champ-date-nav .champ-date-icone { width: 16px; height: 16px; transform: rotate(90deg); }
+.champ-date-nav--apres .champ-date-icone { transform: rotate(-90deg); }
+.champ-date-nav:hover, .champ-date-nav:focus-visible { color: var(--ink); background: var(--accent-soft); }
+.champ-date-jours { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: var(--fs-1, 0.75rem); color: var(--ink2); margin-bottom: 4px; }
+.champ-date-grille { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.champ-date-case {
+  aspect-ratio: 1; min-height: 34px; border: none; border-radius: var(--radius-sm, max(2px, calc(var(--radius) - 4px))); background: transparent;
+  font-size: var(--fs-2, 0.8125rem); font-family: inherit; color: var(--ink); cursor: pointer;
+  transition: background var(--transition, 200ms ease), color var(--transition, 200ms ease);
+}
+.champ-date-case--vide { cursor: default; }
+.champ-date-case:not(.champ-date-case--vide):hover { background: var(--accent-soft); }
+.champ-date-case--aujourdhui { color: var(--accent-dark); font-weight: 700; }
+.champ-date-case--active { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.champ-date-case:focus-visible { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
+.champ-date-aujourdhui {
+  display: block; width: 100%; margin-top: 10px; padding: 8px; border: none; border-radius: var(--radius-sm, max(2px, calc(var(--radius) - 4px)));
+  background: transparent; color: var(--ink2); font-size: var(--fs-1, 0.75rem); cursor: pointer;
+  transition: background var(--transition, 200ms ease), color var(--transition, 200ms ease);
+}
+.champ-date-aujourdhui:hover, .champ-date-aujourdhui:focus-visible { color: var(--ink); background: var(--accent-soft); }

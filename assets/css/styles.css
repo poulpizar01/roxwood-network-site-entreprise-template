@@ -149,3 +149,5 @@ svg.fleche{width:1.1em;height:1.1em;vertical-align:-.2em;fill:none;stroke:curren
 .avis-note__etoiles label.est-pleine svg{fill:var(--accent);stroke:var(--accent)}
 .avis-note__etoiles input:focus-visible+.avis-note__etoile{outline:2px solid var(--accent);outline-offset:1px}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.champ-erreur{margin:0;font-size:14px;color:var(--erreur,#b42318)}
+.champ input.champ-invalide{border-color:var(--erreur,#b42318)}

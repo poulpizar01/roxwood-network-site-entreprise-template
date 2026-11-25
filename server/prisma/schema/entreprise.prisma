@@ -671,7 +671,6 @@ model Demande {
   discordId        String    @map("discord_id") @db.VarChar(22)
   pseudoDiscord    String    @map("pseudo_discord") @db.VarChar(100)
   entrepriseNom    String?   @map("entreprise_nom") @db.VarChar(100)
-  contactTelephone String?   @map("contact_telephone") @db.VarChar(30)
   prestation       String?   @db.VarChar(120) // service souhaité (devis)
   dateSouhaitee    String?   @map("date_souhaitee") @db.VarChar(100) // texte libre du client, non validé
   budget           String?   @db.VarChar(60) // texte libre du client, non validé

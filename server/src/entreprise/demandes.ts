@@ -20,6 +20,16 @@ const LIBELLES: Record<StatutDemande, string> = { nouvelle: 'Nouvelle', en_cours
 
 const texte = (v: unknown, max: number): string => String(v ?? '').trim().slice(0, max);
 
+// date souhaitée : AAAA-MM-JJ (le champ de date de la vitrine renvoie ce format), ou vide ; une date impossible (31/02) est refusée
+function lireDate(v: unknown): string | null {
+  const t = texte(v, 10);
+  if (!t) return null;
+  const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  const date = d ? new Date(Date.UTC(+d[1], +d[2] - 1, +d[3])) : null;
+  if (!d || date!.getUTCMonth() !== +d[2] - 1 || date!.getUTCDate() !== +d[3]) throw new Refus('La date souhaitée n’est pas valide (jj/mm/aaaa).');
+  return t;
+}
+
 // ---- lecture des champs (fonction pure, testée) ----
 export function lireChampsDemande(b: Record<string, unknown>) {
   if (!TYPES_DEMANDE.includes(b.type as TypeDemande)) throw new Refus('Choisissez un type de demande.');
@@ -31,10 +41,9 @@ export function lireChampsDemande(b: Record<string, unknown>) {
   return {
     type, nom, message,
     entrepriseNom: texte(b.entrepriseNom, 100) || null,
-    contactTelephone: texte(b.contactTelephone, 30) || null,
     // service, date et budget n'ont de sens que pour un devis : ignorés pour un simple contact
     prestation: type === 'devis' ? texte(b.prestation, 120) || null : null,
-    dateSouhaitee: type === 'devis' ? texte(b.dateSouhaitee, 100) || null : null,
+    dateSouhaitee: type === 'devis' ? lireDate(b.dateSouhaitee) : null,
     budget: type === 'devis' ? texte(b.budget, 60) || null : null,
   };
 }
