@@ -768,18 +768,19 @@ window.gestion = {
     // Toujours posés fermés dans le HTML, puis ouverts après coup par script (jamais l'attribut « open » dans le
     // texte servi) : Chromium déclenche « toggle » même pour un <details open> tout juste posé par innerHTML, pas
     // seulement pour un changement réel — sans ce détour, chaque affichage réécrirait l'état mémorisé.
-    let cleGroupes = null;
+    let cleGroupes = null, groupesParDefaut = [];
     const ignores = new Set();
     const dessiner = (moi) => {
       // une page est ouverte par la permission « voir » ; ses commandes d'écriture (data-exige="clé") se masquent pour qui
       // n'a pas la permission « agir » (gestion.css, body.sans-<clé>) : le serveur refuse l'écriture de toute façon
       for (const cle of DROITS_ECRITURE) document.body.classList.toggle(`sans-${cle}`, !socle.peut(moi, cle));
       cleGroupes = `gestion.groupesMenu.${moi.id}`;
-      let fermes;
-      try { fermes = new Set(JSON.parse(localStorage.getItem(cleGroupes)) || []); } catch { fermes = new Set(); }
       const lien = l => `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`;
       // un groupe sans aucune rubrique visible n'est pas affiché (gestion.rubriques)
       const lignes = gestion.rubriques(cle => socle.peut(moi, cle), moi.modules);
+      groupesParDefaut = lignes.filter(l => l.groupe).map(l => l.groupe);
+      let fermes;
+      try { fermes = new Set(JSON.parse(localStorage.getItem(cleGroupes)) ?? groupesParDefaut); } catch { fermes = new Set(groupesParDefaut); }
       let groupeActif = null, g = null;
       for (const l of lignes) { if (l.groupe) g = l.groupe; else if (l.cle === rubrique) groupeActif = g; }
       let html = '', groupeOuvert = false;
@@ -815,7 +816,7 @@ window.gestion = {
       if (!cleGroupes || !(d instanceof HTMLDetailsElement) || !d.classList.contains('admin-nav-section')) return;
       if (ignores.delete(d)) return;   // ouverture posée par dessiner(), pas un clic du compte
       let fermes;
-      try { fermes = new Set(JSON.parse(localStorage.getItem(cleGroupes)) || []); } catch { fermes = new Set(); }
+      try { fermes = new Set(JSON.parse(localStorage.getItem(cleGroupes)) ?? groupesParDefaut); } catch { fermes = new Set(groupesParDefaut); }
       d.open ? fermes.delete(d.dataset.groupe) : fermes.add(d.dataset.groupe);
       try { localStorage.setItem(cleGroupes, JSON.stringify([...fermes])); } catch { /* stockage refusé : état non mémorisé */ }
     }, true);

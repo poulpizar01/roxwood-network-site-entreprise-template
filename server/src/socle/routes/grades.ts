@@ -26,10 +26,13 @@ const roleRefuse = (moi: Request['compte'], res: Response): boolean => {
   return true;
 };
 
+class GradeModifie extends Error {}
+
 // conflit d'unicité (clé ou rôle Discord déjà pris) : 409 lisible plutôt qu'une erreur serveur
 async function enregistrer(res: Response, action: () => Promise<unknown>): Promise<boolean> {
   try { await action(); }
   catch (e) {
+    if (e instanceof GradeModifie) { res.status(409).json({ error: 'Ce grade a changé. Recharge sa fiche.' }); return false; }
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') { res.status(409).json({ error: 'Clé ou rôle Discord déjà utilisé par un autre grade.' }); return false; }
     throw e;
   }
@@ -110,7 +113,11 @@ grades.patch('/api/grades/:cle', ...permission('grades'), async (req, res) => {
       const ids = comptes.filter(c => imposes.get(c.discordId)?.grade !== g.cle).map(c => c.id);
       if (ids.length) await tx.compte.updateMany({ where: { id: { in: ids }, gradeCle: g.cle }, data: { gradeCle: null } });
     }
-    await tx.grade.update({ where: { cle: g.cle }, data });
+    const { count } = await tx.grade.updateMany({
+      where: { cle: g.cle, roleDiscordId: g.roleDiscordId, permissions: { equals: g.permissions } },
+      data,
+    });
+    if (!count) throw new GradeModifie();
   }))) repondreListe(res);
 });
 
