@@ -132,6 +132,17 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
 - **Pas d'attribut `onclick`, de `confirm()`, `alert()`, `prompt()`, `print()` ni `beforeunload`** : la CSP bloque le premier, les autres gèlent le jeu entier dans l'ordinateur en jeu (le joueur doit fermer FiveM).
 - **Ordinateur en jeu** (cahier des charges complet : `docs/folkos.md`) : un raccourci sur une lettre compare `e.key.toLowerCase()` (avec Maj, la touche arrive en majuscule) ; une page tolère un paramètre inconnu dans l'adresse (`?_cb=…` anti-cache) ; rien ne dépend de `window.top` ni de `document.referrer` ; près de chaque envoi de fichier, un texte `.seulement-en-jeu` dit quoi faire si le sélecteur ne s'ouvre pas ; une fenêtre `position: fixed` est enfant de `<body>` ou d'un parent sans `transform`, `filter`, `backdrop-filter`, `perspective` ni `contain`, sinon elle s'y retrouve enfermée.
 
+## 11. Vitrine : fenêtres de dépôt (avis, demandes, candidature)
+
+- **Une fenêtre `<dialog>` native, trois étapes** : connexion Discord, formulaire, remerciement. Discord est exigé avant tout envoi (jamais la seule limite de débit) ; aucun e-mail ni téléphone n'est demandé, l'équipe répond dans un salon Discord.
+- **Chaque fenêtre lit son propre marqueur au retour de Discord** (`?avis=1`, `?demande=<type>`, `?candidature=1`) : sinon la première consomme `?discord=ok` et ouvre la mauvaise fenêtre.
+  Vu : un retour de connexion qui rouvrait la fenêtre d'avis depuis la page des demandes.
+- **« Se déconnecter » oublie l'identité vérifiée** (`/api/discord/oublier`) et revient à l'étape de connexion.
+- **Liste déroulante et calendrier s'attachent au `<dialog>` ouvert** : un `<dialog>` modal passe au-dessus de tout, un composant posé dans `<body>` resterait caché derrière.
+- **Une section de la vitrine sans contenu n'existe pas** : pas de titre au-dessus du vide ; elle est rendue par le serveur dans le HTML (rien ne saute).
+- **Un fichier demandé dit son poids et sa durée de garde** près du champ (« 8 Mo au plus, effacée 90 jours après réception »).
+- **Réglage d'un formulaire** (gestion) : un aperçu en direct de ce qui sera enregistré (pastille « à enregistrer », libellé barré pour ce qui sera retiré), jamais un changement qui ne se voit qu'après enregistrement.
+
 ---
 
 ## Vérifier avant de dire que c'est fini
