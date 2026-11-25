@@ -110,19 +110,21 @@ function dessinerTiroir() {
     + `<section class="tiroir-section" aria-labelledby="titre-echeances-echeancier"><h3 id="titre-echeances-echeancier">Échéances</h3>${aide}${liste}</section>`
     + (c.notes ? `<section class="tiroir-section" aria-labelledby="titre-notes-echeancier"><h3 id="titre-notes-echeancier">Notes</h3><p class="contrat-notes">${echapper(c.notes)}</p></section>` : '');
   const libre = !c.contrat, facturation = c.type === 'facturation';
-  // pied : l'action destructrice à gauche ; à droite, ce qu'on peut faire de ce plan. Sans droit, un pied vide disparaît.
-  const boutons = peutGerer() ? [
-    !c.contrat ? `<button type="button" class="btn btn-danger" data-supprimer-echeancier>${gestion.ico('trash')} Supprimer</button>` : '',
-    '<span class="tiroir-pied-espace"></span>',
+  // pied : ce qu'on peut faire de ce plan. Sans droit, un pied vide disparaît.
+  const actions = peutGerer() ? [
     gestion.actionsPied([
       facturation && !c.contrat ? '<button type="button" class="btn btn-fantome" data-etendre>Prolonger</button>' : '',
       facturation ? '<button type="button" class="btn btn-fantome" data-ajuster>Nouveau montant…</button>' : '',
       libre ? `<button type="button" class="btn btn-fantome" data-ajouter-echeance>${gestion.ico('plus')} Ajouter une échéance</button>` : '',
     ].filter(Boolean)),
+  ].filter(Boolean) : [];
+  // actions sur leur ligne, puis Supprimer et l'action principale groupés à gauche (même pied que les autres tiroirs)
+  const fin = peutGerer() ? [
+    !c.contrat ? `<button type="button" class="btn btn-danger" data-supprimer-echeancier>${gestion.ico('trash')} Supprimer</button>` : '',
     facturation ? '<button type="button" class="btn btn-or" data-facturer-selection disabled>Facturer</button>' : '',
   ].filter(Boolean) : [];
-  $c('tiroir-echeancier-pied').innerHTML = boutons.join('');
-  $c('tiroir-echeancier-pied').classList.toggle('cache', !boutons.length);
+  $c('tiroir-echeancier-pied').innerHTML = `${actions.length ? `<div class="tiroir-pied-actions">${actions.join('')}</div>` : ''}${fin.length ? `<div class="tiroir-pied-fin">${fin.join('')}</div>` : ''}`;
+  $c('tiroir-echeancier-pied').classList.toggle('cache', !actions.length && !fin.length);
   majBoutonFacturer();
 }
 // « Facturer » : la sélection ; sans sélection, toutes les échéances dues (même geste que le bouton de la fiche contrat)

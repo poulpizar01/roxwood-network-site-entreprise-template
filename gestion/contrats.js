@@ -249,14 +249,15 @@ function dessinerTiroir() {
   ].join('');
   $c('tiroir-contrat-corps').innerHTML = bandeauEtat(c) + sectionResume(c) + sectionFacturation(c) + sectionBeneficiaires(c) + sectionAcces(c)
     + (c.notes ? `<section class="tiroir-section" aria-labelledby="titre-notes-contrat"><h3 id="titre-notes-contrat">Notes</h3><p class="contrat-notes">${echapper(c.notes)}</p></section>` : '');
-  // l'action destructive à gauche, loin de la bulle flottante ; les autres à droite
+  // l'action propre au contrat sur sa ligne, puis Supprimer et Modifier groupés à gauche (même pied que les autres tiroirs)
   $c('tiroir-contrat-pied').innerHTML = `
-    <button type="button" class="btn btn-danger" data-exige="contrats" data-supprimer-contrat>${gestion.ico('trash')} Supprimer</button>
-    <span class="tiroir-pied-espace"></span>
-    ${c.statut === 'termine'
+    <div class="tiroir-pied-actions">${c.statut === 'termine'
       ? '<button type="button" class="btn btn-fantome" data-exige="contrats" data-reprendre-contrat>Reprendre le contrat</button>'
-      : '<button type="button" class="btn btn-fantome" data-exige="contrats" data-terminer-contrat>Mettre fin au contrat</button>'}
-    <button type="button" class="btn btn-or" data-exige="contrats" data-modifier-contrat>${gestion.ico('pencil')} Modifier</button>`;
+      : '<button type="button" class="btn btn-fantome" data-exige="contrats" data-terminer-contrat>Mettre fin au contrat</button>'}</div>
+    <div class="tiroir-pied-fin">
+      <button type="button" class="btn btn-danger" data-exige="contrats" data-supprimer-contrat>${gestion.ico('trash')} Supprimer</button>
+      <button type="button" class="btn btn-or" data-exige="contrats" data-modifier-contrat>${gestion.ico('pencil')} Modifier</button>
+    </div>`;
 }
 function ouvrirTiroir(id) {
   CONTRAT_OUVERT = id;
