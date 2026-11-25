@@ -12,6 +12,8 @@ export const MODULES: Record<string, { pages: Record<string, string>; permission
   vitrine: { pages: { vitrine: 'valide' }, permissions: ['vitrine-voir', 'vitrine', 'postes-voir', 'postes'] },
   avis: { pages: { avis: 'avis-voir' }, permissions: ['avis-voir', 'avis'], publiques: ['avis'] },
   demandes: { pages: { demandes: 'demandes-voir' }, permissions: ['demandes-voir', 'demandes-gerer'] },
+  // permissions : celles de RH (rh-voir, rh-creer…), toujours déclarées ; le module n'en ajoute pas
+  recrutement: { pages: { recrutement: 'rh-voir' }, permissions: [] },
 };
 
 // une faute de frappe dans site.json se voit au démarrage, pas par un module qui ne s'allume jamais

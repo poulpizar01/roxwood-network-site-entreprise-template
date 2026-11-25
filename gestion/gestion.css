@@ -3350,3 +3350,45 @@ p.service-apercu-titre { margin-bottom: 8px; font-size: var(--fs-6); font-weight
 
 /* ---- Demandes (demandes.html) : colonnes de la liste (demandeur, type, service, suivi par, statut, reçue le) ---- */
 .liste-demandes { --cols: minmax(0, 1.6fr) minmax(70px, 0.5fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(90px, 0.6fr) minmax(70px, 0.5fr) 20px; }
+
+/* ---- Recrutement (recrutement.html) : cartes des colonnes, vote de l'équipe, pièce d'identité ---- */
+.candidature-carte { cursor: pointer; }
+.candidature-carte:hover, .candidature-carte:focus-visible { background: rgba({{couleur_rvb}}, 0.07); outline: none; }
+.candidature-carte:focus-visible { box-shadow: inset 3px 0 0 var(--accent); }
+.candidature-carte-nom { font-weight: 600; overflow-wrap: anywhere; }
+.candidature-carte-poste { display: block; margin-top: 2px; font-size: var(--fs-2); color: var(--text-muted); overflow-wrap: anywhere; }
+.candidature-carte-votes { display: flex; gap: 10px; margin-top: 8px; font-size: var(--fs-2); color: var(--text-faint); }
+.candidature-carte-votes b { color: var(--text-muted); font-weight: 600; }
+
+/* vote d'une candidature (rh.js) : options colorées (pour/contre/abstention), choisies au rendu plutôt qu'en CSS
+   sur :checked — la ligne est entièrement redessinée à chaque vote, pas seulement l'état de la case. */
+.vote-option { align-items: flex-start; }
+.vote-option .ico { margin-top: 1px; color: var(--text-faint); }
+.vote-option small { color: var(--text-faint); }
+.vote-option--pour input { accent-color: var(--ok); }
+.vote-option--contre input { accent-color: var(--erreur); }
+.vote-option--abstention input { accent-color: var(--alerte); }
+.vote-option--actif.vote-option--pour { border-color: var(--ok); background: var(--ok-soft); }
+.vote-option--actif.vote-option--pour .ico, .vote-option--actif.vote-option--pour strong { color: var(--ok); }
+.vote-option--actif.vote-option--contre { border-color: var(--erreur); background: var(--erreur-soft); }
+.vote-option--actif.vote-option--contre .ico, .vote-option--actif.vote-option--contre strong { color: var(--erreur); }
+.vote-option--actif.vote-option--abstention { border-color: var(--alerte); background: var(--alerte-soft); }
+.vote-option--actif.vote-option--abstention .ico, .vote-option--actif.vote-option--abstention strong { color: var(--alerte); }
+/* qui a voté quoi : petites pastilles (photo ou initiales), le nom complet au survol/focus (title) */
+.vote-votants { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.vote-votant {
+  width: 20px; height: 20px; border-radius: 50%; object-fit: cover; flex: 0 0 auto;
+  border: 1px solid var(--bg-card); box-shadow: 0 0 0 1px var(--border);
+}
+.vote-votant--lettres {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg3); color: var(--text-muted); font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+}
+
+/* pièce d'identité d'une candidature (rh.js, sectionDetailCandidature) : aperçu cliquable, agrandi dans une fenêtre */
+.candidature-identite-apercu {
+  display: block; width: 100%; max-width: 220px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; cursor: zoom-in; background: var(--bg2); transition: border-color var(--transition);
+}
+.candidature-identite-apercu:hover, .candidature-identite-apercu:focus-visible { border-color: var(--accent); outline: none; }
+.candidature-identite-apercu img { display: block; width: 100%; max-height: 160px; object-fit: cover; }

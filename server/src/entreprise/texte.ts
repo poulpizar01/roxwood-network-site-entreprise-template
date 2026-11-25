@@ -39,3 +39,16 @@ export const jourDeSemaineParis = (d: Date): string => jourParis(d);
 export const JOURS_SEMAINE = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'] as const;
 export const jourSemaineParis = (instant?: string | Date): string =>
   new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long' }).format(instant ? new Date(instant) : new Date()).toLowerCase();
+
+// instant exact d'un jour (AAAA-MM-JJ) et d'une heure (HH:MM) lus à l'heure de Paris, été comme hiver : le décalage est celui de
+// Paris à CET instant, recalculé une fois (un changement d'heure passé à cheval sur le calcul se corrige au second passage)
+export function instantParis(jour: string, heure: string): Date {
+  const [a, m, j] = jour.split('-').map(Number), [h, mi] = heure.split(':').map(Number);
+  const naif = Date.UTC(a, m - 1, j, h, mi);
+  const decalage = (t: number) => {
+    const p = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }).formatToParts(new Date(t));
+    const g = (k: string) => Number(p.find(x => x.type === k)!.value);
+    return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute')) - t;
+  };
+  return new Date(naif - decalage(naif - decalage(naif)));
+}

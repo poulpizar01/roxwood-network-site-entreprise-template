@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="{{nom}}">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  <link rel="preload" href="/assets/fonts/archivo-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/gestion/gestion.css">
+  <script src="/socle/socle.js"></script>
+  <script src="/gestion/gestion.js"></script>
+  <script src="/gestion/vendor/Sortable.min.js"></script>
+  <title>Recrutement — {{nom}}</title>
+</head>
+<body class="page-agents">
+  <!-- GESTION — module « recrutement » (site.json), permissions « rh-voir » (consulter, voter) et « rh-creer » (convoquer, accepter,
+       refuser, annoter) : candidatures déposées sur le site (identité Discord vérifiée, pièce d'identité RP), en colonnes par
+       statut. Une carte ouvre la fiche (tiroir) : détail, pièce, votes de l'équipe, salon Discord, notes ; changer de colonne =
+       glisser la carte ou un bouton du pied. Serveur : entreprise/routes/candidatures.ts, entreprise/candidatures.ts. -->
+  <main class="admin-contenu">
+    <section id="panneau-recrutement">
+      <div class="entete-admin">
+        <div>
+          <h1 style="margin-bottom:2px;">Recrutement</h1>
+          <p style="margin:0;font-size:var(--fs-3);">Candidatures reçues depuis le site, votées par l’équipe RH. Celles du bot Discord restent dans Employés.</p>
+        </div>
+      </div>
+      <div id="zone-message-candidatures" role="status"></div>
+      <div class="colonnes-statut colonnes-statut--quatre" id="candidatures-colonnes"></div>
+    </section>
+  </main>
+
+<!-- Fiche d'une candidature : tiroir à droite (plein écran sur téléphone). Bandeau et pied fixes, seul le corps défile. -->
+<div class="modale-fond tiroir-fond cache" id="tiroir-candidature" data-echap>
+  <div class="tiroir" role="dialog" aria-modal="true" aria-labelledby="tiroir-candidature-titre">
+    <div class="tiroir-entete">
+      <span class="admin-avatar" id="tiroir-candidature-avatar" aria-hidden="true"></span>
+      <div class="tiroir-identite">
+        <h2 id="tiroir-candidature-titre"></h2>
+        <p class="tiroir-sous-titre" id="tiroir-candidature-sous-titre"></p>
+      </div>
+      <button type="button" id="fermer-tiroir-candidature" aria-label="Fermer">✕</button>
+    </div>
+    <div class="tiroir-corps" id="tiroir-candidature-corps"></div>
+    <div class="tiroir-pied" id="tiroir-candidature-pied"></div>
+  </div>
+</div>
+
+<!-- Convoquer à l'entretien : jour et heure, posés dans l'agenda de l'équipe -->
+<div class="modale-fond cache" id="modale-entretien" data-echap>
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-entretien-titre">
+    <div class="modale-entete">
+      <h2 id="modale-entretien-titre" class="modale-titre">Convoquer à l’entretien</h2>
+      <button type="button" id="fermer-modale-entretien" aria-label="Fermer">✕</button>
+    </div>
+    <div id="zone-message-modale-entretien"></div>
+    <form id="formulaire-entretien" autocomplete="off" novalidate>
+      <p class="champ-aide" style="margin-top:0;">L’entretien est inscrit dans l’agenda de l’équipe et un message est envoyé au candidat dans son salon Discord.</p>
+      <div class="champ-deux">
+        <div class="champ"><label for="entretien-jour">Jour</label><input type="date" id="entretien-jour" required></div>
+        <div class="champ"><label for="entretien-heure">Heure</label><input type="time" id="entretien-heure" step="300" required></div>
+      </div>
+      <div class="modale-boutons">
+        <button type="submit" class="btn btn-or">Enregistrer</button>
+        <button type="button" class="btn btn-danger" id="annuler-modale-entretien">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Pièce d'identité en grand : jamais dans un nouvel onglet -->
+<div class="modale-fond cache" id="modale-image-candidature" data-echap>
+  <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-image-candidature-titre" style="max-width:min(900px,95vw);">
+    <div class="modale-entete">
+      <h2 id="modale-image-candidature-titre" class="modale-titre"></h2>
+      <button type="button" id="fermer-modale-image-candidature" aria-label="Fermer">✕</button>
+    </div>
+    <img id="modale-image-candidature-img" alt="" style="display:block;max-width:100%;max-height:75vh;margin:0 auto;">
+  </div>
+</div>
+
+  <script src="/gestion/recrutement.js"></script>
+</body>
+</html>

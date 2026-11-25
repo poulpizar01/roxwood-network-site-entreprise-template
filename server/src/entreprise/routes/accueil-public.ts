@@ -21,6 +21,10 @@ accueilPublic.get(['/', '/index.html'], async (_req, res, next) => {
       html = injecterVitrine(html, await servicesPublics(s => urlPhoto(s, photos.get(`service-${s.id}`))), await postesPublics());
     }
     if (moduleActif('avis')) html = injecterAvis(html, await listerAvisAccueil());
+    if (moduleActif('recrutement')) {
+      // la section Recrutement s'affiche même sans poste ouvert (candidature spontanée), et ses boutons « Postuler » se montrent
+      html = html.replace(/ data-si-recrutement hidden/g, '').replace(/(<section[^>]*id="recrutement")[^>]*>/, '$1>');
+    }
     if (moduleActif('demandes')) html = html.replace(/ data-si-demandes hidden/g, '');   // boutons « Demander un devis » / « Nous écrire »
     res.type('text/html').send(withNonce(html, res));
   } catch (e) { next(e); }

@@ -69,10 +69,11 @@ const service = { id: 1, nom: 'Conseil <b>', resume: 'r', description: 'd </scri
 
 test('injecterVitrine : sections remplies et montrées, saisies échappées, données JSON sans « < »', () => {
   const html = injecterVitrine(PAGE, [service], [{ nom: 'Vendeur', nombre: 2 }]);
-  assert.ok(!html.includes('hidden'));
+  assert.ok(!html.includes('data-si-services hidden') && !html.includes('data-si-postes hidden'));   // sections montrées (le bouton « Postuler » reste caché : le module recrutement le montre)
   assert.ok(html.includes('Conseil &lt;b&gt;'));
   assert.ok(html.includes('data-couleur="#e11d48"'));
   assert.ok(html.includes('2 places'));
+  assert.ok(html.includes('data-ouvrir-candidature="Vendeur"'));   // « Postuler », montré par le module recrutement
   const json = html.match(/id="vitrine-services">(.*?)<\/script>/s)![1];
   assert.ok(!json.includes('<'));
   assert.equal(JSON.parse(json)[0].description, 'd </script><script>x');

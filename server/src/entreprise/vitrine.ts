@@ -153,7 +153,7 @@ export function injecterVitrine(html: string, services: ServicePublic[], postes:
       .replace(/ data-si-services hidden/g, '');
   }
   if (postes.length) {
-    const lignes = postes.map(p => `<li class="poste"><strong>${esc(p.nom)}</strong><span class="poste__places">${p.nombre} place${p.nombre > 1 ? 's' : ''}</span></li>`).join('');
+    const lignes = postes.map(p => `<li class="poste"><strong>${esc(p.nom)}</strong><span class="poste__places">${p.nombre} place${p.nombre > 1 ? 's' : ''}</span><button type="button" class="btn btn--ligne" data-ouvrir-candidature="${esc(p.nom)}" data-si-recrutement hidden>Postuler</button></li>`).join('');
     html = html.replace('<ul class="postes" id="postes-liste"></ul>', () => `<ul class="postes" id="postes-liste">${lignes}</ul>`).replace(/ data-si-postes hidden/g, '');
   }
   return html;

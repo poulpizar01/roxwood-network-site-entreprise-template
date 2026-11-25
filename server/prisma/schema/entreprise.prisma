@@ -685,3 +685,47 @@ model Demande {
   @@index([discordId])
   @@map("demandes")
 }
+
+// ---------- Recrutement sur le site (module « recrutement » : formulaire public, gestion/recrutement.html, entreprise/candidatures.ts) ----------
+
+// Candidature déposée par une personne dont l'identité est prouvée par Discord (socle discord-leger), distincte d'ArriveeBot
+// (tickets du bot). Pièce d'identité RP obligatoire (image envoyée) : effacée 90 jours après réception tant que la candidature
+// n'est pas acceptée ; acceptée, elle passe sur la fiche RH (les quatre champs sont alors vidés ici). Aucune relation Prisma vers
+// Compte ni Employe (convention du socle).
+model Candidature {
+  id             Int       @id @default(autoincrement())
+  poste          String    @default("") @db.VarChar(120)
+  prenom         String    @db.VarChar(60)
+  nom            String    @db.VarChar(60)
+  discordId      String    @map("discord_id") @db.VarChar(22)
+  pseudoDiscord  String    @map("pseudo_discord") @db.VarChar(100)
+  motivation     String    @default("") @db.VarChar(2000)
+  statut         String    @default("recue") @db.VarChar(10) // recue | entretien | acceptee | refusee
+  entretienLe    DateTime? @map("entretien_le") @db.Timestamptz(6)
+  notes          String    @default("") @db.VarChar(2000) // notes internes RH, jamais visibles du candidat
+  employeId      Int?      @map("employe_id") // fiche créée à l'acceptation
+  salonDiscordId String?   @map("salon_discord_id") @db.VarChar(22)
+  pieceIdentiteCle     String? @map("piece_identite_cle") @db.VarChar(200)
+  pieceIdentiteUrl     String? @map("piece_identite_url") @db.VarChar(512)
+  pieceIdentiteCleMini String? @map("piece_identite_cle_mini") @db.VarChar(200)
+  pieceIdentiteUrlMini String? @map("piece_identite_url_mini") @db.VarChar(512)
+  creeLe         DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
+  votes          CandidatureVote[]
+
+  @@index([statut, creeLe(sort: Desc)])
+  @@index([discordId])
+  @@map("candidatures")
+}
+
+// Vote d'un RH sur une candidature (pour / contre / abstention) : un vote par compte et par candidature, remplaçable.
+model CandidatureVote {
+  id            Int         @id @default(autoincrement())
+  candidatureId Int         @map("candidature_id")
+  candidature   Candidature @relation(fields: [candidatureId], references: [id], onDelete: Cascade)
+  compteId      Int         @map("compte_id") // pas de relation Prisma vers Compte (socle.prisma)
+  valeur        String      @db.VarChar(10)
+  majLe         DateTime    @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
+
+  @@unique([candidatureId, compteId])
+  @@map("candidature_votes")
+}

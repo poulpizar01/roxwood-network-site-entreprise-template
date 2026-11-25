@@ -8,6 +8,7 @@ import { valide } from '../../socle/http.js';
 import { droitsAgenda, peutValiderAbsences } from '../agenda-regles.js';
 import { nombreContratsAFacturer } from '../echeanciers.js';
 import { EN_SUSPENS } from '../rh.js';
+import { nombreCandidaturesRecues } from '../candidatures.js';
 import { nombreDemandesNouvelles } from '../demandes.js';
 import { moduleActif } from '../modules.js';
 import { nombreSalonsIntrouvables } from '../salon-discord.js';
@@ -27,6 +28,10 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
   if (peut(c, 'rh-voir') && peut(c, 'rh-creer')) {
     const n = await prisma.arriveeBot.count({ where: { resultat: { in: EN_SUSPENS } } });
     if (n) taches.push({ cle: 'candidatures', nombre: n, texte: `${pluriel(n, 'candidature')} à traiter`, lien: 'rh.html#rh-bot' });
+  }
+  if (moduleActif('recrutement') && peut(c, 'rh-voir') && peut(c, 'rh-creer')) {
+    const n = await nombreCandidaturesRecues();
+    if (n) taches.push({ cle: 'recrutement', nombre: n, texte: `${pluriel(n, 'candidature')} reçue${n > 1 ? 's' : ''} sur le site`, lien: 'recrutement.html' });
   }
   if (moduleActif('demandes') && peut(c, 'demandes-voir')) {
     const n = await nombreDemandesNouvelles();

@@ -2,6 +2,7 @@
 // Les ventes ne sont jamais purgées : elles font l'historique des primes et de la paie. Les événements du bot et les
 // sessions relèvent du socle (socle/purge.ts).
 import { prisma } from '../socle/db.js';
+import { purgerCandidatures } from './candidatures.js';
 import { purgerPiecesIdentite, purgerReponses } from './rh.js';
 
 const JOUR = 24 * 3600e3;
@@ -11,6 +12,7 @@ const AGENDA_JOURS = 365, CANDIDATURES_JOURS = 365, SERVICES_JOURS = 365, RELEVE
 async function purger(): Promise<void> {
   await purgerReponses();
   const pieces = await purgerPiecesIdentite();
+  const recrutement = await purgerCandidatures();   // pièces des candidatures du site (90 jours), candidatures closes (un an)
   const avant = (jours: number) => new Date(Date.now() - jours * JOUR);
   const [agenda, absencesRefusees, candidatures, services] = await Promise.all([
     prisma.evenementAgenda.deleteMany({ where: { jour: { lt: avant(AGENDA_JOURS) } } }),
@@ -27,7 +29,7 @@ async function purger(): Promise<void> {
   const gardes = await prisma.importCompta.findMany({ where: { type: 'tablettes' }, orderBy: [{ importeLe: 'desc' }, { id: 'desc' }], take: RELEVES_GARDES, select: { id: true } });
   const verrouillees = (await prisma.declarationDot.findMany({ select: { semaine: true } })).map(d => d.semaine);
   const releves = gardes.length < RELEVES_GARDES ? { count: 0 } : await prisma.importCompta.deleteMany({ where: { type: 'tablettes', id: { notIn: gardes.map(g => g.id) }, semaine: { in: verrouillees } } });
-  const effaces = { pieces, agenda: agenda.count, absencesRefusees: absencesRefusees.count, candidatures: candidatures.count, services: services.count, releves: releves.count };
+  const effaces = { pieces, piecesCandidatures: recrutement.pieces, candidaturesSite: recrutement.candidatures, agenda: agenda.count, absencesRefusees: absencesRefusees.count, candidatures: candidatures.count, services: services.count, releves: releves.count };
   if (Object.values(effaces).some(Boolean)) console.log('[purge] effacés :', JSON.stringify(effaces));
 }
 
