@@ -23,11 +23,10 @@ after(async () => {
 
 const base = { type: 'devis', nom: 'zz-test Alice', message: 'Bonjour', entrepriseNom: 'zz-test SARL' };
 
-test('lireChampsDemande : type, nom et message obligatoires ; e-mail contrôlé ; champs de devis ignorés pour un contact', () => {
+test('lireChampsDemande : type, nom et message obligatoires ; champs de devis ignorés pour un contact', () => {
   assert.throws(() => lireChampsDemande({ ...base, type: 'autre' }), /type/);
   assert.throws(() => lireChampsDemande({ ...base, nom: ' ' }), /nom/);
   assert.throws(() => lireChampsDemande({ ...base, message: '' }), /message/);
-  assert.throws(() => lireChampsDemande({ ...base, contactEmail: 'pas-un-mail' }), /e-mail/);
   const contact = lireChampsDemande({ ...base, type: 'contact', prestation: 'x', budget: 'y', dateSouhaitee: 'z' });
   assert.deepEqual([contact.prestation, contact.budget, contact.dateSouhaitee], [null, null, null]);
   const devis = lireChampsDemande({ ...base, prestation: 'Conseil', budget: '500 $' });

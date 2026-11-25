@@ -38,7 +38,7 @@
   qui.append('Connecté en tant que ', pseudo, '. ', changer);
   const nom = saisie('text', 100, 'name'); nom.required = true;
   const entreprise = saisie('text', 100, 'organization');
-  const email = saisie('email', 200, 'email'); const telephone = saisie('tel', 30, 'tel');
+  const telephone = saisie('tel', 30, 'tel');
   const blocDevis = el('div', 'avis-form'); blocDevis.hidden = true;
   const dateSouhaitee = saisie('text', 100); dateSouhaitee.placeholder = 'Ex. 12/12/2026, ou dès que possible';
   const budget = saisie('text', 60);
@@ -52,7 +52,7 @@
   const libelleService = el('label', '', 'Service souhaité'); libelleService.htmlFor = 'dm-service'; service.id = 'dm-service';
   zoneService.append(libelleService, service);
   blocDevis.append(zoneService, champ('dm-date', 'Date souhaitée', dateSouhaitee, true), champ('dm-budget', 'Budget', budget, true));
-  form.append(qui, champ('dm-nom', 'Nom', nom), champ('dm-entreprise', 'Entreprise', entreprise, true), champ('dm-email', 'E-mail', email, true), champ('dm-tel', 'Téléphone', telephone, true),
+  form.append(qui, champ('dm-nom', 'Nom', nom), champ('dm-entreprise', 'Entreprise', entreprise, true), champ('dm-tel', 'Téléphone', telephone, true),
     blocDevis, champ('dm-message', 'Votre message', message), erreur, boutons);
 
   // étape 3 : merci
@@ -115,7 +115,7 @@
     envoyer.disabled = true;
     try {
       const r = await fetch('/api/demandes', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-        type, nom: nom.value.trim(), entrepriseNom: entreprise.value.trim(), contactEmail: email.value.trim(), contactTelephone: telephone.value.trim(),
+        type, nom: nom.value.trim(), entrepriseNom: entreprise.value.trim(), contactTelephone: telephone.value.trim(),
         prestation: service.value.trim(), dateSouhaitee: dateSouhaitee.value.trim(), budget: budget.value.trim(), message: message.value.trim() }) });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'L’envoi a échoué. Réessayez dans un instant.');
       form.hidden = true; merci.hidden = false; message.value = ''; fermer.focus();

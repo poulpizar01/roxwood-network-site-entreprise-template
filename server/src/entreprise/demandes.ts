@@ -28,12 +28,9 @@ export function lireChampsDemande(b: Record<string, unknown>) {
   const message = texte(b.message, 2000);
   if (!message) throw new Refus('Le message est obligatoire.');
   const type = b.type as TypeDemande;
-  const email = texte(b.contactEmail, 200);
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Refus('L’adresse e-mail n’est pas valide.');
   return {
     type, nom, message,
     entrepriseNom: texte(b.entrepriseNom, 100) || null,
-    contactEmail: email || null,
     contactTelephone: texte(b.contactTelephone, 30) || null,
     // service, date et budget n'ont de sens que pour un devis : ignorés pour un simple contact
     prestation: type === 'devis' ? texte(b.prestation, 120) || null : null,

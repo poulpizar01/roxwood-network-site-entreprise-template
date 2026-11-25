@@ -68,7 +68,6 @@ const peutConvertir = () => peutGerer() && socle.peut(MOI, 'contrats');
 function sectionDetail(d) {
   return `<dl class="contrat-resume">
     ${d.entrepriseNom ? `<div><dt>Entreprise</dt><dd>${echapper(d.entrepriseNom)}</dd></div>` : ''}
-    ${d.contactEmail ? `<div><dt>E-mail</dt><dd>${echapper(d.contactEmail)}</dd></div>` : ''}
     ${d.contactTelephone ? `<div><dt>Téléphone</dt><dd>${echapper(d.contactTelephone)}</dd></div>` : ''}
     ${d.prestation ? `<div><dt>Service</dt><dd>${echapper(d.prestation)}</dd></div>` : ''}
     ${d.dateSouhaitee ? `<div><dt>Date souhaitée</dt><dd>${echapper(d.dateSouhaitee)}</dd></div>` : ''}
