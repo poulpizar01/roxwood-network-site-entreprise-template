@@ -68,7 +68,7 @@ html.defilement-bloque body { overflow: visible; }
    largeur du contenu qui change quand une fenêtre bloque le défilement (les tableaux repassaient en cartes et inversement). */
 html { scrollbar-gutter: stable; }
 
-/* Flèche dessinée (layout.js, fleche()) : centrée sur le texte, à sa taille et à sa couleur. Dans un bouton, un
+/* Flèche dessinée (gestion.js, fleche()) : centrée sur le texte, à sa taille et à sa couleur. Dans un bouton, un
    écart à la place de l'espace (un bouton aligne ses éléments, l'espace y disparaît). */
 svg.fleche { width: 1.1em; height: 1.1em; flex-shrink: 0; vertical-align: -0.2em; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .btn > svg.fleche:first-child { margin-right: 0.55em; }
@@ -314,6 +314,9 @@ label, .eyebrow-label {
   background: var(--bg-elevated); color: var(--text-faint); font-size: var(--fs-3); font-weight: 500;
 }
 .compta-sous-onglet .ico { width: 16px; height: 16px; }
+/* libellé raccourci sur téléphone : « Réglages du recrutement » passait seul sur une deuxième rangée */
+.libelle-court { display: none; }
+@media (max-width: 560px) { .libelle-long { display: none; } .libelle-court { display: inline; } }
 .compta-sous-onglet:hover { color: var(--text); border-color: var(--border-light); }
 .compta-sous-onglet.actif { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; }
 
@@ -464,7 +467,7 @@ label, .eyebrow-label {
 .table-input { width: 100%; min-width: 140px; }
 .table-select { width: 100%; min-width: 170px; border-width: 2px; }
 
-/* ---------- menu déroulant personnalisé (habille les <select>, voir layout.js) ---------- */
+/* ---------- menu déroulant personnalisé (habille les <select>, voir gestion.js, ameliorerSelect) ---------- */
 
 .d8-select-enveloppe { position: relative; display: block; width: 100%; }
 /* chevron dessiné (deux bordures d'un carré tourné) : un caractère « ⌄ » se pose en bas de sa ligne et paraît
@@ -602,7 +605,7 @@ label, .eyebrow-label {
    les en-têtes, 4 indicateurs, tableau encadré, vue grille en cartes photo.
    ========================================================================== */
 
-/* ---- icônes SVG (sprite en tête d'admin.html) ---- */
+/* ---- icônes SVG (sprite en tête des pages de gestion) ---- */
 .ico {
   width: 18px; height: 18px; flex-shrink: 0; fill: none; stroke: currentColor;
   stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px;
@@ -946,7 +949,7 @@ label, .eyebrow-label {
 /* menus habillés : le texte s'arrête avant le chevron (à 16 px du bord) au lieu de passer dessous */
 .d8-select-enveloppe select { padding-right: 44px !important; text-overflow: ellipsis; }
 
-/* notifications (notifier, layout.js) : en bas au centre, au-dessus de tout, au-dessus de la bulle de messagerie */
+/* notifications (notifier, gestion.js) : en bas au centre, au-dessus de tout, au-dessus de la bulle de messagerie */
 .notifications { position: fixed; left: 50%; bottom: 24px; z-index: 100200; display: flex; flex-direction: column; align-items: center; gap: 8px; transform: translateX(-50%); width: max-content; max-width: min(92vw, 560px); pointer-events: none; }
 .notification {
   padding: 10px 18px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); font-size: var(--fs-3); text-align: center;
@@ -1992,7 +1995,7 @@ small { font-size: max(var(--fs-1), 0.85em); }   /* jamais sous 12 px (le <small
 /* étiquette « Obligatoire » (plutôt qu'un astérisque que rien n'explique) */
 .rh-obligatoire { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba({{couleur_rvb}}, 0.16); color: var(--accent-dark); font-size: var(--fs-1); font-weight: 600; vertical-align: 1px; }
 
-/* notifications (notifier, layout.js ; règles de base dans style.css) : écran large, centrées sur le contenu, pas sur la
+/* notifications (notifier, gestion.js) : écran large, centrées sur le contenu, pas sur la
    fenêtre (la barre latérale fait 240 px) */
 @media (min-width: 901px) { .page-agents .notifications { left: calc(50% + 120px); max-width: min(calc(100vw - 300px), 560px); } }
 
@@ -2331,35 +2334,6 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
   .grades-tags, .grades-effectif { flex-basis: 100%; }
 }
 
-/* ---------- Ventes & statistiques (statistiques.html) : chiffres clés, classement de la semaine, lecture du Sheets ---------- */
-.stats-etat { margin: -6px 0 22px; }
-.stats-section { margin-bottom: 30px; }
-.stats-section > .compta-aide { margin-bottom: 12px; }
-.stats-liste .comptes-entete, .stats-liste .comptes-ligne { grid-template-columns: 36px minmax(0, 1.6fr) 80px 90px minmax(150px, 1fr); }
-.stats-entete span:nth-child(n+3) { text-align: right; }
-.stats-rang { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 999px; background: var(--bg3); color: var(--text-muted); font-size: var(--fs-3); font-variant-numeric: tabular-nums; }
-.stats-rang.podium { background: var(--accent); color: var(--on-accent); font-weight: 700; }
-.stats-agent { display: flex; flex-direction: column; min-width: 0; }
-.stats-nombre { text-align: right; font-size: var(--fs-5); color: var(--text); font-variant-numeric: tabular-nums; }
-.stats-prime { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
-.stats-prime strong { font-weight: 600; color: var(--accent-dark); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.stats-prime small { font-size: var(--fs-1); color: var(--text-faint); white-space: nowrap; }
-.stats-synchro { padding: 16px 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg3); }
-.stats-synchro-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.stats-erreur { color: var(--erreur) !important; }
-.stats-explication { margin-top: 12px; }
-.stats-explication summary { cursor: pointer; width: fit-content; font-size: var(--fs-3); color: var(--accent-dark); }
-.stats-explication ul { margin: 8px 0 0; padding-left: 1.2em; font-size: var(--fs-3); color: var(--text-muted); }
-.stats-explication li { padding: 2px 0; }
-.stats-bot { margin-top: 12px !important; padding-top: 10px; border-top: 1px solid var(--border); }
-@media (max-width: 760px) {
-  .stats-entete { display: none; }
-  .stats-liste .comptes-ligne { grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "rang agent agent" ". ventes locations" ". prime prime"; gap: 8px 12px; }
-  .stats-rang { grid-area: rang; } .stats-agent { grid-area: agent; }
-  .stats-ventes { grid-area: ventes; } .stats-locations { grid-area: locations; } .stats-prime { grid-area: prime; align-items: flex-start; text-align: left; }
-  .stats-nombre { text-align: left; }
-  .stats-nombre::before, .stats-prime::before { content: attr(data-libelle); display: block; font-size: var(--fs-1); color: var(--text-faint); }
-}
 #panneau-statistiques .dot-semaine .d8-select-enveloppe { width: 210px; }
 @media (max-width: 760px) {
   /* chiffres clés : deux par rangée, les primes sur toute la largeur */
@@ -3100,7 +3074,7 @@ a.aide-pas:hover b, a.aide-pas:focus-visible b { text-decoration: underline; }
 /* ---- fiche d'un grade en tiroir (grades.html) : liste à gauche, tiroir à droite, par onglets — remplace l'ancienne
    modale. Les classes .grade-* ci-dessus (identité, domaine, permission, agenda) sont réutilisées telles quelles. */
 /* 900px, pas la largeur générique de .tiroir (560px) : la grille de droits d'agenda (4 colonnes, minimum 540px de
-   contenu) venait respirer dans l'ancienne modale (max-width 920px) ; à 760px elle était trop serrée. */
+   contenu) a besoin de plus de 760px pour respirer. */
 .tiroir-grade { width: min(900px, 100%); }
 /* même reset que .modale-grade : un <label> ou une <legend> y est normal, pas en majuscules (règle générale, label {}
 ) */
@@ -3354,7 +3328,7 @@ p.service-apercu-titre { margin-bottom: 8px; font-size: var(--fs-6); font-weight
 /* ---- Demandes (demandes.html) : colonnes de la liste (demandeur, type, service, suivi par, statut, reçue le) ---- */
 .liste-demandes { --cols: minmax(0, 1.6fr) minmax(70px, 0.5fr) minmax(0, 1fr) minmax(0, 0.9fr) minmax(90px, 0.6fr) minmax(70px, 0.5fr) 20px; }
 
-/* ---- Recrutement (recrutement.html) : cartes des colonnes, vote de l'équipe, pièce d'identité ---- */
+/* ---- Recrutement (onglet Candidatures de rh.html) : cartes des colonnes, vote de l'équipe, pièce d'identité ---- */
 .candidature-carte { cursor: pointer; }
 .candidature-carte:hover, .candidature-carte:focus-visible { background: rgba({{couleur_rvb}}, 0.07); outline: none; }
 .candidature-carte:focus-visible { box-shadow: inset 3px 0 0 var(--accent); }

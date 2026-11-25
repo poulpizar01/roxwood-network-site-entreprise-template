@@ -9,7 +9,7 @@ Contrairement au [modèle des sites famille](https://github.com/poulpizar01/roxw
 | | **Socle — mutualisé, identique sur tous les sites** | **Entreprise — personnalisable, site par site** |
 |---|---|---|
 | Quoi | Serveur et sécurité, connexion Discord, comptes, grades et permissions, stockage d'images, webhooks du bot, base, déploiement, documentation, règles | La vitrine, la direction artistique, **toutes les pages de gestion**, les routes et les tables métier |
-| Fichiers | `server/src/index.ts`, `server/src/socle/`, `server/prisma/schema/socle.prisma` (+ migrations `*_socle_*`), `server/Dockerfile`, `server/package.json`, `server/deploy/`, `socle/`, `compose*.yaml`, `.env.example`, `docs/`, `.claude/skills/`, `CLAUDE.md` | `site.json`, `theme.css`, `index.html`, `404.html`, `confidentialite.html`, `assets/`, `gestion/`, `server/src/entreprise/`, `server/prisma/schema/entreprise.prisma`, `ENTREPRISE.md`, `README.md` |
+| Fichiers | `server/src/index.ts`, `server/src/socle/`, `server/prisma/schema/socle.prisma` (+ migrations `*_socle_*`), `server/Dockerfile`, `server/package.json`, `server/deploy/`, `server/test/socle-*.test.ts`, `socle/`, `aide-socle/`, `compose*.yaml`, `.env.example`, `docs/`, `.claude/skills/`, `CLAUDE.md`, `.gitignore`, `.dockerignore` | `site.json`, `theme.css`, `index.html`, `404.html`, `confidentialite.html`, `assets/`, `gestion/`, `server/src/entreprise/`, `server/prisma/schema/entreprise.prisma`, `aide/`, `ENTREPRISE.md`, `README.md`, `deploy/INSTALLATION.md` |
 | Liberté | Aucune modification dans un site : les améliorations se font **dans le modèle**, puis chaque site les récupère | Totale, dans le respect des règles du socle (voir [CLAUDE.md](../CLAUDE.md)) |
 
 Ce que le socle apporte, prêt à l'emploi :

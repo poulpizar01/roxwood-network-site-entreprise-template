@@ -257,7 +257,8 @@ function dessinerPiece(f) {
         <button type="button" class="btn btn-fantome" data-piece-choisir>${f.pieceIdentiteUrl ? 'Remplacer la pièce' : 'Ajouter une pièce'}</button>
         ${f.pieceIdentiteUrl ? '<button type="button" class="btn btn-fantome grade-supprimer" data-piece-retirer>Retirer</button>' : ''}
         <input type="file" id="piece-fichier" accept="image/png,image/jpeg,image/webp" class="cache" aria-label="Choisir l’image de la pièce d’identité">
-      </div>` : ''}
+      </div>
+      <p class="champ-aide seulement-en-jeu">En jeu, si le choix du fichier ne s’ouvre pas, ajoutez l’image depuis un navigateur, avec le même compte.</p>` : ''}
     <p class="champ-aide">Effacée automatiquement 90 jours après le départ de l’employé.</p>`;
   const grande = zone.querySelector('[data-agrandir-piece]');
   if (grande) grande.addEventListener('click', () => { $rh('image-piece').src = f.pieceIdentiteUrl; $rh('modale-piece').classList.remove('cache'); $rh('fermer-modale-piece').focus(); });
