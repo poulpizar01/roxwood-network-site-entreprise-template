@@ -131,10 +131,17 @@ test('votes : un vote par personne, remplaçable ; l’identifiant Discord ne so
   await voter(c.id, 1, 'pour');
   await voter(c.id, 1, 'contre');   // remplace
   assert.equal(await monVote(c.id, 1), 'contre');
-  const ligne = (await listerCandidatures(true)).find(x => x.id === c.id)!;
+  const ligne = (await listerCandidatures(true, true)).find(x => x.id === c.id)!;
   assert.deepEqual([ligne.votes.pour, ligne.votes.contre], [0, 1]);
   assert.ok(!('discordId' in ligne));
-  assert.equal((await listerCandidatures(false)).find(x => x.id === c.id)!.pieces.length, 0);   // sans le droit de voir les pièces, aucune adresse d'image
+  assert.equal((await listerCandidatures(false, false)).find(x => x.id === c.id)!.pieces.length, 0);   // sans le droit de voir les pièces, aucune adresse d'image
+});
+
+test('réponses liées au téléphone ou au RIB : visibles seulement avec le droit sensible', async () => {
+  const c = await nouvelle({ prenom: 'Sensible', reponses: [{ libelle: 'RIB', valeur: 'FR76', champFiche: 'rib' }, { libelle: 'Motivation', valeur: 'ok', champFiche: null }] });
+  const libelles = async (sensible: boolean) => (await listerCandidatures(false, sensible)).find(x => x.id === c.id)!.reponses.map(r => r.libelle);
+  assert.deepEqual(await libelles(true), ['RIB', 'Motivation']);
+  assert.deepEqual(await libelles(false), ['Motivation']);
 });
 
 test('entretien : statut, heure exacte, événement d’agenda ; refus', async () => {

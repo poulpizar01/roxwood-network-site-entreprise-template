@@ -7,21 +7,28 @@ import { purgerPiecesIdentite, purgerReponses } from './rh.js';
 
 const JOUR = 24 * 3600e3;
 const ABSENCES_REFUSEES_JOURS = 30;
-const AGENDA_JOURS = 365, CANDIDATURES_JOURS = 365, SERVICES_JOURS = 365, RELEVES_GARDES = 20;
+const AGENDA_JOURS = 365, CANDIDATURES_JOURS = 365, SERVICES_JOURS = 365, DEMANDES_JOURS = 365, RELEVES_GARDES = 20;
+
+// une étape en échec ne bloque pas les suivantes (ni celles de demain : elle serait retentée chaque jour sans que rien d'autre ne soit purgé)
+async function etape<T>(nom: string, repli: T, f: () => Promise<T>): Promise<T> {
+  try { return await f(); } catch (e) { console.error('[purge]', nom, e); return repli; }
+}
 
 async function purger(): Promise<void> {
-  await purgerReponses();
-  const pieces = await purgerPiecesIdentite();
-  const recrutement = await purgerCandidatures();   // pièces des candidatures du site (90 jours), candidatures closes (un an)
+  await etape('réponses', undefined, async () => { await purgerReponses(); });
+  const pieces = await etape('pièces d’identité', 0, purgerPiecesIdentite);
+  const recrutement = await etape('candidatures', { pieces: 0, candidatures: 0 }, purgerCandidatures);   // candidatures du site : 90 jours, pièces comprises
   const avant = (jours: number) => new Date(Date.now() - jours * JOUR);
-  const [agenda, absencesRefusees, candidatures, services] = await Promise.all([
+  const [agenda, absencesRefusees, candidatures, services, demandes] = await Promise.all([
     prisma.evenementAgenda.deleteMany({ where: { jour: { lt: avant(AGENDA_JOURS) } } }),
     // une absence refusée reste un mois, pour que son auteur la voie, puis disparaît (agenda-regles.ts, routes/agenda.ts)
     prisma.evenementAgenda.deleteMany({ where: { statutAbsence: 'refuse', absenceDecideLe: { lt: avant(ABSENCES_REFUSEES_JOURS) } } }),
-    // confidentialite.html promet un an pour toute candidature, y compris celle restée en suspens sans être retraitée
+    // arrivées du bot : confidentialite.html promet un an, y compris pour celle restée en suspens sans être retraitée
     prisma.arriveeBot.deleteMany({ where: { recuLe: { lt: avant(CANDIDATURES_JOURS) } } }),
     // services terminés (un service en cours reste)
     prisma.service.deleteMany({ where: { fin: { lt: avant(SERVICES_JOURS) } } }),
+    // demandes traitées ou refusées : un an après leur réception (confidentialite.html) ; une demande ouverte reste
+    prisma.demande.deleteMany({ where: { statut: { in: ['traitee', 'refusee'] }, creeLe: { lt: avant(DEMANDES_JOURS) } } }),
   ]);
   // relevés Tablettes : chaque retrait d'une ligne en enregistre une nouvelle copie ; seuls les plus récents servent.
   // Un relevé d'une semaine pas encore verrouillée se lit encore : seuls ceux des semaines verrouillées (figées dans
@@ -29,7 +36,7 @@ async function purger(): Promise<void> {
   const gardes = await prisma.importCompta.findMany({ where: { type: 'tablettes' }, orderBy: [{ importeLe: 'desc' }, { id: 'desc' }], take: RELEVES_GARDES, select: { id: true } });
   const verrouillees = (await prisma.declarationDot.findMany({ select: { semaine: true } })).map(d => d.semaine);
   const releves = gardes.length < RELEVES_GARDES ? { count: 0 } : await prisma.importCompta.deleteMany({ where: { type: 'tablettes', id: { notIn: gardes.map(g => g.id) }, semaine: { in: verrouillees } } });
-  const effaces = { pieces, piecesCandidatures: recrutement.pieces, candidaturesSite: recrutement.candidatures, agenda: agenda.count, absencesRefusees: absencesRefusees.count, candidatures: candidatures.count, services: services.count, releves: releves.count };
+  const effaces = { pieces, piecesCandidatures: recrutement.pieces, candidaturesSite: recrutement.candidatures, agenda: agenda.count, absencesRefusees: absencesRefusees.count, candidatures: candidatures.count, services: services.count, demandes: demandes.count, releves: releves.count };
   if (Object.values(effaces).some(Boolean)) console.log('[purge] effacés :', JSON.stringify(effaces));
 }
 

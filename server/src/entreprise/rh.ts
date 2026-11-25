@@ -121,6 +121,12 @@ export async function supprimerFiche(id: number): Promise<string> {
     await tx.run.deleteMany({ where: { id: { in: r.figes } } }); await tx.run.updateMany({ where: { id: { in: r.ouverts } }, data: { employeId: null } });
     await tx.service.deleteMany({ where: { id: { in: s.figes } } }); await tx.service.updateMany({ where: { id: { in: s.ouverts } }, data: { employeId: null } });
     await tx.primeEmployeSemaine.deleteMany(lie);
+    // candidature déposée sur le site (nom, réponses, pièces) : elle part avec la fiche, ses pièces au nettoyage du stockage
+    const candidatures = await tx.candidature.findMany({ where: { OR: [{ employeId: id }, ...(e.discordId ? [{ discordId: e.discordId }] : [])] }, include: { pieces: true } });
+    for (const c of candidatures) {
+      if (c.pieces.length) await tx.imageRetiree.createMany({ data: c.pieces.map(p => ({ cle: p.cle, url: p.url, cleMini: p.cleMini, urlMini: p.urlMini })) });
+      await tx.candidature.delete({ where: { id: c.id } });
+    }
     await tx.arriveeBot.deleteMany(lie); await tx.sanction.deleteMany(lie); await tx.paiementFicheDot.deleteMany(lie); await tx.historiqueEmploye.deleteMany(lie);
     if (e.pieceIdentiteCle) await tx.imageRetiree.create({ data: { cle: e.pieceIdentiteCle, url: e.pieceIdentiteUrl ?? '', cleMini: e.pieceIdentiteCleMini ?? '', urlMini: e.pieceIdentiteUrlMini ?? '' } });
     await tx.employe.delete({ where: { id } });

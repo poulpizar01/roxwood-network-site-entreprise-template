@@ -3,6 +3,7 @@
 import type { Entreprise } from '../socle/contrat.js';
 import { prisma } from '../socle/db.js';
 import { actualiserGrades } from '../socle/grades-imposes.js';
+import { definirReglage, reglage } from '../socle/reglages.js';
 import { simulerBotsDiscord } from './discord-simulation.js';
 import { planifierNettoyageImages } from './images-retirees.js';
 import { moduleActif, pagesDesModules, pagesInactives, pagesPubliquesInactives } from './modules.js';
@@ -89,6 +90,9 @@ export const entreprise: Entreprise = {
     await tx.apparenceImage.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.sanction.updateMany({ where: { compteId }, data: { compteId: null } });
     await tx.contrat.updateMany({ where: { compteId }, data: { compteId: null } });
+    await tx.declarationDot.updateMany({ where: { compteId }, data: { compteId: null } });
+    await tx.demande.updateMany({ where: { prisEnChargeParId: compteId }, data: { prisEnChargeParId: null } });
+    await tx.candidatureVote.deleteMany({ where: { compteId } });
     await tx.echeancier.updateMany({ where: { compteId }, data: { compteId: null } });
     if (compte) await tx.invitationAgenda.deleteMany({ where: { discordId: compte.discordId } });
     await tx.evenementAgenda.deleteMany({ where: { compteId, destination: 'perso' } });
@@ -105,6 +109,8 @@ export const entreprise: Entreprise = {
     await tx.runsQuotaGrade.deleteMany({ where: { gradeCle } });
     await tx.facturesQuotaGrade.deleteMany({ where: { gradeCle } });
     await tx.agendaDroitsGrade.deleteMany({ where: { gradeCle } });
+    // le grade d'arrivée des recrutements : recréer un grade sous la même clé ne doit pas le redonner aux nouveaux arrivants
+    if (reglage('rh.grade_arrivee') === gradeCle) await definirReglage('rh.grade_arrivee', null);
     const droits = await tx.agendaDroitsGrade.findMany();
     for (const ligne of droits) {
       await tx.agendaDroitsGrade.update({

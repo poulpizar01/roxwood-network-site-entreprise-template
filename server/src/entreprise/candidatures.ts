@@ -213,7 +213,8 @@ async function ecrireAuCandidat(c: { salonDiscordId: string | null }, contenu: s
 const avatarVotant = (c: { discordId: string; avatar: string | null }) => (c.avatar ? `https://cdn.discordapp.com/avatars/${c.discordId}/${c.avatar}.webp?size=64` : null);
 
 // les pièces jointes ne sont montrées qu'à qui peut voir une pièce d'identité (rh-piece-voir) ; l'identifiant Discord et les clés de stockage, jamais
-export async function listerCandidatures(voitPieces: boolean) {
+// téléphone et RIB demandés par le formulaire : comme sur la fiche, seulement avec rh-sensible-voir (voitSensible) ; les pièces avec rh-piece-voir
+export async function listerCandidatures(voitPieces: boolean, voitSensible: boolean) {
   const [candidatures, votes] = await Promise.all([
     prisma.candidature.findMany({ orderBy: { creeLe: 'desc' }, take: 1000, include: { pieces: { orderBy: { position: 'asc' } } } }),
     prisma.candidatureVote.findMany(),
@@ -228,7 +229,7 @@ export async function listerCandidatures(voitPieces: boolean) {
     const de = (valeur: string) => v.filter(x => x.valeur === valeur);
     return {
       ...c,
-      reponses: (Array.isArray(reponses) ? reponses as unknown as Reponse[] : []).map(({ libelle, valeur }) => ({ libelle, valeur })),
+      reponses: (Array.isArray(reponses) ? reponses as unknown as Reponse[] : []).filter(r => voitSensible || (r.champFiche !== 'telephone' && r.champFiche !== 'rib')).map(({ libelle, valeur }) => ({ libelle, valeur })),
       pieces: voitPieces ? pieces.map(p => ({ id: p.id, libelle: p.libelle, url: p.url, urlMini: p.urlMini })) : [],
       nombrePieces: pieces.length,
       votes: { pour: de('pour').length, contre: de('contre').length, abstention: de('abstention').length },

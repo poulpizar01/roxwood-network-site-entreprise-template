@@ -1,5 +1,5 @@
 // ENTREPRISE — routes du module « recrutement » (montées seulement s'il est allumé dans site.json) : /api/candidatures/…, page
-// gestion/recrutement.html. « rh-voir » : consulter et voter ; « rh-creer » (en plus) : convoquer, accepter, refuser, annoter,
+// onglet Candidatures de gestion/rh.html. « rh-voir » : consulter et voter ; « rh-creer » (en plus) : convoquer, accepter, refuser, annoter,
 // supprimer. Dépôt public : identité Discord vérifiée exigée AVANT de recevoir le fichier (un visiteur anonyme n'envoie rien).
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { body, intParam, permission } from '../../socle/http.js';
@@ -56,7 +56,7 @@ candidatures.put('/api/candidatures/questions/ordre', ...voir, parametrer, trait
 candidatures.put('/api/candidatures/questions/:id', ...voir, parametrer, traiter(async (req, res) => { await modifierQuestion(intParam(req, 'id'), body(req)); res.json({ questions: await listerQuestions() }); }));
 candidatures.delete('/api/candidatures/questions/:id', ...voir, parametrer, traiter(async (req, res) => { await supprimerQuestion(intParam(req, 'id')); res.json({ questions: await listerQuestions() }); }));
 
-candidatures.get('/api/candidatures', ...voir, traiter(async (req, res) => { res.json({ candidatures: await listerCandidatures((await droits(req)).has('piece-voir')) }); }));
+candidatures.get('/api/candidatures', ...voir, traiter(async (req, res) => { const d = await droits(req); res.json({ candidatures: await listerCandidatures(d.has('piece-voir'), d.has('sensible-voir')) }); }));
 candidatures.get('/api/candidatures/:id/mon-vote', ...voir, traiter(async (req, res) => { res.json({ vote: await monVote(intParam(req, 'id'), req.compte.id) }); }));
 candidatures.put('/api/candidatures/:id/vote', ...voir, traiter(async (req, res) => { await voter(intParam(req, 'id'), req.compte.id, body(req).valeur); res.json({ ok: true }); }));
 
