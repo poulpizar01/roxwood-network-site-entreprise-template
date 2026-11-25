@@ -85,6 +85,12 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
 - **La carte traînée est opaque, la place qu'elle laisse n'est qu'un pointillé.**
   Vu : le clone à 80 % d'opacité (imposé par Sortable en style en ligne) laissait voir le contour des cartes dessous, et l'emplacement gardait sa bordure pleine plus un anneau.
 - **Un glissé ne démarre qu'après quelques pixels, et au doigt après un appui long** ; un bouton posé sur une carte reste un simple clic (`filtreDepart`). Ce qui se fait en glissant se fait aussi au clavier : flèches sur la poignée (`triable()`), commande dans la fiche ou menu « Déplacer vers… » pour des colonnes.
+- **Un tiroir de plus de deux actions les range dans « Actions ».** `gestion.actionsPied(items)` (gestion.js) renvoie les boutons tels quels jusqu'à deux, au-delà un bouton « Actions » qui ouvre une feuille ancrée en bas du tiroir (jamais un menu flottant : collé au bord bas de l'écran, il n'a pas la place de s'ouvrir sur téléphone). La feuille est écrite dans le pied : l'écouteur du tiroir traite ses boutons comme ceux du pied. Facturation, Échéanciers, Demandes, Candidatures s'en servent.
+  Vu : six boutons de facture sur trois rangées dans le pied d'un tiroir.
+- **« Supprimer » d'un tiroir est toujours le bouton de Facturation** : `btn btn-danger`, icône corbeille, le seul mot « Supprimer » (la confirmation, elle, nomme l'objet).
+  Vu : « Supprimer le grade », « Supprimer la fiche », « Supprimer l'échéancier », en contour rouge ou en bouton fantôme selon la page.
+- **Sous une barre d'onglets, 20 px avant le premier bloc** (`.compta-sous-onglets`, margin-bottom), jamais 4.
+  Vu : les cartes de Facturation et d'Employés collées au trait des onglets.
 
 ## 6. Dates, heures, périodes
 

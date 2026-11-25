@@ -112,11 +112,13 @@ function dessinerTiroir() {
   const libre = !c.contrat, facturation = c.type === 'facturation';
   // pied : l'action destructrice à gauche ; à droite, ce qu'on peut faire de ce plan. Sans droit, un pied vide disparaît.
   const boutons = peutGerer() ? [
-    !c.contrat ? '<button type="button" class="btn btn-fantome grade-supprimer" data-supprimer-echeancier>Supprimer l’échéancier</button>' : '',
+    !c.contrat ? `<button type="button" class="btn btn-danger" data-supprimer-echeancier>${gestion.ico('trash')} Supprimer</button>` : '',
     '<span class="tiroir-pied-espace"></span>',
-    facturation && !c.contrat ? '<button type="button" class="btn btn-fantome" data-etendre>Prolonger</button>' : '',
-    facturation ? '<button type="button" class="btn btn-fantome" data-ajuster>Nouveau montant…</button>' : '',
-    libre ? `<button type="button" class="btn btn-fantome" data-ajouter-echeance>${gestion.ico('plus')} Ajouter une échéance</button>` : '',
+    gestion.actionsPied([
+      facturation && !c.contrat ? '<button type="button" class="btn btn-fantome" data-etendre>Prolonger</button>' : '',
+      facturation ? '<button type="button" class="btn btn-fantome" data-ajuster>Nouveau montant…</button>' : '',
+      libre ? `<button type="button" class="btn btn-fantome" data-ajouter-echeance>${gestion.ico('plus')} Ajouter une échéance</button>` : '',
+    ].filter(Boolean)),
     facturation ? '<button type="button" class="btn btn-or" data-facturer-selection disabled>Facturer</button>' : '',
   ].filter(Boolean) : [];
   $c('tiroir-echeancier-pied').innerHTML = boutons.join('');

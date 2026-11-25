@@ -242,7 +242,7 @@ function actionsFacture(f) {
 // pied du tiroir : Aperçu et actions à gauche ; Supprimer et Enregistrer/Ajouter à droite (pas d'Annuler : le ✕ ferme, avec confirmation si saisie)
 function dessinerPiedFacture(f, editable) {
   const b = [];
-  if (f) b.push(`<button type="button" class="btn btn-fantome" data-pied-apercu>${gestion.ico("sheet")} Aperçu</button>`, ...actionsFacture(f));
+  if (f) b.push(`<button type="button" class="btn btn-fantome" data-pied-apercu>${gestion.ico("sheet")} Aperçu</button>`, gestion.actionsPied(actionsFacture(f)));
   b.push('<span class="tiroir-pied-espace"></span>');
   if (f && f.source === "manuel") b.push(`<button type="button" class="btn btn-danger" data-exige="factures" data-pied-supprimer>${gestion.ico("trash")} Supprimer</button>`);
   if (editable) b.push(`<button type="submit" class="btn btn-or" data-exige="factures" id="bouton-facture-enregistrer">${f ? "Enregistrer" : "Ajouter"}</button>`);

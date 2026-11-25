@@ -133,7 +133,7 @@ async function dessinerTiroir() {
   // pied comme celui d'une demande : actions (changer de colonne) au-dessus, puis Supprimer et un seul Enregistrer, en bas à gauche
   const actions = peutGerer() ? (TRANSITIONS[c.statut] || []).map(vers => `<button type="button" class="btn btn-fantome" data-vers="${vers}">${gestion.ico(ACTIONS[vers][0])} ${ACTIONS[vers][1]}</button>`) : [];
   const fin = peutGerer() ? [`<button type="button" class="btn btn-danger" data-supprimer>${gestion.ico('trash')} Supprimer</button>`, '<button type="button" class="btn btn-or" data-enregistrer>Enregistrer</button>'] : [];
-  $r('tiroir-candidature-pied').innerHTML = `<div class="tiroir-pied-actions">${actions.join('')}</div><div class="tiroir-pied-fin">${fin.join('')}</div>`;
+  $r('tiroir-candidature-pied').innerHTML = `<div class="tiroir-pied-actions">${gestion.actionsPied(actions)}</div><div class="tiroir-pied-fin">${fin.join('')}</div>`;
   $r('tiroir-candidature-pied').classList.toggle('cache', !actions.length && !fin.length);
 }
 function ouvrirTiroir(id) {

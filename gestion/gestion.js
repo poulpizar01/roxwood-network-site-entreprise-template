@@ -32,8 +32,8 @@ const GESTION_NAV = [
   { groupe: 'Administration' },
   { cle: 'grades', href: 'grades.html', label: 'Grades', icone: 'grade', permission: 'grades' },
   { cle: 'comptes', href: 'comptes.html', label: 'Comptes', icone: 'lock', permission: 'comptes' },
-  { cle: 'parametres', href: 'parametres.html', label: 'Paramètres', icone: 'gear', permission: 'parametres' },
   { cle: 'webhooks', href: 'webhooks.html', label: 'Bot Discord', icone: 'sync', permission: 'webhooks' },
+  { cle: 'parametres', href: 'parametres.html', label: 'Paramètres', icone: 'gear', permission: 'parametres' },
   { groupe: 'Site' },
   // module « vitrine » (site.json) : visible avec l'une ou l'autre des deux lectures (services, postes ouverts)
   { cle: 'vitrine', href: 'vitrine.html', label: 'Vitrine', icone: 'grid', permission: 'vitrine-voir', ou: 'postes-voir', module: 'vitrine' },
@@ -622,8 +622,46 @@ const bandeauSalonIntrouvable = salonIntrouvableLe => !salonIntrouvableLe ? '' :
   ${ico('alerte')}
   <p><strong>Salon Discord introuvable</strong>Le dernier envoi a échoué : le salon a sans doute été supprimé sur Discord. Renseignez-en un autre en modifiant le contrat.</p></div>`;
 
+// « Actions » d'un tiroir qui en a beaucoup : au-delà de deux, un seul bouton dans le pied ouvre une feuille ancrée en bas du tiroir
+// qui les liste, au lieu de six boutons sur trois rangées. La feuille est écrite DANS le pied : un clic sur l'une de ses actions
+// remonte jusqu'à l'écouteur du tiroir, qui la traite comme si le bouton était dans le pied. Pas de menu flottant : collé au bord bas
+// de l'écran, il n'aurait pas la place de s'ouvrir sur téléphone (docs/design.md).
+let COMPTEUR_FEUILLES = 0;
+const OUVREURS_FEUILLES = new WeakMap();
+const actionsPied = (items, titre = 'Actions') => {
+  if (items.length <= 2) return items.join('');
+  const id = `feuille-actions-${++COMPTEUR_FEUILLES}`;
+  // toutes les actions réservées à la même permission (data-exige) : sans elle, le bouton s'efface avec elles au lieu d'ouvrir une feuille vide
+  const exigences = new Set(items.map(i => /data-exige="([^"]+)"/.exec(i)?.[1] ?? ''));
+  const exige = exigences.size === 1 && [...exigences][0] ? ` data-exige="${[...exigences][0]}"` : '';
+  return `<button type="button" class="btn btn-fantome" data-feuille-ouvrir="${id}" aria-haspopup="dialog"${exige}>${ico('points')} Actions</button>
+    <div class="modale-fond modale-fond--bas cache" id="${id}" data-echap>
+      <div class="modale modale-bas" role="dialog" aria-modal="true" aria-labelledby="${id}-titre">
+        <div class="modale-entete"><h2 id="${id}-titre" class="modale-titre">${titre}</h2><button type="button" aria-label="Fermer">✕</button></div>
+        <div class="feuille-actions-liste">${items.join('')}</div>
+      </div>
+    </div>`;
+};
+document.addEventListener('click', ev => {
+  const ouvrir = ev.target.closest?.('[data-feuille-ouvrir]');
+  if (ouvrir) {
+    const feuille = document.getElementById(ouvrir.dataset.feuilleOuvrir);
+    if (!feuille) return;
+    OUVREURS_FEUILLES.set(feuille, ouvrir);
+    feuille.classList.remove('cache');
+    feuille.querySelector('.feuille-actions-liste .btn')?.focus();
+    return;
+  }
+  const feuille = ev.target.closest?.('.modale-fond--bas[data-echap]');
+  if (!feuille || !(ev.target === feuille || ev.target.closest('[aria-label="Fermer"]') || ev.target.closest('.feuille-actions-liste .btn'))) return;
+  feuille.classList.add('cache');
+  const ouvreur = OUVREURS_FEUILLES.get(feuille);
+  if (ouvreur?.isConnected) ouvreur.focus();
+});
+
 window.gestion = {
   ico,
+  actionsPied,
   bandeauSalonIntrouvable,
   ligneEnService,
   ordreEnService,

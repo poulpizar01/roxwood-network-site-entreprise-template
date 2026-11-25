@@ -199,7 +199,7 @@ function dessinerPiedFiche(f, peutEcrire) {
   if (f && f.modifiable !== false) {
     if (f.enServiceDepuis && aDroitRh('modifier')) b.push(`<button type="button" class="btn btn-fantome" data-pied-service>${gestion.ico('clock')} Terminer son service</button>`);
     if (f.statut === 'actif' && aDroitRh('desactiver')) b.push(`<button type="button" class="btn btn-fantome" data-pied-statut="desactiver">${gestion.ico('lock')} Désactiver (départ)</button>`);
-    if (aDroitRh('supprimer')) b.push(`<button type="button" class="btn btn-fantome grade-supprimer" data-pied-supprimer>${gestion.ico('trash')} Supprimer la fiche</button>`);
+    if (aDroitRh('supprimer')) b.push(`<button type="button" class="btn btn-danger" data-pied-supprimer>${gestion.ico('trash')} Supprimer</button>`);
     if (f.statut !== 'actif' && aDroitRh('reactiver')) b.push(`<button type="button" class="btn btn-fantome" data-pied-statut="reactiver">${gestion.ico('sync')} Réactiver</button>`);
   }
   b.push('<span class="tiroir-pied-espace"></span>');

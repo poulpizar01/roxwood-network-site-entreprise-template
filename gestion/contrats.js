@@ -251,7 +251,7 @@ function dessinerTiroir() {
     + (c.notes ? `<section class="tiroir-section" aria-labelledby="titre-notes-contrat"><h3 id="titre-notes-contrat">Notes</h3><p class="contrat-notes">${echapper(c.notes)}</p></section>` : '');
   // l'action destructive à gauche, loin de la bulle flottante ; les autres à droite
   $c('tiroir-contrat-pied').innerHTML = `
-    <button type="button" class="btn btn-fantome grade-supprimer" data-exige="contrats" data-supprimer-contrat>Supprimer</button>
+    <button type="button" class="btn btn-danger" data-exige="contrats" data-supprimer-contrat>${gestion.ico('trash')} Supprimer</button>
     <span class="tiroir-pied-espace"></span>
     ${c.statut === 'termine'
       ? '<button type="button" class="btn btn-fantome" data-exige="contrats" data-reprendre-contrat>Reprendre le contrat</button>'

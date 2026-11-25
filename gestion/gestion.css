@@ -308,7 +308,7 @@ label, .eyebrow-label {
 .table-admin tr.ligne-total td { font-weight: 700; color: var(--accent-dark); border-top: 2px solid var(--accent); }
 
 /* ---------- admin : Comptabilité (sous-onglets + tableaux importés) ---------- */
-.compta-sous-onglets { display: flex; gap: 8px; margin: 18px 0 4px; flex-wrap: wrap; }
+.compta-sous-onglets { display: flex; gap: 8px; margin: 18px 0 20px; flex-wrap: wrap; }   /* 20 px sous le trait : le premier bloc de l'onglet ne le touche pas */
 .compta-sous-onglet {
   display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--border);
   background: var(--bg-elevated); color: var(--text-faint); font-size: var(--fs-3); font-weight: 500;
@@ -380,8 +380,8 @@ label, .eyebrow-label {
    doivent jamais passer devant ce composant, quel que soit leur ordre dans le fichier. Un dialogue vraiment
    compact (confirmation, gestion.confirmer) s'en exempte avec .modale-compacte. */
 @media (max-width: 760px) {
-  .modale-fond:not(.modale-compacte) { padding: 0 !important; }
-  .modale:not(.modale-compacte) {
+  .modale-fond:not(.modale-compacte):not(.modale-fond--bas) { padding: 0 !important; }
+  .modale:not(.modale-compacte):not(.modale-bas) {
     height: 100vh !important; height: 100dvh !important; max-height: none !important; max-width: none !important;
     border: 0 !important; border-radius: 0 !important;
   }
@@ -394,6 +394,22 @@ label, .eyebrow-label {
 .modale-boutons .btn { min-height: 44px; }
 .modale-boutons .btn-or { flex: 1 1 200px; }
 .modale-entete button { background: none; border: none; color: var(--text-faint); font-size: var(--fs-7); line-height: 1; }
+
+/* feuille d'actions ancrée en bas d'un tiroir (gestion.feuilleActions, gestion.js) : écrite dans le pied du tiroir, elle
+   se place par rapport au tiroir (position: absolute, jamais fixed sur tout l'écran : un seul fond assombri à la fois) */
+.modale-fond--bas { align-items: flex-end; padding: 0; }
+.tiroir { position: relative; }
+.tiroir .modale-fond--bas { position: absolute; z-index: 5; }
+.modale-bas {
+  width: 100%; max-width: none; max-height: 70%; border-radius: var(--radius) var(--radius) 0 0;
+  padding: 18px 20px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+@media (prefers-reduced-motion: no-preference) { .modale-bas { animation: modale-bas-entree .18s ease-out; } }
+@keyframes modale-bas-entree { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modale-bas .modale-entete { margin-bottom: 12px; }
+.modale-bas .modale-titre { font-size: var(--fs-8); line-height: 1.2; }
+.feuille-actions-liste { display: flex; flex-direction: column; gap: 8px; }
+.feuille-actions-liste .btn { width: 100%; justify-content: flex-start; min-height: 48px; }
 
 /* pied d'un panel avec une action secondaire (destructrice) : épinglée à gauche, à sa largeur naturelle ; l'action
    principale — et celles qui l'accompagnent, ex. Approuver/Refuser une absence — prend tout le reste et y centre

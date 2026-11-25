@@ -122,7 +122,7 @@ function dessinerTiroir() {
   }
   const fin = peutGerer() ? [`<button type="button" class="btn btn-danger" data-supprimer>${gestion.ico('trash')} Supprimer</button>`, '<button type="button" class="btn btn-or" data-enregistrer>Enregistrer</button>'] : [];
   // les actions d'abord (elles se replient entre elles), puis Supprimer et Enregistrer groupés à gauche, sur la dernière ligne
-  $d('tiroir-demande-pied').innerHTML = `<div class="tiroir-pied-actions">${actions.join('')}</div><div class="tiroir-pied-fin">${fin.join('')}</div>`;
+  $d('tiroir-demande-pied').innerHTML = `<div class="tiroir-pied-actions">${gestion.actionsPied(actions)}</div><div class="tiroir-pied-fin">${fin.join('')}</div>`;
 }
 function ouvrirTiroir(id) {
   DEMANDE_OUVERTE = id;
