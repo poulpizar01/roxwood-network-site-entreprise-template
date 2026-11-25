@@ -52,3 +52,16 @@ export function instantParis(jour: string, heure: string): Date {
   };
   return new Date(naif - decalage(naif - decalage(naif)));
 }
+
+// Instant d'un événement reçu du bot : l'horodatage du log (logTimestamp) sinon l'heure d'envoi (sentAt, celle du premier envoi : une
+// nouvelle tentative après une panne renvoie le même corps). Sans cela, une vente du dimanche soir reçue après une coupure compterait
+// dans la semaine suivante. Date invalide, ou à plus de 4 jours / dans le futur : l'instant de réception.
+export function instantEvenement(payload: unknown, sentAt: string): Date {
+  const p = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
+  const maintenant = Date.now();
+  for (const v of [p.logTimestamp, sentAt]) {
+    const t = typeof v === 'string' ? Date.parse(v) : NaN;
+    if (Number.isFinite(t) && t <= maintenant + 5 * 60_000 && t >= maintenant - 4 * 86_400_000) return new Date(t);
+  }
+  return new Date(maintenant);
+}

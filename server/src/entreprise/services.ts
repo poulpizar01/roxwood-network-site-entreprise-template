@@ -75,7 +75,7 @@ export async function recevoirDuty(e: EvenementBot): Promise<void> {
   const ev = lireDuty(e.payload, e.sentAt);
   // forme inattendue : ignorée (la renvoyer ne la rendrait pas valide), mais consignée — si le bot change de format,
   // c'est la seule trace qui le dira
-  if (!ev) { console.warn('[services] événement monitoring.duty ignoré : forme inattendue', JSON.stringify(e.payload).slice(0, 300)); return; }
+  if (!ev) { console.warn('[services] événement monitoring.duty ignoré : forme inattendue', e.payload && typeof e.payload === 'object' ? Object.keys(e.payload) : typeof e.payload); return; }   // clés seulement : les valeurs portent des pseudos et des ID Discord
   // cas courant (le bot connaît l'ID Discord) : une seule ligne lue plutôt que toute la table ; repli par nom
   // seulement si aucune fiche ne porte encore cet identifiant
   let fiche: Fiche | null = await prisma.employe.findFirst({ where: { discordId: ev.discordId }, select: { id: true, prenom: true, nom: true, discordId: true } });

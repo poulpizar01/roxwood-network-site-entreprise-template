@@ -209,6 +209,7 @@ model Facture {
 // le socle (empreinte du corps, socle/routes/webhooks.ts).
 model Run {
   id               Int      @id @default(autoincrement())
+  idBot            String?  @unique @map("id_bot") @db.VarChar(60) // empreinte de l'événement : une reprise du bot ne crée pas une seconde vente
   jobId            String   @default("") @map("job_id") @db.VarChar(100)
   vendeurNom       String   @default("") @map("vendeur_nom") @db.VarChar(120) // tel qu'envoyé par le bot
   vendeurDiscordId String?  @map("vendeur_discord_id") @db.VarChar(22)
@@ -686,7 +687,7 @@ model Demande {
   @@map("demandes")
 }
 
-// ---------- Recrutement sur le site (module « recrutement » : formulaire public, gestion/recrutement.html, entreprise/candidatures.ts) ----------
+// ---------- Recrutement sur le site (module « recrutement » : formulaire public, gestion/rh.html (onglets Candidatures et Réglages), entreprise/candidatures.ts) ----------
 
 // Candidature déposée par une personne dont l'identité est prouvée par Discord (socle discord-leger), distincte d'ArriveeBot
 // (tickets du bot). Pièce d'identité RP obligatoire (image envoyée) : effacée 90 jours après réception tant que la candidature

@@ -16,7 +16,7 @@ import { entierRegle } from './parametres.js';
 import { Refus } from './refus.js';
 import { nomComplet } from './rh.js';
 import { salonIntrouvable } from './salon-discord.js';
-import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
+import { debutSemaineParis, instantEvenement, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -200,12 +200,17 @@ export async function recevoirFactureCommande(e: EvenementBot): Promise<void> {
   if (!idBot) { console.warn('[facture] événement order.updated ignoré : pas de orderId'); return; }
   // bornée comme les réponses de candidature (rh.ts) : une commande à très nombreux articles ne doit pas gonfler
   // sans limite details.articles, réécrit en entier à chaque renvoi (changement de statut)
-  const articles = (Array.isArray(p.items) ? p.items as Article[] : []).slice(0, 50).map(a => ({
+  const articles = (Array.isArray(p.items) ? p.items as Article[] : []).filter(a => a && typeof a === 'object').slice(0, 50).map(a => ({
     name: texte(a.name, 120),
     unitPrice: entier(a.unitPrice),
     quantity: entier(a.quantity),
     weightGrams: entier(a.weightGrams),
   }));
+  const montants = [p.subtotal, p.deliveryFee, p.discountAmount, p.total].map(entier);
+  if (montants.some(n => n < 0 || n > 2_147_483_647) || articles.some(a => a.unitPrice < 0 || a.unitPrice > 2_147_483_647 || a.quantity < 0 || a.quantity > 2_147_483_647)) {
+    console.warn('[facture] événement order.updated ignoré : montant invalide');
+    return;
+  }
   const data = {
     source: 'order',
     numeroFacture: texte(p.invoiceNumber, 100),
@@ -222,9 +227,14 @@ export async function recevoirFactureCommande(e: EvenementBot): Promise<void> {
       confirmed: !!p.confirmed,
       status: texte(p.status, 20),
       discountPercent: entier(p.discountPercent),
+      sentAt: e.sentAt,   // pour reconnaître une ancienne livraison arrivée après une plus récente
     },
   };
-  await prisma.facture.upsert({ where: { idBot }, create: { idBot, ...data }, update: data });
+  // une nouvelle tentative du bot (après une panne) peut arriver après un événement plus récent : elle ne doit pas le remplacer
+  const existante = await prisma.facture.findUnique({ where: { idBot }, select: { details: true } });
+  const dernier = Date.parse(String((existante?.details as Record<string, unknown> | null)?.sentAt ?? ''));
+  if (Number.isFinite(dernier) && dernier > Date.parse(e.sentAt)) return;
+  await prisma.facture.upsert({ where: { idBot }, create: { idBot, dateFacture: instantEvenement(p, e.sentAt), ...data }, update: data });
 }
 
 // Traitement de l'événement monitoring.invoice (entreprise.webhooks) : paiement d'une facture constaté en jeu, lu par
@@ -262,6 +272,7 @@ export async function recevoirFactureMonitoring(e: EvenementBot): Promise<void> 
   await prisma.facture.create({
     data: {
       idBot,
+      dateFacture: instantEvenement(p, e.sentAt),
       source: 'monitoring',
       clientNom: texte(parsed.payerName, 200),
       sousTotal: montant,
@@ -282,8 +293,9 @@ export async function recevoirFactureMonitoring(e: EvenementBot): Promise<void> 
 // Factures qui comptent dans les totaux (quota, classement, paie, DOT) : une facture annulée sans avoir (saisie manuelle
 // passée à « annulée ») ne compte plus ; une annulée AVEC avoir reste comptée, et son avoir (montants négatifs) la compense.
 export async function facturesComptees(): Promise<Prisma.FactureWhereInput> {
-  const avoirs = await prisma.facture.findMany({ where: { avoirDeId: { not: null } }, select: { avoirDeId: true } });
-  return { NOT: { statutPaiement: 'ANNULEE', id: { notIn: avoirs.map(a => a.avoirDeId as number) } } };
+  // seules les annulées SANS avoir sont écartées : la liste reste courte, quel que soit le nombre d'avoirs de l'historique
+  const sansAvoir = await prisma.$queryRaw<{ id: number }[]>`SELECT f.id FROM factures f WHERE f.statut_paiement = 'ANNULEE' AND NOT EXISTS (SELECT 1 FROM factures a WHERE a.avoir_de_id = f.id)`;
+  return { id: { notIn: sansAvoir.map(f => f.id) } };
 }
 
 // ---------- classement et quota de facturation (page Quota, onglet Quota facture / Classements) ----------

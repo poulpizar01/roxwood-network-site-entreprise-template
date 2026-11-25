@@ -1,14 +1,16 @@
 // ENTREPRISE — ventes d'objets en jeu (« runs »), reçues du bot Discord entreprise : événement monitoring.sale, un
 // message par vente annoncée dans le salon de monitoring (docs/webhooks.md). Rattachée à la fiche RH du vendeur (ID
 // Discord, sinon pseudo) quand elle existe ; sans fiche, gardée telle quelle (pas de fiche créée automatiquement).
-// Idempotence : déjà assurée par le socle (empreinte du corps d'un même envoi, socle/routes/webhooks.ts) — jobId
-// n'identifie que le métier RP du vendeur, jamais la transaction.
+// Idempotence : le socle écarte un envoi déjà traité, mais pas la reprise d'un envoi dont le marquage « traité » a échoué ;
+// idBot (empreinte du corps, comme monitoring.invoice) l'assure ici — jobId n'identifie que le métier RP du vendeur.
+import crypto from 'node:crypto';
+import { Prisma } from '../generated/prisma/client.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { prisma } from '../socle/db.js';
 import { gradeDe, tousLesGrades } from '../socle/droits.js';
 import { entierRegle } from './parametres.js';
 import { nomComplet } from './rh.js';
-import { debutSemaineParis, jourDeSemaineParis } from './texte.js';
+import { debutSemaineParis, instantEvenement, jourDeSemaineParis } from './texte.js';
 
 const texte = (v: unknown, max: number) => String(v ?? '').trim().slice(0, max);
 const entier = (v: unknown): number => { const n = Math.round(Number(v)); return Number.isFinite(n) ? n : 0; };
@@ -28,13 +30,23 @@ export async function recevoirRun(e: EvenementBot): Promise<void> {
   // rattachement par ID Discord seulement (comme les factures) : le pseudo en jeu est modifiable et pas garanti unique,
   // un homonyme créditerait la mauvaise fiche
   const employe = /^\d{15,22}$/.test(discordId) ? await prisma.employe.findUnique({ where: { discordId } }) : null;
+  // valeurs hors bornes (colonnes entières) ou sans sens : donnée invalide, ignorée — un 500 ferait réessayer le bot dix fois pour rien
+  const quantite = entier(parsed.quantity), totalPrice = entier(parsed.totalPrice), companyShare = entier(parsed.companyShare);
+  if ([quantite, totalPrice, companyShare].some(n => n < 0 || n > 2_147_483_647) || quantite === 0) {
+    console.warn('[run] événement monitoring.sale ignoré : quantité ou montant invalide');
+    return;
+  }
+  const idBot = 'run-' + crypto.createHash('sha256')
+    .update([e.sentAt, discordId, parsed.quantity, parsed.totalPrice, p.jobId, p.logTimestamp, p.description].map(v => String(v ?? '')).join('|'))
+    .digest('hex').slice(0, 40);
   await prisma.run.create({
     data: {
+      idBot, creeLe: instantEvenement(p, e.sentAt),
       jobId: texte(p.jobId, 100), vendeurNom: nom, vendeurDiscordId: discordId || null, employeId: employe?.id ?? null,
-      itemLabel: texte(parsed.itemLabel, 120), quantite: entier(parsed.quantity), totalPrice: entier(parsed.totalPrice),
-      companyShare: entier(parsed.companyShare), description: texte(p.description, 500),
+      itemLabel: texte(parsed.itemLabel, 120), quantite, totalPrice,
+      companyShare, description: texte(p.description, 500),
     },
-  });
+  }).catch(err => { if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err; });   // déjà enregistrée
 }
 
 // ---------- objectif de run, en unités vendues (réglé dans la fiche du grade, page Grades ; affiché page Quota) ----------
