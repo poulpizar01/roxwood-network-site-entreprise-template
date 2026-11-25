@@ -25,7 +25,7 @@ Vous ne pouvez accorder que les droits que vous avez vous-même : les autres son
 
 ## Vérifier avant d'enregistrer
 
-L'onglet **Aperçu** montre les rubriques du menu que verrait ce grade et le détail de ses droits. L'onglet **Agenda** règle qui voit et crée les événements de l'agenda.
+L'onglet **Aperçu** montre les rubriques du menu que verrait ce grade et le détail de ses droits. L'onglet **Agenda** règle qui voit et crée les événements de l'agenda. L'onglet **Quota** fixe l'objectif de la semaine du grade, en unités vendues (**Run**) et en dollars facturés (**Factures**) ; 0 veut dire pas d'objectif. Vous ne réglez que les grades sous le vôtre.
 
 ::: si comptes
 Choisir un rôle Discord pour un grade vaut validation des comptes qui le portent : il faut donc aussi le droit de gérer les comptes.

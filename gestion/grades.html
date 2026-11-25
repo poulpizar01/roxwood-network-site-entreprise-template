@@ -47,6 +47,7 @@
         <button type="button" class="grade-onglet actif" data-onglet="affichage" role="tab" aria-selected="true">Affichage</button>
         <button type="button" class="grade-onglet" data-onglet="permissions" role="tab" aria-selected="false">Permissions</button>
         <button type="button" class="grade-onglet" data-onglet="agenda" role="tab" aria-selected="false">Agenda</button>
+        <button type="button" class="grade-onglet" data-onglet="quota" role="tab" aria-selected="false">Quota</button>
         <button type="button" class="grade-onglet" data-onglet="apercu" role="tab" aria-selected="false">Aperçu</button>
       </nav>
       <div class="tiroir-corps">
@@ -84,6 +85,26 @@
           </section>
 
           <section id="onglet-agenda" class="cache" data-panneau="agenda"></section>
+
+          <section id="onglet-quota" class="cache" data-panneau="quota">
+            <p class="champ-aide" id="quota-aide-verrou" style="margin:0 0 10px;">Objectifs de la semaine pour ce grade, suivis dans la page Quota. 0 = pas de quota.</p>
+            <section class="grade-run-reglages grade-separee" aria-labelledby="titre-grade-run">
+              <h3 id="titre-grade-run">Run</h3>
+              <div class="champ champ-run-quota">
+                <label for="run-quota">Quota hebdomadaire</label>
+                <div class="champ-run-quota-saisie"><input type="number" id="run-quota" min="0" max="1000000" step="1" value="0"><span aria-hidden="true">unités</span></div>
+                <p class="champ-aide">Unités à vendre chaque semaine pour ce grade (suivi : page Quota, onglet Quota run).</p>
+              </div>
+            </section>
+            <section class="grade-facture-reglages grade-separee" aria-labelledby="titre-grade-facture">
+              <h3 id="titre-grade-facture">Factures</h3>
+              <div class="champ champ-run-quota">
+                <label for="facture-quota">Quota hebdomadaire</label>
+                <div class="champ-run-quota-saisie"><input type="number" id="facture-quota" min="0" max="1000000" step="1" value="0"><span aria-hidden="true">$</span></div>
+                <p class="champ-aide">Montant à facturer chaque semaine pour ce grade (suivi : page Quota, onglet Quota facture). Seules les factures constatées en jeu comptent, créditées à qui les a enregistrées : une commande Discord ou une facture saisie depuis le site (page Facturation) ne crédite personne.</p>
+              </div>
+            </section>
+          </section>
 
 
           <section id="onglet-apercu" class="cache" data-panneau="apercu">
@@ -151,7 +172,7 @@
 
   <script src="/gestion/vendor/Sortable.min.js"></script>
   <script>
-    let moi, grades = [], permissions = [], droitsAgenda = [], edition = null, nouveauCleMatrice = null, gradeCreeEnCours = false, effectifs = null, ouvreur = null;
+    let moi, grades = [], permissions = [], droitsAgenda = [], quotasRun = [], quotasFacture = [], edition = null, nouveauCleMatrice = null, gradeCreeEnCours = false, effectifs = null, ouvreur = null;
     // rôles du serveur Discord, lus sur Discord (vide sans DISCORD_BOT_TOKEN : l'identifiant se saisit à la main)
     let roles = [];
     const nomRole = id => roles.find(r => r.id === id)?.nom;
@@ -256,6 +277,15 @@
         input.disabled = input.dataset.verrou === '1' || !$('agenda-grades').querySelector(`[data-agenda-action="consulter"][data-grade="${CSS.escape(input.dataset.grade)}"]`).checked;
         input.closest('label').classList.toggle('is-disabled', input.disabled);
       });
+    }
+
+    // objectifs de la semaine : modifiables seulement pour un grade sous le sien (le serveur le refuse sinon)
+    function afficherQuotas(g) {
+      const verrou = !!g && !gerable(g);
+      $('run-quota').value = g ? (quotasRun.find(q => q.cle === g.cle)?.quota ?? 0) : 0;
+      $('facture-quota').value = g ? (quotasFacture.find(q => q.cle === g.cle)?.quota ?? 0) : 0;
+      $('run-quota').disabled = $('facture-quota').disabled = verrou;
+      $('quota-aide-verrou').textContent = verrou ? 'Vous ne réglez que les quotas des grades sous le vôtre.' : 'Objectifs de la semaine pour ce grade, suivis dans la page Quota. 0 = pas de quota.';
     }
 
     // onglets du tiroir : un seul visible à la fois, bascule simple (pas de contenu à recharger)
@@ -416,6 +446,7 @@
           consulter_tous: $('agenda-consulter-tous').checked, gerer_tous: $('agenda-gerer-tous').checked,
           cases: [...document.querySelectorAll('[data-agenda-action]')].filter(c => c.checked).map(c => `${c.dataset.agendaAction}:${c.dataset.grade}`).sort(),
         } : null,
+        quotas: [$('run-quota').value, $('facture-quota').value],
       });
     }
 
@@ -460,6 +491,7 @@
       }).join('');
       $('recherche-vide').classList.add('cache');
       afficherDroitsAgenda(g);
+      afficherQuotas(g);
       actualiserApercu();
       ouvrirOnglet('affichage');
       gestion.message('zone-message-modale', '');
@@ -525,7 +557,11 @@
           consulter_tous: $('agenda-consulter-tous').checked,
           gerer_tous: $('agenda-gerer-tous').checked,
         };
-        await socle.api(`/api/agenda/droits-grades/${encodeURIComponent(edition)}`, { method: 'PUT', body: droits });
+        await Promise.all([
+          socle.api(`/api/agenda/droits-grades/${encodeURIComponent(edition)}`, { method: 'PUT', body: droits }),
+          socle.api(`/api/run/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('run-quota').value) || 0 } }),
+          socle.api(`/api/compta/factures/quotas/${encodeURIComponent(edition)}`, { method: 'PUT', body: { quota: Number($('facture-quota').value) || 0 } }),
+        ]);
         const libelle = grades.find(g => g.cle === edition)?.libelle ?? corps.libelle;
         instantaneOuverture = null;
         $('tiroir-grade').classList.add('cache');
@@ -565,11 +601,13 @@
 
     async function charger() {
       let r;
-      [grades, permissions, r, droitsAgenda] = await Promise.all([
+      [grades, permissions, r, droitsAgenda, quotasRun, quotasFacture] = await Promise.all([
         socle.api('/api/grades'),
         socle.api('/api/permissions'),
         socle.api('/api/grades/roles-discord').catch(() => ({ roles: [] })),
         socle.api('/api/agenda/droits-grades').then(r => r.droits),
+        socle.api('/api/run/quotas').then(r => r.quotas),
+        socle.api('/api/compta/factures/quotas').then(r => r.quotas),
       ]);
       roles = r.roles || [];
       // sans bot relié au site, pas de liste : on dit pourquoi, et comment saisir l’identifiant en attendant
