@@ -296,6 +296,16 @@ export async function convoquerEntretien(id: number, jour: unknown, heure: unkno
   await ecrireAuCandidat(c, `Bonjour ${c.prenom}, votre candidature a retenu notre attention : nous vous invitons à un entretien le ${jour.split('-').reverse().join('/')} à ${h} (heure de Paris).`);
 }
 
+// l'événement d'agenda « Entretien — Prénom Nom » n'est pas rattaché à la candidature : quand elle disparaît (suppression, purge de
+// 90 jours, suppression de la fiche), le nom de la personne n'y reste pas jusqu'à la purge d'un an de l'agenda
+export async function anonymiserEntretien(tx: Prisma.TransactionClient, c: { prenom: string; nom: string; entretienLe: Date | null }): Promise<void> {
+  if (!c.entretienLe) return;
+  await tx.evenementAgenda.updateMany({
+    where: { titre: `Entretien — ${c.prenom} ${c.nom}`.slice(0, 80), destination: 'tous', jour: versDate(jourParis(c.entretienLe)) },
+    data: { titre: 'Entretien — candidat' },
+  });
+}
+
 export async function refuserCandidature(id: number): Promise<void> {
   const c = await candidatureOu404(id);
   if (c.statut === 'acceptee') throw new Refus('Cette candidature a déjà été acceptée.', 409);
@@ -366,9 +376,11 @@ const mettreAuNettoyage = (tx: Prisma.TransactionClient, pieces: readonly { cle:
 // n'a plus la pièce de la fiche (elle est sur la fiche), seulement les autres
 export async function supprimerCandidature(id: number): Promise<void> {
   await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM candidatures WHERE id = ${id} FOR UPDATE`;
     const c = await tx.candidature.findUnique({ where: { id }, include: { pieces: true } });
     if (!c) throw new Refus('Candidature introuvable.', 404);
     await mettreAuNettoyage(tx, c.pieces);
+    await anonymiserEntretien(tx, c);
     await tx.candidature.delete({ where: { id } });
   });
 }
@@ -383,9 +395,12 @@ export async function purgerCandidatures(): Promise<{ pieces: number; candidatur
     // une candidature en échec ne bloque ni les autres, ni le reste de la purge du jour
     try {
       await prisma.$transaction(async tx => {
+        // verrou de ligne : une acceptation en cours (qui déplace la pièce d'identité vers la fiche) se termine avant qu'on lise les pièces
+        await tx.$queryRaw`SELECT id FROM candidatures WHERE id = ${id} FOR UPDATE`;
         const c = await tx.candidature.findUnique({ where: { id }, include: { pieces: true } });
         if (!c) return;
         await mettreAuNettoyage(tx, c.pieces); pieces += c.pieces.length;
+        await anonymiserEntretien(tx, c);
         await tx.candidature.delete({ where: { id } });
         candidatures++;
       });

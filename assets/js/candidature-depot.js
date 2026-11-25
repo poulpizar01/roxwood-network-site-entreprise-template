@@ -87,8 +87,10 @@
     // une image par pièce demandée (PNG, JPEG, WebP) ; le champ « piece-<id> » dit au serveur laquelle
     champsPieces = config.pieces.map(p => {
       const input = el('input'); input.type = 'file'; input.accept = 'image/png,image/jpeg,image/webp';
-      zoneChamps.append(champ(`cd-piece-${p.id}`, p.libelle, input, { facultatif: !p.obligatoire,
-        aide: `Une image (PNG, JPEG ou WebP, ${config.piecesMaxMo} Mo au plus pour l’ensemble des pièces). Elle n’est vue que de l’équipe de recrutement et effacée 90 jours après réception.` }));
+      const c = champ(`cd-piece-${p.id}`, p.libelle, input, { facultatif: !p.obligatoire,
+        aide: `Une image (PNG, JPEG ou WebP, ${config.piecesMaxMo} Mo au plus pour l’ensemble des pièces). Elle n’est vue que de l’équipe de recrutement et effacée 90 jours après réception.` });
+      c.append(el('p', 'champ-aide seulement-en-jeu', 'En jeu, si le choix du fichier ne s’ouvre pas, envoyez votre candidature depuis un navigateur.'));   // folkos.js pose html.en-jeu
+      zoneChamps.append(c);
       return { p, input };
     });
   }

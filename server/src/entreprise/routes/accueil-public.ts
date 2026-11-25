@@ -7,11 +7,20 @@ import { config } from '../../socle/config.js';
 import { prisma } from '../../socle/db.js';
 import { renderFile, withNonce } from '../../socle/site.js';
 import { injecterAvis, listerAvisAccueil } from '../avis.js';
-import { moduleActif } from '../modules.js';
+import { MODULES, moduleActif } from '../modules.js';
 import { recrutementSiteActif } from '../recrutement-mode.js';
 import { injecterVitrine, postesPublics, servicesPublics, urlPhoto } from '../vitrine.js';
 
 export const accueilPublic = Router();
+
+// plan du site : les pages publiques d'un module n'y figurent que s'il est allumé (avis.html sans le module répond 404)
+accueilPublic.get('/sitemap.xml', (_req, res, next) => {
+  let xml: string;
+  try { xml = renderFile(join(config.root, 'sitemap.xml')); } catch { next(); return; }
+  const pages = Object.entries(MODULES).filter(([m]) => moduleActif(m)).flatMap(([, d]) => d.publiques ?? []);
+  const lignes = pages.map(p => `  <url>\n    <loc>${config.baseUrl}/${p}.html</loc>\n  </url>`).join('\n');
+  res.type('application/xml').send(xml.replace(/ *<!-- pages publiques[^>]*-->/, lignes));
+});
 
 accueilPublic.get(['/', '/index.html'], async (_req, res, next) => {
   try {

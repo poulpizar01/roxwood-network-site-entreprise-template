@@ -84,9 +84,9 @@ async function lireImageUneFois(url: string): Promise<Buffer> {
 }
 
 // images réglées, gardées en mémoire (ces fichiers sont demandés à chaque page) : rechargées à chaque changement
-let reglees: Map<string, { url: string; majLe: Date }> | null = null;
+let reglees: Map<string, { url: string; urlMini: string; majLe: Date }> | null = null;
 export async function imagesReglees() {
-  reglees ??= new Map((await prisma.apparenceImage.findMany({ select: { cle: true, url: true, majLe: true } })).map(r => [r.cle, r]));
+  reglees ??= new Map((await prisma.apparenceImage.findMany({ select: { cle: true, url: true, urlMini: true, majLe: true } })).map(r => [r.cle, r]));
   return reglees;
 }
 
@@ -96,6 +96,14 @@ export const apparence = Router();
 // court : les autres fichiers de assets/ sont gardés 7 jours par les navigateurs, un logo remplacé ne s'afficherait pas
 // avant une semaine chez qui a déjà l'ancien.
 export const CACHE_COURT = 'public, max-age=300';
+// logo réduit pour les affichages de 32 à 64 px (en-têtes, connexion) : la miniature de l'image réglée, sinon le fichier livré (128 px)
+apparence.get('/assets/logo-mini.png', async (_req, res) => {
+  const livre = () => res.sendFile(join(config.root, 'assets/logo-mini.png'), { headers: { 'Cache-Control': CACHE_COURT } });
+  const reglee = (await imagesReglees().catch(() => null))?.get('logo');
+  if (!reglee) { livre(); return; }
+  try { res.set({ 'Content-Type': 'image/webp', 'Cache-Control': CACHE_COURT, ETag: `"apparence-logo-mini-${reglee.majLe.getTime()}"` }).send(await lireImage(reglee.urlMini)); }
+  catch (e) { console.error(`[apparence] logo réduit illisible sur le stockage (${(e as Error).message}) : image d’origine servie`); livre(); }
+});
 for (const d of IMAGES_MARQUE) {
   apparence.get(d.fichier, async (_req, res) => {
     const livre = () => res.sendFile(join(config.root, d.fichier), { headers: { 'Cache-Control': CACHE_COURT } });

@@ -171,6 +171,14 @@ test('purge : à 90 jours la candidature disparaît avec toutes ses pièces, que
   for (const cle of ['zz-test-ancienne', 'zz-test-ancienne-2']) assert.ok(await prisma.imageRetiree.findFirst({ where: { cle } }), cle);   // chaque pièce part au nettoyage du stockage
 });
 
+test('suppression : le nom du candidat ne reste pas dans l’événement d’entretien de l’agenda', async () => {
+  const c = await nouvelle({ prenom: 'Zoé', nom: 'zz-test', statut: 'entretien', entretienLe: new Date('2030-05-06T10:00:00Z') });
+  const e = await prisma.evenementAgenda.create({ data: { titre: 'Entretien — Zoé zz-test', jour: new Date('2030-05-06'), jourFin: new Date('2030-05-06'), destination: 'tous', auteurNom: 'zz' } });
+  await supprimerCandidature(c.id);
+  assert.equal((await prisma.evenementAgenda.findUnique({ where: { id: e.id } }))?.titre, 'Entretien — candidat');
+  await prisma.evenementAgenda.delete({ where: { id: e.id } });
+});
+
 test('suppression : toutes les pièces passent par la file de nettoyage ; introuvable ensuite', async () => {
   const c = await nouvelle({ prenom: 'S', ...avecPieces('zz-test-suppr') });
   await supprimerCandidature(c.id);

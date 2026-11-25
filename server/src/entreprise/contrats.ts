@@ -92,6 +92,7 @@ async function lireChamps(b: Record<string, unknown>, existant?: LigneContrat & 
 export async function listerContrats() {
   const lignes = await prisma.contrat.findMany({
     orderBy: [{ creeLe: 'desc' }],
+    take: 1000,   // shortcut : borne la réponse (chaque contrat porte son échéancier) ; au-delà de 1 000 contrats, paginer la liste
     include: { type: true, beneficiaires: { orderBy: { nom: 'asc' }, select: { nom: true, idUnique: true } } },
   });
   const aujourdhui = jourParis();

@@ -96,6 +96,7 @@ export async function listerEcheanciers() {
   const aujourdhui = jourParis();
   const lignes = await prisma.echeancier.findMany({
     orderBy: { creeLe: 'desc' },
+    take: 1000,   // shortcut : borne la réponse ; au-delà de 1 000 échéanciers, paginer la liste
     include: { ...INCLURE_ECHEANCES, ...INCLURE_FACTURE_PAIEMENT, contrat: { select: { id: true, partenaire: true } } },
   });
   const avoirs = await facturesAvecAvoir(lignes.flatMap(l => l.echeances.map(x => x.factureId)));

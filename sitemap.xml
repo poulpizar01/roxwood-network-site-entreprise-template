@@ -6,4 +6,5 @@
   <url>
     <loc>{{url}}/confidentialite.html</loc>
   </url>
+  <!-- pages publiques des modules allumés : ajoutées par le serveur (routes/accueil-public.ts) -->
 </urlset>

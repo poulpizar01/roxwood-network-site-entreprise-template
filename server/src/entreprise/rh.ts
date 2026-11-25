@@ -106,6 +106,7 @@ export async function changerPieceIdentite(id: number, nouvelle: ImageEnregistre
 // pas : factures, ventes et services restent, détachés de la personne. Ses primes partent sur toutes les semaines. La pièce passe par la file de
 // nettoyage du stockage.
 export async function supprimerFiche(id: number): Promise<string> {
+  const { anonymiserEntretien } = await import('./candidatures.js');   // import tardif : candidatures.ts importe déjà rh.ts
   const nom = await prisma.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'piece-identite:' + id}))`;
     const e = await tx.employe.findUnique({ where: { id } });
@@ -125,6 +126,7 @@ export async function supprimerFiche(id: number): Promise<string> {
     const candidatures = await tx.candidature.findMany({ where: { OR: [{ employeId: id }, ...(e.discordId ? [{ discordId: e.discordId }] : [])] }, include: { pieces: true } });
     for (const c of candidatures) {
       if (c.pieces.length) await tx.imageRetiree.createMany({ data: c.pieces.map(p => ({ cle: p.cle, url: p.url, cleMini: p.cleMini, urlMini: p.urlMini })) });
+      await anonymiserEntretien(tx, c);
       await tx.candidature.delete({ where: { id: c.id } });
     }
     await tx.arriveeBot.deleteMany(lie); await tx.sanction.deleteMany(lie); await tx.paiementFicheDot.deleteMany(lie); await tx.historiqueEmploye.deleteMany(lie);

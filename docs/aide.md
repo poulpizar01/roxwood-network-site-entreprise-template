@@ -117,3 +117,7 @@ Schémas : `gestion/schemas-aide.js` enregistre `<nom>` (le dessin d'un geste, u
 `::: cycle À venir (sous-titre) > ~légende de flèche > Facturée | Annulée (à part)` : `(…)` sous-titre de l'état, `~mot` légende de la flèche suivante, `|` état à part (rouge, sans flèche).
 
 « Votre prise de poste » (page Aide) : `gestion/aide-poste.js` du site définit `gestion.aidePoste = async moi => '<div class="aide-parcours">…</div>'` ; sans définition, rien n'est affiché.
+
+## Synonymes de recherche (facultatif)
+
+Le vocabulaire du métier que les rédacteurs n'écrivent pas tel quel (« rib » pour « virement bancaire ») s'ajoute à la recherche par `declarerSynonymes({ rib: ['virement', 'banque'] })` (`socle/aide.ts`), appelée une fois depuis `demarrage()` de l'entreprise : une requête égale à la clé (sans accents ni majuscules) cherche aussi ses synonymes.

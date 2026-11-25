@@ -398,3 +398,6 @@
 #parmembre-table:not(.en-cartes) { table-layout: fixed; min-width: 860px; }
 #parmembre-table th:first-child { width: 190px; }
 .pastille-disponible { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: var(--fs-1); font-weight: 600; color: var(--ok); background: var(--ok-soft); }
+
+/* focus clavier : un contour net sur les éléments cliquables de la grille (le fond seul se distingue mal) */
+.agenda-toutjour-barre:focus-visible, .agenda-evenement:focus-visible, .agenda-mois-evenement:focus-visible { outline: 2px solid var(--vis); outline-offset: -2px; }

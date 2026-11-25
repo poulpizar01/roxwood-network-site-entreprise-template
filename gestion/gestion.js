@@ -703,7 +703,7 @@ window.gestion = {
     // (memoCoque : simple affichage, le serveur contrôle chaque page et chaque requête), puis redessiné si la réponse
     // diffère. Sans mémo (premier passage), sa place est réservée, vide.
     const memo = memoCoque.lire();
-    const marque = `<img src="/assets/logo.png" alt="" width="32" height="32"><span>${socle.esc(socle.nomSite)}</span>`;
+    const marque = `<img src="/assets/logo-mini.png" alt="" width="32" height="32"><span>${socle.esc(socle.nomSite)}</span>`;
     const barre = document.createElement('aside');
     barre.className = 'admin-barre-laterale';
     barre.id = 'admin-menu';
