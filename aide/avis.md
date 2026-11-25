@@ -3,17 +3,22 @@ titre: Modérer les avis
 rubrique: avis
 mots-cles: avis, note, étoiles, publier, épingler, modération
 ---
-Les avis déposés sur le site attendent votre décision avant d'apparaître. L'auteur se connecte avec Discord : son pseudo est visible ici, jamais sur le site public.
+Les avis déposés sur le site attendent votre décision avant d'apparaître. L'auteur se connecte avec Discord : son pseudo est visible ici, jamais sur le site public. Une personne n'a qu'un avis en attente à la fois.
 
-## Décider d'un avis
+## Lire les avis
 
-La page a trois colonnes : **En attente**, **Publiés** et **Refusés**. Faites glisser un avis d'une colonne à l'autre pour le publier ou le refuser. Il n'y a pas d'équivalent clavier : ouvrez la fiche de l'avis pour agir.
+La page est organisée en trois colonnes : **En attente**, **Publiés** et **Refusés**. Chaque carte montre la note, le texte et l'auteur.
 
 ::: si avis
-- **Épingler** met un seul avis en avant, sur l'accueil et en tête de la page publique ; **Désépingler** le retire.
-- Un avis peut aussi être supprimé depuis sa fiche.
-:::
+## Décider d'un avis
 
-::: info
-Une personne n'a qu'un avis en attente à la fois.
+Les nouveaux avis arrivent dans la colonne « En attente ». Glissez la carte dans « Publiés » pour l'afficher sur le site, ou dans « Refusés » pour l'écarter. Le glisser-déposer n'a pas d'équivalent au clavier : ouvrez la carte pour agir.
+
+## Mettre un avis en avant
+
+Ouvrez la carte d'un avis publié et cliquez sur [Épingler]. Un seul avis est épinglé à la fois : il apparaît sur l'accueil et en tête de la page des avis. [Désépingler] retire la mise en avant.
+
+## Supprimer un avis
+
+Dans la carte, cliquez sur [Supprimer] : l'avis disparaît définitivement, après confirmation.
 :::
