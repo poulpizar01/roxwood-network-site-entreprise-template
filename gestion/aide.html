@@ -60,7 +60,7 @@
       const pages = gestion.pagesMenu(moi);
       const nom = moi.nom || moi.pseudo || '';
       const grade = moi.grade?.libelle || (moi.proprietaire ? 'Super-admin' : 'Sans grade');
-      const initiales = nom.split(/\s+/).filter(Boolean).slice(0, 2).map(m => m[0]).join('').toUpperCase();
+      const initiales = nom.split(/\s+/).filter(Boolean).slice(0, 2).map(m => [...m][0]).join('').toUpperCase();
       $('aide-poste').innerHTML = `
         <div class="aide-poste-l1"><span class="aide-poste-av" aria-hidden="true">${socle.esc(initiales)}</span><div><b>${socle.esc(nom)}</b><br><span class="aide-grade">${socle.esc(grade)}</span></div></div>
         <div class="aide-sous" style="margin:0">Votre grade vous ouvre ces pages ; l’aide ne vous montre que celles-ci.</div>

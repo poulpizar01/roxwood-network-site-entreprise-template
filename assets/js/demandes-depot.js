@@ -28,8 +28,9 @@
   // étape 1 : connexion Discord
   const bloc = el('div', 'avis-bloc');
   const lien = el('a', 'btn btn--accent', 'Se connecter avec Discord');
+  const sortie = el('button', 'btn btn--ligne', 'Annuler'); sortie.type = 'button';   // sans compte Discord ni Échap (téléphone), la fenêtre doit pouvoir se fermer
   const erreurDiscord = el('p', 'avis-etat', 'La connexion avec Discord a échoué. Réessayez.'); erreurDiscord.setAttribute('role', 'alert'); erreurDiscord.hidden = retour !== 'erreur';
-  bloc.append(el('p', '', 'Pour nous écrire, connectez-vous avec Discord : nous gardons votre pseudo Discord avec votre demande, et l’équipe vous répond dans un salon dédié. Il n’est jamais affiché publiquement.'), lien, erreurDiscord);
+  bloc.append(el('p', '', 'Pour nous écrire, connectez-vous avec Discord : nous gardons votre pseudo Discord avec votre demande, et l’équipe vous répond dans un salon dédié. Il n’est jamais affiché publiquement.'), lien, sortie, erreurDiscord);
 
   // étape 2 : formulaire
   const form = el('form', 'avis-form'); form.noValidate = true; form.hidden = true;
@@ -100,6 +101,7 @@
   dialogue.addEventListener('click', e => { if (e.target === dialogue) dialogue.close(); });   // clic sur le fond
   dialogue.addEventListener('close', () => declencheur?.focus());
   annuler.addEventListener('click', () => dialogue.close());
+  sortie.addEventListener('click', () => dialogue.close());
   fermer.addEventListener('click', () => dialogue.close());
   changer.addEventListener('click', async () => {
     await fetch('/api/discord/oublier', { method: 'POST', credentials: 'same-origin' }).catch(() => {});

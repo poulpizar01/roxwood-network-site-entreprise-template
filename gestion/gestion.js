@@ -992,7 +992,7 @@ function erreurDeChargement(main, e) {
 
 function initiales(nom) {
   const mots = String(nom || '').trim().split(/\s+/).filter(Boolean);
-  return mots.length ? mots.slice(0, 2).map(m => m[0].toUpperCase()).join('') : '?';
+  return mots.length ? mots.slice(0, 2).map(m => [...m][0].toUpperCase()).join('') : '?';
 }
 
 // ---------------------------------------------------------------------------------------------------------------------

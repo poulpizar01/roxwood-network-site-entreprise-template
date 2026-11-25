@@ -30,10 +30,10 @@
   --accent-soft:rgba({{couleur_rvb}},.12);
   --on-accent:#fff;
   /* états (formulaires, badges, messages) */
-  --ok:#1f8a4c;
+  --ok:#17703c;
   --alerte:#b26a00;
   --erreur:#c62828;
-  --ok-soft:rgba(31,138,76,.12);
+  --ok-soft:rgba(23,112,60,.12);
   --alerte-soft:rgba(178,106,0,.12);
   --erreur-soft:rgba(198,40,40,.1);
   --bg-voile:rgba(247,246,243,.88);   /* en-tête de la vitrine au-dessus du contenu qui défile */

@@ -5,5 +5,5 @@ if (burger && menu) {
   burger.addEventListener('click', () => basculer(burger.getAttribute('aria-expanded') !== 'true'));
   // un lien choisi (ancre de la page) referme le menu
   menu.addEventListener('click', e => { if (e.target.closest('a')) basculer(false); });
-  addEventListener('keydown', e => { if (e.key === 'Escape') basculer(false); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && menu.classList.contains('is-open')) { basculer(false); burger.focus(); } });   // le focus revient au bouton, pas sur la page
 }

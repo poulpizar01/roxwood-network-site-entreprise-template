@@ -1591,6 +1591,9 @@ main.admin-contenu:focus { outline: none; }
 }
 
 /* ---------- Ressources humaines (rh.html) : synthèse et « À traiter », liste triable, à rattacher, recrutement ---------- */
+/* l'onglet Effectif se montre une fois le décompte « À traiter » connu : sinon il pousse la liste déjà affichée */
+small { font-size: max(var(--fs-1), 0.85em); }   /* jamais sous 12 px (le <small> du navigateur donne 0,83 em) */
+.rh-attente { visibility: hidden; }
 .rh-synthese { display: flex; flex-wrap: wrap; align-items: stretch; gap: 16px; margin-bottom: 30px; }
 .rh-effectif {
   flex: 1 1 280px; padding: 18px 22px; border: 1px solid var(--border); border-radius: var(--radius);
@@ -2641,7 +2644,7 @@ html.en-jeu .seulement-en-jeu { display: block !important; }
 .quota-service-point { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
 @media (prefers-reduced-motion: no-preference) { .quota-service-point { animation: quota-pouls 2.4s ease-in-out infinite backwards; } }
 @keyframes quota-pouls { 50% { box-shadow: 0 0 0 5px var(--ok-soft); } }
-.quota-service-a-traiter { display: block; margin-top: 2px; font-size: var(--fs-2); color: var(--erreur); text-decoration: underline; text-underline-offset: 2px; }
+.quota-service-a-traiter { display: block; min-height: 24px; line-height: 24px; margin-top: 2px; font-size: var(--fs-2); color: var(--erreur); text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---------- Contrats (contrats.html) : liste cliquable, fiche en tiroir, formulaire ---------- */
 .contrats-entete-actions { display: flex; flex-wrap: wrap; gap: 8px; }

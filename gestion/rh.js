@@ -42,9 +42,11 @@ async function chargerRh() {
     A_FAIRE.completer = CACHE_EMPLOYES.filter(e => e.aCompleter && e.statut === 'actif').length;
     afficherEmployes();
     afficherAFaire();
-    chargerArriveesBot();
+    await chargerArriveesBot();   // le décompte des candidatures fait partie du bloc « À traiter » : on montre l'onglet quand il est complet
   } catch (e) {
     gestion.message('zone-message-rh', `Impossible de charger les fiches : ${e.message}`);
+  } finally {
+    $rh('rh-panneau-effectif').classList.remove('rh-attente');
   }
 }
 

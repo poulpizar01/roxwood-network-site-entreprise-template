@@ -46,7 +46,7 @@
     const data = await r.json().catch(() => null);
     if (r.ok) return data;
     const dansGestion = location.pathname.startsWith('/gestion/');
-    if (dansGestion && r.status === 401 && !location.pathname.match(/^\/gestion\/(index(\.html)?)?$/)) location.href = '/gestion/';
+    if (dansGestion && r.status === 401 && data?.error === 'non-connecte' && !location.pathname.match(/^\/gestion\/(index(\.html)?)?$/)) location.href = '/gestion/';
     if (dansGestion && r.status === 403 && data?.error === 'attente') location.href = '/gestion/attente.html';
     const message = data?.error && !/^[a-z-]+$/.test(data.error) ? data.error
       : r.status === 403 ? 'Tu n’as pas les droits pour cette action.'
