@@ -3,11 +3,11 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type { Employe } from '../../generated/prisma/client.js';
 import { prisma } from '../../socle/db.js';
-import { auDessusDe, gradeDe, peut } from '../../socle/droits.js';
+import { auDessusDe, gradeDe } from '../../socle/droits.js';
 import { actualiserGrades } from '../../socle/grades-imposes.js';
 import { body, couleur, entier, intParam, permission, text } from '../../socle/http.js';
 import { enregistrerImage, recevoirImage, retirerImage } from '../../socle/images.js';
-import { arriveesBot, changerPieceIdentite, consignerHistorique, droitsRh, ecarter, fichePublique, gradesEmployes, historiqueDe, lignesHistorique, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, supprimerFiche, traiterEnSuspens, trierEmployes, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
+import { arriveesBot, changerPieceIdentite, consignerHistorique, droitsRh, ecarter, fichePublique, gradesEmployes, historiqueDe, lignesHistorique, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, supprimerFiche, traiterEnSuspens, trierEmployes, pasSaPropreFiche, verifierDroitsDuCompte, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
 import { ajouterSanction, listeTypesSanction, retirerSanction, toutesSanctions } from '../sanctions.js';
 import { terminerServiceDe } from '../services.js';
@@ -22,30 +22,6 @@ const exiger = (droit: DroitRh, message: string) => (req: Request, res: Response
   if (droitsRh(req.compte).has(droit)) next();
   else res.status(403).json({ error: message });
 };
-// Sa propre fiche se crée et se relie par un supérieur : sinon un agent qui a rh-creer ou rh-modifier choisirait le
-// grade de la fiche qui fixe sa paie (verifierHierarchie ne reconnaît « sa » fiche que par son ID Discord).
-function pasSaPropreFiche(req: Request, discordId: string | null | undefined) {
-  if (!req.compte.proprietaire && discordId && discordId === req.compte.discordId) {
-    throw new Refus('Votre propre fiche est créée ou reliée à votre compte Discord par un supérieur.', 403);
-  }
-}
-
-// Le grade d'une fiche active est celui du compte sur le site (index.ts, gradesImposes). Donner un autre grade à un
-// compte déjà validé, c'est changer ses droits, comme dans Comptes : il faut aussi la permission « comptes ». Un compte
-// en attente n'a aucun droit tant qu'il n'est pas validé (dans Comptes, donc par quelqu'un qui l'a).
-async function verifierDroitsDuCompte(req: Request, discordId: string | null | undefined, gradeCle: string) {
-  if (!discordId || req.compte.proprietaire) return;
-  const c = await prisma.compte.findUnique({ where: { discordId }, select: { statut: true, gradeCle: true, proprietaire: true } });
-  if (c?.statut !== 'valide' || c.gradeCle === gradeCle) return;
-  if (!peut(req.compte, 'comptes')) {
-    throw new Refus('Ce grade change les droits sur le site d’un compte déjà validé : il faut aussi la permission « Gérer les comptes ».', 403);
-  }
-  // comme dans Comptes : on ne change le grade que d'un compte sous le sien (sinon une fiche rétrograderait un supérieur)
-  if (c.proprietaire || !auDessusDe(req.compte, c.gradeCle)) {
-    throw new Refus('Ce compte a un grade égal ou supérieur au vôtre : son grade ne peut pas être changé depuis une fiche.', 403);
-  }
-}
-
 // fiche visée par une route de la page :id : introuvable → 404 ; grade égal ou supérieur, ou sa propre fiche → refus
 // (même règle que la modification de la fiche). À appeler avant tout effet de bord.
 async function ficheSousMonGrade(req: Request): Promise<Employe> {
@@ -189,8 +165,8 @@ rh.post('/api/rh/employes', ...voir, exiger('creer', 'Vous n’avez pas le droit
   if (!droitsRh(req.compte).has('sensible')) { delete b.telephone; delete b.rib; }
   const champs = lireChamps(b, null);
   verifierHierarchie(req.compte, null, champs.gradeCle);
-  pasSaPropreFiche(req, champs.discordId);
-  if (champs.gradeCle) await verifierDroitsDuCompte(req, champs.discordId, champs.gradeCle);
+  pasSaPropreFiche(req.compte, champs.discordId);
+  if (champs.gradeCle) await verifierDroitsDuCompte(req.compte, champs.discordId, champs.gradeCle);
   await verifierUnicite(champs);
   const e = await prisma.$transaction(async tx => {
     const f = await tx.employe.create({ data: { statut: 'actif', ...champs } as Parameters<typeof prisma.employe.create>[0]['data'] });
@@ -213,13 +189,13 @@ rh.patch('/api/rh/employes/:id', ...voir, exiger('modifier', 'Vous n’avez pas 
   }
   const champs = lireChamps(b, existante);
   verifierHierarchie(req.compte, existante, champs.gradeCle);
-  pasSaPropreFiche(req, champs.discordId);
+  pasSaPropreFiche(req.compte, champs.discordId);
   if (champs.idUnique && champs.idUnique !== existante.idUnique) champs.idProvisoire = false;
   if (!Object.keys(champs).length) throw new Refus('Rien à modifier.');
   const apres = { discordId: champs.discordId !== undefined ? champs.discordId : existante.discordId, gradeCle: champs.gradeCle ?? existante.gradeCle, statut: champs.statut ?? existante.statut };
   if (apres.statut === 'actif') {
     if (existante.statut !== 'actif') gradeExistePourReactivation(apres.gradeCle);   // réactivation par le champ Statut
-    await verifierDroitsDuCompte(req, apres.discordId, apres.gradeCle);
+    await verifierDroitsDuCompte(req.compte, apres.discordId, apres.gradeCle);
   }
   await verifierUnicite(champs, id);
   await prisma.$transaction(async tx => {
@@ -249,7 +225,7 @@ async function changerStatut(req: Request, res: Response, statut: 'actif' | 'ina
     if (!jourValide(v)) throw new Refus('La date de départ doit être une date valide (AAAA-MM-JJ).');
     dateDepart = versDate(v);
     if (e.dateArrivee && dateDepart < e.dateArrivee) throw new Refus('La date de départ ne peut pas précéder la date d’arrivée.');
-  } else { gradeExistePourReactivation(e.gradeCle); await verifierDroitsDuCompte(req, e.discordId, e.gradeCle); }   // réactiver redonne le grade de la fiche
+  } else { gradeExistePourReactivation(e.gradeCle); await verifierDroitsDuCompte(req.compte, e.discordId, e.gradeCle); }   // réactiver redonne le grade de la fiche
   await prisma.$transaction(async tx => {
     await tx.employe.update({ where: { id: e.id }, data: { statut, dateDepart } });
     await consignerHistorique(tx, e.id, nomActeur(req), lignesHistorique(e, { statut, dateDepart }));
@@ -276,8 +252,8 @@ rh.post('/api/rh/bot/arrivees/:id/traiter', ...voir, exiger('creer', 'Vous n’a
   verifierHierarchie(req.compte, null, gradeArrivee);
   // et comme une création à la main : ni sa propre fiche, ni le grade d'un compte supérieur déjà relié à ce Discord
   const arrivee = await prisma.arriveeBot.findUnique({ where: { id: intParam(req, 'id') }, select: { discordId: true } });
-  pasSaPropreFiche(req, arrivee?.discordId);
-  if (gradeArrivee) await verifierDroitsDuCompte(req, arrivee?.discordId, gradeArrivee);
+  pasSaPropreFiche(req.compte, arrivee?.discordId);
+  if (gradeArrivee) await verifierDroitsDuCompte(req.compte, arrivee?.discordId, gradeArrivee);
   const r = await traiterEnSuspens(intParam(req, 'id'));
   res.json({ ok: r.resultat !== 'refusee', ...r });
 }));

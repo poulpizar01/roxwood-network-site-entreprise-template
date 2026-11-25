@@ -29,7 +29,7 @@ export const CHAMPS_FICHE = ['telephone', 'rib', 'idUnique'] as const;
 export type ChampFiche = typeof CHAMPS_FICHE[number];
 export const LIBELLES_FICHE: Record<ChampFiche, string> = { telephone: 'Téléphone', rib: 'RIB', idUnique: 'ID Unique' };
 export type ModeChamp = 'aucun' | 'facultatif' | 'obligatoire';
-export const QUESTIONS_MAX = 15, PIECES_MAX = 5, PIECE_MAX_MO = 8;
+export const QUESTIONS_MAX = 15, PIECES_MAX = 2, PIECE_MAX_MO = 10;   // 10 Mo pour l'ensemble des pièces d'un dépôt (contrôlé dans fichiersParPiece)
 
 const texte = (v: unknown, max: number): string => String(v ?? '').trim().slice(0, max);
 
@@ -112,7 +112,7 @@ export async function definirChampsFiche(brut: unknown): Promise<void> {
   }
 }
 
-// ---- pièces jointes demandées : 5 au plus, une seule peut aller sur la fiche (la pièce d'identité de l'employé) ----
+// ---- pièces jointes demandées : 2 au plus, une seule peut aller sur la fiche (la pièce d'identité de l'employé) ----
 export type PieceConfig = { id: number; libelle: string; obligatoire: boolean; versFiche: boolean };
 export const listerPiecesDemandees = (): Promise<PieceConfig[]> =>
   prisma.pieceDemandee.findMany({ orderBy: [{ position: 'asc' }, { id: 'asc' }], select: { id: true, libelle: true, obligatoire: true, versFiche: true } });
@@ -168,6 +168,7 @@ export function fichiersParPiece(demandees: readonly PieceConfig[], fichiers: re
   const retenus = demandees.flatMap(piece => { const f = fichiers.find(x => x.fieldname === `piece-${piece.id}`); return f ? [{ piece, fichier: f }] : []; });
   const manquante = demandees.find(p => p.obligatoire && !retenus.some(r => r.piece.id === p.id));
   if (manquante) throw new Refus(`Joignez « ${manquante.libelle} » (une image).`);
+  if (retenus.reduce((t, r) => t + r.fichier.size, 0) > PIECE_MAX_MO * 1048576) throw new Refus(`Les pièces jointes pèsent ${PIECE_MAX_MO} Mo au plus en tout.`);
   return retenus;
 }
 
@@ -309,16 +310,21 @@ export function champsDepuisReponses(reponses: readonly Reponse[]): Partial<Reco
   for (const r of reponses) if (r.champFiche && (CHAMPS_FICHE as readonly string[]).includes(r.champFiche)) champs[r.champFiche] = r.valeur;
   return champs;
 }
-export async function accepterCandidature(id: number, auteur: string): Promise<{ employeId: number }> {
+export async function accepterCandidature(id: number, acteur: Compte): Promise<{ employeId: number }> {
+  const auteur = acteur.nom || acteur.pseudo;
   // imports tardifs : rh.ts et grades-imposes.ts remontent jusqu'à index.ts, que les routes de ce module (importées par un await
   // au chargement de index.ts) ne peuvent pas attendre — le serveur ne démarrerait pas
-  const { consignerHistorique, lireChamps, nomComplet, REGLAGES_BOT, verifierUnicite } = await import('./rh.js');
+  const { consignerHistorique, lireChamps, nomComplet, pasSaPropreFiche, REGLAGES_BOT, verifierDroitsDuCompte, verifierHierarchie, verifierUnicite } = await import('./rh.js');
   const { actualiserGrades } = await import('../socle/grades-imposes.js');
   const c = await candidatureOu404(id);
   if (c.statut === 'acceptee') throw new Refus('Cette candidature a déjà été acceptée.', 409);
   const gradeArrivee = reglage(REGLAGES_BOT.gradeArrivee) ?? '';
   if (!gradeDe(gradeArrivee)) throw new Refus('Réglez d’abord le grade donné aux arrivées (Employés → Réglages du recrutement).');
   if ((await prisma.employe.findUnique({ where: { discordId: c.discordId }, select: { id: true } }))) throw new Refus('Ce compte Discord a déjà une fiche.', 409);
+  // mêmes contrôles qu'une création à la main : grade sous celui de l'acteur, pas sa propre fiche, droits sur un compte déjà validé
+  verifierHierarchie(acteur, null, gradeArrivee);
+  pasSaPropreFiche(acteur, c.discordId);
+  await verifierDroitsDuCompte(acteur, c.discordId, gradeArrivee);
   const liees = champsDepuisReponses(Array.isArray(c.reponses) ? c.reponses as unknown as Reponse[] : []);
   const champs = lireChamps({
     prenom: c.prenom, nom: c.nom, grade: gradeArrivee, discordId: c.discordId, dateArrivee: jourParis(),

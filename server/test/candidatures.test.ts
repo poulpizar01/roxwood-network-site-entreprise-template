@@ -53,13 +53,13 @@ test('lireQuestion : libellé, type (court ou long) ; obligatoire par défaut', 
   assert.equal(lireQuestion({ libelle: 'x', type: 'court' }).obligatoire, true);
 });
 
-test('pièces demandées : 5 au plus, noms uniques, une seule va sur la fiche ; les fichiers se rangent par pièce', async () => {
+test('pièces demandées : 2 au plus, noms uniques, une seule va sur la fiche ; les fichiers se rangent par pièce', async () => {
   const ok = { libelle: 'Pièce d’identité', obligatoire: true, versFiche: true };
   assert.throws(() => lirePieces('x'), /invalide/);
   assert.throws(() => lirePieces([{ libelle: ' ' }]), /nom/);
   assert.throws(() => lirePieces([ok, { ...ok, libelle: 'PIÈCE d’identité', versFiche: false }]), /même nom/);
   assert.throws(() => lirePieces([ok, { libelle: 'B', versFiche: true }]), /Une seule/);
-  assert.throws(() => lirePieces(Array.from({ length: 6 }, (_, i) => ({ libelle: `p${i}` }))), /5 pièces/);
+  assert.throws(() => lirePieces(Array.from({ length: 3 }, (_, i) => ({ libelle: `p${i}` }))), /2 pièces/);
   await definirPieces([ok, { libelle: 'Casier', obligatoire: false, versFiche: false }]);
   const [id, casier] = await listerPiecesDemandees();
   assert.throws(() => fichiersParPiece([id, casier], []), /Pièce d’identité/);   // l'obligatoire manque

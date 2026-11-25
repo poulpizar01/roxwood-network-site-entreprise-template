@@ -9,7 +9,7 @@ import crypto from 'node:crypto';
 import { Prisma, type Compte, type Employe } from '../generated/prisma/client.js';
 import type { ImageEnregistree } from '../socle/images.js';
 import { prisma } from '../socle/db.js';
-import { auDessusDe, gradeDe, peut, tousLesGrades } from '../socle/droits.js';
+import { auDessusDe, gradeDe, peut, peutAccorder, permissionsDe, tousLesGrades } from '../socle/droits.js';
 import { actualiserGrades } from '../socle/grades-imposes.js';
 import { definirReglage, reglage } from '../socle/reglages.js';
 import type { EvenementBot } from '../socle/contrat.js';
@@ -247,6 +247,32 @@ export function verifierHierarchie(acteur: Compte, existante: Employe | null, gr
   if (existante?.discordId && existante.discordId === acteur.discordId) throw new Refus('Votre propre fiche ne peut être modifiée que par un supérieur.', 403);
   if (existante && !auDessusDe(acteur, existante.gradeCle)) throw new Refus('Cette fiche est d’un grade égal ou supérieur au vôtre.', 403);
   if (gradeCle && !auDessusDe(acteur, gradeCle)) throw new Refus('Vous ne pouvez attribuer qu’un grade inférieur au vôtre.', 403);
+  // comme dans Comptes : on n'accorde pas, par un grade, des permissions qu'on ne détient pas
+  if (gradeCle && !peutAccorder(acteur, [...permissionsDe({ gradeCle, proprietaire: false })])) throw new Refus('Ce grade porte des permissions que vous ne détenez pas.', 403);
+}
+
+// Sa propre fiche se crée et se relie par un supérieur : sinon un agent qui a rh-creer ou rh-modifier choisirait le
+// grade de la fiche qui fixe sa paie (verifierHierarchie ne reconnaît « sa » fiche que par son ID Discord).
+export function pasSaPropreFiche(acteur: Compte, discordId: string | null | undefined): void {
+  if (!acteur.proprietaire && discordId && discordId === acteur.discordId) {
+    throw new Refus('Votre propre fiche est créée ou reliée à votre compte Discord par un supérieur.', 403);
+  }
+}
+
+// Le grade d'une fiche active est celui du compte sur le site (index.ts, gradesImposes). Donner un autre grade à un
+// compte déjà validé, c'est changer ses droits, comme dans Comptes : il faut aussi la permission « comptes ». Un compte
+// en attente n'a aucun droit tant qu'il n'est pas validé (dans Comptes, donc par quelqu'un qui l'a).
+export async function verifierDroitsDuCompte(acteur: Compte, discordId: string | null | undefined, gradeCle: string): Promise<void> {
+  if (!discordId || acteur.proprietaire) return;
+  const c = await prisma.compte.findUnique({ where: { discordId }, select: { statut: true, gradeCle: true, proprietaire: true } });
+  if (c?.statut !== 'valide' || c.gradeCle === gradeCle) return;
+  if (!peut(acteur, 'comptes')) {
+    throw new Refus('Ce grade change les droits sur le site d’un compte déjà validé : il faut aussi la permission « Gérer les comptes ».', 403);
+  }
+  // comme dans Comptes : on ne change le grade que d'un compte sous le sien (sinon une fiche rétrograderait un supérieur)
+  if (c.proprietaire || !auDessusDe(acteur, c.gradeCle)) {
+    throw new Refus('Ce compte a un grade égal ou supérieur au vôtre : son grade ne peut pas être changé depuis une fiche.', 403);
+  }
 }
 
 // unicité (ID Unique sans casse, ID Discord, pseudo) : message clair avant l'écriture ; la base garantit le reste

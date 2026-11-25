@@ -29,7 +29,7 @@ const exigerIdentite = (req: Request, res: Response, next: NextFunction) => {
   if (identiteVerifiee(req)) next();
   else res.status(401).json({ error: 'Connectez-vous avec Discord pour envoyer votre candidature.' });
 };
-// une image par pièce demandée (champ « piece-<id> »), 8 Mo chacune, 5 au plus : le créneau mémoire du socle est partagé par tout l'envoi
+// une image par pièce demandée (champ « piece-<id> »), 10 Mo pour l'ensemble, 2 au plus : le créneau mémoire du socle est partagé par tout l'envoi
 const recevoirPieces = recevoirImagesLimitees(PIECE_MAX_MO, PIECES_MAX);
 candidatures.post('/api/candidatures', limiteCandidatures, exigerIdentite, ...recevoirPieces, traiter(async (req, res) => {
   const c = await creerCandidature(body(req), identiteVerifiee(req), (req.files as Express.Multer.File[] | undefined) ?? []);
@@ -74,7 +74,7 @@ candidatures.post('/api/candidatures/:id/entretien', ...voir, gerer, traiter(asy
   res.json({ ok: true });
 }));
 candidatures.post('/api/candidatures/:id/accepter', ...voir, gerer, traiter(async (req, res) => {
-  const r = await accepterCandidature(intParam(req, 'id'), req.compte.nom || req.compte.pseudo);
+  const r = await accepterCandidature(intParam(req, 'id'), req.compte);
   res.json({ ok: true, employeId: r.employeId });
 }));
 candidatures.post('/api/candidatures/:id/refuser', ...voir, gerer, traiter(async (req, res) => { await refuserCandidature(intParam(req, 'id')); res.json({ ok: true }); }));
