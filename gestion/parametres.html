@@ -150,8 +150,10 @@
       const b = e.target.closest('[data-onglet]');
       if (!b || b.dataset.onglet === onglet) return;
       if (modifie && !await gestion.confirmer('Les modifications de cet onglet ne sont pas enregistrées.', 'Changer d’onglet ?', 'Abandonner les modifications')) return;
+      const auClavier = document.activeElement === b;
       onglet = b.dataset.onglet;
       afficher();
+      if (auClavier) $('onglets').querySelector('[aria-selected="true"]')?.focus();
     });
     $('form').addEventListener('input', e => { if (!e.target.closest('.choix-discord select')) marquer(true); });
     $('panneaux').addEventListener('change', e => {

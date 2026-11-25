@@ -41,7 +41,9 @@ export async function appelBot(methode: 'GET' | 'POST' | 'PATCH' | 'DELETE', che
     const detail = await r.json().catch(() => null) as { code?: unknown; retry_after?: unknown } | null;
     const code = Number.isInteger(detail?.code) ? Number(detail!.code) : null;
     console.error(`[discord] ${methode} ${chemin.replace(/\d{15,22}/g, ':id')} : HTTP ${r.status}${code ? ` (code ${code})` : ''}`);
-    throw new ErreurDiscord(r.status, message(r.status), code, Math.min(Number(detail?.retry_after) || 0, 3600));
+    const retryAfter = r.headers.get('Retry-After');
+    const secondes = Number(detail?.retry_after ?? retryAfter) || (retryAfter ? (Date.parse(retryAfter) - Date.now()) / 1000 : 0);
+    throw new ErreurDiscord(r.status, message(r.status), code, Math.max(0, Math.min(secondes || 0, 3600)));
   }
   if (r.status === 204) return null;
   try { return await r.json(); } catch { throw new ErreurDiscord(0, message(0)); }

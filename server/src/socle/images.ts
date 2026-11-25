@@ -9,11 +9,12 @@
 // Contrôles : 15 Mo par défaut, 25 mégapixels, contenu réellement jpg / png / webp (pas seulement l'extension), une image par
 // envoi ; réencodage WebP (1 800 px + miniature 600 px), orientation appliquée, métadonnées (GPS…) retirées.
 import crypto from 'node:crypto';
-import type { RequestHandler } from 'express';
+import type { Request, RequestHandler, Response } from 'express';
 import multer from 'multer';
 import sharp, { type Metadata } from 'sharp';
 import { limits } from './limites.js';
 import { storage } from './storage.js';
+import { prisma } from './db.js';
 
 // à garder sous le plafond mémoire du conteneur (APP_MEMORY)
 const MAX_PIXELS = 25_000_000;
@@ -69,22 +70,19 @@ export function recevoirImageLimitee(maxMo: number): RequestHandler[] {
 }
 export const recevoirImage = recevoirImageLimitee(15);
 
-// Plusieurs images dans un même envoi (pièces jointes d'un formulaire public : un champ de fichier par pièce, le nom du champ dit laquelle) :
-// `req.files` (liste, `fieldname` = nom du champ). Même contrôles que recevoirImageLimitee ; `maxFichiers` borne le nombre de fichiers (au-delà : 400).
-// Un seul créneau mémoire pour tout l'envoi, rendu quand le DERNIER fichier est traité (chacun garde son tampon en mémoire jusque-là) : prévoir
-// des fichiers plus légers (maxMo) que pour une image seule, puisqu'ils attendent ensemble.
-export function recevoirImagesLimitees(maxMo: number, maxFichiers: number): RequestHandler[] {
+// La route appelle avecImagesRecues pour garder le créneau jusqu'à sa fin, même si la connexion est interrompue.
+export function recevoirImagesLimitees(maxMo: number, maxFichiers: number, champs?: string[]): RequestHandler[] {
   const maxOctets = maxMo * 1024 * 1024;
-  const multerN = multer({
+  const multipart = multer({
     storage: multer.memoryStorage(), limits: { fileSize: maxOctets + 1, files: maxFichiers },
     fileFilter: (_req, f, cb) => cb(null, /^image\/(jpeg|png|webp)$/.test(f.mimetype)),
-  }).any();
+  });
+  const multerN = champs ? multipart.fields(champs.map(name => ({ name, maxCount: 1 }))) : multipart.any();
   const lire: RequestHandler = (req, res, next) => multerN(req, res, err => {
-    const fichiers = (req.files as Express.Multer.File[] | undefined) ?? [];
+    const fichiers = Array.isArray(req.files) ? req.files : Object.values(req.files ?? {}).flat();
     if (!err && !fichiers.some(f => f.size > maxOctets)) {
       const base = res.locals.creneauImage as Creneau;
-      let reste = fichiers.length;
-      for (const f of fichiers) (f as FichierRecu)[CRENEAU] = { traitement: false, abandonne: base.abandonne, liberer: () => { if (--reste <= 0) base.liberer(); } };
+      for (const f of fichiers) (f as FichierRecu)[CRENEAU] = { traitement: false, abandonne: base.abandonne, liberer: () => {} };
       return next();
     }
     const trop = !!err && err instanceof multer.MulterError && (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE');
@@ -92,6 +90,14 @@ export function recevoirImagesLimitees(maxMo: number, maxFichiers: number): Requ
     res.status(400).json({ error: trop ? `${maxFichiers} images au plus.` : lourde ? `Image trop lourde (${maxMo} Mo max chacune).` : 'Envoi illisible.' });
   });
   return [stockagePret, limits.upload, envoisBornes, lire];
+}
+
+export function avecImagesRecues(action: (req: Request, res: Response) => Promise<void>) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const creneau = res.locals.creneauImage as Creneau;
+    creneau.traitement = true;
+    try { await action(req, res); } finally { creneau.liberer(); }
+  };
 }
 
 // un seul traitement à la fois : deux images de 25 Mpx en parallèle dépasseraient la mémoire du conteneur
@@ -133,11 +139,39 @@ async function traiter(dossier: string, fichier: Express.Multer.File, creneau: C
   // comprises), elle ne doit pas se deviner par énumération
   const base = `${dossier}/${Date.now().toString(36)}-${crypto.randomBytes(16).toString('hex')}`;
   const cle = `${base}.webp`, cleMini = `${base}-m.webp`;
-  const url = await storage.put(cle, grande.data);
-  let urlMini: string;
-  try { urlMini = await storage.put(cleMini, mini); }
-  catch (e) { await storage.remove(cle, url).catch(() => {}); throw e; }
-  return { cle, url, cleMini, urlMini, largeur: grande.info.width, hauteur: grande.info.height };
+  // Écrire les clés avant le premier PUT : une réponse perdue ne dit pas si le fichier existe.
+  const aNettoyer = { cle, cleMini, local: storage.kind === 'local' };
+  await prisma.imageEnvoiInacheve.create({ data: { ...aNettoyer, reessayerLe: dansUneHeure() } });
+  try {
+    const url = await storage.put(cle, grande.data);
+    const urlMini = await storage.put(cleMini, mini);
+    await prisma.imageEnvoiInacheve.delete({ where: { cle } });
+    return { cle, url, cleMini, urlMini, largeur: grande.info.width, hauteur: grande.info.height };
+  } catch (e) {
+    await nettoyerEnvoi(aNettoyer).catch(() => {}); // la tâche réessaie si le stockage ne répond pas
+    throw e;
+  }
+}
+
+const dansUneHeure = () => new Date(Date.now() + 3600e3);
+async function nettoyerEnvoi(image: { cle: string; cleMini: string; local: boolean }) {
+  const adresse = image.local ? '/uploads/' : '';
+  await Promise.all([storage.remove(image.cle, adresse), storage.remove(image.cleMini, adresse)]);
+  await prisma.imageEnvoiInacheve.deleteMany({ where: { cle: image.cle } });
+}
+let nettoyageEnCours = false;
+export async function purgerEnvoisInacheves(): Promise<void> {
+  if (nettoyageEnCours) return;
+  nettoyageEnCours = true;
+  try {
+    const images = await prisma.imageEnvoiInacheve.findMany({
+      where: { reessayerLe: { lte: new Date() } }, orderBy: { reessayerLe: 'asc' }, take: 20,
+    });
+    for (const image of images) {
+      await prisma.imageEnvoiInacheve.updateMany({ where: { cle: image.cle }, data: { reessayerLe: dansUneHeure() } });
+      await nettoyerEnvoi(image).catch(() => {});
+    }
+  } finally { nettoyageEnCours = false; }
 }
 
 // retire les deux fichiers ; lève une erreur si le stockage ne répond pas (garder alors la ligne en base et réessayer)

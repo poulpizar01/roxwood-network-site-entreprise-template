@@ -25,7 +25,7 @@ type CompteLu = { gradeCle: string | null; statut: string; rolesDiscord: readonl
 export function synchroCompte(grades: readonly GradeRole[], compte: CompteLu, roles: readonly string[] | null) {
   const portes = roles ?? [];
   const { grade, parRole } = gradeALaConnexion(grades, portes, compte.gradeCle, false);
-  const valider = !!roles && compte.statut === 'attente' && !!parRole;
+  const valider = !!roles && compte.statut === 'attente' && !!parRole && grade === parRole;
   const memesRoles = portes.length === compte.rolesDiscord.length && portes.every(r => compte.rolesDiscord.includes(r));
   return { parti: roles === null, gradeCle: grade, valider, change: roles === null || grade !== compte.gradeCle || valider || !memesRoles };
 }

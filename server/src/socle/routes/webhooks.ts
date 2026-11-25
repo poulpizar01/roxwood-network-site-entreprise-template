@@ -55,7 +55,9 @@ const signatureValide = (corps: Buffer, recue: string, cles: string[]): boolean 
 
 const estEvenement = (v: unknown): v is EvenementBot =>
   !!v && typeof v === 'object' && typeof (v as EvenementBot).guildId === 'string' && typeof (v as EvenementBot).eventType === 'string'
-  && /^[\w.-]{1,64}$/.test((v as EvenementBot).eventType) && typeof (v as EvenementBot).sentAt === 'string';
+  && /^[\w.-]{1,64}$/.test((v as EvenementBot).eventType) && typeof (v as EvenementBot).sentAt === 'string'
+  && Object.hasOwn(v, 'payload') && (v as EvenementBot).payload !== null
+  && typeof (v as EvenementBot).payload === 'object' && !Array.isArray((v as EvenementBot).payload);
 
 // corps brut (la signature porte sur les octets reçus, pas sur un JSON relu) ; 1 Mo : le bot n'envoie jamais d'image
 webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, limit: '1mb' }), async (req, res) => {
@@ -77,7 +79,7 @@ webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, 
   let recu = await prisma.webhookRecu.findUnique({ where: { empreinte } });
   if (recu?.traite) { res.json({ ok: true, deja: true }); return; }
   if (!recu) {
-    try { recu = await prisma.webhookRecu.create({ data: { empreinte, type: e.eventType, contenu: e as unknown as Prisma.InputJsonValue } }); }
+    try { recu = await prisma.webhookRecu.create({ data: { empreinte, type: e.eventType, contenu: { sentAt: e.sentAt } } }); }
     catch (err) {
       // la même livraison arrive deux fois au même instant : l'autre requête la traite
       // 503 et non 200 : si l'autre requête échoue, le bot doit réessayer (un 200 lui ferait croire l'événement traité)
@@ -93,15 +95,12 @@ webhooks.post('/webhooks/bot', limits.webhooks, express.raw({ type: () => true, 
   const abonnement = entreprise.webhooks?.[e.eventType];
   try {
     if (abonnement) await abonnement.traiter(e);
-    // traité : seule l'empreinte reste utile (dédoublonnage). Le corps, qui peut porter des données personnelles
-    // (réponses d'un candidat), n'est gardé que tant que le traitement échoue, pour le diagnostiquer. Le verrou
-    // mémoire (finally) n'est levé qu'une fois cette écriture faite : sinon une livraison en double arrivant entre
-    // la fin du traitement et ce marquage le relancerait une seconde fois.
+    // Le diagnostic se limite à des métadonnées. Le corps n'est traité qu'en mémoire.
     await prisma.webhookRecu.update({ where: { id: recu.id }, data: { traite: true, contenu: {} } });
   }
   catch (err) {
     // 500 : le bot réessaiera (erreur transitoire de son point de vue) ; l'événement reste enregistré, non traité
-    console.error(`Webhook ${e.eventType} : échec du traitement`, err);
+    console.error(`Webhook ${e.eventType} : échec du traitement`, err instanceof Prisma.PrismaClientKnownRequestError ? err.code : err instanceof Error ? err.name : 'erreur');
     res.status(500).json({ error: 'traitement en échec' });
     return;
   }

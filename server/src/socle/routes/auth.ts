@@ -112,7 +112,7 @@ auth.get('/auth/discord/callback', async (req, res) => {
 
     // 4. statut : nouveau compte en attente de validation ; validé d'office pour le super-admin, et pour qui reçoit un
     // grade par son rôle Discord (l'entreprise l'a déjà reconnu sur Discord). Un compte refusé le reste.
-    const valideOffice = proprietaire || (!!gradeParRole && existant?.statut !== 'refuse');
+    const valideOffice = proprietaire || (!!gradeParRole && grade === gradeParRole && existant?.statut !== 'refuse');
     const c = await prisma.compte.upsert({
       where: { discordId: user.id },
       create: {
@@ -175,6 +175,7 @@ auth.get('/auth/folkos', async (req, res) => {
     // parti du serveur Discord depuis (vu par le bot, synchro-discord.ts) : refusé aussi, sans attendre les 30 jours
     if (!c.connecteLe || c.quitteLe || Date.now() - c.connecteLe.getTime() > DISCORD_RECENT_MS) { echec('discord'); return; }
     await ouvrirSession(req, c.id);
+    req.session.cookie.maxAge = Math.min(req.session.cookie.maxAge ?? Infinity, c.connecteLe.getTime() + DISCORD_RECENT_MS - Date.now());
     if (c.statut !== 'valide') { res.redirect(arrivee(PAGE_ATTENTE)); return; }
     res.redirect(arrivee(cheminSur(req.query.next, PAGE_ACCUEIL)));
   } catch (e) {

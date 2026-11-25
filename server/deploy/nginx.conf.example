@@ -8,12 +8,21 @@
 # rafales absorbées plus bas par « burst ». Le site a ses propres limites sur l'API ; celle-ci couvre aussi les pages
 # et les fichiers, qu'il ne compte pas. Une zone par site : son nom doit être unique sur la machine.
 limit_req_zone $binary_remote_addr zone=__SITE_ID__:10m rate=30r/s;
+# Les chemins d'API peuvent porter des jetons, les pages aussi dans leurs paramètres.
+map $uri $__SITE_ID___route_journal {
+    ~^/api(?:/|$) /api;
+    ~^/auth(?:/|$) /auth;
+    default $uri;
+}
+log_format __SITE_ID___sans_jetons '$remote_addr [$time_local] "$request_method $__SITE_ID___route_journal $server_protocol" '
+                                   '$status $body_bytes_sent';
 
 # HTTP : uniquement le défi ACME de Let's Encrypt (obtention et renouvellement du certificat), tout le reste part en HTTPS
 server {
     listen 80;
     listen [::]:80;
     server_name __DOMAIN__;
+    access_log /var/log/nginx/__DOMAIN__.access.log __SITE_ID___sans_jetons;
     server_tokens off;
 
     location ^~ /.well-known/acme-challenge/ {
@@ -29,6 +38,7 @@ server {
     listen [::]:443 ssl;
     http2 on;
     server_name __DOMAIN__;
+    access_log /var/log/nginx/__DOMAIN__.access.log __SITE_ID___sans_jetons;
 
     ssl_certificate     /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;

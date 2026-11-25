@@ -4,7 +4,7 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
 import { body, intParam, permission } from '../../socle/http.js';
 import { limiter } from '../../socle/limites.js';
-import { recevoirImagesLimitees } from '../../socle/images.js';
+import { avecImagesRecues, recevoirImagesLimitees } from '../../socle/images.js';
 import { identiteVerifiee } from '../../socle/routes/discord-leger.js';
 import {
   accepterCandidature, convoquerEntretien, creerCandidature, creerQuestion, creerSalonPourCandidature, definirReglagesRecrutement, etatChampsFiche, formulairePublic,
@@ -31,10 +31,10 @@ const exigerIdentite = (req: Request, res: Response, next: NextFunction) => {
 };
 // une image par pièce demandée (champ « piece-<id> »), 10 Mo pour l'ensemble, 2 au plus : le créneau mémoire du socle est partagé par tout l'envoi
 const recevoirPieces = recevoirImagesLimitees(PIECE_MAX_MO, PIECES_MAX);
-candidatures.post('/api/candidatures', limiteCandidatures, exigerIdentite, ...recevoirPieces, traiter(async (req, res) => {
+candidatures.post('/api/candidatures', limiteCandidatures, exigerIdentite, ...recevoirPieces, traiter(avecImagesRecues(async (req, res) => {
   const c = await creerCandidature(body(req), identiteVerifiee(req), (req.files as Express.Multer.File[] | undefined) ?? []);
   res.status(201).json({ id: c.id });
-}));
+})));
 
 // formulaire tel que le site le présente (questions, pièce) : public, sans rien de la fiche visée par une réponse
 candidatures.get('/api/candidatures/formulaire', traiter(async (_req, res) => { res.json(await formulairePublic()); }));

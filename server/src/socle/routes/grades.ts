@@ -8,6 +8,7 @@ import { body, couleur, permission, text, valide } from '../http.js';
 import { rolesDiscord, rolesDiscordConfigures, RolesIndisponibles } from '../roles-discord.js';
 import { auDessusDe, chargerGrades, CLES_PERMISSIONS, completerPermissions, gradeDe, gradePublic, peut, peutAccorder, rang, tousLesGrades } from '../droits.js';
 import { entreprise } from '../../entreprise/index.js';
+import { gradesImposes } from '../grades-imposes.js';
 
 export const grades = Router();
 
@@ -88,10 +89,29 @@ grades.patch('/api/grades/:cle', ...permission('grades'), async (req, res) => {
   if (b.roleDiscordId !== undefined) {
     const role = lireRole(b.roleDiscordId);
     if (role === undefined) { res.status(400).json({ error: 'Rôle Discord invalide (identifiant numérique).' }); return; }
-    if (role !== g.roleDiscordId && roleRefuse(moi, res)) return;
+    if (role !== g.roleDiscordId) {
+      if (roleRefuse(moi, res)) return;
+      const futures = Array.isArray(data.permissions) ? data.permissions : g.permissions;
+      if (role && !peutAccorder(moi, completerPermissions(futures))) {
+        res.status(403).json({ error: 'Tu ne peux pas attribuer ce rôle à un grade qui accorde des permissions que tu ne détiens pas.' });
+        return;
+      }
+    }
     data.roleDiscordId = role;
   }
-  if (await enregistrer(res, () => prisma.grade.update({ where: { cle: g.cle }, data }))) repondreListe(res);
+  const ancienneLiaison = typeof data.roleDiscordId !== 'undefined' && data.roleDiscordId !== g.roleDiscordId ? g.roleDiscordId : null;
+  if (await enregistrer(res, () => prisma.$transaction(async tx => {
+    if (ancienneLiaison) {
+      const comptes = await tx.compte.findMany({
+        where: { gradeCle: g.cle, rolesDiscord: { has: ancienneLiaison } },
+        select: { id: true, discordId: true },
+      });
+      const imposes = await gradesImposes(comptes.map(c => c.discordId));
+      const ids = comptes.filter(c => imposes.get(c.discordId)?.grade !== g.cle).map(c => c.id);
+      if (ids.length) await tx.compte.updateMany({ where: { id: { in: ids }, gradeCle: g.cle }, data: { gradeCle: null } });
+    }
+    await tx.grade.update({ where: { cle: g.cle }, data });
+  }))) repondreListe(res);
 });
 
 // nouvel ordre complet (liste de clés, du sommet à la base). Hors super-admin, les grades jusqu'au sien inclus restent en place.

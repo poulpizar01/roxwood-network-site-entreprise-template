@@ -99,19 +99,28 @@ Une sauvegarde contient les données de l'entreprise et les identifiants Discord
 - Sauvegarde immédiate : `docker compose restart backup`
 - Restaurer (remplace le contenu actuel de la base) :
   ```bash
-  docker compose stop app
-  # 1. base vidée : une sauvegarde ne retire que ce qu'elle contient. Sans cette étape, une table créée depuis (par une
-  #    migration, lors d'une mise à jour ratée) resterait en place et bloquerait le démarrage suivant (« already exists »).
-  docker exec <SITE_ID>-db psql -U site -d site -v ON_ERROR_STOP=1 -c 'DROP SCHEMA public CASCADE' -c 'CREATE SCHEMA public AUTHORIZATION site_app'
-  # 2. restauration, en une seule transaction : à la première erreur, rien n'est écrit (pas de base à moitié restaurée)
-  gunzip -c backups/site-AAAA-MM-JJ_HHhMM.sql.gz | docker exec -i <SITE_ID>-db psql -U site_app -d site -v ON_ERROR_STOP=1 --single-transaction
-  docker compose start app
+  (
+    set -euo pipefail
+    archive=backups/site-AAAA-MM-JJ_HHhMM.sql.gz
+    gzip -t "$archive"
+    gunzip -c "$archive" | tail -n 5 | grep -q 'PostgreSQL database dump complete'
+    docker compose stop app
+    {
+      printf '%s\n' 'DROP SCHEMA public CASCADE;' 'CREATE SCHEMA public AUTHORIZATION site_app;' 'SET ROLE site_app;'
+      gunzip -c "$archive"
+    } | docker compose exec -T db psql -X -U site -d site -v ON_ERROR_STOP=1 --single-transaction -f -
+    docker compose start app
+  )
   ```
-  `-U site_app` et non `-U site` pour la restauration : les tables recréées doivent appartenir au compte du site. Restaurées par erreur avec `site`, le site ne peut plus les lire ; `docker compose up -d` (qui relance `db-roles`) les lui rend. Une sauvegarde en échec n'écrit aucun fichier et le dit dans `docker logs <SITE_ID>-backup` ; les copies précédentes sont alors gardées au-delà de 7 jours.
+  Tester d'abord la restauration sur une base isolée. La suppression du schéma et la restauration sont dans la même
+  transaction. `SET ROLE site_app` rend les tables à l'utilisateur de l'application. En cas d'erreur, contrôler les
+  journaux et l'état de la base avant de relancer l'application.
+
 - Ces copies restent sur la même machine : elles protègent des erreurs de manipulation, **pas de la perte du serveur**. En garder une copie ailleurs, par exemple sur un stockage objet (S3, Backblaze B2, Scaleway…) avec [rclone](https://rclone.org), **chiffrée** (remote `crypt` par-dessus celui du stockage objet, mot de passe gardé ailleurs que sur le VPS) :
   ```bash
   # crontab -e : chaque nuit à 4 h, copie des sauvegardes du site hors du serveur (copy : n'efface rien là-bas)
   0 4 * * * rclone copy ~/<dossier-du-site>/backups sauvegardes:<SITE_ID>/ --max-age 48h >> ~/rclone-<SITE_ID>.log 2>&1
+  0 5 * * * rclone delete sauvegardes:<SITE_ID>/ --include 'site-*.sql.gz' --min-age 30d >> ~/rclone-<SITE_ID>.log 2>&1
   ```
 - Le `.env` contient les secrets (base, Discord, stockage, webhooks) : il doit rester lisible par vous seul (`chmod 600 .env` ; `ls -l .env` doit afficher `-rw-------`).
 

@@ -841,7 +841,10 @@ window.gestion = {
       if (e.key === 'Escape') { e.preventDefault(); ouvrir(false); burger.focus(); return; }
       // tiroir ouvert (téléphone) : Tab boucle entre le bouton du menu et les liens, jamais sur la page sous le voile
       if (e.key !== 'Tab') return;
-      const liste = [burger, ...[...barre.querySelectorAll('a[href], button')].filter(el => !el.disabled && (el.offsetWidth || el.offsetHeight))];
+      const liste = [burger, ...[...barre.querySelectorAll('a[href], button, summary')].filter(el => {
+        const groupe = el.closest('details');
+        return !el.disabled && (!groupe || groupe.open || el.tagName === 'SUMMARY') && (el.offsetWidth || el.offsetHeight);
+      })];
       // le bouton du menu et les liens ne se suivent pas dans la page : on avance soi-même dans cette liste
       e.preventDefault();
       const i = liste.indexOf(document.activeElement);
@@ -1215,7 +1218,14 @@ function fermerSelectOuvert() {
 document.addEventListener('mousedown', ev => {
   if (SELECT_OUVERT && !SELECT_OUVERT.flottant.contains(ev.target) && ev.target !== SELECT_OUVERT.select) fermerSelectOuvert();
 });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && SELECT_OUVERT) { ev.preventDefault(); fermerSelectOuvert(); } });
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Escape' || !SELECT_OUVERT) return;
+  ev.preventDefault();
+  ev.stopImmediatePropagation();
+  const { select } = SELECT_OUVERT;
+  fermerSelectOuvert();
+  select.focus();
+});
 addEventListener('resize', fermerSelectOuvert);
 // en capture pour voir le défilement d'un conteneur ; celui de la liste elle-même ne la ferme pas
 addEventListener('scroll', ev => { if (SELECT_OUVERT && SELECT_OUVERT.flottant.contains(ev.target)) return; fermerSelectOuvert(); }, true);
@@ -1330,11 +1340,9 @@ function ameliorerSelect(select, pastille, portee, rechercher) {
     // le focus peut partir vers le champ de recherche du même menu (flottant) : la liste ne se ferme pas pour ça
     setTimeout(() => { if (SELECT_OUVERT && SELECT_OUVERT.select === select && !flottant.contains(document.activeElement)) fermerSelectOuvert(); }, 120);
   });
+  // En interaction clavier, le select natif reste responsable du choix et de son annonce.
   select.addEventListener('keydown', ev => {
-    if (['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(ev.key)) {
-      ev.preventDefault();
-      if (!(SELECT_OUVERT && SELECT_OUVERT.select === select)) ouvrir();
-    }
+    if (SELECT_OUVERT?.select === select && ev.key !== 'Escape') fermerSelectOuvert();
   });
 }
 // à appeler avant de recréer des <select> habillés : retire les listes flottantes de l'affichage précédent

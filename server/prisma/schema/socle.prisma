@@ -97,7 +97,7 @@ model AbonnementWebhook {
   ancienneCleNonce     String?   @map("ancienne_cle_nonce") @db.VarChar(24)
   ancienneCleEmpreinte String?   @map("ancienne_cle_empreinte") @db.VarChar(12)
   ancienneExpireLe     DateTime? @map("ancienne_expire_le") @db.Timestamptz(6)
-  majLe                DateTime  @updatedAt @map("maj_le") @db.Timestamptz(6)
+  majLe                DateTime  @default(now()) @updatedAt @map("maj_le") @db.Timestamptz(6)
 
   @@map("abonnements_webhooks")
 }
@@ -128,4 +128,15 @@ model Session {
 
   @@index([expire], map: "idx_session_expire")
   @@map("session")
+}
+
+// Clés d'images à retirer si un envoi au stockage échoue, y compris après une réponse perdue.
+model ImageEnvoiInacheve {
+  cle         String   @id @db.VarChar(200)
+  cleMini     String   @map("cle_mini") @db.VarChar(200)
+  local       Boolean
+  reessayerLe DateTime @map("reessayer_le") @db.Timestamptz(6)
+
+  @@index([reessayerLe])
+  @@map("images_envois_inacheves")
 }

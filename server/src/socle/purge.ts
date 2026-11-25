@@ -2,6 +2,7 @@
 // nouvelles tentatives du bot et diagnostiquer un traitement en échec). Les sessions expirées sont effacées par
 // connect-pg-simple. Les durées de conservation propres à l'entreprise se planifient dans entreprise.demarrage().
 import { prisma } from './db.js';
+import { purgerEnvoisInacheves } from './images.js';
 
 const JOURS_WEBHOOKS = 30;
 
@@ -16,4 +17,7 @@ export function planifierPurge() {
   const run = () => purge().catch(e => console.error('[purge]', e));
   run();
   setInterval(run, 24 * 3600e3).unref();
+  const nettoyerImages = () => purgerEnvoisInacheves().catch(e => console.error('[purge images]', e));
+  nettoyerImages();
+  setInterval(nettoyerImages, 15 * 60e3).unref();
 }

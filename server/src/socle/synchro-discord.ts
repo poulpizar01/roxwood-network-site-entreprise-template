@@ -56,7 +56,11 @@ export async function synchroniserComptes(): Promise<{ lus: number; modifies: nu
       const d = synchroCompte(tousLesGrades(), actuel, roles);
       // grade imposé par l'entreprise (fiche RH…) : il l'emporte sur le rôle, comme à la connexion
       const impose = (await gradesImposes([c.discordId])).get(c.discordId)?.grade;
-      if (impose && !d.parti) { d.gradeCle = impose; d.change = d.change || impose !== actuel.gradeCle; }
+      if (impose && !d.parti) {
+        if (impose !== d.gradeCle) d.valider = false;
+        d.gradeCle = impose;
+        d.change = d.change || impose !== actuel.gradeCle;
+      }
       if (d.parti) {
         await prisma.$transaction([
           prisma.compte.update({ where: { id: c.id }, data: { quitteLe: new Date(), gradeCle: d.gradeCle, rolesDiscord: [] } }),

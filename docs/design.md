@@ -140,7 +140,7 @@ Base de connaissance pour quiconque crée ou modifie une page, un composant ou u
 
 ## 11. Vitrine : fenêtres de dépôt (avis, demandes, candidature)
 
-- **Une fenêtre `<dialog>` native, trois étapes** : connexion Discord, formulaire, remerciement. Discord est exigé avant tout envoi (jamais la seule limite de débit) ; aucun e-mail ni téléphone n'est demandé, l'équipe répond dans un salon Discord.
+- **Une fenêtre `<dialog>` native, trois étapes** : connexion Discord, formulaire, remerciement. Si le site exige une identité Discord pour ce formulaire, vérifier l'identité avant l'envoi. Les coordonnées et le canal de suivi dépendent du parcours documenté dans ENTREPRISE.md.
 - **Chaque fenêtre lit son propre marqueur au retour de Discord** (`?avis=1`, `?demande=<type>`, `?candidature=1`) : sinon la première consomme `?discord=ok` et ouvre la mauvaise fenêtre.
   Vu : un retour de connexion qui rouvrait la fenêtre d'avis depuis la page des demandes.
 - **« Se déconnecter » oublie l'identité vérifiée** (`/api/discord/oublier`) et revient à l'étape de connexion.

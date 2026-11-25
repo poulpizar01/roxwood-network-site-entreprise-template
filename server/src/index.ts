@@ -31,14 +31,14 @@ import { entreprise } from './entreprise/index.js';
 import { nouveauJetonCsrf, origineAcceptee } from './socle/csrf.js';
 
 await Promise.all([chargerGrades(), chargerReglages()]);
-// Un ID retiré de SUPER_ADMIN_DISCORD_IDS perd son statut dès le démarrage : sinon il le garde jusqu'à sa prochaine
-// connexion Discord (auth.ts le réécrit), soit 7 jours de session. Liste vide : on ne touche à rien (un .env mal lu
-// ne doit pas retirer tous les propriétaires) ; le compte de la connexion de dev reste propriétaire.
+// La liste de configuration fait foi, même si elle est vide. Un ancien propriétaire
+// récupère ensuite les droits de ses rôles Discord ou de sa fiche, comme tout compte.
 const gardes = [...config.superAdmins, ...(config.devLogin ? [config.devDiscordId] : [])];
-if (config.superAdmins.length) {
-  const retires = await prisma.compte.updateMany({ where: { proprietaire: true, discordId: { notIn: gardes } }, data: { proprietaire: false } });
-  if (retires.count) console.warn(`Super-admin : ${retires.count} compte(s) absent(s) de SUPER_ADMIN_DISCORD_IDS ne sont plus propriétaires.`);
-}
+const retires = await prisma.compte.updateMany({
+  where: { proprietaire: true, discordId: { notIn: gardes } },
+  data: { proprietaire: false, gradeCle: null },
+});
+if (retires.count) console.warn(`Super-admin : ${retires.count} compte(s) absent(s) de SUPER_ADMIN_DISCORD_IDS ne sont plus propriétaires.`);
 declarerParametres(entreprise.parametres);   // avant demarrage(), qui peut lire un paramètre
 planifierPurge();
 planifierSynchroDiscord();
@@ -102,6 +102,7 @@ app.use(['/api', '/auth'], (req, res, next) => {
 // jeton de la session pour socle.js (lu une fois par page, ajouté aux requêtes qui modifient quelque chose).
 // Sans ordinateur en jeu (FOLKOS_HOTE), le jeton ne sert à rien (origineAcceptee ne l'accepte pas) : aucune session créée
 // pour un visiteur anonyme.
+app.use('/api', limits.api);
 app.get('/api/csrf', (req, res) => {
   if (!config.folkos.hote) { res.status(404).json({ error: 'introuvable' }); return; }
   req.session.csrf ??= nouveauJetonCsrf();
@@ -109,8 +110,8 @@ app.get('/api/csrf', (req, res) => {
 });
 
 app.use('/auth', limits.auth);
-app.use('/api', limits.api);
-app.use(auth, discordLeger, comptes, grades, parametres, webhooksJournal, webhooksAbonnements, aide, ...entreprise.routes);
+// L'adresse fixe des abonnements doit précéder le journal et son paramètre :id.
+app.use(auth, discordLeger, comptes, grades, parametres, webhooksAbonnements, webhooksJournal, aide, ...entreprise.routes);
 // adresse d'API inconnue : 404 en JSON (pas la page 404 du site)
 app.use('/api', (_req, res) => { res.status(404).json({ error: 'introuvable' }); });
 
@@ -192,6 +193,10 @@ app.use((_req, res) => {
 const onError: ErrorRequestHandler = (err, _req, res, _next) => {
   if ((err as { type?: string }).type === 'entity.parse.failed') { if (!res.headersSent) res.status(400).json({ error: 'requête illisible' }); return; }
   if ((err as { type?: string }).type === 'entity.too.large') { if (!res.headersSent) res.status(413).json({ error: 'Données trop volumineuses.' }); return; }
+  if (err?.type === 'encoding.unsupported' || err?.type === 'charset.unsupported') {
+    if (!res.headersSent) res.status(415).json({ error: 'Encodage de requête non pris en charge.' });
+    return;
+  }
   if (err instanceof ImageRefusee) { if (!res.headersSent) res.status(400).json({ error: err.message }); return; }
   console.error((err as Error).stack || (err as Error).message || 'erreur inconnue');
   if (!res.headersSent) res.status(500).json({ error: 'erreur serveur' });

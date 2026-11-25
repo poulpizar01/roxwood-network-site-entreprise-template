@@ -57,7 +57,11 @@ export const storage = {
   },
   // supprime un fichier d'après l'URL enregistrée : un fichier local reste local même une fois le CDN activé
   async remove(key: string, publicUrl: string): Promise<void> {
-    if (publicUrl.startsWith(LOCAL_PREFIX)) { try { unlinkSync(join(dir, key)); } catch { /* déjà absent */ } return; }
+    if (publicUrl.startsWith(LOCAL_PREFIX)) {
+      try { unlinkSync(join(dir, key)); }
+      catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
+      return;
+    }
     // fichier sur le CDN alors que le stockage n'est plus configuré (ou en dev, base copiée de la prod) : échec signalé,
     // la ligne en base est à garder
     if (kind !== 'cdn') throw new Error(`stockage : ${key} est sur le stockage distant, ${config.production ? 'qui n’est pas configuré (STORAGE_URL / STORAGE_TOKEN)' : 'jamais utilisé en dev'}`);
