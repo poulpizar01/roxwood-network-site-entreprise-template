@@ -1,8 +1,10 @@
 // ENTREPRISE — sanctions disciplinaires rattachées à une fiche RH (table sanctions) ; leurs types (table
 // types_sanction) se gèrent comme les types d'agenda (routes/rh.ts). Permission rh-sanctionner (en plus de rh-voir).
 // Une sanction ne se modifie pas : elle se retire si saisie par erreur.
+import type { Compte, Employe } from '../generated/prisma/client.js';
 import { prisma } from '../socle/db.js';
-import { nomComplet } from './rh.js';
+import { auDessusDe } from '../socle/droits.js';
+import { droitsRh, nomComplet, verifierHierarchie } from './rh.js';
 import { Refus } from './refus.js';
 
 type Type = { id: number; nom: string; couleur: string };
@@ -17,13 +19,20 @@ export async function sanctionsDe(employeId: number) {
   return (await prisma.sanction.findMany({ where: { employeId }, orderBy: { creeLe: 'desc' }, include: { type: true } })).map(publique);
 }
 
-// toutes les sanctions, de tous les employés (onglet « Sanctions » de Ressources humaines)
-export async function toutesSanctions() {
-  const lignes = await prisma.sanction.findMany({ orderBy: { creeLe: 'desc' }, take: 300, include: { type: true } });
-  const employes = new Map((await prisma.employe.findMany({ where: { id: { in: [...new Set(lignes.map(l => l.employeId))] } } })).map(e => [e.id, e]));
+// Qui lit les sanctions d'une fiche, en plus de l'intéressé (Mon compte) : avec rh-sanctions-voir, les grades au-dessus
+// du sien ; sa propre fiche reste visible. Le propriétaire du site voit tout.
+export const peutVoirSanctions = (acteur: Compte, e: Pick<Employe, 'discordId' | 'gradeCle'>): boolean =>
+  acteur.proprietaire || (droitsRh(acteur).has('sanctions-voir') && (auDessusDe(acteur, e.gradeCle) || (!!e.discordId && e.discordId === acteur.discordId)));
+const retirableSur = (acteur: Compte, e: Employe) => { try { verifierHierarchie(acteur, e); return true; } catch { return false; } };
+
+// page Sanctions : les plus récentes des fiches que ce compte peut voir ; « retirable » selon le droit et la hiérarchie
+export async function sanctionsVisibles(acteur: Compte) {
+  const employes = new Map((await prisma.employe.findMany()).filter(e => peutVoirSanctions(acteur, e)).map(e => [e.id, e]));
+  const lignes = await prisma.sanction.findMany({ where: { employeId: { in: [...employes.keys()] } }, orderBy: { creeLe: 'desc' }, take: 300, include: { type: true } });
+  const gerer = droitsRh(acteur).has('sanctionner');
   return lignes.map(s => {
-    const e = employes.get(s.employeId);
-    return { ...publique(s), employeId: s.employeId, employeNom: e ? nomComplet(e) : 'Employé supprimé' };
+    const e = employes.get(s.employeId)!;
+    return { ...publique(s), employeId: s.employeId, employeNom: nomComplet(e), retirable: gerer && retirableSur(acteur, e) };
   });
 }
 

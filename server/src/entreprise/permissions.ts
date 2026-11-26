@@ -18,7 +18,7 @@ const declarees: Permission[] = [
   { cle: 'rh-piece', domaine: RH, libelle: 'Gérer la pièce d’identité', description: 'Ajouter, remplacer ou retirer la pièce d’identité d’un employé', requiert: ['rh-piece-voir'] },
   { cle: 'rh-modifier', domaine: RH, libelle: 'Modifier une fiche', description: 'Changer l’identité, le grade ou les dates d’un employé' },
   // la page Sanctions se consulte sans pouvoir sanctionner ; elle liste aussi les employés, d'où rh-voir
-  { cle: 'rh-sanctions-voir', domaine: RH, libelle: 'Consulter les sanctions', description: 'Voir les sanctions de tous les employés (page Sanctions)', requiert: ['rh-voir'] },
+  { cle: 'rh-sanctions-voir', domaine: RH, libelle: 'Consulter les sanctions', description: 'Voir les sanctions des employés d’un grade sous le sien, et les siennes (page Sanctions)', requiert: ['rh-voir'] },
   { cle: 'rh-sanctionner', domaine: RH, libelle: 'Gérer les sanctions', description: 'Ajouter ou retirer une sanction sur une fiche employé', requiert: ['rh-sanctions-voir'] },
   { cle: 'rh-creer', domaine: RH, libelle: 'Ajouter un employé', description: 'Créer une fiche ; retraiter ou écarter une candidature reçue' },
   { cle: 'rh-supprimer', domaine: RH, libelle: 'Supprimer une fiche', description: 'Effacer définitivement la fiche d’un employé (préférer le départ, qui garde l’historique)', requiert: ['rh-voir'] },

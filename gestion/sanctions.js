@@ -53,7 +53,7 @@ const rangTexte = n => (n === 1 ? '1re sanction' : `${n}e sanction`);
 
 // ligne de la liste (même composant que Contrats/RH : identité, cellules nommées, menu « ⋯ »)
 function ligneSanction(s) {
-  const actions = PEUT_SANCTIONNER
+  const actions = s.retirable
     ? `<button type="button" role="menuitem" class="danger" data-retirer-sanction="${s.id}" data-employe-sanction="${s.employeId}">${gestion.ico('trash')} Retirer la sanction</button>`
     : '';
   const rang = RANG_SANCTION.get(s.id) || 1;
@@ -64,10 +64,10 @@ function ligneSanction(s) {
     <span class="rh-cellule" data-libelle="Date">${dateHeure(s.creeLe)}</span>
     <span class="rh-cellule" data-libelle="Note">${s.note ? echapper(s.note) : '—'}</span>
     <span class="rh-cellule" data-libelle="Ajoutée par">${echapper(s.auteurNom) || 'Compte supprimé'}</span>
-    <div class="comptes-menu">
+    ${actions ? `<div class="comptes-menu">
       <button type="button" class="comptes-menu-bouton" aria-haspopup="menu" aria-expanded="false" aria-label="Actions pour ${echapper(s.employeNom)}">${gestion.ico('points')}</button>
-      <div class="comptes-menu-liste cache" role="menu">${actions || '<span class="champ-aide" style="padding:8px 12px;display:block;">Aucune action.</span>'}</div>
-    </div>
+      <div class="comptes-menu-liste cache" role="menu">${actions}</div>
+    </div>` : '<span></span>'}
   </div>`;
 }
 function afficherSanctions() {
@@ -148,7 +148,7 @@ async function chargerSanctions() {
     calculerRangs();
     TYPES_SANCTION = r.types;
     PEUT_SANCTIONNER = r.peutSanctionner;
-    EMPLOYES_ACTIFS = (employes.employes || []).filter(e => e.statut === 'actif');
+    EMPLOYES_ACTIFS = (employes.employes || []).filter(e => e.statut === 'actif' && employes.attribuables.includes(e.grade));
     $s('bouton-nouvelle-sanction').classList.toggle('cache', !PEUT_SANCTIONNER);
     dessinerLegendeSanction();
     afficherSanctions();

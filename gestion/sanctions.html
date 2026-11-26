@@ -15,14 +15,14 @@
   <title>Sanctions — {{nom}}</title>
 </head>
 <body class="page-agents">
-  <!-- GESTION — ressources humaines : sanctions, toutes les fiches confondues (permission rh-voir ; ajout et retrait
+  <!-- GESTION — ressources humaines : sanctions, selon la hiérarchie (permission rh-voir ; ajout et retrait
        réservés à rh-sanctionner). Serveur : /api/rh/sanctions, entreprise/sanctions.ts. -->
   <main class="admin-contenu">
     <section id="panneau-sanctions">
       <div class="entete-admin">
         <div>
           <h1 style="margin-bottom:2px;">Sanctions</h1>
-          <p style="margin:0;font-size:var(--fs-3);">Historique disciplinaire de tous les employés.</p>
+          <p style="margin:0;font-size:var(--fs-3);">Historique disciplinaire des employés de grade inférieur au vôtre, et le vôtre.</p>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button type="button" class="btn btn-or cache" id="bouton-nouvelle-sanction"><svg class="ico" aria-hidden="true"><use href="#ico-plus"></use></svg> Ajouter une sanction</button>

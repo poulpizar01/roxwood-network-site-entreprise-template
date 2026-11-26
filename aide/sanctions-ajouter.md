@@ -3,7 +3,7 @@ titre: Ajouter ou retirer une sanction
 rubrique: sanctions
 mots-cles: sanction, avertissement, discipline, historique, note, retirer
 ---
-La page Sanctions réunit l'historique disciplinaire de tous les employés. L'employé sanctionné voit la sanction, son type et la note dans **Mon compte**.
+La page Sanctions réunit l'historique disciplinaire des employés d'un grade sous le vôtre, et le vôtre. L'employé sanctionné voit la sanction, son type et la note dans **Mon compte**.
 
 ## Consulter les sanctions
 

@@ -9,7 +9,7 @@ import { body, couleur, entier, intParam, permission, text } from '../../socle/h
 import { enregistrerImage, recevoirImage, retirerImage } from '../../socle/images.js';
 import { peutVoirPiece, peutLireNotes, arriveesBot, changerPieceIdentite, consignerHistorique, droitsRh, ecarter, fichePublique, gradesEmployes, historiqueDe, lignesHistorique, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, supprimerFiche, traiterEnSuspens, trierEmployes, pasSaPropreFiche, verifierDroitsDuCompte, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
-import { ajouterSanction, listeTypesSanction, retirerSanction, toutesSanctions } from '../sanctions.js';
+import { ajouterSanction, listeTypesSanction, retirerSanction, sanctionsVisibles } from '../sanctions.js';
 import { terminerServiceDe } from '../services.js';
 import { traiter } from '../refus.js';
 import { jourParis, jourValide, versDate } from '../texte.js';
@@ -110,7 +110,7 @@ rh.post('/api/rh/employes/:id/service/terminer', ...voir, exiger('modifier', 'Vo
 
 // sanctions : onglet dédié de Ressources humaines, toutes les fiches confondues
 rh.get('/api/rh/sanctions', ...permission('rh-sanctions-voir'), async (req, res) => {
-  res.json({ sanctions: await toutesSanctions(), types: await listeTypesSanction(), peutSanctionner: droitsRh(req.compte).has('sanctionner') });
+  res.json({ sanctions: await sanctionsVisibles(req.compte), types: await listeTypesSanction(), peutSanctionner: droitsRh(req.compte).has('sanctionner') });
 });
 
 rh.post('/api/rh/employes/:id/sanctions', ...voir, exiger('sanctionner', 'Vous n’avez pas le droit de gérer les sanctions.'), traiter(async (req, res) => {
