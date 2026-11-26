@@ -381,7 +381,7 @@ document.getElementById("agenda-onglets").addEventListener("click", e => {
 });
 
 // « mien » au sens de Mon planning : ce que j'ai créé ou ce pour quoi j'ai été invité.
-const estMienPourPlanning = e => e.mien;
+const estMienPourPlanning = e => e.mien || e.invite;
 
 async function chargerMonPlanning() {
   const zone = document.getElementById("panneau-mon-planning");
@@ -408,7 +408,9 @@ function planningLigne(e) {
 function dessinerMonPlanning() {
   const zone = document.getElementById("panneau-mon-planning");
   const auj = formaterDateISO(aujourdhuiParis());
-  const mines = PLANNING_EVENEMENTS.filter(estMienPourPlanning).filter(e => e.jour >= auj)
+  const mines = PLANNING_EVENEMENTS.filter(estMienPourPlanning).filter(e => e.jour_fin >= auj)
+    // un événement commencé avant aujourd'hui et toujours en cours se range à aujourd'hui
+    .map(e => (e.jour < auj ? { ...e, jour: auj } : e))
     .sort((a, b) => (a.jour + (a.heure_debut || "")).localeCompare(b.jour + (b.heure_debut || "")));
   const prochaine = mines[0] || null;
   const parJour = new Map();
@@ -652,12 +654,28 @@ function ouvrirPlusOptions(ouvert) {
   document.getElementById("bouton-plus-options").classList.toggle("ouvert", ouvert);
 }
 document.getElementById("bouton-plus-options").addEventListener("click", () => ouvrirPlusOptions(!PLUS_OPTIONS_OUVERT));
-document.getElementById("evenement-multi-jours").addEventListener("change", e => {
-  document.getElementById("champ-evenement-jour-fin").classList.toggle("cache", !e.target.checked);
-  document.getElementById("label-evenement-jour").textContent = e.target.checked ? "Du" : "Date";
-  if (!e.target.checked) document.getElementById("evenement-jour-fin").value = document.getElementById("evenement-jour").value;
+// la case « Sur plusieurs jours » décide seule (hors absence) : une date de fin masquée ne compte jamais
+const plusieursJoursCoche = () => document.getElementById("evenement-multi-jours").checked;
+function majChampsDates() {
+  const coche = plusieursJoursCoche();
+  document.getElementById("champ-evenement-jour-fin").classList.toggle("cache", !coche);
+  document.getElementById("label-evenement-jour").textContent = coche ? "Du" : "Date";
+  majDateFin();
   majChampHeures();
-});
+}
+// la date de fin suit la date de début : le même jour sans la case ; avec elle (ou pour une absence), jamais avant
+function majDateFin() {
+  const jour = document.getElementById("evenement-jour").value, champFin = document.getElementById("evenement-jour-fin");
+  if (!jour) return;   // date en cours de saisie
+  const absence = modeEvenementChoisi() === "absence";
+  if (!absence && !plusieursJoursCoche()) champFin.value = jour;
+  else if (champFin.value && (champFin.value < jour || (!absence && champFin.value === jour))) {
+    const d = new Date(jour + "T12:00:00");
+    if (!absence) d.setDate(d.getDate() + 1);
+    champFin.value = formaterDateISO(d);
+  }
+}
+document.getElementById("evenement-multi-jours").addEventListener("change", majChampsDates);
 // pied de la fenêtre à la création : « Ajouter » (jamais un synonyme selon la sorte)
 function majBoutonsPiedCreation() {
   document.getElementById("bouton-enregistrer-evenement").textContent = "Ajouter";
@@ -682,16 +700,14 @@ let EVENEMENT_OPTIONS_COURANTES = null;
 // (le titre reste dans l'en-tête de la fenêtre, pas répété ici).
 function dessinerLectureEvenement(e) {
   const puces = [];
-  if (e.absence) {
-    const [libelle, classe] = ETATS_ABSENCE[e.statut_absence] || ETATS_ABSENCE.en_attente;
-    puces.push(`<span class="puce ${classe}">${echapper(libelle)}</span>`);
-  } else {
+  // l'état d'une absence est dit par le bandeau sous la fiche, pas répété ici
+  if (!e.absence) {
     if (typeDe(e)) puces.push(`<span class="puce" style="${styleType(e)}background:var(--vis-fond);color:var(--vis);">${echapper(typeDe(e).nom)}</span>`);
   }
   const periode = e.jour === e.jour_fin ? dateCourteFr(e.jour) : `${dateCourteFr(e.jour)} → ${dateCourteFr(e.jour_fin)}`;
   document.getElementById("evenement-lecture").innerHTML = `
     <div class="evenement-lecture-puces">${puces.join("")}</div>
-    <p class="evenement-lecture-quand">${echapper(periode)} · ${echapper(texteHoraire(e))}${e.destinataire ? ` · ${echapper(e.destinataire)}` : ""}</p>
+    <p class="evenement-lecture-quand">${echapper(periode)} · ${echapper(texteHoraire(e))}${e.destinataire && !e.absence ? ` · ${echapper(e.destinataire)}` : ""}</p>
     ${e.notes ? `<p class="contrat-notes">${echapper(e.notes)}</p>` : ""}
   `;
 }
@@ -728,12 +744,15 @@ function remplirModaleEvenement() {
     EVENEMENT_MODE = estAbsence ? "absence" : "evenement";
     document.getElementById("champ-evenement-titre").classList.toggle("cache", estAbsence);
     document.getElementById("champ-evenement-classement").classList.toggle("cache", estAbsence);
-    document.getElementById("champ-evenement-multi-jours").classList.add("cache");
-    document.getElementById("champ-evenement-jour-fin").classList.remove("cache");
-    document.getElementById("label-evenement-jour").textContent = "Du";
+    document.getElementById("champ-evenement-multi-jours").classList.toggle("cache", estAbsence);
+    document.getElementById("evenement-multi-jours").checked = !estAbsence && e.jour !== e.jour_fin;
     document.getElementById("bouton-plus-options").classList.add("cache");
     ouvrirPlusOptions(true);
-    majChampHeures();
+    if (estAbsence) {
+      document.getElementById("champ-evenement-jour-fin").classList.remove("cache");
+      document.getElementById("label-evenement-jour").textContent = "Du";
+      majChampHeures();
+    } else majChampsDates();
   } else {
     SORTE_EVENEMENT = "rdv";
     document.getElementById("evenement-multi-jours").checked = false;
@@ -833,12 +852,12 @@ document.getElementById("bouton-modifier-evenement").addEventListener("click", (
 // n'a jamais d'horaire, quelle que soit sa durée
 function majChampHeures() {
   const absence = modeEvenementChoisi() === "absence";
-  const jour = document.getElementById("evenement-jour").value, jourFin = document.getElementById("evenement-jour-fin").value;
-  const multi = absence || (!!jour && !!jourFin && jourFin !== jour);
-  document.getElementById("champ-evenement-heures").classList.toggle("cache", multi);
+  const sansHoraire = absence || plusieursJoursCoche();
+  document.getElementById("champ-evenement-heures").classList.toggle("cache", sansHoraire);
+  if (sansHoraire) document.getElementById("erreur-evenement-heures").classList.add("cache");
 }
-document.getElementById("evenement-jour").addEventListener("input", majChampHeures);
-document.getElementById("evenement-jour-fin").addEventListener("input", majChampHeures);
+// « change » et non « input » : la date de fin ne bouge qu'une fois la date de début entièrement saisie
+document.getElementById("evenement-jour").addEventListener("change", majDateFin);
 document.getElementById("evenement-destination").addEventListener("change", majChampInvites);
 const rechercheInvites = document.getElementById("recherche-evenement-invites");
 rechercheInvites.addEventListener("focus", () => {
@@ -932,16 +951,16 @@ document.getElementById("formulaire-evenement").addEventListener("submit", async
   const absence = modeEvenementChoisi() === "absence";
   const titre = document.getElementById("evenement-titre").value.trim();
   const jour = document.getElementById("evenement-jour").value;
-  const jourFin = document.getElementById("evenement-jour-fin").value;
+  const multi = absence || plusieursJoursCoche();
+  const jourFin = multi ? document.getElementById("evenement-jour-fin").value : jour;
   const heureDebut = document.getElementById("evenement-heure-debut").value;
   const heureFin = document.getElementById("evenement-heure-fin").value;
-  const multi = absence || (!!jour && !!jourFin && jourFin !== jour);
   let premierChamp = null;
   if (!jour) {
     document.getElementById("erreur-evenement-jour").classList.remove("cache");
     premierChamp = document.getElementById("evenement-jour");
   }
-  if (!jourFin || (jour && jourFin < jour)) {
+  if (multi && (!jourFin || (jour && (jourFin < jour || (!absence && jourFin === jour))))) {
     document.getElementById("erreur-evenement-jour-fin").classList.remove("cache");
     premierChamp ||= document.getElementById("evenement-jour-fin");
   }
@@ -1206,8 +1225,9 @@ async function rendreParMembre() {
   }
   // une absence peut courir sur plusieurs jours : une puce par jour couvert, dans la plage affichée
   for (const e of absences) {
-    if (!parPersonne.has(e.auteur)) parPersonne.set(e.auteur, new Map());
-    for (const d of jours) { const iso = formaterDateISO(d); if (e.jour <= iso && e.jour_fin >= iso) ajouter(parPersonne.get(e.auteur), iso, e); }
+    const nom = e.auteur_fiche || e.auteur;
+    if (!parPersonne.has(nom)) parPersonne.set(nom, new Map());
+    for (const d of jours) { const iso = formaterDateISO(d); if (e.jour <= iso && e.jour_fin >= iso) ajouter(parPersonne.get(nom), iso, e); }
   }
   const roster = await rosterActifs();
   for (const nom of roster) if (!parPersonne.has(nom)) parPersonne.set(nom, new Map());

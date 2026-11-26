@@ -142,11 +142,13 @@
       const ul = document.getElementById('aujourdhui');
       if (agenda.status === 'rejected') ul.innerHTML = ligneVide('L’agenda n’a pas pu être chargé. Rechargez la page dans un instant.');
       else {
-        const evts = (agenda.value.evenements || []).sort((a, b) => (a.jour + (a.heure_debut || '')).localeCompare(b.jour + (b.heure_debut || '')));
+        // ma journée : pas les absences des autres (visibles de qui les valide), ni les miennes une fois refusées
+        const evts = (agenda.value.evenements || []).filter(e => !e.absence || (e.mien && e.statut_absence !== 'refuse'))
+          .sort((a, b) => (a.jour + (a.heure_debut || '')).localeCompare(b.jour + (b.heure_debut || '')));
         // un événement sur toute la journée (ou plusieurs jours) n'a pas d'horaire : « Toute la journée », pas « – »
         const quand = e => e.heure_debut ? `${socle.esc(e.heure_debut)}–${socle.esc(e.heure_fin)}` : 'Toute la journée';
         const ligne = (e, avecJour) => `<li><span class="accueil-heure">${avecJour ? `${socle.esc(jourLisible(e.jour))}, ` : ''}${quand(e)}</span><span class="accueil-texte">${socle.esc(e.titre)}</span></li>`;
-        const duJour = evts.filter(e => e.jour === aujourdhui), aVenir = evts.filter(e => e.jour > aujourdhui).slice(0, 5);
+        const duJour = evts.filter(e => e.jour <= aujourdhui && e.jour_fin >= aujourdhui), aVenir = evts.filter(e => e.jour > aujourdhui).slice(0, 5);
         ul.innerHTML = duJour.length ? duJour.map(e => ligne(e, false)).join('')
           : ligneVide(`Rien de prévu aujourd’hui. <a href="agenda.html?nouveau=1">Ajouter un rendez‑vous</a>`);
         document.getElementById('a-venir-bloc').classList.toggle('cache', duJour.length > 0 || !aVenir.length);

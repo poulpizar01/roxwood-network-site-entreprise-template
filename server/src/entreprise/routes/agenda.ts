@@ -42,11 +42,14 @@ const libelleDestination = (e: Pick<EvenementAgenda, 'destination' | 'destinatio
         : invitations.length ? `Personnel — ${invitations.length} invités` : 'Personnel — moi uniquement';
 
 type EvenementAvecInvitations = EvenementAgenda & { invitations: InvitationAgenda[] };
-const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAgenda) => ({
+// fiches : compteId → nom de la fiche employé de l'auteur (Planning de l'équipe : une seule ligne par personne)
+const versClient = (e: EvenementAvecInvitations, req: Request, droits: DroitsAgenda, fiches = new Map<number, string>()) => ({
   id: e.id, titre: e.titre, jour: e.jour.toISOString().slice(0, 10), jour_fin: e.jourFin.toISOString().slice(0, 10),
   heure_debut: e.heureDebut, heure_fin: e.heureFin, notes: e.notes,
   type_id: e.typeId, destination: e.destination, destination_grade: e.destinationGrade, destinataire: libelleDestination(e, e.invitations),
   auteur: e.auteurNom, mien: e.compteId === req.compte.id,
+  invite: e.invitations.some(i => i.discordId === req.compte.discordId),
+  ...(e.statutAbsence ? { auteur_fiche: (e.compteId && fiches.get(e.compteId)) || null } : {}),
   invites: e.invitations.map(({ id, nom, prevenu, present }) => ({
     ...(e.compteId === req.compte.id ? { invitation_id: id } : {}),
     nom, prevenu, present,
@@ -342,6 +345,13 @@ agenda.put('/api/agenda/droits-grades/:cle', ...permission('grades'), traiter(as
 }));
 
 // ---- événements ----
+async function fichesDesAuteurs(ids: (number | null)[]): Promise<Map<number, string>> {
+  const comptes = await prisma.compte.findMany({ where: { id: { in: ids.filter((i): i is number => i !== null) } }, select: { id: true, discordId: true } });
+  const employes = await prisma.employe.findMany({ where: { statut: 'actif', discordId: { in: comptes.map(c => c.discordId) } } });
+  const noms = new Map(employes.map(f => [f.discordId, nomComplet(f)]));
+  return new Map(comptes.flatMap(c => { const nom = noms.get(c.discordId); return nom ? [[c.id, nom] as const] : []; }));
+}
+
 agenda.get('/api/agenda', ...valide, async (req, res) => {
   const { debut, fin } = req.query;
   if (!dateValide(debut) || !dateValide(fin)) { res.status(400).json({ error: 'Plage de dates invalide.' }); return; }
@@ -364,8 +374,10 @@ agenda.get('/api/agenda', ...valide, async (req, res) => {
   const destinations = [{ valeur: 'perso', libelle: 'Personnel' }];
   if (peutCreer(droits, 'tous', null, grades)) destinations.push({ valeur: 'tous', libelle: 'Toute l’équipe' });
   for (const g of tousLesGrades()) if (peutCreer(droits, 'grade', g.cle, grades)) destinations.push({ valeur: `grade:${g.cle}`, libelle: g.libelle });
+  const visibles = candidats.filter(e => voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, moi, droits, grades)).slice(0, 1000);
+  const fiches = await fichesDesAuteurs(visibles.filter(e => e.statutAbsence).map(e => e.compteId));
   res.json({
-    evenements: candidats.filter(e => voit({ ...e, invitesDiscordIds: e.invitations.map(i => i.discordId) }, moi, droits, grades)).slice(0, 1000).map(e => versClient(e, req, droits)),
+    evenements: visibles.map(e => versClient(e, req, droits, fiches)),
     types: await listeTypes(),
     droits: { destinations, peut_inviter: droits.tout || droits.creer.length > 0 },
   });

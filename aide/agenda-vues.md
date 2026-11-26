@@ -17,7 +17,7 @@ La couleur d'un événement indique son type. La légende au-dessus de la grille
 
 ## Mon planning
 
-L'onglet **Mon planning** réunit vos événements et vos absences sur les deux prochaines semaines, quelle que soit la période choisie dans l'agenda.
+L'onglet **Mon planning** réunit vos événements, les réunions où vous êtes invité et vos absences sur les deux prochaines semaines, quelle que soit la période choisie dans l'agenda.
 
 ::: si rh-voir
 ## Planning de l'équipe

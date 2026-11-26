@@ -401,3 +401,5 @@
 
 /* focus clavier : un contour net sur les éléments cliquables de la grille (le fond seul se distingue mal) */
 .agenda-toutjour-barre:focus-visible, .agenda-evenement:focus-visible, .agenda-mois-evenement:focus-visible { outline: 2px solid var(--vis); outline-offset: -2px; }
+/* « Disponible » toujours sous le nom, quelle que soit sa longueur */
+#parmembre-table .demande-ligne-nom { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
