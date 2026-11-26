@@ -11,7 +11,7 @@ function formaterDateAdmin(iso) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? echapper(iso || '') : d.toLocaleString('fr-FR', { timeZone: 'Europe/Paris', dateStyle: 'short', timeStyle: 'short' });
 }
-// AAAA-MM-JJ -> jj/mm/aaaa (même correspondance que champDateFr, gestion.js)
+// AAAA-MM-JJ -> jj/mm/aaaa (même correspondance que champDateFr, assets/js/champs-date.js)
 function formaterJourFr(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
   return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";

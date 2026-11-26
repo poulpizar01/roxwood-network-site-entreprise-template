@@ -1,3 +1,4 @@
+// ENTREPRISE — saisie des dates et des heures, la seule copie : vitrine et gestion la chargent.
 // ---- dates et heures à la française ----
 // Un <input type="date|time"> suit la langue du navigateur (mm/dd/yyyy, « 02:00 PM ») : ces aides en font des champs
 // texte jj/mm/aaaa et 24 h, mais .value garde le format des scripts et du serveur (« 2026-10-06 », « 14:30 »). Une saisie
@@ -63,6 +64,8 @@ function champDateFr(input) {
 const ICONE_DATE = '<svg class="champ-date-icone" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
 const ICONE_DATE_NAV = '<svg class="champ-date-icone" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 const JOURS_COURTS_DATE = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+// « aujourd’hui » à l’heure de Paris, pas à celle de l’ordinateur
+const dateDuJourParis = () => { const [a, m, j] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date()).split('-').map(Number); return new Date(a, m - 1, j); };
 let DATE_OUVERTE = null;   // { panneau, bouton, dernierFocus, surClavier }
 function fermerDateOuverte() {
   if (!DATE_OUVERTE) return;
@@ -104,6 +107,8 @@ function ajouterSelecteurDate(input) {
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     input.effacerErreurFr?.();
+    // les deux événements ci-dessus ne viennent pas du clavier : la gestion sait par celui-ci qu’une saisie attend
+    input.dispatchEvent(new CustomEvent('date-choisie', { bubbles: true }));
   };
 
   let panneau = null, moisAffiche = null;
@@ -113,7 +118,7 @@ function ajouterSelecteurDate(input) {
     const decalage = (new Date(an, mois, 1).getDay() + 6) % 7;   // lundi en premier
     const nbJours = new Date(an, mois + 1, 0).getDate();
     const selection = lireValeur();
-    const aujourdhui = new Date();
+    const aujourdhui = dateDuJourParis();
     const cases = [];
     for (let i = 0; i < decalage; i++) cases.push('<span class="champ-date-case champ-date-case--vide" aria-hidden="true"></span>');
     for (let j = 1; j <= nbJours; j++) {
@@ -167,7 +172,7 @@ function ajouterSelecteurDate(input) {
     if (typeof fermerSelectOuvert === 'function') fermerSelectOuvert();
     const dernierFocus = document.activeElement;
     input.blur();   // ferme le clavier virtuel sur mobile : il masquerait le calendrier ou se battrait avec lui
-    moisAffiche = lireValeur() || new Date();
+    moisAffiche = lireValeur() || dateDuJourParis();
     moisAffiche = new Date(moisAffiche.getFullYear(), moisAffiche.getMonth(), 1);
     panneau = document.createElement('div');
     panneau.className = 'champ-date-panneau';
@@ -186,7 +191,7 @@ function ajouterSelecteurDate(input) {
     (input.closest('dialog[open]') || document.body).appendChild(panneau);
     construire();
     panneau.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => { moisAffiche.setMonth(moisAffiche.getMonth() + Number(b.dataset.nav)); construire(); }));
-    panneau.querySelector('.champ-date-aujourdhui').addEventListener('click', () => { ecrireValeur(new Date()); fermerDateOuverte(); });
+    panneau.querySelector('.champ-date-aujourdhui').addEventListener('click', () => { ecrireValeur(dateDuJourParis()); fermerDateOuverte(); });
     positionner();
     bouton.setAttribute('aria-expanded', 'true');
     document.addEventListener('keydown', surClavier, true);

@@ -1,6 +1,8 @@
 /* Calendrier partagé par la vitrine et la gestion. */
 .champ-date-enveloppe { position: relative; display: block; width: 100%; }
 .champ-date-enveloppe > input[data-selecteur-date] { padding-right: 42px; }
+/* champ désactivé ou en lecture seule : rien à choisir (le calendrier en aurait changé la valeur) */
+.champ-date-enveloppe > input:disabled ~ .champ-date-bouton, .champ-date-enveloppe > input[readonly] ~ .champ-date-bouton { display: none; }
 /* top fixe (pas 50% de l'enveloppe) : un message d'erreur affiché sous le champ (erreurChampFr) agrandit l'enveloppe
    sans déplacer le bouton, qui doit rester centré sur le champ lui-même, pas sur l'ensemble champ + erreur */
 .champ-date-bouton {
