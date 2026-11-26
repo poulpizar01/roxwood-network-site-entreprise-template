@@ -13,7 +13,7 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { limits } from '../limites.js';
 import type { EvenementBot } from '../contrat.js';
 import { entreprise } from '../../entreprise/index.js';
-import { dechiffrer } from '../webhooks-cle.js';
+import { dechiffrer, dechiffrerCleActive } from '../webhooks-cle.js';
 
 export const webhooks = Router();
 
@@ -36,7 +36,7 @@ async function clesDuType(type: string): Promise<string[]> {
   const a = await prisma.abonnementWebhook.findUnique({ where: { type } });
   if (!a) return [];
   const cles: string[] = [];
-  const active = dechiffrer({ chiffre: a.cleChiffree, nonce: a.cleNonce, empreinte: a.cleEmpreinte }, type);
+  const active = dechiffrerCleActive(a);
   if (active) cles.push(active);
   if (a.ancienneCleChiffree && a.ancienneCleNonce && a.ancienneCleEmpreinte && a.ancienneExpireLe && a.ancienneExpireLe > new Date()) {
     const ancienne = dechiffrer({ chiffre: a.ancienneCleChiffree, nonce: a.ancienneCleNonce, empreinte: a.ancienneCleEmpreinte }, type);

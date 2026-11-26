@@ -3,11 +3,12 @@
 // type (entreprise.webhooks), chiffrée en base (AES-256-GCM, socle/webhooks-cle.ts) : jamais revue en clair après
 // son enregistrement. Remplacement sans coupure : l'ancienne clé, si demandé, reste acceptée 24 h (relue par
 // socle/routes/webhooks.ts). Historique (qui, quand, quelle empreinte) gardé à part, jamais la clé elle-même.
-import { Router } from 'express';
+import { Router, type Response } from 'express';
+import { Prisma } from '../../generated/prisma/client.js';
 import { prisma } from '../db.js';
 import { body, permission, text } from '../http.js';
 import { entreprise } from '../../entreprise/index.js';
-import { chiffrer } from '../webhooks-cle.js';
+import { chiffrer, dechiffrerCleActive } from '../webhooks-cle.js';
 
 export const webhooksAbonnements = Router();
 
@@ -19,6 +20,20 @@ const RECONFIRMATION_MS = 5 * 60_000;
 
 const typeDeclare = (type: string): boolean => !!entreprise.webhooks && Object.hasOwn(entreprise.webhooks, type);
 
+// Repartir de la clé réellement en place si deux modifications se croisent.
+async function modifierAbonnement(res: Response, action: (tx: Prisma.TransactionClient) => Promise<void>): Promise<void> {
+  for (let tentative = 0; tentative < 3; tentative++) {
+    try {
+      await prisma.$transaction(action, { isolationLevel: 'Serializable' });
+      res.json({ ok: true });
+      return;
+    } catch (err) {
+      if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== 'P2034') throw err;
+    }
+  }
+  res.status(409).json({ error: 'Cet abonnement vient d’être modifié. Actualise la page et réessaie.' });
+}
+
 webhooksAbonnements.get('/api/webhooks/abonnements', ...permission('webhooks'), async (_req, res) => {
   const types = Object.entries(entreprise.webhooks ?? {});
   const abonnements = await Promise.all(types.map(async ([type, info]) => {
@@ -27,7 +42,10 @@ webhooksAbonnements.get('/api/webhooks/abonnements', ...permission('webhooks'), 
       prisma.webhookRecu.findFirst({ where: { type }, orderBy: { recuLe: 'desc' }, select: { recuLe: true, traite: true } }),
       prisma.webhookRecu.count({ where: { type, traite: false } }),
     ]);
-    const etat = !abonnement ? 'non_configure' as const : !dernier ? 'en_attente' as const : !dernier.traite ? 'en_echec' as const : 'actif' as const;
+    const etat = !abonnement ? 'non_configure'
+      : !dechiffrerCleActive(abonnement) ? 'cle_illisible'
+      : !dernier ? 'en_attente'
+      : dernier.traite ? 'actif' : 'en_echec';
     return { type, libelle: info.libelle, description: info.description, etat, dernierRecuLe: dernier?.recuLe ?? null, echecs };
   }));
   res.json({ abonnements });
@@ -49,21 +67,23 @@ webhooksAbonnements.post('/api/webhooks/abonnements/:type/cle', ...permission('w
   if (!CLE_FORME.test(cle)) { res.status(400).json({ error: 'Clé invalide : 64 caractères hexadécimaux attendus (celle affichée par le bot).' }); return; }
   const immediate = c.expirationAncienne === 'immediate';
   const nouvelle = chiffrer(cle, type);
-  const existant = await prisma.abonnementWebhook.findUnique({ where: { type } });
-  await prisma.abonnementWebhook.upsert({
-    where: { type },
-    create: { type, cleChiffree: nouvelle.chiffre, cleNonce: nouvelle.nonce, cleEmpreinte: nouvelle.empreinte },
-    update: {
-      cleChiffree: nouvelle.chiffre, cleNonce: nouvelle.nonce, cleEmpreinte: nouvelle.empreinte,
-      ...(existant && !immediate
-        ? { ancienneCleChiffree: existant.cleChiffree, ancienneCleNonce: existant.cleNonce, ancienneCleEmpreinte: existant.cleEmpreinte, ancienneExpireLe: new Date(Date.now() + 24 * 3600_000) }
-        : { ancienneCleChiffree: null, ancienneCleNonce: null, ancienneCleEmpreinte: null, ancienneExpireLe: null }),
-    },
+  await modifierAbonnement(res, async tx => {
+    const existant = await tx.abonnementWebhook.findUnique({ where: { type } });
+    const champsCle = { cleChiffree: nouvelle.chiffre, cleNonce: nouvelle.nonce, cleEmpreinte: nouvelle.empreinte };
+    await tx.abonnementWebhook.upsert({
+      where: { type },
+      create: { type, ...champsCle },
+      update: {
+        ...champsCle,
+        ...(existant && !immediate
+          ? { ancienneCleChiffree: existant.cleChiffree, ancienneCleNonce: existant.cleNonce, ancienneCleEmpreinte: existant.cleEmpreinte, ancienneExpireLe: new Date(Date.now() + 24 * 3600_000) }
+          : { ancienneCleChiffree: null, ancienneCleNonce: null, ancienneCleEmpreinte: null, ancienneExpireLe: null }),
+      },
+    });
+    await tx.historiqueAbonnementWebhook.create({
+      data: { type, action: existant ? 'remplacement' : 'creation', empreinte: nouvelle.empreinte, compteId: req.compte.id, acteurNom: req.compte.nom || req.compte.pseudo },
+    });
   });
-  await prisma.historiqueAbonnementWebhook.create({
-    data: { type, action: existant ? 'remplacement' : 'creation', empreinte: nouvelle.empreinte, compteId: req.compte.id, acteurNom: req.compte.nom || req.compte.pseudo },
-  });
-  res.json({ ok: true });
 });
 
 webhooksAbonnements.delete('/api/webhooks/abonnements/:type', ...permission('webhooks'), async (req, res) => {
@@ -71,7 +91,10 @@ webhooksAbonnements.delete('/api/webhooks/abonnements/:type', ...permission('web
   if (!typeDeclare(type)) { res.status(404).json({ error: 'type inconnu' }); return; }
   // comme l'enregistrement d'une clé : couper la réception d'un type d'événement exige une connexion Discord récente
   if (!req.compte.connecteLe || Date.now() - req.compte.connecteLe.getTime() > RECONFIRMATION_MS) { res.status(403).json({ error: 'discord-recent' }); return; }
-  const retire = await prisma.abonnementWebhook.delete({ where: { type } }).catch(() => null);
-  if (retire) await prisma.historiqueAbonnementWebhook.create({ data: { type, action: 'retrait', compteId: req.compte.id, acteurNom: req.compte.nom || req.compte.pseudo } });
-  res.json({ ok: true });
+  await modifierAbonnement(res, async tx => {
+    const { count } = await tx.abonnementWebhook.deleteMany({ where: { type } });
+    if (count) await tx.historiqueAbonnementWebhook.create({
+      data: { type, action: 'retrait', compteId: req.compte.id, acteurNom: req.compte.nom || req.compte.pseudo },
+    });
+  });
 });

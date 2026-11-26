@@ -9,6 +9,8 @@ Le bot [roxwood-network-entreprise](https://github.com/poulpizar01/roxwood-netwo
 
 Chaque type a sa **propre clé**, chiffrée en base (AES-256-GCM, `server/src/socle/webhooks-cle.ts`) avec une clé maîtresse qui vient d'un secret Docker (`secrets/cle-maitresse`, à créer une fois — voir `server/README.md`, jamais dans le dépôt ni dans les sauvegardes) : la clé d'un type n'est jamais acceptée pour l'événement d'un autre type. Remplacer une clé déjà en place propose de garder l'ancienne valable 24 h (reprise en cours côté bot) ou de la couper tout de suite. Historique (qui, quand, quelle empreinte — jamais la clé elle-même) dans l'onglet Abonnements → menu de la ligne → **Historique de la clé**.
 
+Si la clé active ne peut plus être déchiffrée, la ligne affiche **Clé illisible**, même si des livraisons précédentes ont réussi. **Remplacer la clé** permet de rétablir l’abonnement. Toute modification de l’abonnement et son entrée d’historique sont enregistrées ensemble.
+
 La permission qui donne accès à cette page (`webhooks`) est déclarée par le **socle** (comme `comptes` ou `grades`), pas par le site : elle existe pour tous les sites entreprise.
 
 ## Ce que fait le socle (`server/src/socle/routes/webhooks.ts`)

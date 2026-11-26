@@ -38,6 +38,7 @@ const ETAT_ABONNEMENT = {
   actif: ['puce-ok', 'Actif'],
   en_attente: ['puce-alerte', 'En attente'],
   en_echec: ['puce-off', 'En échec'],
+  cle_illisible: ['puce-off', 'Clé illisible'],
   non_configure: ['puce-masquee', 'Non configuré'],
 };
 

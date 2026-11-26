@@ -2,11 +2,11 @@
 // routes/webhooks-abonnements.ts). AES-256-GCM, module « crypto » natif de Node, pas de dépendance.
 // Clé maîtresse : secret Docker monté en lecture seule, SEULEMENT dans le conteneur app (jamais db/db-roles/backup,
 // jamais en base, jamais dans les sauvegardes) — voir compose.yaml et server/README.md. Perdue ou changée : les clés
-// déjà enregistrées redeviennent illisibles (l'abonnement retombe « Non configuré », il suffit de le recréer), sans
-// copie de secours.
+// déjà enregistrées redeviennent illisibles. La gestion indique « Clé illisible » pour les remplacer.
 import { readFileSync } from 'node:fs';
 import crypto from 'node:crypto';
 import { fail } from './config.js';
+import type { AbonnementWebhook } from '../generated/prisma/client.js';
 
 const CHEMIN_CLE = process.env.CLE_MAITRESSE_FICHIER || '/run/secrets/cle_maitresse';
 
@@ -51,4 +51,8 @@ export function dechiffrer(c: Chiffre, aad: string): string | null {
     d.setAuthTag(tag);
     return Buffer.concat([d.update(corps), d.final()]).toString('utf8');
   } catch { return null; }
+}
+
+export function dechiffrerCleActive(a: Pick<AbonnementWebhook, 'type' | 'cleChiffree' | 'cleNonce' | 'cleEmpreinte'>): string | null {
+  return dechiffrer({ chiffre: a.cleChiffree, nonce: a.cleNonce, empreinte: a.cleEmpreinte }, a.type);
 }
