@@ -14,6 +14,7 @@ let FICHE_OUVERTE = null;   // id de la fiche en cours d'édition ; null = créa
 let FILTRE_STATUT = 'actif';
 const A_FAIRE = { completer: 0, candidatures: 0 };
 
+let NOTES_VISIBLES = false;   // la fiche ouverte montre-t-elle les notes internes ?
 const aDroitRh = droit => DROITS_RH.has(droit);
 const $rh = id => document.getElementById(id);
 const dateCourte = iso => { if (!iso) return '—'; const [a, m, j] = String(iso).slice(0, 10).split('-'); return `${j}/${m}/${a}`; };
@@ -172,6 +173,9 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   // date d'arrivée exigée à la création ; une fiche reprise de l'existant peut ne pas en avoir encore
   $rh('employe-arrivee').required = !id;
   // téléphone et RIB : le serveur ne les envoie qu'avec rh-sensible-voir ; sans rh-sensible, ils se lisent sans se modifier
+  // notes internes : le serveur ne les envoie qu'à qui peut les lire ; à la création, il faut le droit
+  NOTES_VISIBLES = id ? f.notes !== undefined : aDroitRh('notes-voir');
+  $rh('employe-notes').closest('.champ').classList.toggle('cache', !NOTES_VISIBLES);
   $rh('employe-notes').value = f.notes || ''; $rh('employe-notes').disabled = !peutEcrire;
   $rh('employe-bloc-sensible').classList.toggle('cache', !aDroitRh('sensible-voir'));
   for (const champ of ['employe-telephone', 'employe-rib']) $rh(champ).readOnly = !aDroitRh('sensible');
@@ -307,7 +311,7 @@ $rh('formulaire-employe').addEventListener('submit', async e => {
   const corps = {
     prenom: val('employe-prenom'), nom: val('employe-nom'), idUnique: val('employe-id-unique'), grade: $rh('employe-grade').value,
     discordId: val('employe-discord-id'), discordPseudo: val('employe-discord-pseudo'),
-    dateArrivee: val('employe-arrivee'), dateDepart: val('employe-depart'), notes: val('employe-notes'),
+    dateArrivee: val('employe-arrivee'), dateDepart: val('employe-depart'), ...(NOTES_VISIBLES && { notes: val('employe-notes') }),
   };
   if (aDroitRh('sensible')) { corps.telephone = val('employe-telephone'); corps.rib = val('employe-rib'); }
   // l’ID Unique est un numéro ; un ID provisoire (PROV-…) reste accepté tant qu’on ne l’a pas remplacé

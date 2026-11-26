@@ -11,6 +11,7 @@ const RH = 'Ressources humaines';
 const declarees: Permission[] = [
   // Ressources humaines : chaque permission rh-* suppose rh-voir (vérifié par les routes)
   { cle: 'rh-voir', domaine: RH, libelle: 'Consulter les fiches', description: 'Voir les fiches employés, l’effectif et les candidatures reçues' },
+  { cle: 'rh-notes-voir', requiert: ['rh-voir'], domaine: RH, sensible: true, libelle: 'Consulter les notes internes', description: 'Lire les notes internes des fiches d’un grade sous le sien, jamais la sienne ; les écrire demande aussi de pouvoir modifier la fiche' },
   { cle: 'rh-sensible-voir', domaine: RH, libelle: 'Consulter le téléphone et le RIB', description: 'Voir le téléphone et le RIB des employés, sans pouvoir les modifier' },
   { cle: 'rh-sensible', domaine: RH, libelle: 'Modifier le téléphone et le RIB', description: 'Changer le téléphone et le RIB d’un employé', requiert: ['rh-sensible-voir'] },
   { cle: 'rh-piece-voir', domaine: RH, libelle: 'Consulter la pièce d’identité', description: 'Voir la pièce d’identité d’un employé (effacée 90 jours après son départ)', requiert: ['rh-voir'] },

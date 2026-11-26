@@ -15,7 +15,7 @@ import { definirReglage, reglage } from '../socle/reglages.js';
 import type { EvenementBot } from '../socle/contrat.js';
 import { debutSemaineParis, jourDeSemaineParis, jourParis, jourValide, normaliserPseudo, normaliserTexte, versDate, versJour } from './texte.js';
 
-export const DROITS_RH = ['voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'supprimer', 'sensible-voir', 'sensible', 'piece-voir', 'piece', 'parametrer', 'sanctions-voir', 'sanctionner'] as const;
+export const DROITS_RH = ['voir', 'notes-voir', 'creer', 'modifier', 'desactiver', 'reactiver', 'supprimer', 'sensible-voir', 'sensible', 'piece-voir', 'piece', 'parametrer', 'sanctions-voir', 'sanctionner'] as const;
 export type DroitRh = typeof DROITS_RH[number];
 // droits RH d'un compte ; rien sans rh-voir (toute action suppose de pouvoir consulter les fiches)
 export const droitsRh = (c: Compte): Set<DroitRh> =>
@@ -29,6 +29,11 @@ export { Refus };
 export const nomComplet = (e: Pick<Employe, 'prenom' | 'nom' | 'discordPseudo' | 'idUnique'>) =>
   `${e.prenom} ${e.nom}`.trim() || e.discordPseudo || e.idUnique;
 
+// Notes internes : avec rh-notes-voir seulement, sur une fiche d'un grade sous le sien, et jamais la sienne (même si son
+// grade de fiche est inférieur à celui de son compte). Le propriétaire du site voit tout.
+export const peutLireNotes = (acteur: Compte, e: Pick<Employe, 'discordId' | 'gradeCle'>): boolean =>
+  acteur.proprietaire || (droitsRh(acteur).has('notes-voir') && auDessusDe(acteur, e.gradeCle) && (!e.discordId || e.discordId !== acteur.discordId));
+
 // Fiche telle qu'envoyée au navigateur : téléphone et RIB n'y figurent QUE pour un compte qui a rh-sensible-voir — jamais
 // masqués côté interface seulement.
 export function fichePublique(e: Employe, droits: Set<DroitRh>) {
@@ -38,7 +43,7 @@ export function fichePublique(e: Employe, droits: Set<DroitRh>) {
     discordId: e.discordId ?? '', discordPseudo: e.discordPseudo,
     grade: e.gradeCle, gradeLibelle: g?.libelle ?? e.gradeCle, gradeCouleur: g?.couleur ?? null, statut: e.statut,
     dateArrivee: versJour(e.dateArrivee), dateDepart: versJour(e.dateDepart),
-    aCompleter: !e.prenom || !e.nom || e.idProvisoire, notes: e.notes,
+    aCompleter: !e.prenom || !e.nom || e.idProvisoire,
     ...(droits.has('sensible-voir') && { telephone: e.telephone, rib: e.rib }),
     // l'adresse de l'image n'est envoyée qu'avec rh-piece-voir : sans elle, rien n'indique même qu'une pièce existe
     ...(droits.has('piece-voir') && { pieceIdentiteUrl: e.pieceIdentiteUrl, pieceIdentiteUrlMini: e.pieceIdentiteUrlMini }),

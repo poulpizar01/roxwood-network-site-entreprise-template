@@ -7,7 +7,7 @@ import { auDessusDe, gradeDe } from '../../socle/droits.js';
 import { actualiserGrades } from '../../socle/grades-imposes.js';
 import { body, couleur, entier, intParam, permission, text } from '../../socle/http.js';
 import { enregistrerImage, recevoirImage, retirerImage } from '../../socle/images.js';
-import { arriveesBot, changerPieceIdentite, consignerHistorique, droitsRh, ecarter, fichePublique, gradesEmployes, historiqueDe, lignesHistorique, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, supprimerFiche, traiterEnSuspens, trierEmployes, pasSaPropreFiche, verifierDroitsDuCompte, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
+import { peutLireNotes, arriveesBot, changerPieceIdentite, consignerHistorique, droitsRh, ecarter, fichePublique, gradesEmployes, historiqueDe, lignesHistorique, lireChamps, nomComplet, Refus, refusUnicite, reglerBot, supprimerFiche, traiterEnSuspens, trierEmployes, pasSaPropreFiche, verifierDroitsDuCompte, verifierHierarchie, verifierUnicite, type DroitRh } from '../rh.js';
 import { reglage } from '../../socle/reglages.js';
 import { ajouterSanction, listeTypesSanction, retirerSanction, toutesSanctions } from '../sanctions.js';
 import { terminerServiceDe } from '../services.js';
@@ -62,6 +62,7 @@ rh.get('/api/rh/employes/:id', ...voir, async (req, res) => {
   ]);
   res.json({
     ...fichePublique(e, droitsRh(req.compte)),
+    ...(peutLireNotes(req.compte, e) && { notes: e.notes }),
     modifiable: (() => { try { verifierHierarchie(req.compte, e); return true; } catch { return false; } })(),
     compteDuSite: compte ? { nom: compte.nom ?? compte.pseudo, grade: gradeDe(compte.gradeCle)?.libelle ?? null, statut: compte.statut } : null,
     enServiceDepuis: service?.debut ?? null,
@@ -71,10 +72,11 @@ rh.get('/api/rh/employes/:id', ...voir, async (req, res) => {
 // historique de la fiche (onglet Activité) : écrit par le serveur, lisible avec rh-voir
 rh.get('/api/rh/employes/:id/historique', ...voir, traiter(async (req, res) => {
   const id = intParam(req, 'id');
-  if (!await prisma.employe.count({ where: { id } })) throw new Refus('Employé introuvable.', 404);
+  const e = await prisma.employe.findUnique({ where: { id } });
+  if (!e) throw new Refus('Employé introuvable.', 404);
   // « pièce » et « contact » (téléphone, RIB) ne se lisent qu'avec le droit de voir ces données elles-mêmes
-  const droits = droitsRh(req.compte);
-  res.json({ historique: (await historiqueDe(id)).filter(h => (h.type !== 'piece' || droits.has('piece-voir')) && (h.type !== 'contact' || droits.has('sensible-voir'))) });
+  const droits = droitsRh(req.compte), notes = peutLireNotes(req.compte, e);
+  res.json({ historique: (await historiqueDe(id)).filter(h => (h.type !== 'piece' || droits.has('piece-voir')) && (h.type !== 'contact' || droits.has('sensible-voir')) && (h.type !== 'notes' || notes)) });
 }));
 
 // pièce d'identité : rh-piece, sur une fiche sous son grade ; la fiche est contrôlée avant de traiter l'image
@@ -163,6 +165,7 @@ rh.post('/api/rh/employes', ...voir, exiger('creer', 'Vous n’avez pas le droit
   const b = body(req);
   // téléphone et RIB à la création : ignorés sans rh-sensible
   if (!droitsRh(req.compte).has('sensible')) { delete b.telephone; delete b.rib; }
+  if (!droitsRh(req.compte).has('notes-voir')) delete b.notes;
   const champs = lireChamps(b, null);
   verifierHierarchie(req.compte, null, champs.gradeCle);
   pasSaPropreFiche(req.compte, champs.discordId);
@@ -187,6 +190,7 @@ rh.patch('/api/rh/employes/:id', ...voir, exiger('modifier', 'Vous n’avez pas 
   if (b.statut !== undefined && b.statut !== existante.statut && !droits.has(b.statut === 'inactif' ? 'desactiver' : 'reactiver')) {
     throw new Refus('Vous n’avez pas le droit de changer le statut de cet employé.', 403);
   }
+  if (b.notes !== undefined && !peutLireNotes(req.compte, existante)) throw new Refus('Vous n’avez pas accès aux notes de cette fiche.', 403);
   const champs = lireChamps(b, existante);
   verifierHierarchie(req.compte, existante, champs.gradeCle);
   pasSaPropreFiche(req.compte, champs.discordId);
