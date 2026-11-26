@@ -70,3 +70,15 @@ test('écriture : refusée sans le droit de lire ; le reste de la fiche se modif
   assert.equal((await appel('responsable', 'PATCH', `/api/rh/employes/${fiches.agent}`, { notes: 'SECRET-agent-2' })).status, 200);
   assert.equal((await fiche('responsable', 'agent')).notes, 'SECRET-agent-2');
 });
+
+test('pièce d’identité : consultée sur un grade sous le sien ou sur soi, jamais envoyée avec la liste', async () => {
+  const droits = ['rh-voir', 'rh-modifier', 'rh-notes-voir', 'rh-piece-voir'];
+  await prisma.grade.update({ where: { cle: cle('responsable') }, data: { permissions: droits } });
+  await chargerGrades();
+  await prisma.employe.updateMany({ where: { prenom: 'zz-notes' }, data: { pieceIdentiteCle: 'zz-notes/v', pieceIdentiteUrl: '/uploads/zz-notes/v.webp' } });
+  await prisma.employe.update({ where: { id: fiches.soi }, data: { gradeCle: cle('direction') } });
+  const vue = async (nom: string) => 'pieceIdentiteUrl' in await fiche('responsable', nom);
+  assert.deepEqual([await vue('agent'), await vue('pair'), await vue('superieur'), await vue('soi')], [true, false, false, true]);
+  assert.equal('pieceIdentiteUrl' in await fiche('annuaire', 'agent'), false, 'sans le droit');
+  assert.doesNotMatch(JSON.stringify((await appel('responsable', 'GET', '/api/rh/employes')).json), /pieceIdentite/);
+});

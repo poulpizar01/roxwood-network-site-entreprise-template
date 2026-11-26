@@ -10,6 +10,7 @@ let CACHE_EMPLOYES = [];
 let GRADES_EMPLOYES = [];   // [{ cle, libelle }], dans l'ordre de la page Grades (= hiérarchie)
 let GRADES_ATTRIBUABLES = [];   // clés des grades qu'on peut donner (sous le sien) : les autres restent grisés
 let DROITS_RH = new Set();
+let FICHE_ECRITURE = false;   // les champs de la fiche ouverte sont-ils modifiables ?
 let FICHE_OUVERTE = null;   // id de la fiche en cours d'édition ; null = création
 let FILTRE_STATUT = 'actif';
 const A_FAIRE = { completer: 0, candidatures: 0 };
@@ -179,11 +180,12 @@ async function ouvrirFicheEmploye(id, preremplissage) {
   $rh('employe-notes').value = f.notes || ''; $rh('employe-notes').disabled = !peutEcrire;
   $rh('employe-bloc-sensible').classList.toggle('cache', !aDroitRh('sensible-voir'));
   for (const champ of ['employe-telephone', 'employe-rib']) $rh(champ).readOnly = !aDroitRh('sensible');
-  dessinerPiedFiche(id ? f : null, peutEcrire);
   // création : une seule rubrique ; fiche existante : Profil et Activité (l'historique n'existe qu'une fois la fiche créée)
   $rh('employe-onglets').classList.toggle('cache', !id);
   choisirOngletFiche('profil');
   dessinerPiece(id ? f : null);
+  FICHE_ECRITURE = peutEcrire;
+  dessinerPiedFiche(id ? f : null, peutEcrire);
   $rh('employe-statut').textContent = id
     ? `${f.statut === 'actif' ? 'Employé actif' : 'Ancien employé'}${f.idProvisoire ? '. ID Unique provisoire : remplacez-le par le vrai.' : '.'}${peutEcrire ? '' : ' Fiche en lecture seule (grade égal ou supérieur au vôtre).'}`
     : '';
@@ -207,7 +209,7 @@ function dessinerPiedFiche(f, peutEcrire) {
     if (f.statut !== 'actif' && aDroitRh('reactiver')) actions.push(`<button type="button" class="btn btn-fantome" data-pied-statut="reactiver">${gestion.ico('sync')} Réactiver</button>`);
     if (aDroitRh('supprimer')) fin.push(`<button type="button" class="btn btn-danger" data-pied-supprimer>${gestion.ico('trash')} Supprimer</button>`);
   }
-  if (peutEcrire) fin.push(`<button type="submit" class="btn btn-or" id="employe-enregistrer">${f ? 'Enregistrer' : 'Ajouter'}</button>`);
+  if (peutEcrire || PIECE.gerer) fin.push(`<button type="submit" class="btn btn-or" id="employe-enregistrer">${f ? 'Enregistrer' : 'Ajouter'}</button>`);
   $rh('fiche-rh-pied').innerHTML = `${actions.length ? `<div class="tiroir-pied-actions">${gestion.actionsPied(actions)}</div>` : ''}<div class="tiroir-pied-fin">${fin.join('')}</div>`;
   $rh('fiche-rh-pied').classList.toggle('cache', !actions.length && !fin.length);
 }
@@ -247,45 +249,76 @@ document.querySelectorAll('[data-fiche-onglet]').forEach(b => {
   });
 });
 
-// ---- pièce d'identité (rh-piece-voir pour la voir, rh-piece pour la poser) : une image envoyée, effacée 90 jours après le départ ----
+// ---- pièce d'identité (rh-piece-voir pour la voir, rh-piece pour la poser) : une image envoyée, pas un lien. Rien ne part
+// avant « Enregistrer » : l'image choisie ou le retrait attendent, et fermer la fiche les abandonne. ----
+let PIECE = { fiche: null, gerer: false, choisie: null, apercu: '', retrait: false };
+const pieceEnAttente = () => PIECE.gerer && (!!PIECE.choisie || PIECE.retrait);
+function oublierPiece() {
+  if (PIECE.apercu) URL.revokeObjectURL(PIECE.apercu);
+  PIECE.choisie = null; PIECE.apercu = ''; PIECE.retrait = false;
+}
+// f : la fiche ouverte, null à la création (la pièce partira juste après elle)
 function dessinerPiece(f) {
-  const zone = $rh('employe-piece');
-  zone.classList.toggle('cache', !f || !aDroitRh('piece-voir'));
-  if (!f || !aDroitRh('piece-voir')) return;
-  const gerer = aDroitRh('piece') && f.modifiable !== false;
-  zone.innerHTML = `<h3 id="titre-employe-piece">Pièce d’identité <span class="rh-donnees-sensibles">${gestion.ico('lock')} données sensibles</span></h3>
-    ${f.pieceIdentiteUrlMini
-      ? `<button type="button" class="piece-apercu" data-agrandir-piece aria-label="Agrandir la pièce d’identité"><img src="${echapper(f.pieceIdentiteUrlMini)}" alt=""></button>`
+  oublierPiece();
+  // consulter : le serveur n'envoie l'adresse que pour les fiches qu'on peut voir (grade sous le sien, ou la sienne)
+  const visible = f ? 'pieceIdentiteUrl' in f : aDroitRh('piece');
+  PIECE.fiche = f;
+  PIECE.gerer = visible && aDroitRh('piece') && (!f || f.modifiable !== false);
+  $rh('employe-piece').classList.toggle('cache', !visible);
+  if (visible) montrerPiece(); else $rh('employe-piece').innerHTML = '';
+}
+function montrerPiece() {
+  const enPlace = !!PIECE.fiche?.pieceIdentiteUrl;
+  const vignette = PIECE.choisie ? PIECE.apercu : PIECE.retrait ? '' : PIECE.fiche?.pieceIdentiteUrlMini;
+  const attente = PIECE.choisie ? 'Cette image sera enregistrée avec la fiche.' : PIECE.retrait ? 'La pièce sera retirée à l’enregistrement.' : '';
+  $rh('employe-piece').innerHTML = `<h3 id="titre-employe-piece">Pièce d’identité <span class="rh-donnees-sensibles">${gestion.ico('lock')} données sensibles</span></h3>
+    ${vignette
+      ? `<button type="button" class="piece-apercu" data-agrandir-piece aria-label="Agrandir la pièce d’identité"><img src="${echapper(vignette)}" alt=""></button>`
       : '<p class="comptes-discret">Aucune pièce d’identité.</p>'}
-    ${gerer ? `<div class="piece-actions">
-        <button type="button" class="btn btn-fantome" data-piece-choisir>${f.pieceIdentiteUrl ? 'Remplacer la pièce' : 'Ajouter une pièce'}</button>
-        ${f.pieceIdentiteUrl ? '<button type="button" class="btn btn-fantome grade-supprimer" data-piece-retirer>Retirer</button>' : ''}
+    <p class="champ-aide" role="status">${attente}</p>
+    ${PIECE.gerer ? `<div class="piece-actions">
+        <button type="button" class="btn btn-fantome" data-piece-choisir>${PIECE.choisie || (enPlace && !PIECE.retrait) ? 'Remplacer la pièce' : 'Ajouter une pièce'}</button>
+        ${enPlace && !PIECE.choisie && !PIECE.retrait ? '<button type="button" class="btn btn-fantome grade-supprimer" data-piece-retirer>Retirer</button>' : ''}
+        ${attente ? '<button type="button" class="btn btn-fantome" data-piece-annuler>Annuler ce changement</button>' : ''}
         <input type="file" id="piece-fichier" accept="image/png,image/jpeg,image/webp" class="cache" aria-label="Choisir l’image de la pièce d’identité">
       </div>
       <p class="champ-aide seulement-en-jeu">En jeu, si le choix du fichier ne s’ouvre pas, ajoutez l’image depuis un navigateur, avec le même compte.</p>` : ''}
     <p class="champ-aide">Effacée automatiquement 90 jours après le départ de l’employé.</p>`;
-  const grande = zone.querySelector('[data-agrandir-piece]');
-  if (grande) grande.addEventListener('click', () => { $rh('image-piece').src = f.pieceIdentiteUrl; $rh('modale-piece').classList.remove('cache'); $rh('fermer-modale-piece').focus(); });
-  zone.querySelector('[data-piece-choisir]')?.addEventListener('click', () => $rh('piece-fichier').click());
-  $rh('piece-fichier')?.addEventListener('change', async e => {
-    const fichier = e.target.files[0];
-    if (!fichier) return;
-    const corps = new FormData(); corps.append('image', fichier);
-    gestion.notifier('Envoi de la pièce d’identité…');
-    try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/piece-identite`, { method: 'POST', body: corps }); gestion.notifier('Pièce d’identité enregistrée ✓'); rafraichirPiece(); }
-    catch (err) { gestion.message('zone-message-modale-employe', err.message); e.target.value = ''; }
-  });
-  zone.querySelector('[data-piece-retirer]')?.addEventListener('click', async () => {
-    if (!await gestion.confirmer('La pièce d’identité de cette fiche sera définitivement retirée.', 'Retirer la pièce d’identité ?', 'Retirer la pièce')) return;
-    try { await socle.api(`/api/rh/employes/${FICHE_OUVERTE}/piece-identite`, { method: 'DELETE' }); gestion.notifier('Pièce d’identité retirée ✓'); rafraichirPiece(); }
-    catch (err) { gestion.message('zone-message-modale-employe', err.message); }
-  });
 }
-// après un envoi ou un retrait : seule la pièce est redessinée, la saisie en cours dans le profil reste intacte
-async function rafraichirPiece() {
-  const id = FICHE_OUVERTE;
-  try { const f = await socle.api(`/api/rh/employes/${id}`); if (id === FICHE_OUVERTE) dessinerPiece(f); }
-  catch (e) { gestion.message('zone-message-modale-employe', e.message); }
+// un changement en attente est une saisie : la fermeture de la fiche demande confirmation
+function pieceChangee(bouton) {
+  if (pieceEnAttente()) $rh('modale-employe').setAttribute('data-saisie', '');
+  montrerPiece();
+  $rh('employe-piece').querySelector(bouton)?.focus();
+}
+$rh('employe-piece').addEventListener('click', e => {
+  if (e.target.closest('[data-agrandir-piece]')) {
+    $rh('image-piece').src = PIECE.choisie ? PIECE.apercu : PIECE.fiche.pieceIdentiteUrl;
+    $rh('modale-piece').classList.remove('cache');
+    $rh('fermer-modale-piece').focus();
+  } else if (e.target.closest('[data-piece-choisir]')) $rh('piece-fichier').click();
+  else if (e.target.closest('[data-piece-retirer]')) { PIECE.retrait = true; pieceChangee('[data-piece-annuler]'); }
+  else if (e.target.closest('[data-piece-annuler]')) { oublierPiece(); pieceChangee('[data-piece-choisir]'); }
+});
+$rh('employe-piece').addEventListener('change', e => {
+  const fichier = e.target.id === 'piece-fichier' && e.target.files[0];
+  if (!fichier) return;
+  gestion.message('zone-message-modale-employe', '');
+  if (!/^image\/(png|jpeg|webp)$/.test(fichier.type) || fichier.size > 15 * 1024 * 1024) {
+    gestion.message('zone-message-modale-employe', 'Choisissez une image PNG, JPG ou WebP de 15 Mo au plus.');
+    return;
+  }
+  oublierPiece();
+  PIECE.choisie = fichier;
+  PIECE.apercu = URL.createObjectURL(fichier);
+  pieceChangee('[data-piece-annuler]');
+});
+// appelé à l'enregistrement, une fois la fiche écrite
+async function envoyerPiece(id) {
+  if (PIECE.retrait) { await socle.api(`/api/rh/employes/${id}/piece-identite`, { method: 'DELETE' }); return; }
+  const corps = new FormData();
+  corps.append('image', PIECE.choisie);
+  await socle.api(`/api/rh/employes/${id}/piece-identite`, { method: 'POST', body: corps });
 }
 $rh('fermer-modale-piece').addEventListener('click', () => $rh('modale-piece').classList.add('cache'));
 $rh('modale-piece').addEventListener('click', e => { if (e.target.id === 'modale-piece') $rh('modale-piece').classList.add('cache'); });
@@ -319,17 +352,29 @@ $rh('formulaire-employe').addEventListener('submit', async e => {
   $rh('erreur-employe-id-unique').classList.toggle('cache', idValide);
   $rh('aide-employe-id-unique').classList.toggle('cache', !idValide);   // l’erreur dit déjà la règle
   $rh('employe-id-unique').classList.toggle('champ-invalide', !idValide);
-  if (!idValide) { $rh('employe-id-unique').focus(); return; }
-  const creation = !FICHE_OUVERTE;
+  if (!idValide && FICHE_ECRITURE) { $rh('employe-id-unique').focus(); return; }
+  const creation = !FICHE_OUVERTE, bouton = $rh('employe-enregistrer');
+  let id = FICHE_OUVERTE, erreurPiece = '';
+  bouton.disabled = true;   // un second clic pendant l'envoi de l'image créerait la fiche deux fois
   try {
-    if (creation) await socle.api('/api/rh/employes', { method: 'POST', body: corps });
-    else await socle.api(`/api/rh/employes/${FICHE_OUVERTE}`, { method: 'PATCH', body: corps });
-    fermerModaleEmploye();
-    gestion.message('zone-message-rh', ''), gestion.notifier(creation ? 'Membre ajouté ✓' : 'Fiche enregistrée ✓');
+    if (creation) ({ id } = await socle.api('/api/rh/employes', { method: 'POST', body: corps }));
+    else if (FICHE_ECRITURE) await socle.api(`/api/rh/employes/${id}`, { method: 'PATCH', body: corps });
+    if (pieceEnAttente()) { try { await envoyerPiece(id); } catch (err) { erreurPiece = err.message; } }
+    if (erreurPiece && !creation) {
+      gestion.message('zone-message-modale-employe', `${FICHE_ECRITURE ? 'La fiche est enregistrée, mais la' : 'La'} pièce d’identité n’a pas pu l’être : ${erreurPiece} Réessayez avec « Enregistrer ».`);
+      $rh('modale-employe').setAttribute('data-saisie', '');
+    } else {
+      fermerModaleEmploye();
+      oublierPiece();
+      // en notification : le rechargement de la liste efface la zone de message
+      if (erreurPiece) gestion.notifier(`Membre ajouté, mais la pièce d’identité n’a pas pu être envoyée : ${erreurPiece} Rouvrez sa fiche pour réessayer.`, 'erreur');
+      else gestion.notifier(creation ? 'Membre ajouté ✓' : 'Fiche enregistrée ✓');
+    }
     chargerRh();
   } catch (err) {
     gestion.message('zone-message-modale-employe', err.message);
-  }
+    $rh('modale-employe').setAttribute('data-saisie', '');   // refusé : la saisie reste à protéger
+  } finally { bouton.disabled = false; }
 });
 
 async function supprimerEmploye(id) {

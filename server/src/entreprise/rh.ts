@@ -34,6 +34,11 @@ export const nomComplet = (e: Pick<Employe, 'prenom' | 'nom' | 'discordPseudo' |
 export const peutLireNotes = (acteur: Compte, e: Pick<Employe, 'discordId' | 'gradeCle'>): boolean =>
   acteur.proprietaire || (droitsRh(acteur).has('notes-voir') && auDessusDe(acteur, e.gradeCle) && (!e.discordId || e.discordId !== acteur.discordId));
 
+// Pièce d'identité : avec le droit de la consulter, sur une fiche d'un grade sous le sien ou sur la sienne. Son adresse
+// n'est envoyée qu'avec la fiche détaillée, jamais avec la liste. Le propriétaire du site voit tout.
+export const peutVoirPiece = (acteur: Compte, e: Pick<Employe, 'discordId' | 'gradeCle'>): boolean =>
+  acteur.proprietaire || (droitsRh(acteur).has('piece-voir') && (auDessusDe(acteur, e.gradeCle) || (!!e.discordId && e.discordId === acteur.discordId)));
+
 // Fiche telle qu'envoyée au navigateur : téléphone et RIB n'y figurent QUE pour un compte qui a rh-sensible-voir — jamais
 // masqués côté interface seulement.
 export function fichePublique(e: Employe, droits: Set<DroitRh>) {
@@ -45,8 +50,6 @@ export function fichePublique(e: Employe, droits: Set<DroitRh>) {
     dateArrivee: versJour(e.dateArrivee), dateDepart: versJour(e.dateDepart),
     aCompleter: !e.prenom || !e.nom || e.idProvisoire,
     ...(droits.has('sensible-voir') && { telephone: e.telephone, rib: e.rib }),
-    // l'adresse de l'image n'est envoyée qu'avec rh-piece-voir : sans elle, rien n'indique même qu'une pièce existe
-    ...(droits.has('piece-voir') && { pieceIdentiteUrl: e.pieceIdentiteUrl, pieceIdentiteUrlMini: e.pieceIdentiteUrlMini }),
   };
 }
 

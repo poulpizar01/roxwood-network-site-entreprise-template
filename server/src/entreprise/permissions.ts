@@ -14,7 +14,7 @@ const declarees: Permission[] = [
   { cle: 'rh-notes-voir', requiert: ['rh-voir'], domaine: RH, sensible: true, libelle: 'Consulter les notes internes', description: 'Lire les notes internes des fiches d’un grade sous le sien, jamais la sienne ; les écrire demande aussi de pouvoir modifier la fiche' },
   { cle: 'rh-sensible-voir', domaine: RH, libelle: 'Consulter le téléphone et le RIB', description: 'Voir le téléphone et le RIB des employés, sans pouvoir les modifier' },
   { cle: 'rh-sensible', domaine: RH, libelle: 'Modifier le téléphone et le RIB', description: 'Changer le téléphone et le RIB d’un employé', requiert: ['rh-sensible-voir'] },
-  { cle: 'rh-piece-voir', domaine: RH, libelle: 'Consulter la pièce d’identité', description: 'Voir la pièce d’identité d’un employé (effacée 90 jours après son départ)', requiert: ['rh-voir'] },
+  { cle: 'rh-piece-voir', domaine: RH, libelle: 'Consulter la pièce d’identité', description: 'Voir la pièce d’identité des employés d’un grade sous le sien (et la sienne) ; effacée 90 jours après le départ', requiert: ['rh-voir'] },
   { cle: 'rh-piece', domaine: RH, libelle: 'Gérer la pièce d’identité', description: 'Ajouter, remplacer ou retirer la pièce d’identité d’un employé', requiert: ['rh-piece-voir'] },
   { cle: 'rh-modifier', domaine: RH, libelle: 'Modifier une fiche', description: 'Changer l’identité, le grade ou les dates d’un employé' },
   // la page Sanctions se consulte sans pouvoir sanctionner ; elle liste aussi les employés, d'où rh-voir

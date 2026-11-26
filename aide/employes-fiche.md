@@ -30,7 +30,7 @@ Changer le grade d'un employé dont le compte est déjà validé demande aussi l
 
 - **Notes internes** : lues seulement avec le droit de les consulter, et sur les fiches d'un grade sous le vôtre ; jamais par l'employé concerné. Les écrire demande aussi de pouvoir modifier la fiche.
 - **Téléphone et RIB** : affichés seulement à qui peut les consulter, modifiables seulement par qui peut les modifier.
-- **Pièce d'identité** : visible seulement à qui peut la consulter. Avec le droit de la gérer, utilisez [Ajouter une pièce], [Remplacer la pièce] ou [Retirer]. Elle est effacée 90 jours après le départ de l'employé.
+- **Pièce d'identité** : visible avec le droit de la consulter, sur les employés d'un grade sous le vôtre, et sur votre propre fiche. Avec le droit de la gérer, utilisez [Ajouter une pièce], [Remplacer la pièce] ou [Retirer] : le changement n'est pris en compte qu'avec [Enregistrer]. Elle est effacée 90 jours après le départ de l'employé.
 
 ## Voir son activité
 

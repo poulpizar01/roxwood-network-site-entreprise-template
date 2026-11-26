@@ -96,12 +96,12 @@ test('une fiche réintégrée entre la lecture et le verrou garde sa pièce (gar
   assert.ok((await prisma.employe.findUniqueOrThrow({ where: { id: f.id } })).pieceIdentiteUrl);
 });
 
-test('l’adresse de la pièce n’est envoyée qu’avec rh-piece-voir', async () => {
+test('l’adresse de la pièce n’est jamais jointe à la fiche de liste, même avec rh-piece-voir', async () => {
   const f = await creer('zz-test-h6');
   await changerPieceIdentite(f.id, image('f'), 'Testeur');
   const e = await prisma.employe.findUniqueOrThrow({ where: { id: f.id } });
   assert.equal('pieceIdentiteUrl' in fichePublique(e, new Set(['voir'])), false);
-  assert.equal(fichePublique(e, new Set(['voir', 'piece-voir'])).pieceIdentiteUrl, 'https://x.test/f.webp');
+  assert.equal('pieceIdentiteUrl' in fichePublique(e, new Set(['voir', 'piece-voir'])), false);   // elle suit la hiérarchie (peutVoirPiece, fiche détaillée)
 });
 
 test('routes : sans rh-piece on ne pose ni ne retire la pièce, rh-voir lit l’historique', async () => {
