@@ -4,11 +4,9 @@
 (() => {
   // Navigateur du jeu (page dans un cadre) : un POST peut y partir avec « Origin: null », que le serveur n'accepte qu'avec le
   // jeton de la session (server/src/socle/csrf.ts, docs/guide-dev-fbfa.md B7). Toute requête qui modifie quelque chose vers
-  // l'API du site le porte, que la page passe par socle.api() ou par fetch() (envoi de fichier). Hors cadre : rien ne change.
-  let enCadre = false;
-  if (location.ancestorOrigins) enCadre = location.ancestorOrigins.length > 0;   // guide FBFA, B5 ; window.top seulement en repli (Firefox)
-  else { try { enCadre = window.self !== window.top; } catch { enCadre = true; } }
-  if (enCadre) {
+  // l'API du site le porte, que la page passe par socle.api() ou par fetch() (envoi de fichier).
+  // Sans ancestorOrigins, joindre aussi le jeton : le navigateur peut être dans un cadre d'une autre origine.
+  if (!location.ancestorOrigins || location.ancestorOrigins.length > 0) {
     const fetchNatif = window.fetch.bind(window);
     let jetonP = null;
     const jeton = () => (jetonP ??= fetchNatif('/api/csrf', { credentials: 'same-origin', headers: { Accept: 'application/json' } })

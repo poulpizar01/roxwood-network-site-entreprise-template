@@ -78,12 +78,15 @@ function empreinte(url: string): string | null {
 }
 const versionner = (html: string) => html.replace(/(<(?:script|link)\b[^>]*?\s(?:src|href)=")(\/[\w\-/.]+\.(?:js|css))"/g,
   (tout, debut: string, url: string) => { const v = !url.includes('..') && empreinte(url); return v ? `${debut}${url}?v=${v}"` : tout; });
-// FolkOS configuré : chaque page charge socle/folkos.js en tête (inerte hors de l'ordinateur en jeu)
-// ajouté après versionner : il passe lui-même par versionner (?v), sinon il serait revalidé à chaque page
-const scriptFolkos = () => config.folkos.hote ? versionner(`<script src="/socle/folkos.js" data-hote="${esc(config.folkos.hote)}"></script>`) : '';
+// Navigation commune : les liens peuvent ouvrir un onglet hors jeu (data-nouvel-onglet).
+// Si FolkOS est configuré, le même script initialise aussi les SDK depuis l'hôte de l'opérateur.
+const scriptFolkos = () => {
+  const hote = config.folkos.hote ? ` data-hote="${esc(config.folkos.hote)}"` : '';
+  return versionner(`<script src="/socle/folkos.js"${hote}></script>`);
+};
 // page HTML prête à envoyer : chaque <script> reçoit le jeton de la réponse (politique de contenu, security.ts)
 export const withNonce = (html: string, res: Response): string =>
-  (config.folkos.hote ? html.replace(/<head>/i, m => m + scriptFolkos()) : html).replace(/<script\b/g, `<script nonce="${res.locals.cspNonce}"`);
+  html.replace(/<head>/i, m => m + scriptFolkos()).replace(/<script\b/g, `<script nonce="${res.locals.cspNonce}"`);
 
 // sert les pages d'un dossier (index.html, extension .html facultative) ; le reste passe au middleware suivant
 export function pages(dir: string): RequestHandler {

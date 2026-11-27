@@ -6,17 +6,24 @@
      la page) ;
    - pose la classe « en-jeu » sur <html> : à tester par les pages pour couper ce qui coûte au GPU (WebGL, grosses
      animations), partagé avec le jeu ;
-   - ouvre les liens target="_blank" et window.open() dans le cadre (en jeu, un nouvel onglet n'ouvre rien) ;
+   - ouvre les liens dans le cadre en jeu, et réserve les nouveaux onglets aux navigateurs hors jeu ;
    - si la page est affichée sur un écran placé dans le monde : recrée les touches envoyées par le jeu (le jeu ne peut pas
      donner son clavier à un écran) — docs/guide-dev-fbfa.md, B9.3 ;
    - dans la gestion, un clic sur un champ fichier propose aussi de coller l'adresse d'une image (B7). */
 (() => {
   const hote = document.currentScript?.dataset.hote;
-  // dans un cadre ? ancestorOrigins (guide FBFA, B5) ; window.top seulement pour un navigateur qui ne le fournit pas (Firefox)
-  let enJeu = true;
-  if (location.ancestorOrigins) enJeu = location.ancestorOrigins.length > 0;
-  else { try { enJeu = window.self !== window.top; } catch { /* cadre d'une autre origine : en jeu */ } }
-  if (!enJeu || !hote) return;
+  const ancetres = Array.from(location.ancestorOrigins || []);
+  const enCadre = ancetres.length > 0 || window.frameElement !== null;
+  const enJeu = enCadre && !!hote;
+  // La délégation couvre les liens de menu et de signature ajoutés après le chargement.
+  document.addEventListener('click', e => {
+    const lien = e.target.closest?.('a');
+    if (!lien) return;
+    if (enJeu && lien.hasAttribute('data-hors-jeu')) { e.preventDefault(); return; }
+    if (enJeu && lien.target === '_blank') lien.removeAttribute('target');
+    if (!enJeu && lien.hasAttribute('data-nouvel-onglet')) lien.target = '_blank';
+  }, true);
+  if (!enJeu) return;
   document.documentElement.classList.add('en-jeu');
 
   const charger = (nom, quandPret) => {
@@ -30,14 +37,9 @@
   charger('fbfa-game.js', () => {
     // Échap ferme la fenêtre du jeu, sauf dans le navigateur de l'ordinateur en jeu (parent direct = FOLKOS_HOTE) : elle
     // fermerait tout l'ordinateur, le joueur revient avec le bouton « précédent » de FolkOS (B5)
-    const ancetres = Array.from(location.ancestorOrigins || []);
     try { window.FBFAGame?.init?.({ typing: { mode: 'field' }, autofocus: ancetres.length > 0, escape: ancetres.length > 0 && ancetres[0] !== hote }); } catch { /* hors FiveM */ }
   });
   charger('fbfa-bridge.js');
-
-  // délégation : couvre aussi les liens ajoutés plus tard par les scripts de la page
-  document.addEventListener('click', e => { e.target.closest?.('a[target="_blank"]')?.removeAttribute('target'); }, true);
-  window.open = url => { if (url) location.href = String(url); return null; };
 
   // Image par adresse (B7 : le sélecteur de fichiers est peu fiable en jeu). Gestion seulement : le serveur ne télécharge
   // que pour un compte validé. L'image reçue est placée dans le champ comme un fichier choisi : la page n'a rien à faire.

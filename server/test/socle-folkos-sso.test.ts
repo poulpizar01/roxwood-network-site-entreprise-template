@@ -24,7 +24,7 @@ test('nonces : les 16 plus récents (les derniers de l’en-tête), dans l’ord
 
 test('nonces : aucun cookie, ou en-tête absent → liste vide (la connexion sera refusée, jamais une erreur)', () => {
   assert.deepEqual(noncesFolkos(undefined, 'monsite'), []);
-  assert.deepEqual(noncesFolkos('session=abc', 'monsite'), []);
+  assert.deepEqual(noncesFolkos('session=abc; fbfa_sso_monsite_sans_egal', 'monsite'), []);
 });
 
 test('nonces : la valeur est gardée telle quelle, « = » compris', () => {
@@ -49,5 +49,6 @@ test('next : trop long ou route de passage (API, connexion) → page par défaut
 test('arrivée : paramètre jetable ajouté avec ? ou &, différent à chaque fois', () => {
   assert.match(arrivee('/gestion/accueil.html'), /^\/gestion\/accueil\.html\?_sso=[0-9a-f]{8}$/);
   assert.match(arrivee('/gestion/rh.html?onglet=2'), /^\/gestion\/rh\.html\?onglet=2&_sso=[0-9a-f]{8}$/);
+  assert.match(arrivee('/gestion/rh.html#piece'), /^\/gestion\/rh\.html\?_sso=[0-9a-f]{8}#piece$/);
   assert.notEqual(arrivee('/x'), arrivee('/x'));
 });

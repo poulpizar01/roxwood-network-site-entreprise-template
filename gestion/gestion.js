@@ -775,7 +775,7 @@ window.gestion = {
       // n'a pas la permission « agir » (gestion.css, body.sans-<clé>) : le serveur refuse l'écriture de toute façon
       for (const cle of DROITS_ECRITURE) document.body.classList.toggle(`sans-${cle}`, !socle.peut(moi, cle));
       cleGroupes = `gestion.groupesMenu.${moi.id}`;
-      const lien = l => `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' target="_blank" rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`;
+      const lien = l => `<a class="lien-onglet${l.cle === rubrique ? ' actif' : ''}" href="${socle.esc(l.href)}"${l.cle === rubrique ? ' aria-current="page"' : ''}${l.externe ? ' data-nouvel-onglet rel="noopener"' : ''}>${ico(l.icone)}<span>${socle.esc(l.label)}</span></a>`;
       // un groupe sans aucune rubrique visible n'est pas affiché (gestion.rubriques)
       const lignes = gestion.rubriques(cle => socle.peut(moi, cle), moi.modules);
       groupesParDefaut = lignes.filter(l => l.groupe).map(l => l.groupe);

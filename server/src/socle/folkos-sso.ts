@@ -11,7 +11,7 @@ export const prefixeNonces = (clientId: string): string =>
 // les 16 plus récentes (les dernières de l'en-tête). Ce sont des secrets : jamais journalisés, jamais renvoyés au navigateur.
 export function noncesFolkos(enteteCookie: string | undefined, clientId: string): string[] {
   const prefixe = prefixeNonces(clientId);
-  return String(enteteCookie ?? '').split(';').map(p => p.trim()).filter(p => p.startsWith(prefixe))
+  return String(enteteCookie ?? '').split(';').map(p => p.trim()).filter(p => p.startsWith(prefixe) && p.includes('='))
     .map(p => p.slice(p.indexOf('=') + 1)).filter(v => v.length >= 16 && v.length <= 128).slice(-16);
 }
 
@@ -28,5 +28,8 @@ export function cheminSur(brut: unknown, defaut: string): string {
 
 // Adresse d'arrivée avec un paramètre jetable : le jeu sert volontiers une vieille version de la page d'arrivée (B8.7).
 export function arrivee(chemin: string): string {
-  return `${chemin}${chemin.includes('?') ? '&' : '?'}_sso=${randomBytes(4).toString('hex')}`;
+  const indexAncre = chemin.indexOf('#');
+  const adresse = indexAncre < 0 ? chemin : chemin.slice(0, indexAncre);
+  const ancre = indexAncre < 0 ? '' : chemin.slice(indexAncre);
+  return `${adresse}${adresse.includes('?') ? '&' : '?'}_sso=${randomBytes(4).toString('hex')}${ancre}`;
 }

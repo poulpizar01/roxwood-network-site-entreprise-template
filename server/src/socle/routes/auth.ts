@@ -154,16 +154,20 @@ auth.get('/auth/folkos', async (req, res) => {
     // « nonces » : les cookies secrets posés par FolkOS avec le ticket, qui lient celui-ci au navigateur qui l'a reçu
     // (B8.5). Obligatoire : sans eux, le validateur refuse (nonce_required). Jamais journalisés ni renvoyés au navigateur.
     const r = await fetch(`${sso.base}/sso/verify`, {
-      method: 'POST', signal: AbortSignal.timeout(10000),
+      method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ client_id: sso.clientId, client_secret: sso.clientSecret, token: ticket, nonces: noncesFolkos(req.headers.cookie, sso.clientId) }),
     });
-    const data = await r.json().catch(() => null) as { valid?: unknown; identity?: { discord_id?: unknown }; error?: unknown; nonce_check?: unknown } | null;
+    const data = await r.json().catch(() => null) as { valid?: unknown; identity?: { discord_id?: unknown }; nonce_check?: unknown } | null;
+    // N'inscrire que les valeurs documentées, même si le validateur renvoie une réponse inattendue.
+    const nonce = data?.nonce_check;
+    const nonceCheck = nonce === 'ok' || nonce === 'absent' || nonce === 'mismatch' || nonce === 'unbound' ? nonce : 'indisponible';
     if (!r.ok || data?.valid !== true || !data.identity) {
-      // statut, erreur et nonce_check seulement : de quoi diagnostiquer, jamais le ticket ni les nonces
-      console.warn('[FolkOS] refus :', r.status, data?.error, data?.nonce_check);
+      console.warn(`[FolkOS] ticket refusé (HTTP ${r.status}) · nonce_check: ${nonceCheck}`);
       echec('ticket'); return;
     }
+    // Le mode démo valide aussi le ticket, même sans compte local correspondant.
+    console.info(`[FolkOS] ticket vérifié · nonce_check: ${nonceCheck}`);
     identite = data.identity;
   } catch { echec('reseau'); return; }
   // jamais `sub` (sa forme change selon le chemin d'entrée) : l'ID Discord, en texte
