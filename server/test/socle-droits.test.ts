@@ -3,7 +3,7 @@
 // propre au test : le résultat ne dépend pas des permissions de l'entreprise.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { completerSelon } from '../src/socle/droits.js';
+import { completerSelon, effectivesSelon } from '../src/socle/droits.js';
 import type { Permission } from '../src/socle/contrat.js';
 
 const TABLE: Permission[] = [
@@ -39,4 +39,10 @@ test('une permission sans dépendance reste seule', () => {
 
 test('une clé inconnue est filtrée', () => {
   assert.deepEqual(completerSelon(['voir', 'nimporte-quoi'], TABLE), ['voir']);
+});
+
+test('Administrateur : toutes les permissions, y compris celles ajoutées ensuite', () => {
+  const toutes = new Set(['admin', 'voir', 'modifier', 'nouvelle']);
+  assert.deepEqual(effectivesSelon(['admin'], toutes), toutes);
+  assert.deepEqual(effectivesSelon(['voir', 'retiree-du-code'], toutes), new Set(['voir']));
 });

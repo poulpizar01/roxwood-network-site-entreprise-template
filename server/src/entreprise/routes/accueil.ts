@@ -3,7 +3,7 @@
 // traite, rien d'autre ; une liste vide masque le bloc.
 import { Router } from 'express';
 import { prisma } from '../../socle/db.js';
-import { peut, tousLesGrades } from '../../socle/droits.js';
+import { peut, tousLesGrades, estAdmin } from '../../socle/droits.js';
 import { valide } from '../../socle/http.js';
 import { droitsAgenda, peutValiderAbsences } from '../agenda-regles.js';
 import { nombreContratsAFacturer } from '../echeanciers.js';
@@ -42,7 +42,7 @@ accueil.get('/api/accueil/a-traiter', ...valide, async (req, res) => {
     // valider une absence : réservé à qui gère déjà l'agenda de toute l'équipe (peutValiderAbsences, agenda-regles.ts)
     (async () => {
       const droitsGrade = c.gradeCle ? await prisma.agendaDroitsGrade.findUnique({ where: { gradeCle: c.gradeCle } }) : null;
-      return peutValiderAbsences(droitsAgenda(grades, c.gradeCle, c.proprietaire, droitsGrade)) ? prisma.evenementAgenda.count({ where: { statutAbsence: 'en_attente' } }) : 0;
+      return peutValiderAbsences(droitsAgenda(grades, c.gradeCle, estAdmin(c), droitsGrade)) ? prisma.evenementAgenda.count({ where: { statutAbsence: 'en_attente' } }) : 0;
     })(),
   ]);
   if (comptes) taches.push({ cle: 'comptes', nombre: comptes, texte: `${pluriel(comptes, 'demande')} d’accès à valider`, lien: 'comptes.html' });

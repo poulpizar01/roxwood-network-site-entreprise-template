@@ -28,9 +28,9 @@ export type DroitsEnregistres = {
   gererTous?: boolean;
 } | null;
 
-// droits d'un compte ; une clé de grade supprimée est ignorée jusqu'au nettoyage de sa ligne
-export function droitsAgenda(grades: readonly string[], gradeCle: string | null, proprietaire: boolean, enregistres: DroitsEnregistres): DroitsAgenda {
-  if (proprietaire) return { tout: true, consulter: [...grades], creer: [...grades], modifier: [...grades], consulterTous: true, gererTous: true };
+// droits d'un compte (tout : super-admin ou Administrateur) ; une clé de grade supprimée est ignorée jusqu'au nettoyage de sa ligne
+export function droitsAgenda(grades: readonly string[], gradeCle: string | null, tout: boolean, enregistres: DroitsEnregistres): DroitsAgenda {
+  if (tout) return { tout: true, consulter: [...grades], creer: [...grades], modifier: [...grades], consulterTous: true, gererTous: true };
   const lire = (v: string[] | undefined): string[] => Array.isArray(v) ? [...new Set(v.filter(cle => grades.includes(cle)))] : [];
   if (!gradeCle || !grades.includes(gradeCle)) return { tout: false, consulter: [], creer: [], modifier: [], consulterTous: true, gererTous: false };
   return {

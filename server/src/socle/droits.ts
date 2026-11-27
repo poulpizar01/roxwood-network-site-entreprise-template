@@ -1,6 +1,7 @@
 // SOCLE — grades et permissions.
 // Une permission est une clé ; un grade en porte une liste ; un compte a les permissions de son grade. Un super-admin
-// (ID Discord déclaré dans SUPER_ADMIN_DISCORD_IDS, voir config.ts et routes/auth.ts) les a toutes. Les grades sont peu
+// (ID Discord déclaré dans SUPER_ADMIN_DISCORD_IDS, voir config.ts et routes/auth.ts) les a toutes. La permission
+// « admin » (Administrateur) les donne toutes aussi, présentes et futures, mais sans lever la hiérarchie. Les grades sont peu
 // nombreux et lus à chaque requête : ils restent en mémoire, rechargés après chaque modification.
 //
 // Règle anti-escalade : hors super-admin, on ne gère que ce qui est SOUS son propre grade (comptes et grades), et on
@@ -12,6 +13,7 @@ import { permissions as permissionsEntreprise } from '../entreprise/permissions.
 import { fail } from './config.js';
 
 export const PERMISSIONS_SOCLE: Permission[] = [
+  { cle: 'admin', domaine: 'Équipe et site', libelle: 'Administrateur', description: 'Toutes les permissions, présentes et à venir. La hiérarchie s’applique : on ne gère que les comptes et grades sous le sien', sensible: true },
   { cle: 'comptes', domaine: 'Équipe et site', libelle: 'Gérer les comptes', description: 'Valider ou refuser les demandes, attribuer un grade, supprimer un compte (sous son propre grade)', sensible: true },
   { cle: 'grades', domaine: 'Équipe et site', libelle: 'Gérer les grades', description: 'Créer, ordonner, modifier les grades et leurs permissions (sous son propre grade)', sensible: true },
   { cle: 'parametres', domaine: 'Équipe et site', libelle: 'Paramétrer le site', description: 'Régler les liens et réglages du site (page Paramètres)', sensible: true },
@@ -66,12 +68,19 @@ export const rang = (cle: string | null | undefined): number => {
 
 type Porteur = Pick<Compte, 'gradeCle' | 'proprietaire'>;
 
-// permissions effectives d'un compte (clés inconnues ignorées : une permission retirée du code ne donne plus rien)
+// ce que donne une liste de permissions : les clés connues (une permission retirée du code ne donne plus rien), ou
+// toutes avec « admin ». Pure (table en paramètre) : testable sans grades en base.
+export const effectivesSelon = (perms: readonly string[], toutes: ReadonlySet<string>): Set<string> =>
+  new Set(perms.includes('admin') ? toutes : perms.filter(p => toutes.has(p)));
+// permissions effectives d'un compte
 export function permissionsDe(c: Porteur): Set<string> {
   if (c.proprietaire) return new Set(CLES_PERMISSIONS);
-  return new Set((gradeDe(c.gradeCle)?.permissions ?? []).filter(p => CLES_PERMISSIONS.has(p)));
+  return effectivesSelon(gradeDe(c.gradeCle)?.permissions ?? [], CLES_PERMISSIONS);
 }
 export const peut = (c: Porteur, permission: string): boolean => c.proprietaire || permissionsDe(c).has(permission);
+// Super-admin ou Administrateur : à employer là où un droit se règle hors des permissions (ex. le tableau de l'agenda).
+// Jamais pour passer outre la hiérarchie : seul le super-admin (proprietaire) le fait.
+export const estAdmin = (c: Porteur): boolean => peut(c, 'admin');
 
 // l'acteur peut-il gérer ce qui porte ce grade (un compte, ou le grade lui-même) ? Strictement sous le sien.
 export const auDessusDe = (acteur: Porteur, gradeCle: string | null | undefined): boolean =>

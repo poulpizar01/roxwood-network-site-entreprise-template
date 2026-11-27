@@ -6,8 +6,8 @@ import type { RequestHandler, Router } from 'express';
 import type { Prisma } from '../generated/prisma/client.js';
 
 // Permission déclarée par l'entreprise (src/entreprise/permissions.ts), cochée par grade dans la gestion
-// (ex. { cle: 'stocks', libelle: 'Gérer les stocks' }). Clé : minuscules, chiffres, tirets ; « comptes », « grades » et
-// « parametres » sont réservées au socle. Fichier à part et sans import : le socle le lit avant de charger les routes.
+// (ex. { cle: 'stocks', libelle: 'Gérer les stocks' }). Clé : minuscules, chiffres, tirets ; « admin », « comptes », « grades »,
+// « parametres » et « webhooks » sont réservées au socle. Fichier à part et sans import : le socle le lit avant de charger les routes.
 // domaine : titre sous lequel la page Grades range la permission (« Ressources humaines »…) ; sans domaine : « Autres ».
 // Dans un domaine, l'ordre de déclaration est l'ordre affiché : consulter, puis créer et modifier, puis retirer, puis
 // régler (l'ordre dans lequel on accorde des droits). Le libellé se comprend seul, sans répéter le domaine.

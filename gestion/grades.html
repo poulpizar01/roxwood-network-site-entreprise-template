@@ -80,6 +80,7 @@
               <input type="search" id="recherche-permissions" placeholder="Ex. comptes, agenda, paramètres…">
             </div>
             <p class="champ-aide" style="margin:8px 0 10px;">Vous ne pouvez accorder que ce que vous pouvez faire vous-même. Cocher un droit coche aussi ce qu’il suppose.</p>
+            <p class="champ-aide cache" id="cases-note-admin" role="status">Administrateur est coché : ce grade a tous les droits ci-dessous, quel que soit leur interrupteur.</p>
             <div id="cases"></div>
             <p class="comptes-vide cache" id="recherche-vide">Aucune permission ne correspond à cette recherche.</p>
           </section>
@@ -120,6 +121,7 @@
              qui remplace tout le contenu de la section — un template placé dedans serait détruit au premier remplacement -->
         <template id="agenda-droits-modele">
           <div id="agenda-droits">
+            <p class="champ-aide cache" id="agenda-note-admin">Ce grade est Administrateur : il voit et gère tout l’agenda, les réglages ci-dessous sont sans effet. Les événements personnels restent privés.</p>
             <p class="champ-aide grade-agenda-intro">Les événements personnels restent visibles uniquement à leur auteur et à la personne concernée.</p>
             <section class="grade-agenda-partage" aria-labelledby="titre-agenda-tous">
               <h4 id="titre-agenda-tous">Événements pour toute l’équipe</h4>
@@ -190,6 +192,8 @@
       return [...m, ...(autres ? [['Autres', autres]] : [])];
     };
     const libelleDe = cle => permissions.find(p => p.cle === cle)?.libelle || cle;
+    // ce que donne un grade : Administrateur les a toutes (même règle que le serveur, socle/droits.ts)
+    const droitsEffectifs = g => (g.permissions.includes('admin') ? permissions.map(p => p.cle) : g.permissions);
     // permissions qui exigent cle, directement ou en cascade (pour les décocher si on retire une dépendance) — nom
     // distinct de la variable locale « dependantes » de la cascade d'agenda plus bas, pour ne pas la masquer
     function permissionsDependantes(cle) {
@@ -202,6 +206,7 @@
       return deps;
     }
     function resumeDroits(g) {
+      if (g.permissions.includes('admin')) return '<span class="grades-tag accent">Administrateur</span>';
       if (permissions.length && permissions.every(p => g.permissions.includes(p.cle))) return '<span class="grades-tag accent">Tous les droits</span>';
       if (!g.permissions.length) return '<span class="grades-tag">Aucun droit de gestion</span>';
       const touches = domaines().filter(([, cles]) => cles.some(c => g.permissions.includes(c))).map(([n]) => n);
@@ -231,8 +236,8 @@
 
     function actualiserDroitsEquipe() {
       const propres = droitsAgenda.find(d => d.grade === moi.grade?.cle);
-      const peutConsulter = moi.proprietaire || !!propres?.consulter_tous;
-      const peutGerer = moi.proprietaire || !!propres?.gerer_tous;
+      const peutConsulter = socle.peut(moi, 'admin') || !!propres?.consulter_tous;
+      const peutGerer = socle.peut(moi, 'admin') || !!propres?.gerer_tous;
       $('agenda-consulter-tous').disabled = !peutConsulter && !$('agenda-consulter-tous').checked;
       $('agenda-gerer-tous').disabled = !peutGerer && !$('agenda-gerer-tous').checked;
     }
@@ -251,7 +256,7 @@
       // on n'accorde que des droits qu'on a soi-même (le serveur le revérifie) : une case qu'on ne détient pas et qui
       // n'est pas déjà cochée par un supérieur est verrouillée
       const propres = droitsAgenda.find(d => d.grade === moi.grade?.cle);
-      const verrou = (action, cle) => !moi.proprietaire && !droits[action].includes(cle) && !(propres?.[action] ?? []).includes(cle);
+      const verrou = (action, cle) => !socle.peut(moi, 'admin') && !droits[action].includes(cle) && !(propres?.[action] ?? []).includes(cle);
       const nomAction = { consulter: 'Consulter', modifier: 'Modifier', creer: 'Créer' };
       $('agenda-grades').innerHTML = gradesAccordables.map(x => `<div class="grade-agenda-ligne" role="group" aria-label="Droits pour les événements du grade ${echapper(x.libelle)}" data-grade="${echapper(x.cle)}">
         <strong>${echapper(x.libelle)}</strong>
@@ -305,6 +310,12 @@
     // pas dans la seule liste des rubriques.
     function actualiserApercu() {
       const cochees = new Set([...document.querySelectorAll('#cases input[type="checkbox"][value]:checked')].map(c => c.value));
+      // Administrateur coché : les autres cases sont gardées telles quelles, mais sans effet tant qu'il l'est
+      const admin = cochees.has('admin');
+      $('cases').classList.toggle('admin-actif', admin);
+      $('cases-note-admin').classList.toggle('cache', !admin);
+      document.getElementById('agenda-note-admin')?.classList.toggle('cache', !admin);
+      if (admin) permissions.forEach(p => cochees.add(p.cle));
       const lignes = gestion.rubriques(cle => cochees.has(cle));
       $('apercu-menu').innerHTML = lignes.length ? lignes.map(l => l.groupe
         ? `<li class="grades-vide" style="text-align:left;padding:10px 4px 2px;border:0;color:var(--text-faint);font-size:var(--fs-2);">${echapper(l.groupe)}</li>`
@@ -479,7 +490,7 @@
           const detenue = socle.peut(moi, p.cle);
           const requiert = (p.requiert || []).map(libelleDe).join(', ');
           const recherche = echapper(`${p.libelle} ${p.description || ''}`.toLowerCase());
-          return `<label class="grade-permission${detenue ? '' : ' interdite'}" data-recherche="${recherche}">
+          return `<label class="grade-permission${detenue ? '' : ' interdite'}" data-recherche="${recherche}"${p.cle === 'admin' ? ' data-admin' : ''}>
             <span class="d8-switch"><input type="checkbox" value="${echapper(p.cle)}" ${detenue ? '' : 'disabled'} ${g?.permissions.includes(p.cle) ? 'checked' : ''}><span class="d8-switch-piste"></span></span>
             <span>
               <strong>${echapper(p.libelle)}${p.sensible ? ' <span class="grade-sensible">Sensible</span>' : ''}</strong>
@@ -583,7 +594,7 @@
         const liste = cles.map(c => permissions.find(p => p.cle === c)).filter(Boolean);
         if (!liste.length) return '';
         return `<div class="grade-domaine"><h3>${echapper(nom)}</h3>${liste.map(p => {
-          const porteurs = grades.filter(g => g.permissions.includes(p.cle));
+          const porteurs = grades.filter(g => droitsEffectifs(g).includes(p.cle));
           const chips = porteurs.map(g => `<span class="grades-tag"><span class="pastille-grade" style="background:${echapper(g.couleur || '#8a93b8')}"></span>${echapper(g.libelle)}</span>`).join('');
           return `<div class="vue-ensemble-ligne">
             <div><strong>${echapper(p.libelle)}${p.sensible ? ' <span class="grade-sensible">Sensible</span>' : ''}</strong><br><small class="champ-aide" style="margin:2px 0 0;">${echapper(p.description || '')}</small></div>

@@ -23,6 +23,14 @@ Les permissions sont rangées par domaine. Tapez un mot dans **Rechercher une pe
 
 Vous ne pouvez accorder que les droits que vous avez vous-même : les autres sont grisés, avec la mention « (vous ne l'avez pas) ».
 
+## Administrateur
+
+La permission **Administrateur** donne toutes les autres, y compris celles des futures fonctions : les cases restantes deviennent sans effet. La hiérarchie s'applique quand même : un Administrateur ne gère que les comptes et grades sous le sien. Seul un Administrateur ou un super-admin peut l'accorder.
+
+::: attention À réserver à quelques personnes
+Elle ouvre aussi les données sensibles et les réglages du site.
+:::
+
 ## Vérifier avant d'enregistrer
 
 L'onglet **Aperçu** montre les rubriques du menu que verrait ce grade et le détail de ses droits. L'onglet **Agenda** règle qui voit et crée les événements de l'agenda. L'onglet **Quota** fixe l'objectif de la semaine du grade, en unités vendues (**Run**) et en dollars facturés (**Factures**) ; 0 veut dire pas d'objectif. Vous ne réglez que les grades sous le vôtre.

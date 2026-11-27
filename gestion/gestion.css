@@ -2243,6 +2243,8 @@ button.grades-poignee:focus-visible { outline: 2px solid var(--accent-dark); out
 /* séparation entre les catégories de la fiche grade (Droits, Run, Factures…) : un même trait pour toutes */
 .grade-separee { padding-top: 10px; border-top: 1px solid var(--border); }
 .grade-domaine { margin-top: 16px; }
+/* Administrateur coché : les autres droits sont tous acquis, leurs cases sans effet */
+#cases.admin-actif .grade-permission:not([data-admin]) { opacity: 0.5; }
 .grade-domaine h3 { margin: 0 0 4px; font-family: var(--body); font-size: var(--fs-2); font-weight: 600; letter-spacing: 0.04em; color: var(--accent-dark); }
 .grade-permission { display: flex; align-items: flex-start; gap: 12px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; }
 .grade-permission:hover { background: rgba({{couleur_rvb}}, 0.06); }

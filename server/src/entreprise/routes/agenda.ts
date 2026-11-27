@@ -11,7 +11,7 @@ import type { EvenementAgenda, InvitationAgenda } from '../../generated/prisma/c
 import { config } from '../../socle/config.js';
 import { prisma } from '../../socle/db.js';
 import { appelBot, ErreurDiscord, posterMessage } from '../../socle/discord.js';
-import { auDessusDe, gradeDe, tousLesGrades } from '../../socle/droits.js';
+import { auDessusDe, estAdmin, gradeDe, tousLesGrades } from '../../socle/droits.js';
 import { body, couleur, entier, intParam, permission, text, valide } from '../../socle/http.js';
 import { site } from '../../socle/site.js';
 import { ajoutsNonDetenus, choisirTicket, droitsAgenda, droitsInclusDansConsultation, estDestination, gradeAccordable, modifiable, parisVersDate, peutCreer, peutInviter, peutValiderAbsences, voit, type Destination, type DroitsAgenda } from '../agenda-regles.js';
@@ -30,7 +30,7 @@ const clesGrades = () => tousLesGrades().map(g => g.cle);   // du sommet à la b
 async function droitsDe(req: Request): Promise<DroitsAgenda> {
   const c = req.compte;
   const enregistres = c.gradeCle ? await prisma.agendaDroitsGrade.findUnique({ where: { gradeCle: c.gradeCle } }) : null;
-  return droitsAgenda(clesGrades(), c.gradeCle, c.proprietaire, enregistres);
+  return droitsAgenda(clesGrades(), c.gradeCle, estAdmin(c), enregistres);
 }
 const lecteur = (req: Request) => ({ id: req.compte.id, discordId: req.compte.discordId });
 
