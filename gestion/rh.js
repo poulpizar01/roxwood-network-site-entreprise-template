@@ -271,7 +271,7 @@ function montrerPiece() {
   const enPlace = !!PIECE.fiche?.pieceIdentiteUrl;
   const vignette = PIECE.choisie ? PIECE.apercu : PIECE.retrait ? '' : PIECE.fiche?.pieceIdentiteUrlMini;
   const attente = PIECE.choisie ? 'Cette image sera enregistrée avec la fiche.' : PIECE.retrait ? 'La pièce sera retirée à l’enregistrement.' : '';
-  $rh('employe-piece').innerHTML = `<h3 id="titre-employe-piece">Pièce d’identité <span class="rh-donnees-sensibles">${gestion.ico('lock')} données sensibles</span></h3>
+  $rh('employe-piece').innerHTML = `<h3 id="titre-employe-piece">Pièce d’identité RP</h3>
     ${vignette
       ? `<button type="button" class="piece-apercu" data-agrandir-piece aria-label="Agrandir la pièce d’identité"><img src="${echapper(vignette)}" alt=""></button>`
       : '<p class="comptes-discret">Aucune pièce d’identité.</p>'}
@@ -282,6 +282,7 @@ function montrerPiece() {
         ${attente ? '<button type="button" class="btn btn-fantome" data-piece-annuler>Annuler ce changement</button>' : ''}
         <input type="file" id="piece-fichier" accept="image/png,image/jpeg,image/webp" class="cache" aria-label="Choisir l’image de la pièce d’identité">
       </div>
+      <p class="champ-aide">Ajoutez une image de la carte d’identité en jeu.</p>
       <p class="champ-aide seulement-en-jeu">En jeu, si le choix du fichier ne s’ouvre pas, ajoutez l’image depuis un navigateur, avec le même compte.</p>` : ''}
     <p class="champ-aide">Effacée automatiquement 90 jours après le départ de l’employé.</p>`;
 }
