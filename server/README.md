@@ -32,7 +32,10 @@ cp .env.example .env && chmod 600 .env
 mkdir -m 700 backups                        # sauvegardes de la base : lisibles par vous seul
 # clé maîtresse de chiffrement des clés d'abonnement webhook (secret Docker, jamais régénérée ensuite) : une seule
 # fois, avant le premier démarrage — sans elle, docker compose refuse de démarrer le service app
-mkdir -p secrets && umask 077 && openssl rand -hex 32 > secrets/cle-maitresse
+if [ ! -e secrets/cle-maitresse ]; then
+  (umask 077; mkdir -p secrets; openssl rand -hex 32 > secrets/cle-maitresse)
+  sudo chown 1000:1000 secrets/cle-maitresse
+fi
 nano .env                                   # remplir : tout est expliqué dans le fichier
 docker compose up -d --build
 ```
