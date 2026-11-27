@@ -25,6 +25,7 @@ import { webhooks } from './socle/routes/webhooks.js';
 import { webhooksJournal } from './socle/routes/webhooks-journal.js';
 import { webhooksAbonnements } from './socle/routes/webhooks-abonnements.js';
 import { aide } from './socle/routes/aide.js';
+import { imageLien } from './socle/routes/image-lien.js';
 import { declarerNiveauPage } from './socle/aide.js';
 import type { NiveauPage } from './socle/contrat.js';
 import { entreprise } from './entreprise/index.js';
@@ -111,7 +112,7 @@ app.get('/api/csrf', (req, res) => {
 
 app.use('/auth', limits.auth);
 // L'adresse fixe des abonnements doit précéder le journal et son paramètre :id.
-app.use(auth, discordLeger, comptes, grades, parametres, webhooksAbonnements, webhooksJournal, aide, ...entreprise.routes);
+app.use(auth, discordLeger, comptes, grades, parametres, webhooksAbonnements, webhooksJournal, aide, imageLien, ...entreprise.routes);
 // adresse d'API inconnue : 404 en JSON (pas la page 404 du site)
 app.use('/api', (_req, res) => { res.status(404).json({ error: 'introuvable' }); });
 

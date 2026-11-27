@@ -4,12 +4,19 @@ Le socle sait recevoir des images (photo d'article, bannière, pièce jointe…)
 
 ## Parcours d'une image (`server/src/socle/images.ts`)
 1. **Réception** (`...recevoirImage`, à placer après la garde de la route) : stockage configuré (sinon `503`), 20 envois par compte toutes les 10 minutes, 3 envois en cours au plus sur tout le site (sinon `503` avec `Retry-After`), 15 Mo maximum, une seule image par envoi, champ de formulaire `image`. Les images sont traitées **une à la fois** (une image de 25 Mpx occupe ~190 Mo ; deux en parallèle dépasseraient la mémoire du conteneur) ; un envoi abandonné pendant l’attente n’est pas traité.
-   **Pas d'ajout par lien** : une image donnée par son adresse n'est ni téléchargée par le serveur ni affichée depuis ailleurs. Seul un fichier envoyé au site entre sur le stockage.
+   Une image n'est jamais affichée depuis une adresse extérieure : seul un fichier envoyé au site entre sur le stockage.
 2. **Contrôle du contenu réel** (`enregistrerImage`), pas seulement de l'extension : jpg, png ou webp ; ni GIF ni image animée, ni HEIC ; 25 mégapixels maximum. Un refus lève `ImageRefusee`, rendue en `400` avec son message.
 3. **Réencodage** : une grande version (1 800 px maximum, WebP qualité 84) et une miniature (600 px, qualité 78). L'orientation du téléphone est appliquée, les métadonnées (position GPS…) disparaissent.
 4. **Enregistrement** des deux fichiers sous `<dossier>/<horodatage>-<aléa>.webp` (et `-m.webp`) ; la route enregistre ensuite en base les clés et adresses renvoyées (`cle`, `url`, `cleMini`, `urlMini`).
 
 Pour retirer une image : `retirerImage({ cle, url, cleMini, urlMini })`. Elle lève une erreur si le stockage ne répond pas : garder alors la ligne en base (marquée supprimée) et réessayer plus tard, plutôt que de laisser un fichier en ligne sans trace.
+
+## Image par son adresse, en jeu
+Le sélecteur de fichiers est peu fiable dans l'ordinateur en jeu (guide FBFA, B7). Quand `FOLKOS_HOTE` est réglé et que la page est affichée en jeu, un clic sur un champ fichier de la gestion propose de coller une adresse `https://` ou de choisir un fichier.
+
+`POST /api/image-distante` (`server/src/socle/routes/image-lien.ts`) télécharge l'image, vérifie que c'en est une et la rend au navigateur, qui la place dans le champ : elle suit ensuite le parcours ci-dessus. Rien n'est enregistré par cette route.
+
+Garde-fous : compte validé seulement (les formulaires publics n'ont pas cette possibilité), `https` et port par défaut, jamais le serveur ni le réseau interne (contrôlé à chaque connexion et à chaque redirection, 3 au plus), 15 Mo, 25 mégapixels, 15 s, 2 récupérations à la fois, 20 envois et récupérations par compte toutes les 10 minutes.
 
 ## Deux modes
 | | CDN (production uniquement) | Disque local (dev uniquement) |

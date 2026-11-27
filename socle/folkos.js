@@ -8,7 +8,8 @@
      animations), partagé avec le jeu ;
    - ouvre les liens target="_blank" et window.open() dans le cadre (en jeu, un nouvel onglet n'ouvre rien) ;
    - si la page est affichée sur un écran placé dans le monde : recrée les touches envoyées par le jeu (le jeu ne peut pas
-     donner son clavier à un écran) — docs/guide-dev-fbfa.md, B9.3. */
+     donner son clavier à un écran) — docs/guide-dev-fbfa.md, B9.3 ;
+   - dans la gestion, un clic sur un champ fichier propose aussi de coller l'adresse d'une image (B7). */
 (() => {
   const hote = document.currentScript?.dataset.hote;
   // dans un cadre ? ancestorOrigins (guide FBFA, B5) ; window.top seulement pour un navigateur qui ne le fournit pas (Firefox)
@@ -37,6 +38,73 @@
   // délégation : couvre aussi les liens ajoutés plus tard par les scripts de la page
   document.addEventListener('click', e => { e.target.closest?.('a[target="_blank"]')?.removeAttribute('target'); }, true);
   window.open = url => { if (url) location.href = String(url); return null; };
+
+  // Image par adresse (B7 : le sélecteur de fichiers est peu fiable en jeu). Gestion seulement : le serveur ne télécharge
+  // que pour un compte validé. L'image reçue est placée dans le champ comme un fichier choisi : la page n'a rien à faire.
+  let selecteurDemande = null;   // champ dont on laisse s'ouvrir le sélecteur (« Choisir un fichier »)
+  document.addEventListener('click', e => {
+    const champ = e.target;
+    if (!location.pathname.startsWith('/gestion') || !champ.matches?.('input[type="file"]')) return;
+    if (champ === selecteurDemande) { selecteurDemande = null; return; }
+    if (champ.accept && !champ.accept.includes('image/')) return;
+    e.preventDefault();
+    proposerAdresse(champ);
+  }, true);
+
+  function proposerAdresse(champ) {
+    const fenetre = document.createElement('dialog');
+    fenetre.setAttribute('aria-labelledby', 'image-lien-titre');
+    fenetre.style.cssText = 'box-sizing:border-box;width:min(440px,calc(100vw - 32px));padding:20px;border:1px solid #767676;border-radius:8px;background:#fff;color:#111;font:15px/1.4 system-ui,sans-serif;text-align:left';
+    const bouton = 'min-height:40px;padding:8px 14px;border:1px solid #767676;border-radius:6px;background:#fff;color:#111;font:inherit;cursor:pointer';
+    fenetre.innerHTML = `<form novalidate>
+      <h2 id="image-lien-titre" style="margin:0 0 12px;font:700 18px/1.3 system-ui,sans-serif;color:#111">Ajouter une image</h2>
+      <label for="image-lien-adresse" style="display:block;margin:0 0 6px;color:#111">Adresse de l’image (https://…)</label>
+      <input id="image-lien-adresse" type="url" maxlength="2000" autocomplete="off" style="box-sizing:border-box;width:100%;min-height:40px;padding:8px;border:1px solid #767676;border-radius:6px;background:#fff;color:#111;font:inherit">
+      <p role="alert" style="margin:8px 0 0;min-height:1.4em;color:#a30000"></p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
+        <button type="submit" style="${bouton}">Ajouter l’image</button>
+        <button type="button" data-fichier style="${bouton}">Choisir un fichier</button>
+        <button type="button" data-annuler style="${bouton}">Annuler</button>
+      </div></form>`;
+    const adresse = fenetre.querySelector('input'), erreur = fenetre.querySelector('[role="alert"]'), valider = fenetre.querySelector('[type="submit"]');
+    const fermer = () => { fenetre.close(); fenetre.remove(); };
+    // les clics et touches de cette fenêtre ne doivent pas agir sur la page ni sur ses propres fenêtres ; Échap la ferme
+    // elle seule (preventDefault : sinon le SDK fermerait la tablette)
+    fenetre.addEventListener('click', e => e.stopPropagation());
+    fenetre.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Escape') { e.preventDefault(); fermer(); }
+    });
+    fenetre.addEventListener('cancel', e => { e.preventDefault(); fermer(); });
+    fenetre.querySelector('[data-annuler]').addEventListener('click', fermer);
+    fenetre.querySelector('[data-fichier]').addEventListener('click', () => { fermer(); selecteurDemande = champ; champ.click(); });
+    fenetre.querySelector('form').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!adresse.value.trim()) { erreur.textContent = 'Collez l’adresse de l’image.'; return; }
+      valider.disabled = true; erreur.textContent = ''; valider.textContent = 'Récupération…';
+      try {
+        const r = await fetch('/api/image-distante', {
+          method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: adresse.value.trim() }),
+        });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'L’image n’a pas pu être récupérée.');
+        const image = await r.blob();
+        if (!fenetre.isConnected) return;   // annulé pendant la récupération
+        const fichiers = new DataTransfer();
+        fichiers.items.add(new File([image], 'image.' + image.type.split('/')[1], { type: image.type }));
+        fermer();
+        champ.files = fichiers.files;
+        champ.dispatchEvent(new Event('input', { bubbles: true }));
+        champ.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch (err) {
+        erreur.textContent = err instanceof TypeError ? 'Connexion impossible, réessayez.' : err.message;
+        valider.disabled = false; valider.textContent = 'Ajouter l’image';
+      }
+    });
+    document.body.appendChild(fenetre);
+    fenetre.showModal();
+    adresse.focus();
+  }
 
   // Écran dans le monde : le jeu n'envoie pas de vraies touches à la page, ce script les recrée.
   (() => {

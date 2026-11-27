@@ -4,8 +4,8 @@
 //     const image = await enregistrerImage('articles', req.file);   // { cle, url, cleMini, urlMini, largeur, hauteur }
 //     … enregistrer les quatre premiers champs en base ; à la suppression : retirerImage(image)
 //   });
-// Pas d'image donnée par lien : seul un fichier envoyé au site entre sur le stockage (ni téléchargement par le serveur,
-// ni adresse d'une image hébergée ailleurs).
+// Seul un fichier envoyé au site entre sur le stockage. Dans l'ordinateur en jeu, une image donnée par son adresse est
+// d'abord rendue au navigateur (routes/image-lien.ts), puis envoyée comme un fichier : ces routes ne changent pas.
 // Contrôles : 15 Mo par défaut, 25 mégapixels, contenu réellement jpg / png / webp (pas seulement l'extension), une image par
 // envoi ; réencodage WebP (1 800 px + miniature 600 px), orientation appliquée, métadonnées (GPS…) retirées.
 import crypto from 'node:crypto';
